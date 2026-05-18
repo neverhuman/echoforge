@@ -1,0 +1,15 @@
+{
+  "schema_ref": "schemas/hard_negative_pack.schema.json",
+  "id": "hn.public_proxy.robustness_v1",
+  "display_name": "Public Proxy Hard-Negative Pack",
+  "source_status": "public_proxy",
+  "confuser_traits": [
+    "birds_and_flocks",
+    "commercial_drones",
+    "balloons_and_kites",
+    "terrain_and_vegetation_glints",
+    "vehicles_and_cranes",
+    "weather_and_rfi"
+  ],
+  "notes": "Hard-negative placeholders for robustness and false-alarm stress testing."
+}

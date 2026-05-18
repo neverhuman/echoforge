@@ -1,0 +1,10 @@
+schema_ref: schemas/scenario.schema.json
+id: hn.public_proxy.birds_v1
+display_name: Birds and Flocks Placeholder
+source_status: public_proxy
+confuser_traits:
+  - wingbeat_micro_doppler
+  - intermittent_aspect_changes
+  - flock_coalescence
+notes: Placeholder entry for flock and wingbeat-style false positives.
+

@@ -1,0 +1,10 @@
+{
+  "artifact": "ef:echo:demo:0001:1",
+  "validation_tier": "V0",
+  "provenance": {
+    "source": "synthetic"
+  },
+  "license": {
+    "spdx": "CC-BY-4.0"
+  }
+}

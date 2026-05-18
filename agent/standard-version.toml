@@ -1,0 +1,8 @@
+standard = "0.9.0"
+standard_version = "1.0.0"
+paper_edition = "1"
+auditor_version = "1.4.3"
+schema_version = "1.9.0"
+target_stack = "rust-ts-vite-react-postgres-bounded-python"
+published = "2026-05-18"
+

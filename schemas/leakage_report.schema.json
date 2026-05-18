@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/leakage_report.schema.json",
+  "title": "EchoForge Leakage Report",
+  "type": "object",
+  "required": ["schema_ref", "policy_id", "checked_keys", "findings"],
+  "properties": {
+    "schema_ref": { "type": "string" },
+    "policy_id": { "type": "string" },
+    "checked_keys": { "type": "array", "items": { "type": "string" } },
+    "findings": { "type": "array", "items": { "type": "object" } }
+  },
+  "additionalProperties": true
+}

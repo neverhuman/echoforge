@@ -1,0 +1,11 @@
+schema_ref: schemas/scenario.schema.json
+id: hn.public_proxy.terrain_weather_v1
+display_name: Terrain, Weather, and RFI Placeholder
+source_status: public_proxy
+confuser_traits:
+  - ground_glints
+  - vegetation_multipath
+  - rain_clutter
+  - rf_interference
+notes: Placeholder entry for non-target clutter and sensor artifacts.
+

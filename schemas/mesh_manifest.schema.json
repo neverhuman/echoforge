@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/mesh_manifest.schema.json",
+  "title": "mesh_manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "mesh_name",
+    "mesh_format",
+    "source_files",
+    "units",
+    "triangle_count",
+    "watertight",
+    "mesh_sha256"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "mesh_manifest" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "mesh_name": { "type": "string", "minLength": 1 },
+    "mesh_format": { "type": "string", "minLength": 1 },
+    "source_files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "units": { "type": "string", "minLength": 1 },
+    "triangle_count": { "type": "integer", "minimum": 1 },
+    "watertight": { "type": "boolean" },
+    "mesh_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

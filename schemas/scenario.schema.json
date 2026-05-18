@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/scenario.schema.json",
+  "title": "scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "scenario_name",
+    "sensor_archetype_id",
+    "object_card_ids",
+    "environment_label",
+    "seed"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "scenario" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "scenario_name": { "type": "string", "minLength": 1 },
+    "sensor_archetype_id": { "type": "string", "minLength": 1 },
+    "object_card_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "environment_label": { "type": "string", "minLength": 1 },
+    "seed": { "type": "integer", "minimum": 0 }
+  }
+}

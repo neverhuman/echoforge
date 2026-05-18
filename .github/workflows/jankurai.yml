@@ -1,0 +1,33 @@
+name: jankurai-bootstrap
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Advisory scaffold check
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in \
+            AGENTS.md \
+            .gitignore \
+            Justfile \
+            Cargo.toml \
+            pyproject.toml \
+            package.json \
+            agent/owner-map.json \
+            agent/test-map.json \
+            agent/generated-zones.toml
+          do
+            test -f "$path"
+          done
+          echo "EchoForge bootstrap scaffold is present."

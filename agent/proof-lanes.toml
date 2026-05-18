@@ -1,0 +1,35 @@
+[[lane]]
+name = "fast"
+command = "rtk just fast"
+purpose = "Deterministic local bootstrap validation."
+
+[[lane]]
+name = "contracts"
+command = "rtk just contracts"
+purpose = "Validate schema and contract scaffolding."
+
+[[lane]]
+name = "science-smoke"
+command = "rtk just science-smoke"
+purpose = "Validate the scientific runtime crates."
+
+[[lane]]
+name = "gpu-smoke"
+command = "rtk just gpu-smoke"
+purpose = "Validate the placeholder GPU doctor surface."
+
+[[lane]]
+name = "dataset-smoke"
+command = "rtk just dataset-smoke"
+purpose = "Validate dataset and benchmark scaffolding."
+
+[[lane]]
+name = "doctor"
+command = "rtk jankurai doctor . --fail-on critical"
+purpose = "Advisory repository health check."
+
+[[lane]]
+name = "score"
+command = "rtk jankurai audit . --mode advisory"
+purpose = "Advisory repository score."
+

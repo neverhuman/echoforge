@@ -1,0 +1,18 @@
+schema_ref: schemas/scenario.schema.json
+id: scenario.public_proxy.clutter_v1
+display_name: Public Proxy Clutter Scenario v1
+object_pack_refs:
+  - object-packs/public-proxy-v1/pack.manifest.json
+hard_negative_pack_refs:
+  - object-packs/hard-negatives/pack.manifest.json
+sensor_archetype_ref: sensors/x_band_generic_airborne_scan_v1.yaml
+split_policy_ref: tests/datasets/split_policy.json
+validation_tier: draft
+environment:
+  clutter: moderate
+  weather: light
+  multipath: enabled
+  rfi: monitored
+  difficulty_tier: baseline
+notes: Neutral public-proxy scenario scaffold; no exact truth claim.
+

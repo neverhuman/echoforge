@@ -1,0 +1,13 @@
+{
+  "schema_ref": "schemas/object_card.schema.json",
+  "id": "obj.public_proxy.fixed_wing_v1",
+  "display_name": "Public Proxy Fixed-Wing Object",
+  "family": "fixed_wing_uav",
+  "public_proxy": true,
+  "source_status": "public_proxy",
+  "geometry_variants": ["baseline_airframe", "landing_configuration", "takeoff_configuration"],
+  "material_variants": ["composite_skin_proxy", "metal_fastener_proxy"],
+  "motion_variants": ["steady_flight", "climb", "turn"],
+  "notes": "Fixture for schema tests."
+}
+

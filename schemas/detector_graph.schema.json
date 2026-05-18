@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/detector_graph.schema.json",
+  "title": "detector_graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "graph_name",
+    "nodes",
+    "edges"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "detector_graph" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "graph_name": { "type": "string", "minLength": 1 },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+# EchoForge banned-terms policy.
+#
+# This file lists strings that MUST NOT appear anywhere in the repository
+# except in `tips/`, `.git/`, `target/`, `node_modules/`, build outputs, or
+# this file itself. The vendor-scrub CI gate (`tools/vendor_scrub.mjs`)
+# enforces this against every file matched by `git ls-files`.
+#
+# Populate the [[term]] entries below with the actual vendor/restricted
+# system designators before merging the first PR that depends on the
+# vendor-scrub gate. While placeholder entries remain (`__PLACEHOLDER_*`),
+# the gate fails closed: see `[compliance].fail_when_banlist_empty` and
+# `[compliance].placeholder_token_pattern` below.
+
+version = 1
+
+[compliance]
+fail_on_match = true
+fail_when_banlist_empty = true
+placeholder_token_pattern = "^__PLACEHOLDER_"
+
+# Default exclusions (also configurable via CLI --exclude).
+[compliance.exclude]
+paths = [
+  "tips/",
+  ".git/",
+  "target/",
+  "node_modules/",
+  "dist/",
+  "build/",
+  ".venv/",
+  ".pnpm-store/",
+  ".agents/receipts/",
+  "agent/banned-terms.toml",
+  "docs/comms-protocol.md",
+  "docs/validation-tiers.md",
+  "CHANGELOG.md",
+]
+file_globs = [
+  "*.lock",
+  "*.png",
+  "*.jpg",
+  "*.pdf",
+  "*.zarr",
+  "*.parquet",
+  "*.npy",
+  "*.npz",
+  "*.pt",
+  "*.pth",
+  "*.onnx",
+]
+
+# Placeholder rows. CI rejects the repository while any __PLACEHOLDER_*
+# entry remains. Replace each one with a real { pattern, reason } pair.
+
+[[term]]
+pattern = "__PLACEHOLDER_VENDOR_NAME_1__"
+reason  = "Replace with the prime-contractor vendor name flagged across tips/*.txt."
+case_sensitive = false
+
+[[term]]
+pattern = "__PLACEHOLDER_RESTRICTED_SYSTEM_DESIGNATOR_1__"
+reason  = "Replace with the restricted system designator flagged across tips/*.txt."
+case_sensitive = false

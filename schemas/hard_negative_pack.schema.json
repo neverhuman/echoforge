@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/hard_negative_pack.schema.json",
+  "title": "EchoForge Hard-Negative Pack",
+  "type": "object",
+  "required": ["schema_ref", "id", "display_name", "source_status", "confuser_traits", "notes"],
+  "properties": {
+    "schema_ref": { "type": "string" },
+    "id": { "type": "string" },
+    "display_name": { "type": "string" },
+    "source_status": { "type": "string" },
+    "confuser_traits": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "string" }
+  },
+  "additionalProperties": true
+}
+

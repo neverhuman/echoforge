@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/echosig_manifest.schema.json",
+  "title": "echosig_manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "artifact_name",
+    "object_card_id",
+    "tensor_axes",
+    "tensor_paths"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "echosig_manifest" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "artifact_name": { "type": "string", "minLength": 1 },
+    "object_card_id": { "type": "string", "minLength": 1 },
+    "tensor_axes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "tensor_paths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "qa_paths": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

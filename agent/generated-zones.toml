@@ -1,0 +1,140 @@
+[[zone]]
+path = "target"
+source = "rtk cargo test --workspace --locked"
+command = "rtk cargo test --workspace --locked"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "target/jankurai"
+source = "rtk jankurai doctor . --fail-on critical"
+command = "rtk jankurai doctor . --fail-on critical --json target/jankurai/doctor.json --md target/jankurai/doctor.md"
+read_only = false
+write_policy = "auditor_output"
+
+[[zone]]
+path = "artifacts"
+source = "science and deployment smoke outputs"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "outputs"
+source = "science and deployment smoke outputs"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "node_modules"
+source = "npm install"
+command = "npm install"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = ".venv"
+source = "python -m venv .venv"
+command = "python -m venv .venv"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "dist"
+source = "build tooling"
+command = "npm run build"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "build"
+source = "build tooling"
+command = "npm run build"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "coverage"
+source = "test tooling"
+command = "rtk just fast"
+read_only = false
+write_policy = "auditor_output"
+
+[[zone]]
+path = "*.zarr"
+source = "solver/runtime export"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.parquet"
+source = "solver/runtime export"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.npy"
+source = "solver/runtime export"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.npz"
+source = "solver/runtime export"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.pt"
+source = "ml tooling"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.pth"
+source = "ml tooling"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.onnx"
+source = "ml tooling"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.ckpt"
+source = "ml tooling"
+command = "rtk just science-smoke"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.log"
+source = "runtime logging"
+command = "rtk just fast"
+read_only = false
+write_policy = "auditor_output"
+
+[[zone]]
+path = "*.sqlite"
+source = "local metadata cache"
+command = "rtk just fast"
+read_only = false
+write_policy = "generator_only"
+
+[[zone]]
+path = "*.db"
+source = "local metadata cache"
+command = "rtk just fast"
+read_only = false
+write_policy = "generator_only"
+

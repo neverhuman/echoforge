@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/sensor_archetype.schema.json",
+  "title": "sensor_archetype",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "sensor_name",
+    "band_name",
+    "waveform_family",
+    "center_frequency_hz",
+    "sample_rate_hz"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "sensor_archetype" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "sensor_name": { "type": "string", "minLength": 1 },
+    "band_name": { "type": "string", "minLength": 1 },
+    "waveform_family": { "type": "string", "minLength": 1 },
+    "center_frequency_hz": { "type": "number", "exclusiveMinimum": 0 },
+    "sample_rate_hz": { "type": "number", "exclusiveMinimum": 0 }
+  }
+}

@@ -1,0 +1,12 @@
+[package]
+name = "echoforge-radar"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+echoforge-sig = { path = "../echoforge-sig" }
+num-complex = "0.4"
+serde = { version = "1", features = ["derive"] }
+rustfft = "6"
+thiserror = "1"

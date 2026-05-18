@@ -1,0 +1,43 @@
+# EchoForge git hooks via lefthook (https://lefthook.dev). Install once:
+#
+#   brew install lefthook   # or: npm i -D lefthook
+#   lefthook install
+#
+# Hooks run on staged files only where possible. Rust hooks scope to the
+# whole workspace because cargo's incremental compile makes that fast and
+# lint drift on unchanged files would otherwise rot silently.
+
+min_version: 1.7.0
+
+pre-commit:
+  parallel: true
+  commands:
+    rustfmt:
+      glob: "*.rs"
+      run: cargo fmt --all -- --check
+      stage_fixed: false
+    clippy:
+      glob: "*.rs"
+      run: cargo clippy --workspace --all-targets --locked -- -D warnings
+    ruff-format:
+      glob: "*.py"
+      run: ruff format --check {staged_files}
+    ruff-check:
+      glob: "*.py"
+      run: ruff check {staged_files}
+    biome:
+      glob: "*.{mjs,js,ts,tsx,json,jsonc}"
+      run: npx --yes @biomejs/biome check {staged_files}
+    schema-validate:
+      glob: "schemas/**/*.json"
+      run: node tools/validate_schemas.mjs {staged_files}
+    vendor-scrub:
+      run: node tools/vendor_scrub.mjs --staged
+    receipts-staged:
+      run: node tools/receipt_guard.mjs --staged
+
+pre-push:
+  parallel: false
+  commands:
+    fast:
+      run: just fast

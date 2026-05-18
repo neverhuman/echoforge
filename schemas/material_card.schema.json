@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/material_card.schema.json",
+  "title": "material_card",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "material_name",
+    "material_family",
+    "frequency_range_hz",
+    "permittivity",
+    "conductivity_s_per_m"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "material_card" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "material_name": { "type": "string", "minLength": 1 },
+    "material_family": { "type": "string", "minLength": 1 },
+    "frequency_range_hz": { "$ref": "./common.schema.json#/$defs/numeric_range" },
+    "permittivity": { "$ref": "./common.schema.json#/$defs/complex_scalar" },
+    "conductivity_s_per_m": { "type": "number", "minimum": 0 },
+    "roughness_m": { "type": "number", "minimum": 0 }
+  }
+}

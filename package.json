@@ -1,0 +1,13 @@
+{
+  "name": "echoforge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "EchoForge governance and workspace scaffold",
+  "scripts": {
+    "bootstrap": "just bootstrap",
+    "doctor": "just doctor",
+    "fast": "just fast",
+    "score": "just score"
+  },
+  "packageManager": "npm@10.8.3"
+}

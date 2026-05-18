@@ -1,0 +1,34 @@
+{
+  "workspace": "echoforge",
+  "tests": {
+    "AGENTS.md": {
+      "command": "rtk just fast",
+      "purpose": "verify root governance remains visible to the audit"
+    },
+    "agent/": {
+      "command": "rtk jankurai doctor . --fail-on critical",
+      "purpose": "verify repository control files remain parseable"
+    },
+    "contracts/": {
+      "command": "rtk just contracts",
+      "purpose": "verify the shared contract layer"
+    },
+    "crates/": {
+      "command": "rtk just science-smoke",
+      "purpose": "verify Rust runtime crates"
+    },
+    "docker/": {
+      "command": "rtk just gpu-smoke",
+      "purpose": "verify GPU placeholder docker and smoke checks"
+    },
+    "python/ai-service/": {
+      "command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
+      "purpose": "verify the Python contract slice"
+    },
+    "tests/datasets/": {
+      "command": "rtk just dataset-smoke",
+      "purpose": "verify dataset split and leakage fixtures"
+    }
+  }
+}
+

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/rcs_campaign.schema.json",
+  "title": "rcs_campaign",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "campaign_name",
+    "object_card_id",
+    "solver_card_id",
+    "frequency_range_hz",
+    "azimuth_deg",
+    "tx_polarization",
+    "rx_polarization",
+    "run_count"
+  ],
+  "properties": {
+    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "rcs_campaign" },
+    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "./common.schema.json#/$defs/license" },
+    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
+    "campaign_name": { "type": "string", "minLength": 1 },
+    "object_card_id": { "type": "string", "minLength": 1 },
+    "solver_card_id": { "type": "string", "minLength": 1 },
+    "frequency_range_hz": { "$ref": "./common.schema.json#/$defs/numeric_range" },
+    "azimuth_deg": { "$ref": "./common.schema.json#/$defs/numeric_range" },
+    "tx_polarization": { "type": "string", "minLength": 1 },
+    "rx_polarization": { "type": "string", "minLength": 1 },
+    "run_count": { "type": "integer", "minimum": 1 }
+  }
+}

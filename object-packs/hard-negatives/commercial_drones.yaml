@@ -1,0 +1,10 @@
+schema_ref: schemas/scenario.schema.json
+id: hn.public_proxy.commercial_drones_v1
+display_name: Commercial Drones Placeholder
+source_status: public_proxy
+confuser_traits:
+  - rotor_micro_doppler
+  - takeoff_transients
+  - body_rotor_coupling
+notes: Placeholder entry for generic multirotor confusers.
+

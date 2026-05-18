@@ -1,0 +1,16 @@
+stack = { id = "rust-ts-vite-react-postgres-bounded-python", version = "0.1.0" }
+
+[queues]
+adapter_paths = ["apps/", "crates/", "python/ai-service/", "docker/"]
+event_contract_paths = ["schemas/", "contracts/"]
+generated_type_paths = ["apps/web/src/generated/"]
+client_markers = ["apps/web/src/generated/contracts-client.generated.mjs"]
+
+[[streaming_exception]]
+runtime = "python"
+classification = "advanced-data"
+reason = "Python is reserved for the contract/model and scientific helper slice."
+owner = "runtime_core"
+expires = "2027-01-01"
+migration_path = "none"
+

@@ -1,0 +1,59 @@
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+.python-version
+.node-version
+
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+*.py[cod]
+*.egg-info/
+
+# Node
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+dist/
+coverage/
+
+# Rust and general build output
+target/
+build/
+out/
+release/
+debug/
+
+# Scientific and generated artifacts
+artifacts/
+outputs/
+*.zarr
+*.parquet
+*.npy
+*.npz
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.log
+*.sqlite
+*.db
+
+# Jankurai/bootstrap scratch
+target/jankurai/
+FUCKIT.md
+agent/repo-score.json
+agent/repo-score.md

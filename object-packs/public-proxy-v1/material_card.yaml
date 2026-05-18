@@ -1,0 +1,23 @@
+schema_ref: schemas/material_card.schema.json
+id: mat.public_proxy.skin_composite_v1
+display_name: Public Proxy Composite Skin
+base_material: composite_skin
+frequency_band_hz:
+  - 8000000000
+  - 12000000000
+parameter_model:
+  model_type: bounded_distribution
+  parameters:
+    epsilon_r_mean: "3.1"
+    epsilon_r_stddev: "0.4"
+    loss_tangent_mean: "0.018"
+    loss_tangent_stddev: "0.006"
+uncertainty_model:
+  model_type: lognormal
+  bands:
+    - name: x_band
+      sigma_db: "1.5"
+    - name: ku_band
+      sigma_db: "2.0"
+notes: Placeholder material assumptions for public-proxy radar research.
+
