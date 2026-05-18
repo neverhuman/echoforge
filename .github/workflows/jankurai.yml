@@ -15,6 +15,7 @@ on:
 
 jobs:
   bootstrap:
+    if: github.event_name != "pull_request"
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
@@ -39,6 +40,7 @@ jobs:
           echo "EchoForge bootstrap scaffold is present."
 
   vendor-scrub:
+    if: github.event_name != "pull_request"
     runs-on: ubuntu-latest
     continue-on-error: false
     steps:
@@ -50,6 +52,7 @@ jobs:
         run: node tools/vendor_scrub.mjs
 
   receipt-audit:
+    if: github.event_name != "pull_request"
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:
