@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://echoforge.local/schemas/solver_card.schema.json",
   "title": "solver_card",
+  "description": "EchoForge solver_card document. Describes an electromagnetic solver implementation (family, version, container image, supported polarizations) that may be invoked by campaigns. Conforms to the EchoForge strict-open contract: deterministic id, public-proxy provenance, and validation envelope.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -15,23 +16,65 @@
     "solver_name",
     "solver_family",
     "version",
-    "container_image"
+    "container_image",
+    "supported_polarizations"
   ],
   "properties": {
-    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
-    "kind": { "const": "solver_card" },
-    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
-    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
-    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
-    "license": { "$ref": "./common.schema.json#/$defs/license" },
-    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
-    "solver_name": { "type": "string", "minLength": 1 },
-    "solver_family": { "type": "string", "minLength": 1 },
-    "version": { "type": "string", "minLength": 1 },
-    "container_image": { "type": "string", "minLength": 1 },
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1. Derived from the identity-field payload.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator. Always the literal string 'solver_card' for this schema.",
+      "const": "solver_card"
+    },
+    "schema_version": {
+      "description": "EchoForge schema version pin. Must equal '1.0.0' for this revision of the contract.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Stable, human-readable slug identifying the public-proxy solver (lowercase letters, digits, and ._- separators). Forms part of the deterministic id.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: how the document was produced, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) under which the solver_card content is released.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and the per-check results that establish trust in this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "solver_name": {
+      "description": "Human-readable solver name shown in tools and reports. Non-empty free text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "solver_family": {
+      "description": "Coarse solver taxonomy bucket. Examples: sbr | po | go | mom | fdtd | fem | hybrid | analytic. Free-form non-empty string (no strict enum at the schema layer).",
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "description": "Solver version string (e.g. semantic version or build tag). Non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "container_image": {
+      "description": "OCI container image reference for reproducible execution. Prefer a digest-pinned form such as name@sha256:<hex>.",
+      "type": "string"
+    },
     "supported_polarizations": {
+      "description": "Polarization modes the solver can emit/accept. Each entry must be one of 'H' (horizontal), 'V' (vertical), 'L' (left circular), or 'R' (right circular). At least one entry required.",
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["H", "V", "L", "R"]
+      }
     }
   }
 }

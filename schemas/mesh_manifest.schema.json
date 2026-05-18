@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://echoforge.local/schemas/mesh_manifest.schema.json",
   "title": "mesh_manifest",
+  "description": "EchoForge mesh_manifest document. Describes a triangulated surface mesh asset (source files, format, units, geometric counts, and integrity hash) consumed by EM solvers. Conforms to the EchoForge strict-open contract: deterministic id, public-proxy provenance, and validation envelope.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -21,23 +22,71 @@
     "mesh_sha256"
   ],
   "properties": {
-    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
-    "kind": { "const": "mesh_manifest" },
-    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
-    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
-    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
-    "license": { "$ref": "./common.schema.json#/$defs/license" },
-    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
-    "mesh_name": { "type": "string", "minLength": 1 },
-    "mesh_format": { "type": "string", "minLength": 1 },
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1. Derived from the identity-field payload.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator. Always the literal string 'mesh_manifest' for this schema.",
+      "const": "mesh_manifest"
+    },
+    "schema_version": {
+      "description": "EchoForge schema version pin. Must equal '1.0.0' for this revision of the contract.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Stable, human-readable slug identifying the public-proxy mesh subject (lowercase letters, digits, and ._- separators). Forms part of the deterministic id.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: how the document was produced, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) under which the mesh manifest content is released.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and the per-check results that establish trust in this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "mesh_name": {
+      "description": "Human-readable mesh name shown in tools and reports. Non-empty free text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "mesh_format": {
+      "description": "Mesh container format. Examples: glb | gltf | stl | obj | ply | step. Free-form non-empty string (no strict enum at the schema layer).",
+      "type": "string",
+      "minLength": 1
+    },
     "source_files": {
+      "description": "Ordered list of source-file paths (relative to bundle root) composing the mesh asset. At least one entry is required and each entry must be a non-empty string.",
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
-    "units": { "type": "string", "minLength": 1 },
-    "triangle_count": { "type": "integer", "minimum": 1 },
-    "watertight": { "type": "boolean" },
-    "mesh_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    "units": {
+      "description": "Length units of the mesh coordinates. Examples: m | mm | cm | in. Non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "triangle_count": {
+      "description": "Total number of triangular faces in the mesh. Must be a positive integer (>= 1).",
+      "type": "integer",
+      "minimum": 1
+    },
+    "watertight": {
+      "description": "True if the mesh is closed/manifold (no boundary edges), false otherwise.",
+      "type": "boolean"
+    },
+    "mesh_sha256": {
+      "description": "SHA-256 content hash of the canonical mesh payload, encoded as 64 lowercase hex characters. Used for integrity verification and dedup.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
   }
 }

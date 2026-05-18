@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://echoforge.local/schemas/object_card.schema.json",
   "title": "object_card",
+  "description": "EchoForge object_card document. Describes a physical-object archetype (geometry + material variant + dimensions) used as a radar scattering subject. Conforms to the EchoForge strict-open contract: deterministic id, public-proxy provenance, and validation envelope.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,24 +17,69 @@
     "object_family",
     "geometry_variant",
     "material_variant",
-    "dimensions_m"
+    "dimensions_m",
+    "tags"
   ],
   "properties": {
-    "id": { "$ref": "./common.schema.json#/$defs/deterministic_id" },
-    "kind": { "const": "object_card" },
-    "schema_version": { "$ref": "./common.schema.json#/$defs/schema_version" },
-    "public_proxy_id": { "$ref": "./common.schema.json#/$defs/slug" },
-    "provenance": { "$ref": "./common.schema.json#/$defs/provenance" },
-    "license": { "$ref": "./common.schema.json#/$defs/license" },
-    "validation": { "$ref": "./common.schema.json#/$defs/validation" },
-    "display_name": { "type": "string", "minLength": 1 },
-    "object_family": { "type": "string", "minLength": 1 },
-    "geometry_variant": { "type": "string", "minLength": 1 },
-    "material_variant": { "type": "string", "minLength": 1 },
-    "dimensions_m": { "$ref": "./common.schema.json#/$defs/vector3" },
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1. Derived from the identity-field payload.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator. Always the literal string 'object_card' for this schema.",
+      "const": "object_card"
+    },
+    "schema_version": {
+      "description": "EchoForge schema version pin. Must equal '1.0.0' for this revision of the contract.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Stable, human-readable slug identifying the public-proxy subject (lowercase letters, digits, and ._- separators). Forms part of the deterministic id.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: how the document was produced, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) under which the object_card content is released.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and the per-check results that establish trust in this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "display_name": {
+      "description": "Human-readable name shown in tools and reports. Non-empty free text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "object_family": {
+      "description": "Coarse object taxonomy bucket. Examples: fixed_wing_uav | rotary_uav | multirotor | infrastructure | biological | ground_vehicle | maritime | generic. Free-form non-empty string (no strict enum at the schema layer).",
+      "type": "string",
+      "minLength": 1
+    },
+    "geometry_variant": {
+      "description": "Identifier for the specific geometric variant (mesh / parametric shape) used by this card. Non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "material_variant": {
+      "description": "Identifier for the specific material assignment variant applied to the geometry. Non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "dimensions_m": {
+      "description": "Bounding-box-style extents in meters along x, y, z. All components are expected to be >= 0.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/vector3"
+    },
     "tags": {
+      "description": "At least one descriptive slug tag (lowercase letters, digits, and ._- separators) used for search and grouping.",
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
+      "minItems": 1,
+      "items": {
+        "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+      }
     }
   }
 }
