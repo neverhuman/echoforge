@@ -2,14 +2,19 @@
 //!
 //! Builds the training cell set (with guard cells excluded) on each side of
 //! the cell-under-test, sorts it ascending, and uses the k-th order statistic
-//! as the noise estimate. The threshold multiplier `alpha` is calibrated for
-//! a desired probability of false alarm (Pfa); a closed-form `alpha` for OS
-//! depends on `(N, k, Pfa)` so we fall back to the CA-CFAR closed form scaled
-//! by `2*N_train / k` which preserves the same mean-noise scaling and gives a
-//! deterministic, conservative threshold suitable for synthetic tests.
+//! as the noise estimate. The threshold multiplier `alpha` is the OS-specific
+//! Rohling 1983 closed form for Gaussian / Rayleigh noise, resolved via
+//! [`crate::detectors::cfar_alpha::resolve_alpha`]. Previously this code
+//! reused the CA-CFAR Gaussian formula scaled by `2*N_train`, which silently
+//! mis-calibrated Pfa by 1–3 orders of magnitude relative to the OS-CFAR
+//! implicit equation (Lane G_a, Wave 1 Expert Credibility Sweep).
+//!
+//! ClutterRegime → `NoiseDistribution` plumbing remains Lane G_b's
+//! responsibility; until that ships every OS-CFAR call uses the Gaussian /
+//! Rayleigh closed form, which is the correct alpha for thermal-dominated
+//! channels and a strict improvement over the previous CA-formula misuse.
 
-use crate::cfar::ca_cfar_scale;
-
+use super::cfar_alpha::{resolve_alpha, CfarVariant, NoiseDistribution};
 use super::{magnitude_to_db, DetectionEvent, DetectionKind, Detector};
 
 #[derive(Debug, Clone, Copy)]
@@ -55,14 +60,34 @@ impl OsCfarDetector {
     }
 
     fn alpha(&self) -> f32 {
-        // Reuse the CA-CFAR closed form against the total number of training
-        // cells (both sides). This is the standard scaling driver; the OS
-        // estimator's quantile already shifts the effective noise estimate
-        // upward, which keeps Pfa <= the CA target on i.i.d. exponential
-        // noise. Good enough for synthetic detection tests; calibrate later
-        // for production Pfa control.
+        // Total training set: leading + lagging windows, both of size
+        // `training_cells`. The detector sorts this combined set ascending
+        // and takes the kth sample (1-indexed within the combined window)
+        // as the noise estimate, where k is derived from the quantile.
+        //
+        // The OS-CFAR Rohling 1983 implicit equation gives the alpha that
+        // yields the requested Pfa for Gaussian / Rayleigh-amplitude noise;
+        // `resolve_alpha` solves it numerically. ClutterRegime →
+        // NoiseDistribution plumbing is Lane G_b's responsibility — until it
+        // lands we resolve against `NoiseDistribution::Gaussian`, which is
+        // the correct alpha for thermal-dominated channels and a strict
+        // improvement over the previous CA-formula reuse.
         let total = self.params.training_cells.saturating_mul(2);
-        ca_cfar_scale(total, self.params.pfa)
+        if total == 0 {
+            return 0.0;
+        }
+        // Convert the quantile into a 1-indexed rank within the combined
+        // training window. `order_index_for_quantile` returns a 0-indexed
+        // value clamped to `[0, total - 1]`; adding 1 makes it 1-indexed
+        // to match the Rohling formulation, which counts the kth order
+        // statistic starting at 1.
+        let rank = order_index_for_quantile(total, self.params.quantile) + 1;
+        resolve_alpha(
+            CfarVariant::OrderedStatistic { rank },
+            NoiseDistribution::Gaussian,
+            total,
+            self.params.pfa,
+        )
     }
 }
 

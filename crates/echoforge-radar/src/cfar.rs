@@ -27,6 +27,24 @@ pub struct CfarDecision {
     pub noise_estimate: f32,
 }
 
+/// CA-CFAR threshold scale factor for **Gaussian** noise / Rayleigh
+/// amplitude.
+///
+/// `alpha = N * (Pfa^(-1/N) - 1)` (Skolnik, *Introduction to Radar Systems*,
+/// 3rd ed. §7.7.2). This is the textbook Cell-Averaging CFAR closed form
+/// derived under the assumption that the training cells are i.i.d.
+/// exponential (= power-domain Gaussian I+Q / Rayleigh amplitude).
+///
+/// **WARNING — Lane G_a, Wave 1 Expert Credibility Sweep**: applying this
+/// formula to K-distributed, Weibull or log-normal clutter under-counts the
+/// observed Pfa by 1–3 orders of magnitude (heavy tails produce sample
+/// means much smaller than the population mean, which the Gaussian alpha
+/// does not compensate for). It is also wrong for non-CA CFAR variants
+/// (OS-CFAR uses the Rohling 1983 implicit equation instead). For any
+/// non-Gaussian clutter or non-CA variant call
+/// [`crate::detectors::cfar_alpha::resolve_alpha`] instead, which dispatches
+/// to the correct closed form, library lookup, or Monte-Carlo calibration
+/// per (variant, distribution) pair.
 pub fn ca_cfar_scale(training_cells: usize, pfa: f32) -> f32 {
     if training_cells == 0 {
         return 0.0;

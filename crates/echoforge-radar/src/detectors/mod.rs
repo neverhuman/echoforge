@@ -10,16 +10,27 @@ use serde::{Deserialize, Serialize};
 
 pub mod blob_rd;
 pub mod ca_cfar;
+pub mod cfar_alpha;
+pub mod cfar_closed_forms;
 pub mod go_cfar;
+pub mod micro_doppler_classifier;
 pub mod micro_doppler_feature;
 pub mod os_cfar;
+pub mod phase_tiered;
 pub mod so_cfar;
+pub mod tbd;
 
 pub use blob_rd::{BlobRdDetector, BlobRdParams};
 pub use ca_cfar::CaCfarDetector;
 pub use go_cfar::GoCfarDetector;
 pub use micro_doppler_feature::{MicroDopplerDetector, MicroDopplerParams};
 pub use os_cfar::{order_index_for_quantile, OsCfarDetector, OsCfarParams};
+pub use phase_tiered::{
+    BoostDecision, BoostTierConfig, BoostTierDetector, ClimbDecision, ClimbOutTierDetector,
+    ClimbTierConfig, CruiseDecision, CruiseTierConfig, CruiseTierDetector, KinematicGate,
+    KinematicObservation, KinematicSample, PhaseTieredConfig, PhaseTieredDecision,
+    PhaseTieredDetector, PropulsionClass, SpeedClassifier, Tier, TierArbiter, TierTransition,
+};
 pub use so_cfar::SoCfarDetector;
 
 /// Tag identifying which detector produced an event. Useful for diagnostics

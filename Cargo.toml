@@ -3,8 +3,11 @@ resolver = "2"
 members = [
     "crates/echoforge-cli",
     "crates/echoforge-core",
+    "crates/echoforge-solver-contract",
+    "crates/echoforge-solver-sagitta",
     "crates/echoforge-studio",
     "crates/echoforge-dataset",
+    "crates/echoforge-hardneg-mining",
     "crates/echoforge-radar",
     "crates/echoforge-sig",
     "crates/echoforge-validate",

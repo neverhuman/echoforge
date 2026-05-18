@@ -1,3 +1,4 @@
+use crate::calibrate::{run_calibrate, CalibrateArgs};
 use crate::core::{Health, StatusCheck, StatusSummary};
 use crate::demo::{run_demo, DemoArgs};
 use crate::manifest::EchoSigManifest;
@@ -24,6 +25,8 @@ pub enum Command {
     Validate(ValidateArgs),
     /// Run generated data demos.
     Demo(DemoArgs),
+    /// Run calibration / credibility sweeps (e.g. empirical Pfa for C12).
+    Calibrate(CalibrateArgs),
 }
 
 #[derive(Debug, Args)]
@@ -94,6 +97,9 @@ pub fn run(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<u8, Str
             };
         }
         Command::Demo(args) => return run_demo(args),
+        Command::Calibrate(args) => {
+            return run_calibrate(args).map(|code| code.clamp(0, 255) as u8);
+        }
         Command::Schema(args) => {
             let report = validate_inputs(&args.inputs);
             println!("{}", report.render());
