@@ -51,6 +51,17 @@ pub use detectors::phase_tiered::{
     Tier, TierArbiter, TierTransition, MTI_NOTCH_BODY_DOPPLER_HZ,
 };
 pub use detectors::tbd::{hough_tbd_detect, TbdConfig, TbdTrackCandidate};
+pub use detectors::cfar_closed_forms::{
+    cfar_scale_k_distribution, cfar_scale_log_normal, cfar_scale_weibull,
+    erfc_inv, go_cfar_scale_gaussian, so_cfar_scale_gaussian,
+};
+pub use detectors::micro_doppler_classifier::{
+    argmax_class, classify_lrt, extract_features as md_extract_features, MicroDopplerFeatures,
+    ReferenceSignature, TargetClass as MdClass,
+};
+pub use fusion::acoustic_radar::{
+    fuse_acoustic, AcousticObservation, FusedTrack, RadarTrack as AcousticFusionRadarTrack,
+};
 pub use scene::{
     EnvironmentDescriptor, SceneDescriptor, SiteGeometry, TargetClass, TargetEntity,
     TargetKinematics,

@@ -454,7 +454,9 @@ pub struct SyntheticEpisode {
     /// sensor parameters in `config`, the geometry in
     /// `target_states[0]`, and the target `profile.rcs_scalar`. This
     /// is the diagnostic equivalent of the deprecated
-    /// `RadarSimConfig::target_snr_db` knob.
+    /// `RadarSimConfig::target_snr_db` knob. For multi-target scenes
+    /// (Wave 5 Lane J) this field reports the FIRST entity's SNR; the
+    /// per-entity SNR list is in [`Self::per_target_snr_db`].
     pub diagnostic_snr_db: f64,
     /// Full link-budget breakdown for the initial target state.
     pub diagnostic_link_budget: LinkBudgetResult,
@@ -467,6 +469,17 @@ pub struct SyntheticEpisode {
     /// (which is its magnitude image, retained only for back-compat with
     /// pre-Lane-B consumers).
     pub range_doppler_complex: Vec<Vec<ComplexSample>>,
+    /// **Wave 5 Lane J — per-entity diagnostic SNR (dB).** For each
+    /// entity in `SceneDescriptor::targets`, this vector carries the
+    /// emergent post-integration SNR computed from the entity's
+    /// initial geometry and a per-class RCS proxy (see
+    /// `class_default_rcs_scalar` in `crate::sim`). Length equals
+    /// `scene.targets.len()`. For single-entity scenes this is
+    /// `vec![diagnostic_snr_db]`, preserving the legacy field.
+    /// Multipath ghost entities (`TargetClass::MultipathGhost`) inherit
+    /// their parent's SNR scaled by `20·log10(|Γ|)` so a ghost's
+    /// entry reflects the reduced phantom-return level.
+    pub per_target_snr_db: Vec<f64>,
 }
 
 #[derive(Debug, Clone)]
@@ -568,51 +581,67 @@ pub fn synthesize_takeoff_episode(
 /// same [`SyntheticEpisode`] product as the legacy
 /// [`synthesize_takeoff_episode`].
 ///
-/// **Scope of Lane I:** the only kinematics variant honoured by the
-/// physics path is [`TargetKinematics::FromTakeoffProfile`]. The scene
-/// MUST contain exactly one [`TargetEntity`] with that variant —
-/// multi-entity scenes and native per-class kinematics (Bird,
-/// GroundVehicle, WindTurbine, …) are Lane J's responsibility.
-/// Wiring them today, before per-class RCS-aspect dispatch and
-/// kinematics modules exist, would constitute a measured-truth claim
-/// about confuser physics we cannot defend. A debug assertion gates
-/// the single-entity contract.
+/// **Scope of Lane I:** only the single-entity [`TargetKinematics::FromTakeoffProfile`]
+/// path was honoured by the physics chain.
 ///
-/// The body of this function is the byte-for-byte former body of
-/// [`synthesize_takeoff_episode`] (pre-Lane-I); only the surrounding
-/// type plumbing changed. Reproduction fixtures and physics-
-/// correctness tests verify byte-stability.
+/// **Wave 5 Lane J extension (this lane):** the gate is lifted. The
+/// scene MAY now contain N entities, each with its own
+/// [`TargetKinematics`] variant. Confuser classes (Bird, GroundVehicle,
+/// WindTurbine, Balloon, Kite, Helicopter) traverse the same chain as
+/// positive Shahed-class entities; the MultipathGhost variant
+/// synthesises a phantom return offset by `2·h_r·h_t/R` from its
+/// parent's geometry (Skolnik 3rd ed. §1.6). Per-class RCS is
+/// resolved by a first-order proxy keyed on the dossier RCS table;
+/// full per-class RCS-aspect lookup against
+/// [`crate::rcs::Rcs::seeded_public_proxy_v1`] is downstream Lane K
+/// work.
+///
+/// **Byte-stability guarantee:** when called with a single-entity
+/// scene containing a [`TargetClass::ShahedClassPiston`] +
+/// [`TargetKinematics::FromTakeoffProfile`] entity, the synthesis loop
+/// reproduces pre-Lane-J byte-stable IQ output. The single-target RNG
+/// consumption order is preserved: one scintillation draw per entity
+/// per pulse (the first entity's draw is the same draw the legacy
+/// path would have consumed), then the per-bin clutter/awgn/RFI loop
+/// runs unchanged.
 pub fn synthesize_scene(
     scene: SceneDescriptor,
     config: RadarSimConfig,
     noise: NoiseProfile,
     seed: EpisodeSeed,
 ) -> SyntheticEpisode {
-    // Lane I gate: single-entity + FromTakeoffProfile only. Lane J
-    // lifts both constraints.
-    debug_assert_eq!(
-        scene.targets.len(),
-        1,
-        "synthesize_scene (Lane I) supports exactly one target entity; \
-         multi-target scenes land in Lane J"
+    // Wave 5 Lane J: lifted the Lane I single-entity gate. The scene
+    // MAY contain multiple TargetEntities; each entity dispatches its
+    // own kinematic state via TargetKinematics::state_at and the
+    // synthesis loop accumulates per-entity returns into a shared IQ
+    // stream. Multipath ghost entities resolve their parent's geometry
+    // and contribute a phantom return offset by the two-ray multipath
+    // term (Skolnik 3rd ed. §1.6).
+    assert!(
+        !scene.targets.is_empty(),
+        "synthesize_scene requires at least one TargetEntity in SceneDescriptor::targets"
     );
-    let entity = scene
-        .targets
-        .first()
-        .expect("Lane I requires exactly one entity in SceneDescriptor::targets");
-    let profile = match &entity.kinematics {
+
+    // Lane I/J back-compat note: scene.geometry / scene.environment
+    // are preserved on the descriptor for serde + Lane K follow-up
+    // (per-scene RCS dispatch); the physics path still sources antenna
+    // height, atmospherics, multipath coefficient, and clutter regime
+    // from `config` / `noise` so pre-Lane-I reproduction fixtures
+    // remain byte-stable.
+    let _ = (scene.geometry, scene.environment);
+
+    // Resolve a back-compat `TakeoffProfile` for the SyntheticEpisode
+    // `profile` field. When the first entity is FromTakeoffProfile the
+    // legacy code path round-trips byte-stably; otherwise we populate
+    // a default-shaped profile so downstream consumers that read
+    // `episode.profile` don't blow up. The authoritative per-entity
+    // state lives in `target_states` (first entity) and the per-class
+    // SNR list in `per_target_snr_db`.
+    let first_entity = &scene.targets[0];
+    let first_profile = match &first_entity.kinematics {
         TargetKinematics::FromTakeoffProfile(profile) => *profile,
-        TargetKinematics::_UnusedFuture => panic!(
-            "synthesize_scene (Lane I) only honours TargetKinematics::FromTakeoffProfile; \
-             native scene kinematics land in Lane J"
-        ),
+        _ => TakeoffProfile::default(),
     };
-    // Lane I keeps `scene.geometry` / `scene.environment` for the
-    // serde / wrapper round-trip; the physics path still sources these
-    // from `config` / `noise` for byte-stable back-compat with
-    // pre-Lane-I fixtures. Lane J makes the scene the source of truth.
-    let _ = (scene.geometry, scene.environment, entity.class.clone(),
-             entity.spawn_time_s);
 
     let waveform = config.waveform();
     let reference = waveform.samples();
@@ -621,28 +650,85 @@ pub fn synthesize_scene(
     let mut rng = SplitMix64::new(seed.0);
     let mut phase_walk = 0.0f32;
 
-    // Replace the legacy `target_snr_db` knob with a transparent
-    // radar-equation link budget evaluated at the initial target
-    // state. SNR EMERGES from the sensor + propagation + RCS terms;
-    // it is no longer an input. Sub-horizon targets contribute zero
-    // return (target_amp == 0), which the rest of the chain treats
-    // identically to a missing target.
-    let initial_state = profile.state_at(0.0);
-    let prop_ctx = config.propagation_context(&initial_state);
-    let link_result =
-        evaluate_link_budget(&config.link_budget(), &prop_ctx, profile.rcs_scalar.max(0.0));
-    let target_amp = if link_result.above_horizon && link_result.snr_db.is_finite() {
-        snr_to_target_amplitude(link_result.snr_db, noise.awgn_sigma)
-    } else {
-        0.0
-    };
+    // Per-entity initial-state link-budget evaluation. Replace the
+    // legacy `target_snr_db` knob with a transparent radar-equation
+    // result evaluated at each entity's initial geometry. Sub-horizon
+    // entities contribute zero return (target_amp == 0), which the
+    // rest of the chain treats identically to a missing target.
+    let mut per_entity_target_amp: Vec<f32> = Vec::with_capacity(scene.targets.len());
+    let mut per_entity_snr_db: Vec<f64> = Vec::with_capacity(scene.targets.len());
+    let mut first_link_result: Option<LinkBudgetResult> = None;
+
+    // Resolve per-entity initial state (for the link-budget pass) and
+    // per-entity RCS scalar. Ghosts inherit their parent's amp scaled
+    // by |Γ|; this matches the Skolnik §1.6 multipath convention.
+    let entity_initial_states: Vec<TargetState> = scene
+        .targets
+        .iter()
+        .map(|entity| match &entity.kinematics {
+            TargetKinematics::MultipathGhost { parent_idx, .. } => {
+                // Resolve parent's initial state for diagnostic SNR.
+                let parent = scene.targets.get(*parent_idx).unwrap_or(first_entity);
+                let parent_initial_range = entity_initial_range_fallback(parent);
+                parent
+                    .kinematics
+                    .state_at(0.0, parent_initial_range, config.radar_altitude_agl_m)
+            }
+            _ => {
+                let initial_range = entity_initial_range_fallback(entity);
+                entity
+                    .kinematics
+                    .state_at(0.0, initial_range, config.radar_altitude_agl_m)
+            }
+        })
+        .collect();
+
+    for (idx, entity) in scene.targets.iter().enumerate() {
+        let entity_initial = entity_initial_states[idx];
+        let prop_ctx = config.propagation_context(&entity_initial);
+        let rcs_scalar = class_default_rcs_scalar(&entity.class, &entity.kinematics, &first_profile);
+        let link = evaluate_link_budget(&config.link_budget(), &prop_ctx, rcs_scalar.max(0.0));
+        let amp_full = if link.above_horizon && link.snr_db.is_finite() {
+            snr_to_target_amplitude(link.snr_db, noise.awgn_sigma)
+        } else {
+            0.0
+        };
+        // Ghosts inherit a scaled amplitude — their kinematics carry
+        // the reflection coefficient |Γ|. Apply the linear scale and
+        // the dB-equivalent to the SNR.
+        let (amp_effective, snr_effective) = match &entity.kinematics {
+            TargetKinematics::MultipathGhost {
+                reflection_coefficient_magnitude,
+                ..
+            } => {
+                let gamma = reflection_coefficient_magnitude.max(0.0) as f32;
+                let snr_offset_db = if *reflection_coefficient_magnitude > 0.0 {
+                    20.0 * reflection_coefficient_magnitude.log10()
+                } else {
+                    f64::NEG_INFINITY
+                };
+                (amp_full * gamma, link.snr_db + snr_offset_db)
+            }
+            _ => (amp_full, link.snr_db),
+        };
+        per_entity_target_amp.push(amp_effective);
+        per_entity_snr_db.push(snr_effective);
+        if idx == 0 {
+            first_link_result = Some(link);
+        }
+    }
+    let link_result_first = first_link_result.expect("at least one entity");
 
     let glints = build_ground_glints(sample_count, &noise, &mut rng);
 
     let mut iq = Vec::with_capacity(config.pulse_count);
     let mut profiles = Vec::with_capacity(config.pulse_count);
     let mut compressed_complex: Vec<Vec<ComplexSample>> = Vec::with_capacity(config.pulse_count);
-    let mut states = Vec::with_capacity(config.pulse_count);
+    // target_states (back-compat) holds the FIRST entity's per-pulse
+    // states only. Multi-entity per-pulse state vectors are downstream
+    // Lane K work; the first-entity contract preserves the legacy
+    // single-target consumer surface.
+    let mut states_first: Vec<TargetState> = Vec::with_capacity(config.pulse_count);
     let mut clutter_state = 0.0f32;
 
     // When a ClutterRegime is configured, pre-generate the full
@@ -667,93 +753,98 @@ pub fn synthesize_scene(
 
     for pulse in 0..config.pulse_count {
         let t_s = pulse as f64 * config.pri_s;
-        let state = profile.state_at(t_s);
         let mut received = vec![ComplexSample::new(0.0, 0.0); sample_count];
-        let delay_samples =
-            ((2.0 * state.range_m / C_M_PER_S) * config.sample_rate_hz).round() as isize;
-        let doppler_hz = 2.0 * state.radial_velocity_mps * config.carrier_hz / C_M_PER_S;
-        let pulse_phase = 2.0 * std::f64::consts::PI * doppler_hz * t_s;
-        // Dispatch micro-Doppler computation. When the profile has the
-        // multi-blade propeller fields populated, use the full
-        // `PropellerGenerator` physics (blade-flash convention,
-        // multi-blade tip-velocity projection) from `micro_doppler_gen`.
-        // Otherwise fall back to the legacy single-sinusoid for byte-
-        // stable back-compat with existing reproduction fixtures.
-        //
-        // Convention: blade-pass frequency is `blade_count * rotation_hz`
-        // (Skolnik §9.2; Chen 2011 §3.2). We approximate the amplitude-
-        // modulation envelope as `1 + 0.15 * (v_micro / v_tip)`, which
-        // reaches the same +/-15% peak excursion as the legacy single-
-        // sinusoid at the instant a blade tip is on the line-of-sight.
-        // A later lane (when Lane B complex IQ is fully wired) can
-        // upgrade this to the textbook phasor modulation
-        // `phi = 4*pi*v_micro*f_c/c*dt`.
-        let micro = match (profile.blade_count, profile.blade_length_m) {
-            (Some(n_blades), Some(length_m)) => {
-                let prop = PropellerGenerator::new(
-                    n_blades,
-                    profile.propulsor_hz,
-                    length_m,
-                    state.propulsor_phase_rad,
-                );
-                let v_micro = prop.radial_velocity_at(t_s);
-                let v_tip = prop.tip_speed_mps();
-                if v_tip > 1e-6 {
-                    1.0 + 0.15 * (v_micro / v_tip)
-                } else {
-                    1.0
-                }
-            }
-            _ => {
-                1.0 + 0.15
-                    * (2.0 * std::f64::consts::PI * profile.micro_doppler_hz * t_s
-                        + state.propulsor_phase_rad)
-                        .sin()
-            }
-        };
-        let scintillation = (noise.amplitude_scintillation_sigma * rng.normal_f32())
-            .exp()
-            .clamp(0.4, 2.5);
-        // Wave 4.5 H2: per-pulse polarization scaling. When neither
-        // `pol_tx_sequence` nor `pol_rx_sequence` is set we skip the
-        // multiplication entirely — preserving exact bit-equality
-        // with pre-Lane-H2 fixtures (multiplying by literal `1.0_f32`
-        // is *almost* a no-op but float pipelines aren't guaranteed to
-        // produce identical bits, and our determinism gates demand
-        // byte-stable output).
-        //
-        // When a sequence IS configured, apply the first-order
-        // (tx, rx)-keyed amplitude proxy. Full per-pulse
-        // `Rcs::evaluate(class, aspect, elev, freq, tx, rx, …)`
-        // dispatch is Lane I follow-up; see
-        // `polarization_amplitude_scale` for the citation chain.
-        let amp_base = target_amp * micro as f32 * scintillation;
-        let amp = if config.pol_tx_sequence.is_some() || config.pol_rx_sequence.is_some() {
-            let (pol_tx, pol_rx) = config.polarization_for_pulse(pulse);
-            amp_base * polarization_amplitude_scale(pol_tx, pol_rx)
-        } else {
-            amp_base
-        };
 
-        for (i, sample) in reference.iter().enumerate() {
-            let dst = i as isize + delay_samples;
-            if dst < 0 || dst >= sample_count as isize {
+        // Wave 5 Lane J: per-entity contribution loop. Entities are
+        // visited in `scene.targets` order, which makes the first
+        // entity's scintillation draw the FIRST RNG consumer of this
+        // pulse — preserving byte-stable back-compat with the
+        // single-entity Lane I synth (which only draws one
+        // scintillation per pulse).
+        //
+        // Multipath ghost entities skip their own scintillation draw
+        // (they're a phantom of the parent) and use the parent's
+        // already-resolved state. Pure-static entities (WindTurbine,
+        // tethered Balloon) still go through the same draw sequence
+        // so the RNG consumption is uniform across entity types.
+        for (entity_idx, entity) in scene.targets.iter().enumerate() {
+            let amp_full = per_entity_target_amp[entity_idx];
+            if amp_full == 0.0 {
+                // Even a zero-amp entity must consume a scintillation
+                // draw so single-entity vs multi-entity ordering with
+                // mixed sub-horizon scenes remains predictable. The
+                // first entity ALWAYS draws so pre-Lane-J fixtures
+                // (single ShahedClassPiston) byte-match.
+                let _ = rng.normal_f32();
                 continue;
             }
-            let phase = pulse_phase as f32 + phase_walk;
-            let phasor = ComplexSample::new(phase.cos(), phase.sin());
-            received[dst as usize] += *sample * phasor * amp;
+
+            // Resolve this entity's per-pulse state. Ghosts inherit
+            // parent's state then apply the multipath range offset.
+            let (state, range_offset_m) = resolve_entity_state(
+                scene.targets.as_slice(),
+                entity_idx,
+                t_s,
+                config.radar_altitude_agl_m,
+            );
+
+            let effective_range_m = (state.range_m + range_offset_m).max(0.0);
+            let delay_samples =
+                ((2.0 * effective_range_m / C_M_PER_S) * config.sample_rate_hz).round()
+                    as isize;
+            let doppler_hz =
+                2.0 * state.radial_velocity_mps * config.carrier_hz / C_M_PER_S;
+            let pulse_phase = 2.0 * std::f64::consts::PI * doppler_hz * t_s;
+
+            // Per-entity micro-Doppler dispatch. Entities that carry
+            // a TakeoffProfile route through the legacy multi-blade /
+            // single-sinusoid dispatch so pre-Lane-J fixtures
+            // byte-match. Confuser variants are handled by their
+            // native generators downstream of this synthesis loop;
+            // at the synthesis surface their AM envelope is the unit
+            // multiplier (1.0) — a conservative first-order proxy
+            // that does not over-claim micro-Doppler fidelity for
+            // confusers.
+            let micro = micro_doppler_envelope(entity, t_s, &state, &first_profile);
+
+            let scintillation = (noise.amplitude_scintillation_sigma * rng.normal_f32())
+                .exp()
+                .clamp(0.4, 2.5);
+
+            // Wave 4.5 H2: per-pulse polarization scaling. When
+            // neither sequence is set we skip the multiplication
+            // entirely — preserving exact bit-equality with
+            // pre-Lane-H2 fixtures.
+            let amp_base = amp_full * micro as f32 * scintillation;
+            let amp = if config.pol_tx_sequence.is_some() || config.pol_rx_sequence.is_some() {
+                let (pol_tx, pol_rx) = config.polarization_for_pulse(pulse);
+                amp_base * polarization_amplitude_scale(pol_tx, pol_rx)
+            } else {
+                amp_base
+            };
+
+            for (i, sample) in reference.iter().enumerate() {
+                let dst = i as isize + delay_samples;
+                if dst < 0 || dst >= sample_count as isize {
+                    continue;
+                }
+                let phase = pulse_phase as f32 + phase_walk;
+                let phasor = ComplexSample::new(phase.cos(), phase.sin());
+                received[dst as usize] += *sample * phasor * amp;
+            }
+
+            if entity_idx == 0 {
+                states_first.push(state);
+            }
         }
 
+        // Stochastic terms (clutter, AWGN, RFI, phase walk) are
+        // applied AFTER per-entity returns are accumulated. The RNG
+        // consumption order is identical to the pre-Lane-J single-
+        // entity synth so byte-stable fixtures replay unchanged.
         for (index, sample) in received.iter_mut().enumerate() {
-            // Dispatch the clutter source: cited K/Weibull/log-normal
-            // regime when configured, legacy Gaussian AR(1) otherwise.
             let clutter_raw = match clutter_cube.as_ref() {
-                Some(cube) => {
-                    // Row-major (pulse, range_bin) layout from
-                    // `generate_clutter_sequence`.
-                    cube[pulse * sample_count + index] * noise.clutter_sigma_0_scale
-                }
+                Some(cube) => cube[pulse * sample_count + index] * noise.clutter_sigma_0_scale,
                 None => {
                     clutter_state = noise.clutter_correlation * clutter_state
                         + (1.0 - noise.clutter_correlation)
@@ -777,16 +868,12 @@ pub fn synthesize_scene(
         }
 
         phase_walk += rng.normal_scaled(noise.phase_noise_std_rad);
-        // Default to Taylor-35 (Lane E) so range sidelobes sit near
-        // -33 dB rather than the unbelievable -13 dB of a raw matched
-        // filter. The cost is ~1 dB peak SNR; tests bound it explicitly.
         let compressed =
             pulse_compress_windowed(&received, &reference, CompressionWindow::taylor_default());
         let mag = magnitude(&compressed);
         iq.push(received);
         profiles.push(mag);
         compressed_complex.push(compressed);
-        states.push(state);
     }
 
     let integrated = integrate_profiles(&profiles, compressed_len);
@@ -821,18 +908,187 @@ pub fn synthesize_scene(
     SyntheticEpisode {
         seed,
         config,
-        profile,
+        profile: first_profile,
         noise,
-        target_states: states,
+        target_states: states_first,
         iq,
         range_profiles_by_pulse: profiles,
         integrated_range_profile: integrated,
         range_doppler_proxy,
         detections,
-        diagnostic_snr_db: link_result.snr_db,
-        diagnostic_link_budget: link_result,
+        diagnostic_snr_db: link_result_first.snr_db,
+        diagnostic_link_budget: link_result_first,
         range_doppler_complex,
+        per_target_snr_db: per_entity_snr_db,
     }
+}
+
+/// Wave 5 Lane J helper — extract a sensible fallback initial range
+/// for an entity. Variants that carry their own range (GroundVehicle,
+/// WindTurbine, Kite) return that range; variants without one
+/// (Bird, Helicopter, Balloon, FromTakeoffProfile) fall back to the
+/// TakeoffProfile default `initial_range_m`. Used by the per-entity
+/// initial-state pass so multipath ghost parents can be re-evaluated
+/// before the synthesis loop runs.
+fn entity_initial_range_fallback(entity: &TargetEntity) -> f64 {
+    match &entity.kinematics {
+        TargetKinematics::FromTakeoffProfile(p) => p.initial_range_m,
+        TargetKinematics::GroundVehicle {
+            initial_range_m, ..
+        } => *initial_range_m,
+        TargetKinematics::WindTurbine { hub_range_m, .. } => *hub_range_m,
+        TargetKinematics::Kite { anchor_range_m, .. } => *anchor_range_m,
+        // Bird / Helicopter / Balloon / MultipathGhost don't carry a
+        // range; use the TakeoffProfile default so first-entity geometry
+        // is well-defined when the scene mixes types. Downstream Lane K
+        // adds per-entity initial range plumbing on these variants.
+        TargetKinematics::Bird { .. }
+        | TargetKinematics::Helicopter { .. }
+        | TargetKinematics::Balloon { .. }
+        | TargetKinematics::MultipathGhost { .. } => TakeoffProfile::default().initial_range_m,
+    }
+}
+
+/// Wave 5 Lane J helper — resolve a per-pulse `(state, range_offset_m)`
+/// pair for entity `idx` at time `t_s`. Multipath ghost entities return
+/// the parent's state and a non-zero range offset computed from the
+/// two-ray geometry `2·h_r·h_t/R` (Skolnik 3rd ed. §1.6); other
+/// entities return their own state and zero offset.
+fn resolve_entity_state(
+    targets: &[TargetEntity],
+    idx: usize,
+    t_s: f64,
+    antenna_alt_agl_m: f64,
+) -> (TargetState, f64) {
+    let entity = &targets[idx];
+    match &entity.kinematics {
+        TargetKinematics::MultipathGhost { parent_idx, .. } => {
+            let parent = targets.get(*parent_idx).unwrap_or(entity);
+            let parent_initial_range = entity_initial_range_fallback(parent);
+            let parent_state = parent.kinematics.state_at(
+                t_s,
+                parent_initial_range,
+                antenna_alt_agl_m,
+            );
+            // Two-ray multipath offset: 2·h_r·h_t/R. Guard against
+            // R = 0 by clamping the range to a small positive value.
+            let r = parent_state.range_m.max(1e-3);
+            let offset = 2.0 * antenna_alt_agl_m * parent_state.altitude_m / r;
+            (parent_state, offset)
+        }
+        _ => {
+            let initial_range = entity_initial_range_fallback(entity);
+            let state = entity
+                .kinematics
+                .state_at(t_s, initial_range, antenna_alt_agl_m);
+            (state, 0.0)
+        }
+    }
+}
+
+/// Wave 5 Lane J helper — per-entity micro-Doppler envelope at time
+/// `t_s`. Returns the multiplicative amplitude modulation that goes
+/// onto the entity's per-pulse return.
+///
+/// For entities carrying a [`TakeoffProfile`] (the back-compat Shahed
+/// path), this routes through the legacy multi-blade / single-sinusoid
+/// dispatch from [`PropellerGenerator`] so pre-Lane-J reproduction
+/// fixtures replay byte-identically. For confuser variants, the
+/// envelope returns 1.0 — the native micro-Doppler line spectra are
+/// the responsibility of the downstream
+/// [`crate::micro_doppler_gen`] generators (BirdWingbeatGenerator,
+/// HelicopterRotorGenerator, PropellerGenerator) at the per-class
+/// feature-extraction surface, not the per-pulse amplitude
+/// modulation. Returning 1.0 at the synthesis surface is the
+/// conservative first-order proxy that does not over-claim micro-
+/// Doppler fidelity for confusers; full per-class AM modelling lands
+/// in Lane K (per-class RCS-aspect + propulsion dispatch).
+fn micro_doppler_envelope(
+    entity: &TargetEntity,
+    t_s: f64,
+    state: &TargetState,
+    fallback_profile: &TakeoffProfile,
+) -> f64 {
+    let profile = match &entity.kinematics {
+        TargetKinematics::FromTakeoffProfile(p) => p,
+        _ => return 1.0,
+    };
+    // Defensive: when state and profile point to different entities
+    // (cross-entity dispatch in mixed scenes), the profile must still
+    // come from the entity itself. The fallback_profile is only
+    // consulted to keep the type signature uniform; never used here.
+    let _ = fallback_profile;
+    match (profile.blade_count, profile.blade_length_m) {
+        (Some(n_blades), Some(length_m)) => {
+            let prop = PropellerGenerator::new(
+                n_blades,
+                profile.propulsor_hz,
+                length_m,
+                state.propulsor_phase_rad,
+            );
+            let v_micro = prop.radial_velocity_at(t_s);
+            let v_tip = prop.tip_speed_mps();
+            if v_tip > 1e-6 {
+                1.0 + 0.15 * (v_micro / v_tip)
+            } else {
+                1.0
+            }
+        }
+        _ => {
+            1.0 + 0.15
+                * (2.0 * std::f64::consts::PI * profile.micro_doppler_hz * t_s
+                    + state.propulsor_phase_rad)
+                    .sin()
+        }
+    }
+}
+
+/// Wave 5 Lane J helper — per-class first-order RCS scalar (linear m²).
+///
+/// This is a **first-order proxy** keyed on Wave-A `physics_dossier.md`
+/// confuser median RCS values; full per-class aspect-dependent RCS
+/// lookup against `crate::rcs::Rcs::seeded_public_proxy_v1` lands in
+/// Lane K. The proxy is sufficient for the Lane J multi-class
+/// dispatch gate: each entity gets a non-zero contribution whose
+/// magnitude tracks the class's typical RCS envelope, and the
+/// emergent SNR list distinguishes positives from confusers.
+///
+/// Reference RCS values (dBsm → linear m² via 10^(dBsm/10)):
+///   - ShahedClassPiston / ShahedClassJet → use the entity's
+///     TakeoffProfile.rcs_scalar (already in linear m²).
+///   - Bird → -25 dBsm (single large bird; Rahman & Robertson 2018).
+///   - GroundVehicle → +5 dBsm (car / SUV at broadside aspect).
+///   - WindTurbine → +25 dBsm (large utility-scale tower; Naqvi 2015).
+///   - Balloon → -20 dBsm (Mylar reflector envelope).
+///   - Kite → -25 dBsm (typical tethered kite).
+///   - Helicopter → +5 dBsm (rotary-wing aircraft at typical aspect).
+///   - MultipathGhost / TerrainGlint / ManRadarReturn → first-order
+///     fallback at -30 dBsm (these are highly geometry-dependent).
+fn class_default_rcs_scalar(
+    class: &TargetClass,
+    kinematics: &TargetKinematics,
+    fallback_profile: &TakeoffProfile,
+) -> f64 {
+    let _ = fallback_profile;
+    // First, give FromTakeoffProfile entities their explicit RCS so
+    // pre-Lane-J fixtures byte-match (their rcs_scalar is the
+    // load-bearing input to the link budget).
+    if let TargetKinematics::FromTakeoffProfile(profile) = kinematics {
+        return profile.rcs_scalar;
+    }
+    let dbsm = match class {
+        TargetClass::ShahedClassPiston | TargetClass::ShahedClassJet => -10.0,
+        TargetClass::Bird => -25.0,
+        TargetClass::GroundVehicle => 5.0,
+        TargetClass::WindTurbine => 25.0,
+        TargetClass::Balloon => -20.0,
+        TargetClass::Kite => -25.0,
+        TargetClass::Helicopter => 5.0,
+        TargetClass::MultipathGhost { .. }
+        | TargetClass::TerrainGlint
+        | TargetClass::ManRadarReturn => -30.0,
+    };
+    10f64.powf(dbsm / 10.0)
 }
 
 fn build_ground_glints(

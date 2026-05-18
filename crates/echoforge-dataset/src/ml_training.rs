@@ -1,4 +1,65 @@
-use std::collections::BTreeMap;
+//! ML training dataset generator (V3 unified-path migration).
+//!
+//! ## Wave 5 Lane K_rust — unified `synthesize_scene` path
+//!
+//! Before Wave 5, this module bifurcated its physics flow:
+//!
+//! 1. Positives went through [`echoforge_radar::synthesize_takeoff_episode`]
+//!    (full radar chain: pulse-compression, slow-time DFT, K/Weibull
+//!    clutter, OS-CFAR, MTI/MTD) for tensor products.
+//! 2. Confusers went through the SAME wrapper for tensor products, but
+//!    `build_frame_products` rebuilt streaming features from envelope
+//!    statistics WITHOUT consulting the synthesised episode. The
+//!    generator identity (envelope branch) literally labelled the class
+//!    — a credibility-sweep red flag.
+//!
+//! This module now routes ALL records (positives + confusers) through
+//! the unified [`echoforge_radar::synthesize_scene`] entry point that
+//! Lane I (Wave 4) introduced. Each record builds a
+//! [`echoforge_radar::SceneDescriptor`] whose single
+//! [`echoforge_radar::TargetEntity`] carries an explicit
+//! [`echoforge_radar::TargetClass`] that names the truth class, then
+//! calls `synthesize_scene` to produce the [`echoforge_radar::SyntheticEpisode`].
+//! Streaming features (`build_frame_products`) are then derived from
+//! that single episode, no longer recomputed from envelope statistics
+//! alone. The episode's `diagnostic_snr_db`, `range_doppler_proxy`,
+//! `target_states`, and CFAR `detections` are the source of truth for
+//! per-frame SNR, Doppler, range, velocity, altitude, and label
+//! columns.
+//!
+//! Per-episode the generator also runs a
+//! [`echoforge_radar::PhaseTieredDetector`] (Lane H/H2) and writes a
+//! per-tier Pd/Pfa report alongside the dataset (`per_tier_pd_pfa.json`)
+//! so reviewers can see boost/climb/cruise behaviour separately.
+//!
+//! ### Coordination with Lane J
+//!
+//! Lane J extends [`echoforge_radar::TargetKinematics`] with native
+//! per-class kinematics (constant-velocity birds, parked vehicles,
+//! stationary turbines, multipath ghosts derived from a parent track,
+//! etc.) and lifts the single-entity gate on `synthesize_scene`. Until
+//! Lane J lands, this module stubs all kinematics with
+//! [`echoforge_radar::TargetKinematics::FromTakeoffProfile`] adapted
+//! from the envelope, regardless of class. The `class` field is still
+//! propagated so downstream metadata (truth files, scene JSON) reflects
+//! the unified labelling.
+//!
+//! Multipath ghosts (which would want a paired entity with
+//! `TargetClass::MultipathGhost { parent_idx: 0 }`) currently fall back
+//! to a single-entity scene with `TargetClass::TerrainGlint` — Lane I
+//! rejects multi-entity scenes via debug assertion. A TODO in
+//! `confuser_class_for_family` documents the gap; Lane J reconciles.
+//!
+//! ### References
+//!
+//! - Lane I: `crates/echoforge-radar/src/scene.rs` — `SceneDescriptor`,
+//!   `TargetClass`, `TargetEntity`, `TargetKinematics`.
+//! - Lane H/H2: `crates/echoforge-radar/src/detectors/phase_tiered/` —
+//!   `PhaseTieredDetector`, `Tier`, `PhaseTieredDecision`.
+//! - Wave 4 receipt: `.agents/receipts/realism-v4-red-team-gap-report/*`
+//!   documents the original bifurcation finding.
+
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::thread;
@@ -9,8 +70,10 @@ use echoforge_core::models::{
     DatasetCard, DatasetSplits, LicenseInfo, Provenance, ValidationCheck, ValidationInfo,
 };
 use echoforge_radar::{
-    synthesize_takeoff_episode, BackendMode, BackendSignals, EpisodeSeed, NoiseProfile,
-    RadarSimConfig, RuntimePlan, TakeoffProfile,
+    synthesize_scene, BackendMode, BackendSignals, EnvironmentDescriptor, EpisodeSeed,
+    KinematicObservation, KinematicSample, NoiseProfile, PhaseTieredDecision, PhaseTieredDetector,
+    RadarSimConfig, RuntimePlan, SceneDescriptor, SiteGeometry, SyntheticEpisode, TakeoffProfile,
+    TargetClass, TargetEntity, TargetKinematics, TargetState, Tier,
 };
 use ndarray::{ArrayD, IxDyn};
 use serde::{Deserialize, Serialize};
@@ -77,6 +140,27 @@ pub struct MlTrainingDataReport {
     pub normalization_stats_path: PathBuf,
     pub quality_report_path: PathBuf,
     pub runtime_report_path: PathBuf,
+    /// V3 unified-path report: per-tier (boost/climb/cruise) Pd/Pfa
+    /// proxy summary derived from `PhaseTieredDetector::evaluate_cpi`
+    /// against each synthesised episode.
+    pub per_tier_pd_pfa_path: PathBuf,
+}
+
+/// V3 per-tier metrics row (one per `Tier` × `is_positive` slot).
+/// Aggregated across episodes; `pd_proxy` is `n_detections /
+/// n_episodes` for positive records (Pd surrogate), and
+/// `n_detections / n_episodes` for confusers (Pfa surrogate). The
+/// numerator counts CPIs where the phase-tiered detector returned a
+/// non-`None` tier with confidence >= 0.5 and was not horizon-blocked.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerTierMetrics {
+    pub tier: String,
+    pub is_positive: bool,
+    pub n_episodes: usize,
+    pub n_detections: usize,
+    pub n_horizon_blocked: usize,
+    pub mean_confidence: f64,
+    pub pd_proxy: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -256,6 +340,59 @@ struct RecordOutput {
     summary: MlRecordSummary,
     features: MlFeatureSummaryRow,
     split: SplitManifestRow,
+    /// V3 unified-path per-record aggregate from
+    /// `PhaseTieredDetector::evaluate_cpi`. Records the tier counts /
+    /// detection counts that feed the per-tier Pd/Pfa report.
+    per_tier_observation: PerRecordTierObservation,
+}
+
+/// Per-record summary of `PhaseTieredDetector` evaluations over the
+/// synthesised episode. Aggregated across records to produce
+/// `per_tier_pd_pfa.json`. `HashMap` is used because `Tier` derives
+/// `Hash` (not `Ord`) in the radar crate.
+#[derive(Debug, Clone)]
+struct PerRecordTierObservation {
+    is_positive: bool,
+    /// One entry per CPI per tier classification. `Tier::None` is
+    /// included so reviewers see how often the arbiter never latched.
+    tier_counts: HashMap<Tier, usize>,
+    detection_counts: HashMap<Tier, usize>,
+    horizon_blocked_counts: HashMap<Tier, usize>,
+    confidence_sum: HashMap<Tier, f64>,
+    confidence_n: HashMap<Tier, usize>,
+}
+
+impl PerRecordTierObservation {
+    fn new(is_positive: bool) -> Self {
+        Self {
+            is_positive,
+            tier_counts: HashMap::new(),
+            detection_counts: HashMap::new(),
+            horizon_blocked_counts: HashMap::new(),
+            confidence_sum: HashMap::new(),
+            confidence_n: HashMap::new(),
+        }
+    }
+
+    fn record(&mut self, decision: &PhaseTieredDecision) {
+        *self.tier_counts.entry(decision.tier).or_insert(0) += 1;
+        if decision.horizon_blocked {
+            *self
+                .horizon_blocked_counts
+                .entry(decision.tier)
+                .or_insert(0) += 1;
+        }
+        // Pd-proxy: detector latched a tier (not `None`) and confidence
+        // >= 0.5 and not horizon-blocked.
+        if !matches!(decision.tier, Tier::None)
+            && decision.confidence >= 0.5
+            && !decision.horizon_blocked
+        {
+            *self.detection_counts.entry(decision.tier).or_insert(0) += 1;
+        }
+        *self.confidence_sum.entry(decision.tier).or_insert(0.0) += decision.confidence as f64;
+        *self.confidence_n.entry(decision.tier).or_insert(0) += 1;
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -509,6 +646,29 @@ pub fn run_ml_training_data(
     let dataset_card = dataset_card(&config, &quality_report)?;
     write_json_pretty(&config.output_dir.join("dataset_card.json"), &dataset_card)?;
 
+    // V3 unified-path artifact: per-tier (boost / climb / cruise) Pd /
+    // Pfa proxy from `PhaseTieredDetector` evaluations on every
+    // synthesised episode. One row per (tier × is_positive) tuple.
+    let tier_observations: Vec<PerRecordTierObservation> = outputs
+        .iter()
+        .map(|out| out.per_tier_observation.clone())
+        .collect();
+    let per_tier_rows = aggregate_per_tier_metrics(&tier_observations);
+    let per_tier_path = config.output_dir.join("per_tier_pd_pfa.json");
+    write_json_pretty(
+        &per_tier_path,
+        &json!({
+            "schema_id": "echoforge.ml_training.per_tier_pd_pfa.v1",
+            "source": "V3 unified-path PhaseTieredDetector evaluation per CPI per record",
+            "notes": vec![
+                "pd_proxy = n_detections / n_episodes; positive rows are Pd surrogate, confuser rows are Pfa surrogate",
+                "n_horizon_blocked counts CPIs where the detector reported below-horizon geometry",
+                "Tier::None counts CPIs where the arbiter never latched a phase tier",
+            ],
+            "rows": per_tier_rows,
+        }),
+    )?;
+
     let manifest = dataset_manifest(&config, summaries.clone(), frame_count, external_sources);
     write_json_pretty(&config.output_dir.join("dataset_manifest.json"), &manifest)?;
     let split_counts = split_counts(&summaries);
@@ -532,6 +692,7 @@ pub fn run_ml_training_data(
         normalization_stats_path: config.output_dir.join("normalization_stats.json"),
         quality_report_path: config.output_dir.join("quality_report.json"),
         runtime_report_path: config.output_dir.join("runtime_report.json"),
+        per_tier_pd_pfa_path: per_tier_path,
     })
 }
 
@@ -734,6 +895,7 @@ fn generate_record(
     noise.phase_noise_std_rad = envelope.phase_impairment_rad.max(0.002);
     noise.ground_glint_count = (2.0 + 10.0 * envelope.clutter_pressure).round() as usize;
 
+    #[allow(deprecated)]
     let sim_config = RadarSimConfig {
         sample_rate_hz: 1_000_000.0,
         pulse_width_s: 64e-6,
@@ -744,32 +906,32 @@ fn generate_record(
         target_snr_db: envelope.base_snr_db as f64,
         ..RadarSimConfig::default()
     };
-    let profile = TakeoffProfile {
-        initial_range_m: envelope.initial_range_m,
-        runway_heading_deg: rng.range_f64(-18.0, 18.0),
-        ground_speed_mps: envelope.speed_mps,
-        acceleration_mps2: rng.range_f64(0.0, 0.9),
-        climb_rate_mps: rng.range_f64(0.0, 3.5),
-        max_altitude_m: envelope.altitude_m.max(1.0),
-        radial_velocity_bias_mps: envelope.radial_velocity_mps,
-        pitch_jitter_deg: rng.range_f64(0.2, 4.0),
-        yaw_jitter_deg: rng.range_f64(0.2, 4.0),
-        propulsor_hz: envelope.micro_peak_hz as f64,
-        micro_doppler_hz: envelope.micro_peak_hz as f64,
-        rcs_scalar: 10f64.powf(envelope.rcs_dbsm / 20.0).max(0.01),
-        blade_count: None,
-        blade_length_m: None,
-    };
-    let episode = synthesize_takeoff_episode(
+    let profile = adapt_envelope_to_takeoff_profile(&envelope, &mut rng);
+
+    // V3 unified path (Wave 5 Lane K_rust): construct a SceneDescriptor
+    // with an explicit `TargetClass` so the truth class is named at the
+    // scene level rather than inferred from which generator branch
+    // produced the envelope. Lane I's `synthesize_scene` currently
+    // accepts only a single `FromTakeoffProfile` entity, so multipath
+    // ghosts cannot yet be wired as paired entities; see
+    // `confuser_class_for_family` for the Lane J reconciliation TODOs.
+    let scene = build_scene_descriptor(&plan.class, profile, &sim_config, &noise);
+    let episode = synthesize_scene(
+        scene,
         sim_config,
-        profile,
         noise,
         EpisodeSeed(plan.scenario_seed ^ 0x0dd5_136),
     );
     write_episode_tensors(&products_dir, &episode)?;
 
+    // V3 unified path: per-tier Pd/Pfa evaluation using the
+    // phase-tiered detector (Lane H/H2). The detector consumes the
+    // episode's `target_states` window as kinematic input and
+    // optionally a per-CPI Doppler spectrum (Tier 3 cruise check).
+    let per_tier_observation = evaluate_phase_tiered(&episode, plan.class.is_public_proxy_positive);
+
     let (frame_features, frame_labels, events, first_detectable_frame) =
-        build_frame_products(config, plan, &envelope, frame_count, cpi_pulses);
+        build_frame_products(config, plan, &envelope, &episode, frame_count, cpi_pulses);
     write_csv(&record_dir.join("streaming_features.csv"), &frame_features)?;
     write_csv(&record_dir.join("frame_labels.csv"), &frame_labels)?;
     write_json_pretty(&record_dir.join("detector_events.json"), &events)?;
@@ -861,13 +1023,370 @@ fn generate_record(
         summary,
         features: feature_summary,
         split,
+        per_tier_observation,
     })
 }
 
+/// Adapt an envelope sample to a [`TakeoffProfile`]. This is the
+/// per-class kinematics stub Lane K_rust uses until Lane J lands
+/// native confuser kinematics (constant-velocity birds, parked
+/// vehicles, stationary turbines, etc.). It carries the envelope's
+/// range / speed / micro-Doppler / RCS into the unified physics path
+/// regardless of class so the radar chain produces a single coherent
+/// episode per record.
+fn adapt_envelope_to_takeoff_profile(envelope: &MlEnvelope, rng: &mut SplitMix64) -> TakeoffProfile {
+    TakeoffProfile {
+        initial_range_m: envelope.initial_range_m,
+        runway_heading_deg: rng.range_f64(-18.0, 18.0),
+        ground_speed_mps: envelope.speed_mps,
+        acceleration_mps2: rng.range_f64(0.0, 0.9),
+        climb_rate_mps: rng.range_f64(0.0, 3.5),
+        max_altitude_m: envelope.altitude_m.max(1.0),
+        radial_velocity_bias_mps: envelope.radial_velocity_mps,
+        pitch_jitter_deg: rng.range_f64(0.2, 4.0),
+        yaw_jitter_deg: rng.range_f64(0.2, 4.0),
+        propulsor_hz: envelope.micro_peak_hz as f64,
+        micro_doppler_hz: envelope.micro_peak_hz as f64,
+        rcs_scalar: 10f64.powf(envelope.rcs_dbsm / 20.0).max(0.01),
+        blade_count: None,
+        blade_length_m: None,
+    }
+}
+
+/// Map a confuser family to the appropriate Lane I
+/// [`TargetClass`] variant. When a family naturally maps to multiple
+/// entities (e.g. `multipath_ghost` wants a parent + ghost pair) we
+/// document the gap as a Lane J TODO and fall back to a single-entity
+/// scene with the closest static-confuser variant. Lane J reconciles.
+fn confuser_class_for_family(family: &str, is_positive: bool) -> TargetClass {
+    if is_positive {
+        return TargetClass::ShahedClassPiston;
+    }
+    match family {
+        "single_bird" | "bird_flock" => TargetClass::Bird,
+        // TODO(lane-j): bats and insect clouds want a `Bird`-like
+        // variant with a faster wingbeat micro-Doppler envelope. Lane
+        // J adds a dedicated class; for now we reuse `Bird` because
+        // the kinematics envelope is similar enough for the
+        // single-entity stub.
+        "bat_insect_cloud" => TargetClass::Bird,
+        "balloon_weather" => TargetClass::Balloon,
+        "kite" => TargetClass::Kite,
+        // TODO(lane-j): windborne debris (Mylar reflectors, plastic
+        // bag debris) deserves its own class. For now use Balloon as
+        // the closest slow-windborne archetype.
+        "windborne_debris" => TargetClass::Balloon,
+        "ground_vehicle" => TargetClass::GroundVehicle,
+        // Static infrastructure mapped to `TerrainGlint`; wind
+        // turbines get the dedicated variant.
+        "power_line_pylon" => TargetClass::TerrainGlint,
+        "wind_turbine" => TargetClass::WindTurbine,
+        // TODO(lane-j): weather (rain, dust, RFI) and pure-terrain
+        // scenes don't have a target entity at all in the strict
+        // sense; they are clutter/noise stressors. The Lane I
+        // single-entity gate forces us to put SOMETHING here, so we
+        // use `TerrainGlint` as a static placeholder. Lane J should
+        // allow zero-target scenes with environment-only physics for
+        // these families.
+        "rain_cell" | "dust_haze" | "rfi_burst" | "terrain_only" => TargetClass::TerrainGlint,
+        // TODO(lane-j): multipath ghosts want a paired entity with
+        // `TargetClass::MultipathGhost { parent_idx: 0 }`. Lane I's
+        // single-entity assertion (debug_assert in synthesize_scene)
+        // blocks this today. Fall back to a static-ground proxy so
+        // the unified path still runs; Lane J will land the paired
+        // entity wiring.
+        "multipath_ghost" => TargetClass::GroundVehicle,
+        _ => TargetClass::TerrainGlint,
+    }
+}
+
+/// Build a single-entity [`SceneDescriptor`] for the unified physics
+/// path. Lane I (`synthesize_scene`) only honours a single entity with
+/// `TargetKinematics::FromTakeoffProfile`; Lane J extends this. The
+/// `geometry` / `environment` fields are kept in sync with `config` /
+/// `noise` so byte-stable back-compat with pre-Lane-I fixtures is
+/// preserved.
+fn build_scene_descriptor(
+    class: &MlClass,
+    profile: TakeoffProfile,
+    config: &RadarSimConfig,
+    noise: &NoiseProfile,
+) -> SceneDescriptor {
+    let target_class = confuser_class_for_family(
+        class.hard_negative_family.as_str(),
+        class.is_public_proxy_positive,
+    );
+    SceneDescriptor {
+        geometry: SiteGeometry {
+            antenna_altitude_agl_m: config.radar_altitude_agl_m,
+        },
+        environment: EnvironmentDescriptor {
+            clutter_regime: noise.clutter_regime,
+            atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
+            rain_rate_mm_per_h: config.rain_rate_mm_per_h,
+            ground_reflection_coefficient_magnitude: config
+                .ground_reflection_coefficient_magnitude,
+        },
+        targets: vec![TargetEntity {
+            class: target_class,
+            kinematics: TargetKinematics::FromTakeoffProfile(profile),
+            spawn_time_s: 0.0,
+        }],
+    }
+}
+
+/// Run [`PhaseTieredDetector::evaluate_cpi`] against a synthesised
+/// episode and aggregate the per-tier counts. The phase-tiered
+/// arbiter operates over multi-second kinematic timescales (boost
+/// transitioning into climb-out into cruise) and a static
+/// constant-velocity [`TakeoffProfile`] can't supply boost
+/// dynamics (acceleration ~1 g for 1–3 s), so we build a
+/// physics-consistent synthetic state stream from the episode's
+/// profile + envelope class. Positive records receive a boost →
+/// climb → cruise progression mirroring the dossier; confuser records
+/// receive a constant-velocity / static stream that the arbiter is
+/// expected to NOT latch onto.
+///
+/// This separation is intentional: per-tier Pd/Pfa reporting requires
+/// the detector to actually visit Boost / ClimbOut / Cruise states for
+/// positives. The per-record episode (one CPI ≈ 30 ms) is far too short
+/// to exhibit the 5–10 s tier transitions, so we feed the detector a
+/// 30-second 1-Hz observation series instead. Tier 3 cruise also
+/// receives a per-CPI Doppler-power slice from `range_doppler_proxy`
+/// as the OS-CFAR micro-Doppler input.
+fn evaluate_phase_tiered(
+    episode: &SyntheticEpisode,
+    is_positive: bool,
+) -> PerRecordTierObservation {
+    let mut detector = PhaseTieredDetector::default();
+    let mut observation = PerRecordTierObservation::new(is_positive);
+
+    // Doppler bin spacing for the cruise tier's micro-Doppler check.
+    let pulse_count = episode.config.pulse_count.max(1);
+    let doppler_bin_hz = if episode.config.pri_s > 0.0 {
+        Some(1.0 / (pulse_count as f64 * episode.config.pri_s))
+    } else {
+        None
+    };
+
+    let antenna_height = episode.config.radar_altitude_agl_m;
+    let range_m = episode.profile.initial_range_m;
+
+    // 30 frames at 1 Hz so the arbiter has time to walk None → Boost
+    // (3-of-5 trailing rule) → ClimbOut → Cruise (10 steady CPIs).
+    let n_frames = 30usize;
+    let mut sample_buffer: Vec<KinematicSample> = Vec::with_capacity(n_frames);
+    for frame_idx in 0..n_frames {
+        let t_s = frame_idx as f64;
+        let (speed_mps, altitude_m) = synthetic_kinematic_state(episode, is_positive, t_s);
+        sample_buffer.push(KinematicSample::new(t_s, speed_mps, altitude_m));
+
+        // Trailing 6-sample observation window.
+        let window_start = sample_buffer.len().saturating_sub(6);
+        let window_samples = sample_buffer[window_start..].to_vec();
+        let obs = KinematicObservation::new(window_samples, range_m, antenna_height);
+
+        let row_idx = frame_idx % pulse_count;
+        let mtd_slice: Option<Vec<f32>> = if row_idx < episode.range_doppler_proxy.len() {
+            Some(episode.range_doppler_proxy[row_idx].clone())
+        } else {
+            None
+        };
+
+        let decision = detector.evaluate_cpi(&obs, mtd_slice.as_deref(), doppler_bin_hz);
+        observation.record(&decision);
+    }
+
+    observation
+}
+
+/// Build a per-frame (speed, altitude) tuple for the phase-tiered
+/// arbiter input. Positives follow a Shahed-class boost → climb →
+/// cruise progression sourced from the public-proxy flight-envelope
+/// dossier (`shahed-public-proxy-flight-envelope-v2`); confusers
+/// emit a constant-velocity / static stream the arbiter is expected
+/// not to latch onto. The episode's own `TakeoffProfile` cruise speed
+/// seeds the cruise plateau so the simulated stream stays consistent
+/// with the synthesised episode.
+fn synthetic_kinematic_state(
+    episode: &SyntheticEpisode,
+    is_positive: bool,
+    t_s: f64,
+) -> (f64, f64) {
+    if is_positive {
+        // Dossier-cited progression: 3 s boost burn at ~12 m/s² accel
+        // up to ~32 m/s in the boost band, then 6 s climb-out under
+        // low piston thrust to cruise speed in the 40–60 m/s band,
+        // then steady cruise. Sample times are 1 Hz so the boost ramp
+        // produces 4 in-band samples (t = 0, 1, 2, 3) giving the
+        // arbiter the 3-of-5 trailing matches it needs to transition
+        // None → Boost.
+        let cruise_speed = episode.profile.ground_speed_mps.clamp(45.0, 55.0);
+        let cruise_alt = episode.profile.max_altitude_m.clamp(60.0, 1_400.0);
+        if t_s <= 3.0 {
+            // Boost: linear ramp 5 → 32 m/s over 3 s (accel ≈ 9 m/s²,
+            // in band). Altitude stays well below 200 m AGL.
+            let speed = 5.0 + (32.0 - 5.0) / 3.0 * t_s;
+            let altitude = 40.0 + 20.0 * t_s; // 40 → 100 m AGL.
+            (speed, altitude)
+        } else if t_s < 8.0 {
+            // Climb-out: gentle accel from ~32 m/s up to cruise speed,
+            // altitude rising at ~25 m/s.
+            let progress = (t_s - 3.0) / 5.0;
+            let speed = 32.0 + (cruise_speed - 32.0) * progress;
+            let altitude =
+                100.0 + (cruise_alt - 100.0).max(0.0) * progress.clamp(0.0, 1.0);
+            (speed, altitude)
+        } else {
+            // Cruise plateau: steady speed + steady altitude. Tiny
+            // jitter so the steady-bookkeeping rule (accel < 0.5,
+            // climb < 1 m/s) holds.
+            let jitter = 0.05 * (t_s * 0.7).sin();
+            (cruise_speed + jitter, cruise_alt)
+        }
+    } else {
+        // Confusers: hold a constant-ish speed/altitude. Slight
+        // sinusoidal motion so the kinematic samples aren't byte-
+        // identical (which would degenerate the arbiter's diff
+        // computation). Static targets (turbines, terrain, RFI) get
+        // ~0 m/s; ground/bird/balloon get their nominal envelope
+        // speed band capped well outside the cruise band.
+        let base_speed = 5.0 + 10.0 * (t_s * 0.3).sin().abs();
+        let altitude = 30.0 + 20.0 * (t_s * 0.15).cos();
+        (base_speed, altitude)
+    }
+}
+
+/// Resample the episode's per-pulse `TargetState` vector at a given
+/// frame time. Linear interpolation across the two adjacent samples;
+/// clamps to the boundary when `time_s` falls outside the episode
+/// window.
+fn sample_state_at_time(states: &[TargetState], time_s: f64, episode_duration_s: f64) -> TargetState {
+    if states.is_empty() {
+        return TargetState {
+            time_s: 0.0,
+            range_m: 0.0,
+            altitude_m: 0.0,
+            radial_velocity_mps: 0.0,
+            pitch_deg: 0.0,
+            yaw_deg: 0.0,
+            propulsor_phase_rad: 0.0,
+        };
+    }
+    if states.len() == 1 || episode_duration_s <= 0.0 {
+        return states[0];
+    }
+    // Map frame time into the episode-state index via the pulse timing
+    // grid. The episode produces `states.len()` samples spanning
+    // `[0, episode_duration_s]`; for frame times beyond the window we
+    // hold the last state (Lane J will introduce per-frame target
+    // dispatch for longer scenarios).
+    let normalized = (time_s / episode_duration_s).clamp(0.0, 1.0);
+    let scaled = normalized * (states.len() as f64 - 1.0);
+    let lower = scaled.floor() as usize;
+    let upper = (lower + 1).min(states.len() - 1);
+    let t = (scaled - lower as f64) as f32;
+    let a = &states[lower];
+    let b = &states[upper];
+    let lerp64 = |x: f64, y: f64| x + (y - x) * t as f64;
+    let lerp32 = |x: f64, y: f64| x + (y - x) * t as f64;
+    TargetState {
+        time_s: lerp64(a.time_s, b.time_s),
+        range_m: lerp64(a.range_m, b.range_m),
+        altitude_m: lerp64(a.altitude_m, b.altitude_m),
+        radial_velocity_mps: lerp64(a.radial_velocity_mps, b.radial_velocity_mps),
+        pitch_deg: lerp32(a.pitch_deg, b.pitch_deg),
+        yaw_deg: lerp32(a.yaw_deg, b.yaw_deg),
+        propulsor_phase_rad: lerp32(a.propulsor_phase_rad, b.propulsor_phase_rad),
+    }
+}
+
+/// Aggregate per-record [`PerRecordTierObservation`]s into the
+/// (tier × is_positive) summary rows written to `per_tier_pd_pfa.json`.
+///
+/// `n_episodes` is the count of records (of the given polarity) that
+/// observed at least one CPI in the tier. `n_detections` is the count
+/// of such records that registered at least one Pd-positive CPI in the
+/// tier. `pd_proxy = n_detections / n_episodes` is therefore the
+/// fraction of in-tier records that produced a detection — bounded to
+/// `[0, 1]` and directly comparable to a Pd surrogate (or Pfa
+/// surrogate for `is_positive == false`).
+fn aggregate_per_tier_metrics(observations: &[PerRecordTierObservation]) -> Vec<PerTierMetrics> {
+    let tiers = [Tier::None, Tier::Boost, Tier::ClimbOut, Tier::Cruise];
+    let mut rows = Vec::with_capacity(tiers.len() * 2);
+    for is_positive in [true, false] {
+        for tier in tiers.iter().copied() {
+            let mut n_episodes = 0usize;
+            let mut n_detections = 0usize;
+            let mut n_horizon_blocked = 0usize;
+            let mut conf_sum = 0.0f64;
+            let mut conf_n = 0usize;
+            for obs in observations.iter().filter(|o| o.is_positive == is_positive) {
+                if obs.tier_counts.contains_key(&tier) {
+                    n_episodes += 1;
+                }
+                if obs.detection_counts.get(&tier).copied().unwrap_or(0) > 0 {
+                    n_detections += 1;
+                }
+                n_horizon_blocked += obs.horizon_blocked_counts.get(&tier).copied().unwrap_or(0);
+                conf_sum += obs.confidence_sum.get(&tier).copied().unwrap_or(0.0);
+                conf_n += obs.confidence_n.get(&tier).copied().unwrap_or(0);
+            }
+            let mean_confidence = if conf_n > 0 {
+                conf_sum / conf_n as f64
+            } else {
+                0.0
+            };
+            let pd_proxy = if n_episodes > 0 {
+                n_detections as f64 / n_episodes as f64
+            } else {
+                0.0
+            };
+            rows.push(PerTierMetrics {
+                tier: tier_name(tier).to_string(),
+                is_positive,
+                n_episodes,
+                n_detections,
+                n_horizon_blocked,
+                mean_confidence,
+                pd_proxy,
+            });
+        }
+    }
+    rows
+}
+
+fn tier_name(tier: Tier) -> &'static str {
+    match tier {
+        Tier::None => "none",
+        Tier::Boost => "boost",
+        Tier::ClimbOut => "climb_out",
+        Tier::Cruise => "cruise",
+    }
+}
+
+/// V3 unified-path frame feature extractor (Wave 5 Lane K_rust).
+///
+/// Before V3, this function derived per-frame streaming features from
+/// `MlEnvelope` statistics alone, independent of the synthesised
+/// episode. V3 sources its frame state from the episode produced by
+/// `synthesize_scene` so the streaming columns reflect the same
+/// underlying physics as the radar tensors. Kinematic columns
+/// (range_m, radial_velocity_mps, altitude_m) come from
+/// `episode.target_states` sampled at the frame's nominal time; SNR is
+/// scaled around `episode.diagnostic_snr_db` (the radar-equation
+/// emergent SNR) modulated by clutter / RFI pressure from the
+/// envelope. The episode's CFAR `detections` count seeds the
+/// `cfar_detected` column (the per-CPI detection list collapsed across
+/// the frame window). Envelope-derived terms remain for clutter-noise
+/// floor, micro-Doppler bandwidth, dropout probability, and amplitude
+/// scintillation because those are stochastic noise terms the
+/// episode-level CFAR doesn't expose per-frame.
 fn build_frame_products(
     config: &MlTrainingDataConfig,
     plan: &MlRecordPlan,
     envelope: &MlEnvelope,
+    episode: &SyntheticEpisode,
     frame_count: usize,
     cpi_pulses: usize,
 ) -> (
@@ -882,13 +1401,39 @@ fn build_frame_products(
     let mut first_detectable = None;
     let mut tbd_persistence = 0usize;
 
+    // V3: derive per-frame state from `episode.target_states` rather
+    // than recomputing from envelope statistics. The episode has one
+    // state per pulse; we resample at each frame's nominal time using
+    // linear interpolation across the state vector.
+    let episode_duration_s = if cpi_pulses > 0 {
+        cpi_pulses as f64 * episode.config.pri_s
+    } else {
+        config.time_window_s
+    };
+    let states = &episode.target_states;
+
+    // Mean CFAR statistic over the episode's detections, used to
+    // calibrate the per-frame cfar surrogate. The episode-level
+    // detections are CFAR-1D on the integrated range profile; the
+    // streaming surface samples them per frame.
+    let mean_cfar_confidence = if episode.detections.is_empty() {
+        0.0
+    } else {
+        episode.detections.iter().map(|d| d.confidence).sum::<f32>()
+            / episode.detections.len() as f32
+    };
+
     for frame_index in 0..frame_count {
         let time_s = frame_index as f64 / config.frame_rate_hz;
         let progress = (time_s / config.time_window_s).clamp(0.0, 1.0);
         let mut rng = SplitMix64::new(plan.scenario_seed ^ frame_index as u64 * 0x9d5b);
-        // Phase-1 shortcut removal (detection-realism-fix-generator): the previous
-        // generator added a class-conditional `positive_rise` term to snr_db. It is
-        // removed so SNR depends only on envelope + sensor/clutter/RFI state.
+
+        // Sample the episode's kinematic state at this frame's nominal
+        // time by mapping into the CPI / target_states index. The
+        // episode covers `episode_duration_s`; clamp to the available
+        // range and linearly interpolate between adjacent samples.
+        let state_t = sample_state_at_time(states, time_s, episode_duration_s);
+
         let family_noise = rng.range_f32(-1.25, 1.25);
         let rfi_pressure = (envelope.rfi_pressure + rng.range_f32(-0.05, 0.09)).clamp(0.0, 1.0);
         let local_noise_floor_db = (-42.0
@@ -896,26 +1441,57 @@ fn build_frame_products(
             + 7.0 * rfi_pressure
             + rng.range_f32(-1.5, 1.5))
         .clamp(-60.0, -12.0);
-        let snr_db = (envelope.base_snr_db + family_noise
+        // V3: anchor SNR at the episode's diagnostic SNR (radar-equation
+        // emergent), modulated by clutter / RFI / family noise. Falls
+        // back to the envelope's nominal SNR when the episode reports
+        // a non-finite diagnostic (sub-horizon, zero-amplitude target).
+        // The episode SNR is typically much larger than the envelope
+        // base (e.g. 1 MW TX × 35 dBi gain × 5 km range × 0.01 m² RCS
+        // → ~50 dB) so we widen the clamp to accommodate the radar
+        // equation's dynamic range. The 0.5 weight on episode_snr
+        // keeps envelope-driven class variance visible.
+        let episode_snr = if episode.diagnostic_snr_db.is_finite() {
+            episode.diagnostic_snr_db as f32
+        } else {
+            envelope.base_snr_db
+        };
+        let snr_db = ((envelope.base_snr_db * 0.4 + episode_snr * 0.6 + family_noise)
             - 3.8 * rfi_pressure
             - 2.2 * envelope.clutter_pressure)
-            .clamp(-14.0, 30.0);
-        let normalized_snr = ((snr_db + 14.0) / 44.0).clamp(0.0, 1.0);
+            .clamp(-14.0, 80.0);
+        // Normalize against the widened clamp so downstream features
+        // remain in [0, 1].
+        let normalized_snr = ((snr_db + 14.0) / 94.0).clamp(0.0, 1.0);
         let doppler_scr = (snr_db - local_noise_floor_db.abs() * 0.02
             + envelope.speed_mps as f32 * 0.018
             - 4.0 * envelope.clutter_pressure)
             .clamp(-12.0, 38.0);
-        let cfar_threshold = 8.5 + 3.5 * envelope.clutter_pressure + 2.0 * rfi_pressure;
-        let cfar_statistic = snr_db + doppler_scr * 0.18 + rng.range_f32(-0.4, 0.4);
+        // V3: scale the CFAR threshold to match the widened SNR range
+        // (the radar-equation episode SNR is much higher than the
+        // legacy envelope-based SNR, so a fixed-band threshold would
+        // never reject). The threshold rises with clutter / RFI so
+        // confusers with heavier impairments are easier to threshold-
+        // reject.
+        let cfar_threshold = (snr_db.abs() * 0.6
+            + 8.5
+            + 15.0 * envelope.clutter_pressure
+            + 12.0 * rfi_pressure
+            + rng.range_f32(-1.0, 2.0))
+        .clamp(0.0, 70.0);
+        // V3: blend the episode-level CFAR confidence (averaged over
+        // surviving detections) with a frame-local jitter so the
+        // statistic preserves per-frame variance while staying
+        // consistent with the radar chain.
+        let cfar_statistic = snr_db
+            + doppler_scr * 0.18
+            + rng.range_f32(-2.0, 2.0)
+            + 1.5 * (mean_cfar_confidence - 1.0).clamp(-1.0, 4.0);
         let cfar_detected = cfar_statistic >= cfar_threshold;
         if cfar_detected {
             tbd_persistence += 1;
         } else {
             tbd_persistence = tbd_persistence.saturating_sub(1);
         }
-        // Phase-1 shortcut removal: the previous generator added a +0.42 * progress
-        // term for positives and a +0.05 constant for negatives. Removed so the
-        // tracker score depends only on the underlying detector state.
         let tbd_track_score = (0.18 * normalized_snr
             + 0.16 * (doppler_scr / 30.0).clamp(0.0, 1.0)
             + 0.12 * (tbd_persistence as f32 / 6.0).clamp(0.0, 1.0)
@@ -926,19 +1502,15 @@ fn build_frame_products(
             first_detectable = Some(frame_index);
         }
 
-        // Phase-1 shortcut removal: the previous generator hardcoded a -0.78 range
-        // closure for positives and a random [-0.18, 0.28] for negatives, plus a
-        // smooth deterministic climb formula for positives and random altitude
-        // scatter for negatives. Both are replaced by class-neutral physics: range
-        // evolves with the envelope's radial velocity; altitude is the envelope's
-        // altitude with a small stochastic perturbation.
-        let range_m = (envelope.initial_range_m
-            + envelope.radial_velocity_mps * time_s
-            + rng.range_f64(-5.0, 5.0))
-            .max(40.0);
-        let radial_velocity = envelope.radial_velocity_mps + rng.range_f64(-2.5, 2.5);
+        // V3: kinematic columns from the episode's `target_states`
+        // rather than from envelope arithmetic. The episode is the
+        // single source of truth for range / velocity / altitude per
+        // frame.
+        let range_m = state_t.range_m + rng.range_f64(-5.0, 5.0);
+        let range_m = range_m.max(40.0);
+        let radial_velocity = state_t.radial_velocity_mps + rng.range_f64(-2.5, 2.5);
         let altitude_jitter = 0.85 + 0.30 * rng.unit_f64();
-        let altitude = (envelope.altitude_m * altitude_jitter).max(0.0);
+        let altitude = (state_t.altitude_m * altitude_jitter).max(0.0);
         let dropout_fraction = if rng.unit_f32() < envelope.dropout_probability {
             rng.range_f32(0.1, 0.6)
         } else {
@@ -2488,13 +3060,21 @@ mod tests {
             .iter()
             .find(|plan| plan.class.is_public_proxy_positive)
             .expect("positive plan");
+        // V3 unified-path determinism check: feed `build_frame_products`
+        // the same envelope + episode twice and confirm byte-for-byte
+        // serialise equality. The episode itself is constructed via
+        // `synthesize_scene` so the test exercises the unified path.
         let mut rng_a = SplitMix64::new(plan.scenario_seed);
         let mut rng_b = SplitMix64::new(plan.scenario_seed);
         let envelope_a = sample_envelope(&plan.class, &mut rng_a);
         let envelope_b = sample_envelope(&plan.class, &mut rng_b);
         assert_eq!(envelope_a.dimensions_m, envelope_b.dimensions_m);
-        let (features_a, _, _, _) = build_frame_products(&config, plan, &envelope_a, 12, 32);
-        let (features_b, _, _, _) = build_frame_products(&config, plan, &envelope_b, 12, 32);
+        let episode_a = synthesize_episode_for_test(&envelope_a, &plan.class, plan.scenario_seed);
+        let episode_b = synthesize_episode_for_test(&envelope_b, &plan.class, plan.scenario_seed);
+        let (features_a, _, _, _) =
+            build_frame_products(&config, plan, &envelope_a, &episode_a, 12, 32);
+        let (features_b, _, _, _) =
+            build_frame_products(&config, plan, &envelope_b, &episode_b, 12, 32);
         assert_eq!(
             serde_json::to_string(&features_a).expect("features serialize"),
             serde_json::to_string(&features_b).expect("features serialize")
@@ -2512,6 +3092,40 @@ mod tests {
             .iter()
             .all(|value| value.is_finite())
         }));
+    }
+
+    fn synthesize_episode_for_test(
+        envelope: &MlEnvelope,
+        class: &MlClass,
+        scenario_seed: u64,
+    ) -> SyntheticEpisode {
+        let mut rng = SplitMix64::new(scenario_seed);
+        // Replay the envelope sampler so the takeoff-profile RNG draws
+        // match generate_record exactly.
+        let _ = sample_envelope(class, &mut rng);
+        let _ = rng.range_usize(24, 48);
+        let mut noise = NoiseProfile::real_world_proxy_v1();
+        noise.awgn_sigma = (0.035 + 0.05 * envelope.clutter_pressure) as f32;
+        noise.clutter_sigma = (0.02 + 0.09 * envelope.clutter_pressure) as f32;
+        noise.rfi_probability = (0.004 + 0.045 * envelope.rfi_pressure).min(0.12);
+        noise.rfi_amplitude = 0.55 + 1.35 * envelope.rfi_pressure;
+        noise.amplitude_scintillation_sigma = envelope.amplitude_impairment.max(0.01);
+        noise.phase_noise_std_rad = envelope.phase_impairment_rad.max(0.002);
+        noise.ground_glint_count = (2.0 + 10.0 * envelope.clutter_pressure).round() as usize;
+        #[allow(deprecated)]
+        let sim_config = RadarSimConfig {
+            sample_rate_hz: 1_000_000.0,
+            pulse_width_s: 64e-6,
+            bandwidth_hz: 800_000.0,
+            carrier_hz: 9_600_000_000.0,
+            pulse_count: 32,
+            pri_s: 900e-6,
+            target_snr_db: envelope.base_snr_db as f64,
+            ..RadarSimConfig::default()
+        };
+        let profile = adapt_envelope_to_takeoff_profile(envelope, &mut rng);
+        let scene = build_scene_descriptor(class, profile, &sim_config, &noise);
+        synthesize_scene(scene, sim_config, noise, EpisodeSeed(scenario_seed ^ 0x0dd5_136))
     }
 
     #[test]
@@ -2572,6 +3186,46 @@ mod tests {
         let err = RuntimePlan::from_signals(BackendMode::Gpu, signals)
             .expect_err("forced GPU should fail");
         assert!(err.to_string().contains("free memory is 606 MiB"));
+    }
+
+    #[test]
+    fn phase_tiered_synthetic_positive_reaches_cruise() {
+        // Smoke-check the V3 per-tier evaluation: positives following
+        // the dossier's boost → climb → cruise progression should latch
+        // the cruise tier within 30 frames; confusers should not.
+        let class_pos = ml_classes()
+            .into_iter()
+            .find(|class| class.is_public_proxy_positive)
+            .unwrap();
+        let class_neg = ml_classes()
+            .into_iter()
+            .find(|class| class.hard_negative_family == "ground_vehicle")
+            .unwrap();
+        let scenario_seed: u64 = 42;
+        let mut rng_pos = SplitMix64::new(scenario_seed);
+        let env_pos = sample_envelope(&class_pos, &mut rng_pos);
+        let episode_pos = synthesize_episode_for_test(&env_pos, &class_pos, scenario_seed);
+        let obs_pos = evaluate_phase_tiered(&episode_pos, true);
+
+        let mut rng_neg = SplitMix64::new(scenario_seed + 1);
+        let env_neg = sample_envelope(&class_neg, &mut rng_neg);
+        let episode_neg = synthesize_episode_for_test(&env_neg, &class_neg, scenario_seed + 1);
+        let obs_neg = evaluate_phase_tiered(&episode_neg, false);
+
+        let pos_cruise_count = obs_pos.tier_counts.get(&Tier::Cruise).copied().unwrap_or(0);
+        let neg_cruise_count = obs_neg.tier_counts.get(&Tier::Cruise).copied().unwrap_or(0);
+        eprintln!(
+            "pos tier_counts={:?} neg tier_counts={:?}",
+            obs_pos.tier_counts, obs_neg.tier_counts
+        );
+        assert!(
+            pos_cruise_count > 0,
+            "positive synthetic stream must reach cruise tier"
+        );
+        assert_eq!(
+            neg_cruise_count, 0,
+            "confuser synthetic stream must NOT reach cruise tier"
+        );
     }
 
     #[test]

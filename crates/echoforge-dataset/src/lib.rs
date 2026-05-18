@@ -18,7 +18,7 @@ pub use campaign::{
 };
 pub use leakage::{build_leakage_report, LeakageFinding, LeakageReport};
 pub use ml_training::{
-    run_ml_training_data, MlTrainingDataConfig, MlTrainingDataReport,
+    run_ml_training_data, MlTrainingDataConfig, MlTrainingDataReport, PerTierMetrics,
     DEFAULT_ML_TRAINING_DATASET_ID, DEFAULT_ML_TRAINING_OUTPUT,
 };
 pub use monte_carlo::{
