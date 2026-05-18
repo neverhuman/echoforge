@@ -2,6 +2,7 @@ use std::f64::consts::PI;
 
 use serde::{Deserialize, Serialize};
 
+use crate::pulse_compression::{coefficients, CompressionWindow};
 use crate::ComplexSample;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -20,6 +21,24 @@ impl LfmChirp {
 
     pub fn samples(&self) -> Vec<ComplexSample> {
         lfm_chirp(self)
+    }
+
+    /// Pre-windowed samples suitable for use as a matched-filter
+    /// reference without further weighting. The window is applied as a
+    /// real-valued multiplicative taper to the raw LFM samples; the
+    /// default Taylor-35 keeps range sidelobes near -33 dB. Callers
+    /// can pass [`CompressionWindow::None`] to get back the raw
+    /// behaviour of [`LfmChirp::samples`].
+    pub fn windowed_samples(&self, window: CompressionWindow) -> Vec<ComplexSample> {
+        let raw = self.samples();
+        if matches!(window, CompressionWindow::None) {
+            return raw;
+        }
+        let coeffs = coefficients(window, raw.len());
+        raw.into_iter()
+            .zip(coeffs.iter())
+            .map(|(sample, w)| ComplexSample::new(sample.re * w, sample.im * w))
+            .collect()
     }
 }
 

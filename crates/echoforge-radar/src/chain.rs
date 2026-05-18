@@ -1,6 +1,6 @@
 use crate::backend::ArrayBackend;
 use crate::cfar::{ca_cfar_1d, CfarDecision, CfarParams};
-use crate::pulse_compression::magnitude;
+use crate::pulse_compression::{coefficients, magnitude, CompressionWindow};
 use crate::waveform::LfmChirp;
 use crate::ComplexSample;
 
@@ -16,14 +16,32 @@ pub struct RadarChainOutput {
 pub struct RadarChain<B: ArrayBackend> {
     backend: B,
     cfar_params: CfarParams,
+    compression_window: CompressionWindow,
 }
 
 impl<B: ArrayBackend> RadarChain<B> {
+    /// Construct a chain with the default Taylor-35 amplitude weighting
+    /// applied to the matched-filter reference. This is the Lane E
+    /// credibility win: range sidelobes sit near -33 dB instead of the
+    /// raw matched-filter -13 dB.
     pub fn new(backend: B, cfar_params: CfarParams) -> Self {
         Self {
             backend,
             cfar_params,
+            compression_window: CompressionWindow::taylor_default(),
         }
+    }
+
+    /// Override the compression window. Pass [`CompressionWindow::None`]
+    /// to recover the byte-stable pre-Lane-E behaviour (raw matched
+    /// filter, no taper).
+    pub fn with_compression_window(mut self, window: CompressionWindow) -> Self {
+        self.compression_window = window;
+        self
+    }
+
+    pub fn compression_window(&self) -> CompressionWindow {
+        self.compression_window
     }
 
     pub fn backend_name(&self) -> &'static str {
@@ -34,6 +52,9 @@ impl<B: ArrayBackend> RadarChain<B> {
         self.backend.chirp(config)
     }
 
+    /// Raw pulse compression — no window — exposed so existing callers
+    /// (e.g. detector graph integration tests) keep their byte-stable
+    /// behaviour even after the chain default switched to Taylor-35.
     pub fn pulse_compress(
         &self,
         received: &[ComplexSample],
@@ -47,7 +68,11 @@ impl<B: ArrayBackend> RadarChain<B> {
         received: &[ComplexSample],
         reference: &[ComplexSample],
     ) -> RadarChainOutput {
-        let compressed = self.pulse_compress(received, reference);
+        // Pre-window the reference so any backend (CPU, GPU stub) sees a
+        // tapered template. This keeps the `ArrayBackend` trait surface
+        // unchanged but threads the Taylor-35 default through.
+        let windowed_reference = apply_window(reference, self.compression_window);
+        let compressed = self.backend.pulse_compress(received, &windowed_reference);
         let magnitudes = magnitude(&compressed);
         let cfar = ca_cfar_1d(&magnitudes, self.cfar_params);
 
@@ -58,4 +83,19 @@ impl<B: ArrayBackend> RadarChain<B> {
             cfar,
         }
     }
+}
+
+fn apply_window(
+    reference: &[ComplexSample],
+    window: CompressionWindow,
+) -> Vec<ComplexSample> {
+    if matches!(window, CompressionWindow::None) {
+        return reference.to_vec();
+    }
+    let coeffs = coefficients(window, reference.len());
+    reference
+        .iter()
+        .zip(coeffs.iter())
+        .map(|(sample, w)| ComplexSample::new(sample.re * w, sample.im * w))
+        .collect()
 }

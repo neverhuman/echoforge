@@ -49,6 +49,13 @@ pub struct ValidationInfo {
     pub uncertainty_score: f64,
     #[serde(default)]
     pub checks: Vec<ValidationCheck>,
+    // Method-ceiling fidelity tier F0..F5 (fidelity-class-field packet).
+    // Independent from `tier` (which tracks evidence accumulation). Optional
+    // and skipped when None so existing canonical payloads and golden
+    // SHA-256 fixtures remain byte-stable; producers that have not yet
+    // adopted the dual-axis vocabulary may continue to omit the field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fidelity_class: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -110,6 +117,54 @@ pub struct MaterialCard {
     pub conductivity_s_per_m: f64,
     #[serde(default)]
     pub roughness_m: f64,
+    // --- v2 additive fields (FUCKIT.md.done section B; material-card-v2 packet).
+    // All Option<...> and skipped when None so the canonical JSON
+    // serialization, golden SHA-256 hashes, and v1 fixtures remain stable.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frequency_validity_hz: Option<NumericRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub solver_compatibility: Option<std::collections::BTreeMap<String, String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub uncertainty_policy: Option<MaterialUncertaintyPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub confidence_grade: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thickness_m: Option<NumericRange>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer_stackup: Option<Vec<MaterialLayer>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anisotropy_flag: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loss_tangent_distribution: Option<LossTangentDistribution>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MaterialUncertaintyPolicy {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sample_count_default: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propagate_to_rcs_uncertainty: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub downgrade_confidence_if_unvalidated: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epsilon_relative_sigma: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub epsilon_imag_relative_sigma: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MaterialLayer {
+    pub name: String,
+    pub thickness_m: NumericRange,
+    pub epsilon_real_range: NumericRange,
+    pub epsilon_imag_range: NumericRange,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct LossTangentDistribution {
+    pub mean: f64,
+    pub sigma: f64,
+    pub samples: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

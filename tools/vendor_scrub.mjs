@@ -63,9 +63,24 @@ function parseTomlBanlist(text) {
   };
   let section = null;
   let currentTerm = null;
+  // Multi-line `key = [...]` collector. When non-null, lines accumulate
+  // into `pendingArray.buffer` until the closing `]` is seen, then the
+  // joined string is parsed by parseValue and routed to the right
+  // section. This is the minimum we need so that `paths = [\n "a",\n ...]`
+  // works without pulling in a real TOML library.
+  let pendingArray = null;
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (!line) continue;
+    if (pendingArray) {
+      pendingArray.buffer += " " + line;
+      if (line.includes("]")) {
+        const val = parseValue(pendingArray.buffer.trim());
+        applyKey(out, pendingArray.section, currentTerm, pendingArray.key, val);
+        pendingArray = null;
+      }
+      continue;
+    }
     if (line.startsWith("[[term]]")) {
       if (currentTerm) out.terms.push(currentTerm);
       currentTerm = { case_sensitive: false };
@@ -79,21 +94,34 @@ function parseTomlBanlist(text) {
     if (eq === -1) continue;
     const key = line.slice(0, eq).trim();
     const valRaw = line.slice(eq + 1).trim();
+    if (valRaw.startsWith("[") && !valRaw.endsWith("]")) {
+      pendingArray = { section, key, buffer: valRaw };
+      continue;
+    }
     const val = parseValue(valRaw);
-    if (section === "term") currentTerm[key] = val;
-    else if (section === "compliance") out.compliance[key] = val;
-    else if (section === "exclude") out.compliance.exclude[key] = val;
-    else if (section === null && key === "version") out.version = val;
+    applyKey(out, section, currentTerm, key, val);
   }
   if (currentTerm) out.terms.push(currentTerm);
   return out;
 }
 
+function applyKey(out, section, currentTerm, key, val) {
+  if (section === "term") currentTerm[key] = val;
+  else if (section === "compliance") out.compliance[key] = val;
+  else if (section === "exclude") out.compliance.exclude[key] = val;
+  else if (section === null && key === "version") out.version = val;
+}
+
 function parseValue(raw) {
   if (raw.startsWith("[")) {
+    // Tolerate multi-line buffers: strip newlines that the array collector
+    // joined in, then split on commas. Trailing commas are allowed.
     const inner = raw.replace(/^\[|\]$/g, "").trim();
     if (!inner) return [];
-    return inner.split(",").map((s) => s.trim().replace(/^"|"$/g, ""));
+    return inner
+      .split(",")
+      .map((s) => s.trim().replace(/^"|"$/g, ""))
+      .filter((s) => s.length > 0);
   }
   if (raw === "true") return true;
   if (raw === "false") return false;

@@ -3,16 +3,32 @@
 //! This crate owns split policy, leakage checks, and benchmark placeholders.
 
 pub mod benchmark;
+pub mod campaign;
 pub mod export;
 pub mod leakage;
+pub mod ml_training;
 pub mod monte_carlo;
+pub mod scenarios;
 pub mod split;
 
 pub use benchmark::{benchmark_report_template, BenchmarkReportSkeleton};
+pub use campaign::{
+    run_monte_carlo_campaign, CampaignConfig, CampaignReport, DEFAULT_CAMPAIGN_OUTPUT,
+    DEFAULT_CAMPAIGN_REQUEST_ID, NEUTRAL_CAMPAIGN_ID, OWA_DELTA_OBJECT_ID,
+};
 pub use leakage::{build_leakage_report, LeakageFinding, LeakageReport};
+pub use ml_training::{
+    run_ml_training_data, MlTrainingDataConfig, MlTrainingDataReport,
+    DEFAULT_ML_TRAINING_DATASET_ID, DEFAULT_ML_TRAINING_OUTPUT,
+};
 pub use monte_carlo::{
     embedded_airspace_config, known_presets, run_monte_carlo_demo, AirspaceMonteCarloConfig,
-    DatasetError, MonteCarloDemoConfig, MonteCarloDemoReport,
+    DatasetError, MonteCarloBenchmarkReport, MonteCarloDemoConfig, MonteCarloDemoReport,
+    MonteCarloRuntimePolicy, StageTiming, DEFAULT_PRESET, DEFAULT_TARGET_LABEL,
+};
+pub use scenarios::{
+    EnvironmentState, RadarSite, ScenarioLoadError, SensorConfig, SurveillanceScenario,
+    TargetLaunchSite,
 };
 pub use split::{
     assign_split, default_public_proxy_split_policy, DatasetRecord, SplitKind, SplitPolicy,

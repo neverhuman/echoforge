@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
 echoforge-dataset = { path = "../echoforge-dataset" }
+echoforge-radar = { path = "../echoforge-radar" }
 echoforge-validate = { path = "../echoforge-validate" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

@@ -63,6 +63,10 @@ fn validation_info() -> ValidationInfo {
             status: "pass".to_string(),
             message: "ok".to_string(),
         }],
+        // fidelity-class-field packet: optional method-ceiling tier. Stays
+        // None in the canonical fixture so the contract golden SHA-256
+        // remains stable (skip_serializing_if drops the field on the wire).
+        fidelity_class: None,
     }
 }
 
@@ -118,6 +122,16 @@ pub fn material_card() -> MaterialCard {
         },
         conductivity_s_per_m: 0.0,
         roughness_m: 0.0,
+        // v2 additive optional fields: stay None in the canonical fixture so
+        // the contract golden SHA-256 hash and v1 schema remain stable.
+        frequency_validity_hz: None,
+        solver_compatibility: None,
+        uncertainty_policy: None,
+        confidence_grade: None,
+        thickness_m: None,
+        layer_stackup: None,
+        anisotropy_flag: None,
+        loss_tangent_distribution: None,
     }
     .finalize()
     .expect("material_card finalize")

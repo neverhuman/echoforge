@@ -2,14 +2,17 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::thread;
+use std::time::Instant;
 
 use echoforge_core::models::{
     DatasetCard, DatasetSplits, LicenseInfo, Provenance, RadarEpisode, Scenario, SensorArchetype,
     ValidationCheck, ValidationInfo,
 };
 use echoforge_radar::{
-    synthesize_takeoff_episode, DetectionRecord, EpisodeSeed, NoiseProfile, RadarSimConfig,
-    SyntheticEpisode, TakeoffProfile,
+    synthesize_takeoff_episode, BackendMode, BackendSelectionError, BackendSignals,
+    DetectionRecord, EpisodeSeed, NoiseProfile, RadarSimConfig, RuntimePlan, SyntheticEpisode,
+    TakeoffProfile,
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +21,14 @@ use crate::leakage::{build_leakage_report, LeakageReport};
 use crate::split::{assign_split, DatasetRecord, SplitKind, SplitPolicy, SplitRatios};
 
 const CONFIG_JSON: &str = include_str!("../../../configs/monte-carlo/airspace-objects-v1.json");
-const DEFAULT_TARGET_LABEL: &str = "Iranian Public-Proxy Fixed-Wing UAV Takeoff";
+/// Neutral default target label used by the monte-carlo demo.
+///
+/// Country-specific or platform-specific aliases live in
+/// `object-packs/public-proxy-v1/source_dossier.yaml`
+/// (`policy: source_dossier_only`). The default label never names a single
+/// nation or system so the strict-open dataset stays publishable as-is.
+pub const DEFAULT_TARGET_LABEL: &str = "Low-Altitude Fixed-Wing UAV Takeoff (public proxy)";
+pub const DEFAULT_PRESET: &str = "low-altitude-fixed-wing-takeoff-v1";
 const DEFAULT_NOISE_PROFILE: &str = "real-world-proxy-v1";
 
 #[derive(Debug, Clone)]
@@ -32,12 +42,16 @@ pub struct MonteCarloDemoConfig {
     pub noise_profile: String,
     pub sample_rate_hz: f64,
     pub pulse_count: usize,
+    pub runtime: MonteCarloRuntimePolicy,
 }
 
 impl MonteCarloDemoConfig {
-    pub fn iranian_takeoff_default(output_dir: PathBuf) -> Self {
+    /// Neutral default constructor — public-proxy low-altitude fixed-wing
+    /// takeoff. Use this for new code paths; the demo CLI defaults to the
+    /// same preset.
+    pub fn low_altitude_fixed_wing_default(output_dir: PathBuf) -> Self {
         Self {
-            preset: "iranian-takeoff-v1".to_string(),
+            preset: DEFAULT_PRESET.to_string(),
             episodes: 32,
             seed: 20_260_518,
             generated_at: "2026-05-18T00:00:00Z".to_string(),
@@ -46,6 +60,36 @@ impl MonteCarloDemoConfig {
             noise_profile: DEFAULT_NOISE_PROFILE.to_string(),
             sample_rate_hz: 2_000_000.0,
             pulse_count: 32,
+            runtime: MonteCarloRuntimePolicy::default(),
+        }
+    }
+
+    /// Deprecated alias retained for one release. Delegates to
+    /// [`Self::low_altitude_fixed_wing_default`] so external callers do not
+    /// silently break.
+    #[deprecated(
+        since = "0.2.0",
+        note = "use MonteCarloDemoConfig::low_altitude_fixed_wing_default; \
+                the iranian_takeoff_default name and `iranian-takeoff-v1` preset \
+                were diversified per the FUCKIT.md roadmap (packet \
+                diversify-monte-carlo-default)."
+    )]
+    pub fn iranian_takeoff_default(output_dir: PathBuf) -> Self {
+        Self::low_altitude_fixed_wing_default(output_dir)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MonteCarloRuntimePolicy {
+    pub backend: BackendMode,
+    pub benchmark: bool,
+}
+
+impl Default for MonteCarloRuntimePolicy {
+    fn default() -> Self {
+        Self {
+            backend: BackendMode::Auto,
+            benchmark: false,
         }
     }
 }
@@ -60,14 +104,49 @@ pub struct MonteCarloDemoReport {
     pub validation_status: String,
     pub manifest_path: PathBuf,
     pub dataset_card_path: PathBuf,
+    pub runtime: RuntimePlan,
+    pub benchmark_report_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MonteCarloBenchmarkReport {
+    pub requested_backend: BackendMode,
+    pub selected_backend: String,
+    pub logical_cores: usize,
+    pub gpu_available: bool,
+    pub gpu_usable: bool,
+    pub gpu_constrained: bool,
+    pub gpu_min_free_memory_mb: u64,
+    pub gpu_free_memory_mb: Option<u64>,
+    pub gpu_unusable_reason: Option<String>,
+    pub recommended_worker_budget: usize,
+    pub actual_worker_count: usize,
+    pub episode_count: usize,
+    pub seed: u64,
+    pub sample_rate_hz: f64,
+    pub pulse_count: usize,
+    pub stage_timings: Vec<StageTiming>,
+    pub total_elapsed_ns: u64,
+    pub throughput_episodes_per_sec: f64,
+    pub kernel_backend: String,
+    pub notes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StageTiming {
+    pub stage: String,
+    pub elapsed_ns: u64,
 }
 
 #[derive(Debug)]
 pub enum DatasetError {
     Io(std::io::Error),
+    Csv(csv::Error),
     Json(serde_json::Error),
+    Yaml(serde_yaml::Error),
     Core(echoforge_core::CoreError),
     Sig(echoforge_sig::SigError),
+    Runtime(BackendSelectionError),
     Tensor(String),
     InvalidConfig(String),
     RefusingOutputPath(String),
@@ -77,9 +156,12 @@ impl fmt::Display for DatasetError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Io(err) => write!(f, "io error: {err}"),
+            Self::Csv(err) => write!(f, "csv error: {err}"),
             Self::Json(err) => write!(f, "json error: {err}"),
+            Self::Yaml(err) => write!(f, "yaml error: {err}"),
             Self::Core(err) => write!(f, "core model validation error: {err}"),
             Self::Sig(err) => write!(f, "tensor writer error: {err}"),
+            Self::Runtime(err) => write!(f, "runtime selection error: {err}"),
             Self::Tensor(err) => write!(f, "tensor shape error: {err}"),
             Self::InvalidConfig(msg) => write!(f, "invalid Monte Carlo config: {msg}"),
             Self::RefusingOutputPath(msg) => write!(f, "refusing output path: {msg}"),
@@ -95,9 +177,21 @@ impl From<std::io::Error> for DatasetError {
     }
 }
 
+impl From<csv::Error> for DatasetError {
+    fn from(value: csv::Error) -> Self {
+        Self::Csv(value)
+    }
+}
+
 impl From<serde_json::Error> for DatasetError {
     fn from(value: serde_json::Error) -> Self {
         Self::Json(value)
+    }
+}
+
+impl From<serde_yaml::Error> for DatasetError {
+    fn from(value: serde_yaml::Error) -> Self {
+        Self::Yaml(value)
     }
 }
 
@@ -110,6 +204,12 @@ impl From<echoforge_core::CoreError> for DatasetError {
 impl From<echoforge_sig::SigError> for DatasetError {
     fn from(value: echoforge_sig::SigError) -> Self {
         Self::Sig(value)
+    }
+}
+
+impl From<BackendSelectionError> for DatasetError {
+    fn from(value: BackendSelectionError) -> Self {
+        Self::Runtime(value)
     }
 }
 
@@ -271,61 +371,49 @@ pub fn run_monte_carlo_demo(
         )));
     }
 
+    let overall_start = Instant::now();
     let library = embedded_airspace_config()?;
     let resolved = ResolvedPreset::resolve(&library, &config.preset)?;
+    let runtime_probe = BackendSignals::detect();
+    let runtime = RuntimePlan::from_signals(config.runtime.backend, runtime_probe)?;
     fs::create_dir_all(&config.output_dir)?;
 
+    let mut stage_timings = Vec::new();
+    let static_cards_start = Instant::now();
     write_static_cards(&config, &resolved)?;
+    stage_timings.push(StageTiming {
+        stage: "static_cards".to_string(),
+        elapsed_ns: elapsed_ns(static_cards_start),
+    });
 
     let policy = monte_carlo_split_policy();
+    let worker_count = runtime
+        .recommended_worker_budget
+        .min(config.episodes.max(1));
+    let episode_generation_start = Instant::now();
+    let mut episode_outputs = run_episode_workers(&config, &resolved, worker_count)?;
+    episode_outputs.sort_by_key(|entry| entry.index);
+    stage_timings.push(StageTiming {
+        stage: "episode_generation".to_string(),
+        elapsed_ns: elapsed_ns(episode_generation_start),
+    });
+
+    let postprocess_start = Instant::now();
     let mut records = Vec::with_capacity(config.episodes);
     let mut episode_manifests = Vec::with_capacity(config.episodes);
     let mut split_counts: BTreeMap<SplitKind, usize> = BTreeMap::new();
 
-    for index in 0..config.episodes {
-        let episode_seed = child_seed(config.seed, index as u64);
-        let mut rng = SplitMix64::new(episode_seed);
-        let episode_id = format!("episode_{:06}", index + 1);
-        let episode_dir = config.output_dir.join("episodes").join(&episode_id);
-        let products_dir = episode_dir.join("products");
-        fs::create_dir_all(&products_dir)?;
-
-        let sampled = sample_episode(&config, &resolved, &mut rng, episode_seed);
-        let episode = synthesize_takeoff_episode(
-            sampled.sim_config,
-            sampled.profile,
-            sampled.noise_profile,
-            EpisodeSeed(episode_seed),
-        );
-
-        write_episode_tensors(&products_dir, &episode)?;
-        write_episode_json_products(&products_dir, &episode, &sampled)?;
-
-        let mut record = DatasetRecord {
-            sample_id: episode_id.clone(),
-            split_hint: None,
-            object_family: resolved.object.object_family.clone(),
-            geometry_hash: format!("geometry-{:016x}", child_seed(episode_seed, 1)),
-            material_sample_hash: format!("material-{:016x}", child_seed(episode_seed, 2)),
-            scenario_seed: episode_seed,
-            sensor_archetype: resolved.sensor.id.clone(),
-            hard_negative_family: resolved.environment.id.clone(),
-        };
-        let split = assign_split(&record, &policy);
-        record.split_hint = Some(split);
-        *split_counts.entry(split).or_insert(0) += 1;
-
-        let radar_episode = radar_episode_model(&config, &episode_id, &sampled)?;
-        write_json_pretty(&episode_dir.join("radar_episode.json"), &radar_episode)?;
-        records.push(record);
-        episode_manifests.push(EpisodeManifestEntry {
-            episode_id,
-            seed: episode_seed,
+    for output in episode_outputs {
+        let EpisodeOutcome {
+            index,
+            record,
             split,
-            path: format!("episodes/episode_{:06}/radar_episode.json", index + 1),
-            detections: episode.detections.len(),
-            target_label: config.target_label.clone(),
-        });
+            manifest,
+        } = output;
+        let _ = index;
+        *split_counts.entry(split).or_insert(0) += 1;
+        records.push(record);
+        episode_manifests.push(manifest);
     }
 
     let leakage_report = build_leakage_report(&records, &policy);
@@ -357,9 +445,34 @@ pub fn run_monte_carlo_demo(
         &leakage_report,
     );
     write_json_pretty(&config.output_dir.join("manifest.json"), &manifest)?;
+    stage_timings.push(StageTiming {
+        stage: "postprocess".to_string(),
+        elapsed_ns: elapsed_ns(postprocess_start),
+    });
+
+    let benchmark_report = build_benchmark_report(
+        &config,
+        &runtime,
+        worker_count,
+        &stage_timings,
+        overall_start.elapsed(),
+    );
+    let benchmark_report_path = if config.runtime.benchmark {
+        let path = config.output_dir.join("benchmark_report.json");
+        write_json_pretty(&path, &benchmark_report)?;
+        Some(path)
+    } else {
+        None
+    };
     write_text(
         &config.output_dir.join("benchmark_report.md"),
-        &benchmark_report(&config, &resolved, &split_counts, &leakage_report),
+        &benchmark_report_markdown(
+            &config,
+            &resolved,
+            &split_counts,
+            &leakage_report,
+            &benchmark_report,
+        ),
     )?;
 
     Ok(MonteCarloDemoReport {
@@ -371,7 +484,233 @@ pub fn run_monte_carlo_demo(
         validation_status: "pass".to_string(),
         manifest_path: config.output_dir.join("manifest.json"),
         dataset_card_path: config.output_dir.join("dataset_card.json"),
+        runtime,
+        benchmark_report_path,
     })
+}
+
+#[derive(Debug)]
+struct EpisodeOutcome {
+    index: usize,
+    split: SplitKind,
+    record: DatasetRecord,
+    manifest: EpisodeManifestEntry,
+}
+
+fn run_episode_workers(
+    config: &MonteCarloDemoConfig,
+    resolved: &ResolvedPreset<'_>,
+    worker_count: usize,
+) -> Result<Vec<EpisodeOutcome>, DatasetError> {
+    let worker_count = worker_count.max(1).min(config.episodes.max(1));
+    let chunk_size = (config.episodes + worker_count - 1) / worker_count;
+
+    thread::scope(|scope| -> Result<Vec<EpisodeOutcome>, DatasetError> {
+        let mut handles = Vec::new();
+        for chunk_start in (0..config.episodes).step_by(chunk_size) {
+            let chunk_end = (chunk_start + chunk_size).min(config.episodes);
+            handles.push(
+                scope.spawn(move || run_episode_range(config, resolved, chunk_start, chunk_end)),
+            );
+        }
+
+        let mut outputs = Vec::with_capacity(config.episodes);
+        for handle in handles {
+            let mut chunk = handle.join().map_err(|_| {
+                DatasetError::InvalidConfig("episode worker panicked".to_string())
+            })??;
+            outputs.append(&mut chunk);
+        }
+        Ok(outputs)
+    })
+}
+
+fn run_episode_range(
+    config: &MonteCarloDemoConfig,
+    resolved: &ResolvedPreset<'_>,
+    start: usize,
+    end: usize,
+) -> Result<Vec<EpisodeOutcome>, DatasetError> {
+    let mut outputs = Vec::with_capacity(end.saturating_sub(start));
+    for index in start..end {
+        outputs.push(run_episode(config, resolved, index)?);
+    }
+    Ok(outputs)
+}
+
+fn run_episode(
+    config: &MonteCarloDemoConfig,
+    resolved: &ResolvedPreset<'_>,
+    index: usize,
+) -> Result<EpisodeOutcome, DatasetError> {
+    let episode_seed = child_seed(config.seed, index as u64);
+    let mut rng = SplitMix64::new(episode_seed);
+    let episode_id = format!("episode_{:06}", index + 1);
+    let episode_dir = config.output_dir.join("episodes").join(&episode_id);
+    let products_dir = episode_dir.join("products");
+    fs::create_dir_all(&products_dir)?;
+
+    let sampled = sample_episode(config, resolved, &mut rng, episode_seed);
+    let episode = synthesize_takeoff_episode(
+        sampled.sim_config,
+        sampled.profile,
+        sampled.noise_profile,
+        EpisodeSeed(episode_seed),
+    );
+
+    write_episode_tensors(&products_dir, &episode)?;
+    write_episode_json_products(&products_dir, &episode, &sampled)?;
+
+    let mut record = DatasetRecord {
+        sample_id: episode_id.clone(),
+        split_hint: None,
+        object_family: resolved.object.object_family.clone(),
+        geometry_hash: format!("geometry-{:016x}", child_seed(episode_seed, 1)),
+        material_sample_hash: format!("material-{:016x}", child_seed(episode_seed, 2)),
+        scenario_seed: episode_seed,
+        sensor_archetype: resolved.sensor.id.clone(),
+        hard_negative_family: resolved.environment.id.clone(),
+    };
+    let policy = monte_carlo_split_policy();
+    let split = assign_split(&record, &policy);
+    record.split_hint = Some(split);
+
+    let radar_episode = radar_episode_model(config, &episode_id, &sampled)?;
+    write_json_pretty(&episode_dir.join("radar_episode.json"), &radar_episode)?;
+
+    Ok(EpisodeOutcome {
+        index,
+        split,
+        record,
+        manifest: EpisodeManifestEntry {
+            episode_id,
+            seed: episode_seed,
+            split,
+            path: format!("episodes/episode_{:06}/radar_episode.json", index + 1),
+            detections: episode.detections.len(),
+            target_label: config.target_label.clone(),
+        },
+    })
+}
+
+fn build_benchmark_report(
+    config: &MonteCarloDemoConfig,
+    runtime: &RuntimePlan,
+    worker_count: usize,
+    stage_timings: &[StageTiming],
+    total_elapsed: std::time::Duration,
+) -> MonteCarloBenchmarkReport {
+    let total_elapsed_ns = total_elapsed.as_nanos().min(u128::from(u64::MAX)) as u64;
+    let throughput_episodes_per_sec = if total_elapsed_ns == 0 {
+        0.0
+    } else {
+        config.episodes as f64 / (total_elapsed_ns as f64 / 1_000_000_000.0)
+    };
+
+    MonteCarloBenchmarkReport {
+        requested_backend: runtime.requested_backend,
+        selected_backend: runtime.selected_backend.to_string(),
+        logical_cores: runtime.logical_cores,
+        gpu_available: runtime.gpu_available,
+        gpu_usable: runtime.gpu_usable,
+        gpu_constrained: runtime.gpu_constrained,
+        gpu_min_free_memory_mb: runtime.gpu_min_free_memory_mb,
+        gpu_free_memory_mb: runtime
+            .gpu_devices
+            .iter()
+            .map(|device| device.memory_free_mb)
+            .max(),
+        gpu_unusable_reason: runtime.fallback_reason.clone(),
+        recommended_worker_budget: runtime.recommended_worker_budget,
+        actual_worker_count: worker_count,
+        episode_count: config.episodes,
+        seed: config.seed,
+        sample_rate_hz: config.sample_rate_hz,
+        pulse_count: config.pulse_count,
+        stage_timings: stage_timings.to_vec(),
+        total_elapsed_ns,
+        throughput_episodes_per_sec,
+        kernel_backend: "cpu-scaffold".to_string(),
+        notes: vec![
+            "Episode orchestration is worker-budget aware and deterministic by seed.".to_string(),
+            "Kernel execution remains CPU-backed in this scaffold; the runtime plan is ready for a future GPU backend.".to_string(),
+        ],
+    }
+}
+
+fn benchmark_report_markdown(
+    config: &MonteCarloDemoConfig,
+    resolved: &ResolvedPreset<'_>,
+    split_counts: &BTreeMap<SplitKind, usize>,
+    leakage_report: &LeakageReport,
+    benchmark: &MonteCarloBenchmarkReport,
+) -> String {
+    let stage_lines = benchmark
+        .stage_timings
+        .iter()
+        .map(|stage| {
+            format!(
+                "- {}: {:.3} ms",
+                stage.stage,
+                stage.elapsed_ns as f64 / 1_000_000.0
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!(
+        "# EchoForge Monte Carlo Demo Benchmark Report\n\n\
+         Preset: `{}`\n\n\
+         Requested backend: `{}`\n\n\
+         Selected backend: `{}`\n\n\
+         Kernel backend: `{}`\n\n\
+         Logical cores: {}\n\n\
+         GPU available: {}\n\n\
+         GPU constrained: {}\n\n\
+         Recommended worker budget: {}\n\n\
+         Worker count used: {}\n\n\
+         Target label: {}\n\n\
+         Object class: `{}`\n\n\
+         Environment: `{}`\n\n\
+         Episodes: {}\n\n\
+         Splits: train={}, validation={}, test={}\n\n\
+         Validation tier: basic\n\n\
+         Validation status: pass\n\n\
+         Uncertainty score: 0.38\n\n\
+         Leakage status: {}\n\n\
+         Stage timings:\n{}\n\n\
+         Throughput: {:.3} episodes/sec\n\n\
+         Benchmark payload: `{}`\n\n\
+         Known limitation: this benchmark is a deterministic public-proxy runtime demo and is not an operational sensor-performance claim.\n",
+        config.preset,
+        benchmark.requested_backend,
+        benchmark.selected_backend,
+        benchmark.kernel_backend,
+        benchmark.logical_cores,
+        benchmark.gpu_available,
+        benchmark.gpu_constrained,
+        benchmark.recommended_worker_budget,
+        benchmark.actual_worker_count,
+        config.target_label,
+        resolved.object.id,
+        resolved.environment.id,
+        config.episodes,
+        split_counts.get(&SplitKind::Train).unwrap_or(&0),
+        split_counts.get(&SplitKind::Validation).unwrap_or(&0),
+        split_counts.get(&SplitKind::Test).unwrap_or(&0),
+        if leakage_report.is_clean() { "clean" } else { "findings" },
+        stage_lines,
+        benchmark.throughput_episodes_per_sec,
+        if config.runtime.benchmark {
+            "benchmark_report.json"
+        } else {
+            "benchmark_report.md only"
+        }
+    )
+}
+
+fn elapsed_ns(start: Instant) -> u64 {
+    start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }
 
 fn validate_run_config(config: &MonteCarloDemoConfig) -> Result<(), DatasetError> {
@@ -586,6 +925,11 @@ fn sample_episode(
         propulsor_hz: rng.range_f64(object.micro_motion.propulsor_hz),
         micro_doppler_hz: rng.range_f64(object.micro_motion.micro_doppler_hz),
         rcs_scalar: 10f64.powf(rcs_dbsm / 20.0).max(0.03),
+        // Wave 2 Lane D: opt into multi-blade PropellerGenerator dispatch
+        // by setting `Some(...)`; legacy single-sinusoid retained when both
+        // are `None`. Dataset-tier defaults to legacy for byte-stability.
+        blade_count: None,
+        blade_length_m: None,
     };
 
     SampledEpisodeMeta {
@@ -873,38 +1217,6 @@ fn run_manifest<'a>(
     }
 }
 
-fn benchmark_report(
-    config: &MonteCarloDemoConfig,
-    resolved: &ResolvedPreset<'_>,
-    split_counts: &BTreeMap<SplitKind, usize>,
-    leakage_report: &LeakageReport,
-) -> String {
-    format!(
-        "# EchoForge Monte Carlo Demo Benchmark Report\n\n\
-         Preset: `{}`\n\n\
-         Target label: {}\n\n\
-         Object class: `{}`\n\n\
-         Environment: `{}`\n\n\
-         Episodes: {}\n\n\
-         Splits: train={}, validation={}, test={}\n\n\
-         Validation tier: basic\n\n\
-         Validation status: pass\n\n\
-         Uncertainty score: 0.38\n\n\
-         Guardrails: public-proxy; statistical noise proxy; not measured truth; not proprietary-equivalent.\n\n\
-         Leakage status: {}\n\n\
-         Known limitation: this benchmark is a deterministic public-proxy runtime demo and is not an operational sensor-performance claim.\n",
-        config.preset,
-        config.target_label,
-        resolved.object.id,
-        resolved.environment.id,
-        config.episodes,
-        split_counts.get(&SplitKind::Train).unwrap_or(&0),
-        split_counts.get(&SplitKind::Validation).unwrap_or(&0),
-        split_counts.get(&SplitKind::Test).unwrap_or(&0),
-        if leakage_report.is_clean() { "clean" } else { "findings" }
-    )
-}
-
 fn provenance(config: &MonteCarloDemoConfig) -> Provenance {
     Provenance {
         source_kind: "synthetic_public_proxy".to_string(),
@@ -952,6 +1264,7 @@ fn validation_info(uncertainty_score: f64) -> ValidationInfo {
                     .to_string(),
             },
         ],
+        fidelity_class: None,
     }
 }
 
@@ -1034,7 +1347,7 @@ mod tests {
     fn tempdir_generation_writes_required_files_and_models_validate() {
         let temp = tempfile::tempdir().expect("tempdir");
         let output = temp.path().join("demo");
-        let mut config = MonteCarloDemoConfig::iranian_takeoff_default(output.clone());
+        let mut config = MonteCarloDemoConfig::low_altitude_fixed_wing_default(output.clone());
         config.episodes = 3;
         config.pulse_count = 8;
         config.generated_at = "2026-05-18T00:00:00Z".to_string();
@@ -1065,7 +1378,7 @@ mod tests {
     #[test]
     fn same_seed_and_timestamp_keep_manifest_stable() {
         let temp = tempfile::tempdir().expect("tempdir");
-        let mut a = MonteCarloDemoConfig::iranian_takeoff_default(temp.path().join("a"));
+        let mut a = MonteCarloDemoConfig::low_altitude_fixed_wing_default(temp.path().join("a"));
         a.episodes = 2;
         a.pulse_count = 6;
         let mut b = a.clone();
@@ -1084,18 +1397,87 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let existing = temp.path().join("existing");
         fs::create_dir_all(&existing).unwrap();
-        let mut config = MonteCarloDemoConfig::iranian_takeoff_default(existing);
+        let mut config = MonteCarloDemoConfig::low_altitude_fixed_wing_default(existing);
         config.episodes = 1;
         assert!(matches!(
             run_monte_carlo_demo(config),
             Err(DatasetError::RefusingOutputPath(_))
         ));
 
-        let mut bad = MonteCarloDemoConfig::iranian_takeoff_default(PathBuf::from("crates/demo"));
+        let mut bad =
+            MonteCarloDemoConfig::low_altitude_fixed_wing_default(PathBuf::from("crates/demo"));
         bad.episodes = 1;
         assert!(matches!(
             run_monte_carlo_demo(bad),
             Err(DatasetError::RefusingOutputPath(_))
         ));
+    }
+
+    #[test]
+    fn known_presets_include_diversified_roster() {
+        let presets = known_presets().expect("presets parse");
+        let expected = [
+            "low-altitude-fixed-wing-takeoff-v1",
+            "mixed-low-altitude-hard-negatives-v1",
+            "multirotor-hover-rural-v1",
+            "birds-and-balloons-v1",
+            "infrastructure-glint-clutter-only-v1",
+        ];
+        for id in expected {
+            assert!(
+                presets.iter().any(|preset| preset == id),
+                "preset {id} missing from known_presets list: {presets:?}"
+            );
+        }
+        assert!(
+            !presets.iter().any(|preset| preset.contains("iranian")),
+            "no preset id should mention iranian: {presets:?}"
+        );
+    }
+
+    #[test]
+    fn embedded_config_object_classes_are_neutrally_named() {
+        let config = embedded_airspace_config().expect("config parses");
+        for class in &config.object_classes {
+            assert!(
+                !class.id.to_ascii_lowercase().contains("iranian"),
+                "object class id should be neutral: {}",
+                class.id
+            );
+            assert!(
+                !class.display_name.to_ascii_lowercase().contains("iranian"),
+                "object class display_name should be neutral: {}",
+                class.display_name
+            );
+        }
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn deprecated_iranian_takeoff_default_still_resolves_to_neutral_preset() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let cfg = MonteCarloDemoConfig::iranian_takeoff_default(temp.path().join("legacy"));
+        assert_eq!(cfg.preset, DEFAULT_PRESET);
+        assert_eq!(cfg.target_label, DEFAULT_TARGET_LABEL);
+    }
+
+    #[test]
+    fn additional_presets_run_end_to_end() {
+        for preset_id in [
+            "multirotor-hover-rural-v1",
+            "birds-and-balloons-v1",
+            "infrastructure-glint-clutter-only-v1",
+        ] {
+            let temp = tempfile::tempdir().expect("tempdir");
+            let mut cfg =
+                MonteCarloDemoConfig::low_altitude_fixed_wing_default(temp.path().join(preset_id));
+            cfg.preset = preset_id.to_string();
+            cfg.episodes = 2;
+            cfg.pulse_count = 6;
+            let report = run_monte_carlo_demo(cfg)
+                .unwrap_or_else(|err| panic!("preset {preset_id} should resolve and run: {err}"));
+            assert_eq!(report.episode_count, 2, "{preset_id}");
+            assert!(report.leakage_clean, "{preset_id}");
+        }
     }
 }

@@ -1,0 +1,89 @@
+# EchoForge public-proxy source dossier (object-packs/public-proxy-v1/).
+#
+# Object IDs and default labels stay neutral. Country-, vendor-, and
+# platform-specific names are allowed only in this source dossier and in
+# dataset-card notes that explain the alias policy. The entries below are
+# public-source priors for defensive early-detection research; they are not
+# measured target truth.
+
+schema_version: "1.0.0"
+public_proxy_id: owa-delta-pusher-fixed-wing-public-proxy-v1
+neutral_id: owa-delta-pusher-fixed-wing-public-proxy-v1
+
+dossier:
+  purpose: |
+    Public-domain alias and prior envelope for a neutral delta-wing,
+    pusher-prop one-way aerial object public proxy. The neutral object card
+    uses bounded ranges and uncertainty tags rather than claiming a measured
+    platform signature.
+  policy: source_dossier_only
+  release_status: curator_reference
+  confidence_label: C
+
+aliases:
+  - alias: Shahed-136
+    policy: source_dossier_only
+    facet: delta_pusher_fixed_wing_owa_proxy
+  - alias: Geran-2
+    policy: source_dossier_only
+    facet: delta_pusher_fixed_wing_owa_proxy
+  - alias: Shahed-136-series
+    policy: source_dossier_only
+    facet: delta_pusher_fixed_wing_owa_proxy
+
+public_source_priors:
+  - source_id: osmp_shahed_136_series
+    url: "https://osmp.ngo/model/shahed-136-series/"
+    retrieved_utc: "2026-05-18T00:00:00Z"
+    priors:
+      length_m: [3.3, 3.7]
+      wingspan_m: [2.3, 2.7]
+      warhead_mass_note: "OSMP describes warheads up to 50 kg; not used for payload effects."
+    notes: |
+      OSMP lists the series as about 3.5 m long with about 2.5 m wingspan.
+      EchoForge widens those public figures into ranges and excludes payload
+      effects, terminal behavior, and operational route modeling.
+  - source_id: osmp_visual_guide
+    url: "https://osmp.ngo/collection/shahed-131-136-uavs-a-visual-guide/"
+    retrieved_utc: "2026-05-18T00:00:00Z"
+    priors:
+      geometry_note: "delta-wing assembly with vertical stabilizer cues in public imagery"
+    notes: "Visual identification cues are used only to choose a neutral geometry family."
+  - source_id: army_recognition_public_technical_data
+    url: "https://www.armyrecognition.com/military-products/army/unmanned-systems/unmanned-aerial-vehicles/shahed-136-loitering-munition-kamikaze-suicide-drone-technical-data"
+    retrieved_utc: "2026-05-18T00:00:00Z"
+    priors:
+      mass_note: "about 200 kg public-source prior"
+      speed_mps: [45.0, 60.0]
+      propulsion_note: "rear pusher piston propulsor public-source prior"
+    notes: |
+      The speed range brackets the public 185 km/h top-speed report and is
+      used as a radar kinematic stressor, not as an operational flight model.
+
+proxy_envelope:
+  dimensions_m:
+    length: [3.3, 3.7]
+    wingspan: [2.3, 2.7]
+    height: [0.35, 0.75]
+  rcs_dbsm_proxy: [-16.0, -2.0]
+  cruise_speed_mps: [45.0, 60.0]
+  propulsion: pusher_piston_propulsor
+  geometry: delta_wing
+  maneuverability: low
+  uncertainty_policy:
+    evidence_tier: public_sources_only
+    rcs_status: bounded_statistical_proxy
+    measured_truth_claim: false
+
+guardrails:
+  - "Neutral object IDs are used in cards, configs, manifests, and model labels."
+  - "Aliases in this file are source-dossier-only and are excluded from default object IDs."
+  - "No payload effects, terminal behavior, evasion tactics, or operational optimization are modeled."
+  - "RATO/booster wording, where present in generated labels, is only a radar/kinematic stressor."
+
+review:
+  approvers_required:
+    - dataset_curator
+    - governance
+  last_reviewed_at: "2026-05-18T00:00:00Z"
+  next_review_due: "2026-08-18T00:00:00Z"
