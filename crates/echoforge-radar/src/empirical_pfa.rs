@@ -157,6 +157,7 @@ fn terrain_label(terrain: TerrainClass) -> &'static str {
         TerrainClass::Mountain => "Mountain",
         TerrainClass::Agricultural => "Agricultural",
         TerrainClass::Suburban => "Suburban",
+        TerrainClass::CoastalSea => "CoastalSea",
     }
 }
 
@@ -325,8 +326,17 @@ pub fn measure_pfa(trial: &PfaTrial) -> PfaObservation {
 /// The standard `(ClutterRegime, CfarVariant)` table. Eight regimes x four
 /// variants = thirty-two combos. Training / guard / nominal Pfa picked to be
 /// representative of the literature defaults; OS rank is 3N/4 per Rohling.
+///
+/// The Wave 4.5 H1 `TerrainClass::CoastalSea` sea-spray regimes are
+/// intentionally NOT in the baseline calibration table — they ship with
+/// their own Pfa gates (see `tests/physics_correctness.rs` Wave 4.5 H1
+/// section). Including them here would silently rebaseline the C12
+/// receipt and obscure regressions on the original 8-regime surface.
 fn standard_table() -> Vec<(ClutterRegime, CfarVariant, usize, usize, f64)> {
-    let regimes = ClutterRegime::library();
+    let regimes: Vec<ClutterRegime> = ClutterRegime::library()
+        .into_iter()
+        .filter(|r| r.terrain != TerrainClass::CoastalSea)
+        .collect();
     let mut combos: Vec<(ClutterRegime, CfarVariant, usize, usize, f64)> = Vec::new();
     let training_cells: usize = 24;
     let guard_cells: usize = 4;

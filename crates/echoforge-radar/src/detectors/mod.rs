@@ -16,6 +16,7 @@ pub mod micro_doppler_feature;
 pub mod os_cfar;
 pub mod phase_tiered;
 pub mod so_cfar;
+pub mod tbd;
 
 pub use blob_rd::{BlobRdDetector, BlobRdParams};
 pub use ca_cfar::CaCfarDetector;

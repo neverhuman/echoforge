@@ -10,6 +10,7 @@ use crate::link_budget::{
 };
 use crate::micro_doppler_gen::{MicroDopplerGenerator, PropellerGenerator};
 use crate::pulse_compression::{magnitude, pulse_compress_windowed, CompressionWindow};
+use crate::rcs::Polarization;
 use crate::scene::{
     EnvironmentDescriptor, SceneDescriptor, SiteGeometry, TargetClass, TargetEntity,
     TargetKinematics,
@@ -103,7 +104,7 @@ impl TakeoffProfile {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RadarSimConfig {
     pub sample_rate_hz: f64,
     pub pulse_width_s: f64,
@@ -156,6 +157,26 @@ pub struct RadarSimConfig {
     /// Magnitude of the ground reflection coefficient `|Γ|` for the
     /// two-ray multipath term. Zero disables two-ray multipath.
     pub ground_reflection_coefficient_magnitude: f64,
+    /// **Wave 4.5 Lane H2 — polarization-agility primitive.**
+    /// Per-pulse transmit polarization sequence. When `None`, uses
+    /// [`Polarization::Vv`] for every pulse (back-compat). When
+    /// `Some(vec)`, the sequence is indexed modulo `pulse_count`.
+    /// Length 2 enables the classic alternating VV/HH agility per
+    /// Skolnik *Introduction to Radar Systems* 3rd ed., §7.5.3 (clutter
+    /// polarization diversity) and §11.6 (target discrimination via
+    /// polarization).
+    #[serde(default)]
+    pub pol_tx_sequence: Option<Vec<Polarization>>,
+    /// **Wave 4.5 Lane H2 — polarization-agility primitive.**
+    /// Per-pulse receive polarization sequence. Same semantics as
+    /// [`Self::pol_tx_sequence`]. Setting `tx` and `rx` to different
+    /// sequences enables cross-polarization measurements (HV / VH) —
+    /// the classic depolarization signature used to discriminate
+    /// rough-surface clutter from smooth target returns (Skolnik
+    /// §7.5.3; Ulaby & Long, *Microwave Radar and Radiometric Remote
+    /// Sensing*, 2014, §10.2).
+    #[serde(default)]
+    pub pol_rx_sequence: Option<Vec<Polarization>>,
 }
 
 impl Default for RadarSimConfig {
@@ -186,6 +207,10 @@ impl Default for RadarSimConfig {
             atmospheric_one_way_db_per_km: 0.0,
             rain_rate_mm_per_h: 0.0,
             ground_reflection_coefficient_magnitude: 0.0,
+            // Wave 4.5 H2 back-compat: `None` keeps every pulse on
+            // `Polarization::Vv`, byte-stable with pre-Lane-H2 fixtures.
+            pol_tx_sequence: None,
+            pol_rx_sequence: None,
         }
     }
 }
@@ -243,6 +268,90 @@ impl RadarSimConfig {
             rain_rate_mm_per_h: self.rain_rate_mm_per_h,
             ground_reflection_coefficient_magnitude: self.ground_reflection_coefficient_magnitude,
         }
+    }
+
+    /// **Wave 4.5 Lane H2 — polarization-agility primitive.**
+    /// Resolve the (tx, rx) polarization pair for pulse index `pulse_idx`.
+    ///
+    /// Semantics:
+    ///   - If [`Self::pol_tx_sequence`] is `None`, tx defaults to
+    ///     [`Polarization::Vv`] (back-compat).
+    ///   - If [`Self::pol_tx_sequence`] is `Some(vec)`, the entry at
+    ///     `pulse_idx % vec.len()` is selected (modulo cycling so the
+    ///     sequence can be shorter than `pulse_count`).
+    ///   - Receive polarization follows the same rule against
+    ///     [`Self::pol_rx_sequence`]. If `pol_rx_sequence` is `None`,
+    ///     rx mirrors tx (the matched/co-polar receive convention).
+    ///
+    /// Modern AESA radars switch polarization pulse-to-pulse for
+    /// clutter diversity and target discrimination (Skolnik
+    /// *Introduction to Radar Systems* 3rd ed., §7.5.3 — clutter
+    /// polarization decorrelation; §11.6 — depolarization signatures
+    /// for target classification). This helper is the deterministic
+    /// hook into that sequencing: per-pulse RCS lookup keyed on
+    /// (tx, rx) consumes the result.
+    pub fn polarization_for_pulse(&self, pulse_idx: usize) -> (Polarization, Polarization) {
+        let tx = self
+            .pol_tx_sequence
+            .as_ref()
+            .and_then(|v| {
+                if v.is_empty() {
+                    None
+                } else {
+                    v.get(pulse_idx % v.len()).copied()
+                }
+            })
+            .unwrap_or(Polarization::Vv);
+        let rx = self
+            .pol_rx_sequence
+            .as_ref()
+            .and_then(|v| {
+                if v.is_empty() {
+                    None
+                } else {
+                    v.get(pulse_idx % v.len()).copied()
+                }
+            })
+            .unwrap_or(tx);
+        (tx, rx)
+    }
+}
+
+/// **Wave 4.5 Lane H2 — first-order polarization scaling.**
+/// Returns the linear amplitude multiplier that scales the per-pulse
+/// target return for a given `(tx, rx)` polarization pair.
+///
+/// This is a **first-order proxy** keyed on typical Shahed-class /
+/// fixed-wing nose-on RCS observations from the open literature
+/// (Skolnik 3rd ed. table 2.1; Knott, Shaeffer & Tuley, *Radar Cross
+/// Section* 2nd ed., chap. 14 — small fixed-wing targets). It will be
+/// superseded by full per-pulse `Rcs::evaluate(..., pol_tx, pol_rx, …)`
+/// lookup when the rcs-aspect dispatch lands in Lane I follow-up;
+/// until then, this scaling captures the qualitative polarization
+/// signature so detector chains and downstream ML features see a
+/// non-trivial polarization channel.
+///
+/// Reference values (one-way amplitude; dB → linear via 10^(dB/20)):
+///   - VV → 1.0 (baseline, the seeded tabulated value).
+///   - HH → +1 dB ≈ 1.122 (slightly higher on slender airframes
+///     because horizontal polarization couples better with the
+///     fuselage-side scatterers when the radar is at low elevation).
+///   - HV / VH → -10 dB ≈ 0.316 (typical cross-pol depolarization
+///     ratio for a smooth target; rough natural clutter depolarizes
+///     less aggressively, which is the whole reason cross-pol is a
+///     useful discriminator — Ulaby & Long, *Microwave Radar and
+///     Radiometric Remote Sensing*, 2014, §10.2).
+///   - Any other variant (Co, Cross, mixed circular L/R) falls back
+///     to 1.0 so unseen variants are not silently zeroed.
+fn polarization_amplitude_scale(tx: Polarization, rx: Polarization) -> f32 {
+    match (tx, rx) {
+        (Polarization::Vv, Polarization::Vv) => 1.0,
+        (Polarization::Hh, Polarization::Hh) => 1.122_018_5, // 10^(+1/20)
+        (Polarization::Hv, _)
+        | (Polarization::Vh, _)
+        | (_, Polarization::Hv)
+        | (_, Polarization::Vh) => 0.316_227_77, // 10^(-10/20)
+        _ => 1.0,
     }
 }
 
@@ -605,7 +714,26 @@ pub fn synthesize_scene(
         let scintillation = (noise.amplitude_scintillation_sigma * rng.normal_f32())
             .exp()
             .clamp(0.4, 2.5);
-        let amp = target_amp * micro as f32 * scintillation;
+        // Wave 4.5 H2: per-pulse polarization scaling. When neither
+        // `pol_tx_sequence` nor `pol_rx_sequence` is set we skip the
+        // multiplication entirely — preserving exact bit-equality
+        // with pre-Lane-H2 fixtures (multiplying by literal `1.0_f32`
+        // is *almost* a no-op but float pipelines aren't guaranteed to
+        // produce identical bits, and our determinism gates demand
+        // byte-stable output).
+        //
+        // When a sequence IS configured, apply the first-order
+        // (tx, rx)-keyed amplitude proxy. Full per-pulse
+        // `Rcs::evaluate(class, aspect, elev, freq, tx, rx, …)`
+        // dispatch is Lane I follow-up; see
+        // `polarization_amplitude_scale` for the citation chain.
+        let amp_base = target_amp * micro as f32 * scintillation;
+        let amp = if config.pol_tx_sequence.is_some() || config.pol_rx_sequence.is_some() {
+            let (pol_tx, pol_rx) = config.polarization_for_pulse(pulse);
+            amp_base * polarization_amplitude_scale(pol_tx, pol_rx)
+        } else {
+            amp_base
+        };
 
         for (i, sample) in reference.iter().enumerate() {
             let dst = i as isize + delay_samples;
@@ -1115,10 +1243,16 @@ mod propeller_wire_in_tests {
             ..TakeoffProfile::default()
         };
         let noise = NoiseProfile::real_world_proxy_v1();
-        let a =
-            synthesize_takeoff_episode(config, legacy_profile, noise, EpisodeSeed(2024));
+        // Wave 4.5 H2: `RadarSimConfig` is no longer `Copy` so we clone
+        // for each call.
+        let a = synthesize_takeoff_episode(
+            config.clone(),
+            legacy_profile,
+            noise,
+            EpisodeSeed(2024),
+        );
         let b = synthesize_takeoff_episode(
-            config,
+            config.clone(),
             explicit_none_profile,
             noise,
             EpisodeSeed(2024),
@@ -1145,7 +1279,8 @@ mod propeller_wire_in_tests {
             blade_length_m: Some(0.6),
             ..TakeoffProfile::default()
         };
-        let ha = synthesize_takeoff_episode(config, half_a, noise, EpisodeSeed(2024));
+        let ha =
+            synthesize_takeoff_episode(config.clone(), half_a, noise, EpisodeSeed(2024));
         let hb = synthesize_takeoff_episode(config, half_b, noise, EpisodeSeed(2024));
         assert_eq!(
             a.integrated_range_profile, ha.integrated_range_profile,
@@ -1169,7 +1304,7 @@ mod tests {
             ..RadarSimConfig::default()
         };
         let a = synthesize_takeoff_episode(
-            config,
+            config.clone(),
             TakeoffProfile::default(),
             NoiseProfile::real_world_proxy_v1(),
             EpisodeSeed(42),
@@ -1238,13 +1373,13 @@ mod tests {
         dirty_noise.ground_glint_count = 3;
 
         let clean = synthesize_takeoff_episode(
-            config,
+            config.clone(),
             TakeoffProfile::default(),
             clean_noise,
             EpisodeSeed(12),
         );
         let dirty_a = synthesize_takeoff_episode(
-            config,
+            config.clone(),
             TakeoffProfile::default(),
             dirty_noise,
             EpisodeSeed(12),
@@ -1538,7 +1673,7 @@ mod tests {
             ..RadarSimConfig::default()
         };
         let a = synthesize_takeoff_episode(
-            config,
+            config.clone(),
             TakeoffProfile::default(),
             noise,
             EpisodeSeed(101),
@@ -1633,7 +1768,7 @@ mod tests {
         let noise = NoiseProfile::real_world_proxy_v1();
         let seed = EpisodeSeed(2027);
 
-        let via_wrapper = synthesize_takeoff_episode(config, profile, noise, seed);
+        let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise, seed);
 
         let scene = SceneDescriptor {
             geometry: SiteGeometry {
@@ -1677,7 +1812,7 @@ mod tests {
         noise.clutter_regime = Some(ClutterRegime::for_terrain(TerrainClass::Forest, 3.0));
 
         let a = synthesize_takeoff_episode(
-            config,
+            config.clone(),
             TakeoffProfile::default(),
             noise,
             EpisodeSeed(31337),
@@ -1698,5 +1833,210 @@ mod tests {
                 assert_eq!(sa.im.to_bits(), sb.im.to_bits());
             }
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Wave 4.5 Lane H2 — polarization-agility primitive tests.
+    //
+    // These verify that:
+    //   (1) `RadarSimConfig::default()` falls back to `(Vv, Vv)` so
+    //       pre-Lane-H2 fixtures are byte-stable,
+    //   (2) `polarization_for_pulse` cycles the sequence modulo
+    //       `pulse_count` (the classic VV/HH alternation per
+    //       Skolnik §7.5.3), and
+    //   (3) VV-only vs HH-only synthesis episodes differ in
+    //       integrated-profile peak by the expected ~1 dB amplitude
+    //       scaling, proving the polarization channel is actually
+    //       wired into the per-pulse target return.
+    // ---------------------------------------------------------------
+
+    /// (1) Back-compat — `RadarSimConfig::default()` has no
+    /// polarization sequences configured, so every pulse must resolve
+    /// to `(Vv, Vv)`. Existing reproduction fixtures predate the
+    /// polarization sequence and depend on this fallback.
+    #[test]
+    fn polarization_default_is_vv_back_compat() {
+        let config = RadarSimConfig::default();
+        assert!(
+            config.pol_tx_sequence.is_none(),
+            "default pol_tx_sequence must be None for back-compat"
+        );
+        assert!(
+            config.pol_rx_sequence.is_none(),
+            "default pol_rx_sequence must be None for back-compat"
+        );
+        // Pulse-zero must resolve to the canonical (Vv, Vv) pair.
+        assert_eq!(
+            config.polarization_for_pulse(0),
+            (Polarization::Vv, Polarization::Vv),
+            "polarization_for_pulse(0) must default to (Vv, Vv)"
+        );
+        // Higher pulse indices must also resolve to (Vv, Vv) when no
+        // sequence is set — the modulo-cycling is a no-op when the
+        // sequence is `None`.
+        for pulse_idx in [1, 7, 32, 1024, usize::MAX / 2] {
+            assert_eq!(
+                config.polarization_for_pulse(pulse_idx),
+                (Polarization::Vv, Polarization::Vv),
+                "polarization_for_pulse({pulse_idx}) must default to (Vv, Vv)"
+            );
+        }
+    }
+
+    /// (2) Sequence wiring — with `pol_tx_sequence = Some(vec![Vv, Hh])`,
+    /// pulses 0, 2, 4, … must resolve to `Vv` and pulses 1, 3, 5, …
+    /// must resolve to `Hh`. This is the canonical pulse-to-pulse
+    /// polarization agility used by modern AESA radars for clutter
+    /// diversity (Skolnik §7.5.3).
+    ///
+    /// When `pol_rx_sequence` is `None`, rx must mirror tx (the
+    /// matched/co-polar receive convention).
+    #[test]
+    fn polarization_sequence_alternates_vv_hh() {
+        let config = RadarSimConfig {
+            pol_tx_sequence: Some(vec![Polarization::Vv, Polarization::Hh]),
+            ..RadarSimConfig::default()
+        };
+
+        // First period.
+        assert_eq!(
+            config.polarization_for_pulse(0),
+            (Polarization::Vv, Polarization::Vv),
+            "pulse 0 must be VV (rx mirrors tx when pol_rx_sequence is None)"
+        );
+        assert_eq!(
+            config.polarization_for_pulse(1),
+            (Polarization::Hh, Polarization::Hh),
+            "pulse 1 must be HH (rx mirrors tx when pol_rx_sequence is None)"
+        );
+
+        // Second period — modulo cycling must wrap cleanly.
+        assert_eq!(
+            config.polarization_for_pulse(2),
+            (Polarization::Vv, Polarization::Vv),
+            "pulse 2 must wrap back to VV"
+        );
+        assert_eq!(
+            config.polarization_for_pulse(3),
+            (Polarization::Hh, Polarization::Hh),
+            "pulse 3 must wrap to HH"
+        );
+
+        // Larger indices — full modulo cycle.
+        for pulse_idx in 0..16 {
+            let expected = if pulse_idx % 2 == 0 {
+                Polarization::Vv
+            } else {
+                Polarization::Hh
+            };
+            let (tx, rx) = config.polarization_for_pulse(pulse_idx);
+            assert_eq!(tx, expected, "pulse {pulse_idx} tx mismatch");
+            assert_eq!(rx, expected, "pulse {pulse_idx} rx mirrors tx");
+        }
+
+        // Cross-pol case — separate tx/rx sequences enable HV / VH
+        // depolarization measurements (Ulaby & Long §10.2).
+        let cross_pol_config = RadarSimConfig {
+            pol_tx_sequence: Some(vec![Polarization::Hh]),
+            pol_rx_sequence: Some(vec![Polarization::Vv]),
+            ..RadarSimConfig::default()
+        };
+        assert_eq!(
+            cross_pol_config.polarization_for_pulse(0),
+            (Polarization::Hh, Polarization::Vv),
+            "cross-pol: tx=HH, rx=VV (i.e. HV — the cross-polar channel)"
+        );
+
+        // Empty sequence must fall back to defaults (defensive — avoids
+        // a division by zero in the modulo cycling).
+        let empty_config = RadarSimConfig {
+            pol_tx_sequence: Some(vec![]),
+            ..RadarSimConfig::default()
+        };
+        assert_eq!(
+            empty_config.polarization_for_pulse(0),
+            (Polarization::Vv, Polarization::Vv),
+            "empty sequence must fall back to default (Vv, Vv)"
+        );
+    }
+
+    /// (3) End-to-end synthesis — same target, same noise, same seed
+    /// run twice with VV-only vs HH-only polarization sequences. The
+    /// integrated-profile peak must differ by ~1 dB (the HH amplitude
+    /// scaling: linear 10^(+1/20) ≈ 1.122). If the two peaks were
+    /// identical, the polarization channel would NOT be wired into the
+    /// per-pulse target amplitude.
+    ///
+    /// We zero out stochastic noise / scintillation so the peak ratio
+    /// is a deterministic function of the polarization scaling.
+    #[test]
+    fn polarization_vv_vs_hh_changes_target_amp() {
+        let base_config = RadarSimConfig {
+            pulse_count: 16,
+            ..RadarSimConfig::default()
+        };
+        let mut noise = NoiseProfile::real_world_proxy_v1();
+        // Zero stochastic terms so the integrated peak is a clean
+        // function of `target_amp * pol_scale`.
+        noise.amplitude_scintillation_sigma = 0.0;
+        noise.phase_noise_std_rad = 0.0;
+        noise.rfi_probability = 0.0;
+        noise.clutter_sigma = 0.0;
+        noise.ground_glint_count = 0;
+        noise.awgn_sigma = 0.001;
+
+        let config_vv = RadarSimConfig {
+            pol_tx_sequence: Some(vec![Polarization::Vv]),
+            ..base_config.clone()
+        };
+        let config_hh = RadarSimConfig {
+            pol_tx_sequence: Some(vec![Polarization::Hh]),
+            ..base_config
+        };
+
+        let episode_vv = synthesize_takeoff_episode(
+            config_vv,
+            TakeoffProfile::default(),
+            noise,
+            EpisodeSeed(2026),
+        );
+        let episode_hh = synthesize_takeoff_episode(
+            config_hh,
+            TakeoffProfile::default(),
+            noise,
+            EpisodeSeed(2026),
+        );
+
+        let peak_vv = episode_vv
+            .integrated_range_profile
+            .iter()
+            .copied()
+            .fold(0.0f32, f32::max);
+        let peak_hh = episode_hh
+            .integrated_range_profile
+            .iter()
+            .copied()
+            .fold(0.0f32, f32::max);
+
+        assert!(peak_vv > 0.0 && peak_hh > 0.0, "both peaks must be positive");
+
+        // HH amplitude scale = 10^(+1/20) ≈ 1.122 (see
+        // `polarization_amplitude_scale`). The integrated profile is a
+        // mean of magnitudes, which scales linearly with target_amp;
+        // therefore peak_hh / peak_vv should be ~1.122 (i.e. ~+1 dB).
+        let ratio_db = 20.0 * (peak_hh / peak_vv).log10();
+        assert!(
+            ratio_db.abs() >= 0.5,
+            "VV-only vs HH-only integrated peaks must differ by ≥0.5 dB \
+             (the +1 dB HH scaling); got ratio_db = {ratio_db:.3} \
+             (peak_vv = {peak_vv:.6}, peak_hh = {peak_hh:.6})"
+        );
+        // And we expect the sign to be positive: HH > VV by the
+        // first-order proxy.
+        assert!(
+            peak_hh > peak_vv,
+            "HH peak should exceed VV peak by ~1 dB; got peak_hh={peak_hh:.6} \
+             vs peak_vv={peak_vv:.6}"
+        );
     }
 }

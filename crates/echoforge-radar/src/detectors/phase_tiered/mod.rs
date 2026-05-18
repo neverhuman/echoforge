@@ -38,8 +38,13 @@ pub use kinematic_gate::{
 };
 pub use speed_classifier::{PropulsionClass, SpeedClassifier};
 pub use tier_arbiter::{TierArbiter, TierTransition};
-pub use tier_boost::{BoostDecision, BoostTierConfig, BoostTierDetector};
-pub use tier_climb::{ClimbDecision, ClimbOutTierDetector, ClimbTierConfig};
+pub use tier_boost::{
+    classify_boost_sub_state, BoostDecision, BoostSubState, BoostThrustProfile, BoostTierConfig,
+    BoostTierDetector,
+};
+pub use tier_climb::{
+    ClimbDecision, ClimbOutTierDetector, ClimbTierConfig, MTI_NOTCH_BODY_DOPPLER_HZ,
+};
 pub use tier_cruise::{CruiseDecision, CruiseTierConfig, CruiseTierDetector};
 
 /// Discrete tier states a track can be in. The arbiter publishes one of

@@ -551,8 +551,12 @@ fn run_episode(
     fs::create_dir_all(&products_dir)?;
 
     let sampled = sample_episode(config, resolved, &mut rng, episode_seed);
+    // Wave 4.5 H2: `RadarSimConfig` is no longer `Copy` (carries
+    // `Option<Vec<Polarization>>`), so clone before moving into the
+    // synthesis call — `sampled` is borrowed by downstream report
+    // builders that still need `sim_config` after this line.
     let episode = synthesize_takeoff_episode(
-        sampled.sim_config,
+        sampled.sim_config.clone(),
         sampled.profile,
         sampled.noise_profile,
         EpisodeSeed(episode_seed),

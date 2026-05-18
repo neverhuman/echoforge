@@ -44,11 +44,13 @@ pub use detectors::{
     RangeDoppler, SoCfarDetector,
 };
 pub use detectors::phase_tiered::{
-    BoostDecision, BoostTierConfig, BoostTierDetector, ClimbDecision, ClimbOutTierDetector,
-    ClimbTierConfig, CruiseDecision, CruiseTierConfig, CruiseTierDetector, KinematicGate,
-    KinematicObservation, KinematicSample, PhaseTieredConfig, PhaseTieredDecision,
-    PhaseTieredDetector, PropulsionClass, SpeedClassifier, Tier, TierArbiter, TierTransition,
+    classify_boost_sub_state, BoostDecision, BoostSubState, BoostThrustProfile, BoostTierConfig,
+    BoostTierDetector, ClimbDecision, ClimbOutTierDetector, ClimbTierConfig, CruiseDecision,
+    CruiseTierConfig, CruiseTierDetector, KinematicGate, KinematicObservation, KinematicSample,
+    PhaseTieredConfig, PhaseTieredDecision, PhaseTieredDetector, PropulsionClass, SpeedClassifier,
+    Tier, TierArbiter, TierTransition, MTI_NOTCH_BODY_DOPPLER_HZ,
 };
+pub use detectors::tbd::{hough_tbd_detect, TbdConfig, TbdTrackCandidate};
 pub use scene::{
     EnvironmentDescriptor, SceneDescriptor, SiteGeometry, TargetClass, TargetEntity,
     TargetKinematics,

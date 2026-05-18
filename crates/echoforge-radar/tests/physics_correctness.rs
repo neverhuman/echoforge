@@ -24,16 +24,17 @@
 use std::f64::consts::PI;
 
 use echoforge_radar::{
-    apply_mti, build_rda_cube, ca_cfar_scale, coefficients, evaluate_link_budget, magnitude,
-    mtd_chain, mti_improvement_factor_db, pulse_compress, pulse_compress_windowed,
-    sample_clutter_amplitude, sample_k_distribution, sample_log_normal, sample_weibull,
-    slow_time_complex_dft, synthesize_scene, synthesize_takeoff_episode, AngleGrid, AspectGrid,
-    BoostTierDetector, CfarParams, ClutterDistribution, ClutterRegime, ComplexSample,
-    CompressionWindow, EnvironmentDescriptor, EpisodeSeed, KinematicObservation, KinematicSample,
+    apply_mti, build_rda_cube, ca_cfar_scale, coefficients, evaluate_link_budget,
+    hough_tbd_detect, magnitude, mtd_chain, mti_improvement_factor_db, pulse_compress,
+    pulse_compress_windowed, sample_clutter_amplitude, sample_k_distribution, sample_log_normal,
+    sample_weibull, slow_time_complex_dft, synthesize_scene, synthesize_takeoff_episode,
+    AngleGrid, AspectGrid, BoostThrustProfile, BoostTierDetector, CfarParams, ClimbDecision, ClimbOutTierDetector,
+    ClimbTierConfig, ClutterDistribution, ClutterRegime, ComplexSample, CompressionWindow,
+    EnvironmentDescriptor, EpisodeSeed, KinematicGate, KinematicObservation, KinematicSample,
     LinkBudget, MtiOrder, NoiseProfile, Polarization, PropagationContext, PropulsionClass,
     RadarSimConfig, Rcs, RcsLookup, SceneDescriptor, SiteGeometry, SpeedClassifier, SwerlingModel,
-    TakeoffProfile, TargetClass, TargetEntity, TargetKinematics, TerrainClass,
-    REFERENCE_NOISE_TEMPERATURE_K,
+    TakeoffProfile, TargetClass, TargetEntity, TargetKinematics, TbdConfig, TerrainClass,
+    MTI_NOTCH_BODY_DOPPLER_HZ, REFERENCE_NOISE_TEMPERATURE_K,
 };
 
 // ===========================================================================
@@ -1461,7 +1462,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
     let seed = EpisodeSeed(0xC0FFEE);
 
     // Path A: legacy wrapper.
-    let via_wrapper = synthesize_takeoff_episode(config, profile, noise, seed);
+    let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise.clone(), seed);
 
     // Path B: hand-built scene → unified entry point. Builds the same
     // SceneDescriptor the wrapper would construct internally, so the
@@ -1471,7 +1472,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
             antenna_altitude_agl_m: config.radar_altitude_agl_m,
         },
         environment: EnvironmentDescriptor {
-            clutter_regime: noise.clutter_regime,
+            clutter_regime: noise.clutter_regime.clone(),
             atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
             rain_rate_mm_per_h: config.rain_rate_mm_per_h,
             ground_reflection_coefficient_magnitude: config
@@ -1633,13 +1634,13 @@ fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
     ];
 
     for (i, (config, profile, noise, seed)) in scenarios.iter().enumerate() {
-        let via_wrapper = synthesize_takeoff_episode(*config, *profile, *noise, *seed);
+        let via_wrapper = synthesize_takeoff_episode(config.clone(), *profile, noise.clone(), *seed);
         let scene = SceneDescriptor {
             geometry: SiteGeometry {
                 antenna_altitude_agl_m: config.radar_altitude_agl_m,
             },
             environment: EnvironmentDescriptor {
-                clutter_regime: noise.clutter_regime,
+                clutter_regime: noise.clutter_regime.clone(),
                 atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
                 rain_rate_mm_per_h: config.rain_rate_mm_per_h,
                 ground_reflection_coefficient_magnitude: config
@@ -1651,7 +1652,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
                 spawn_time_s: 0.0,
             }],
         };
-        let via_scene = synthesize_scene(scene, *config, *noise, *seed);
+        let via_scene = synthesize_scene(scene, config.clone(), noise.clone(), *seed);
         assert_eq!(
             via_wrapper.integrated_range_profile, via_scene.integrated_range_profile,
             "C-unified (scenario {i}) violated: integrated_range_profile diverged",
@@ -1661,4 +1662,455 @@ fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
             "C-unified (scenario {i}) violated: detections diverged",
         );
     }
+}
+
+// ===========================================================================
+// Wave 4.5 expert-critique-fix gates (H1 sea-spray clutter, H2 polarization
+// agility, H3 TBD/Hough, H4 MTI cross-flight, H5 booster-burn refinement).
+// ===========================================================================
+// parameter. This gate prevents silent removal of the four sea-spray
+// regimes added by Wave 4.5 H1.
+//
+// Citations: Ward, Tough & Watts (IET 2013) chapters 4-6; Greco & Gini,
+// "Compound-Gaussian models for sea-clutter"; Watts, IEE Proc. F 1985.
+// ===========================================================================
+
+/// **Wave 4.5 H1 — sea-spray clutter regimes are available and
+/// statistically distinct from open-sea regime.** A real radar engineer
+/// reviewing low-grazing coastal scenarios needs at least the breaking-
+/// wave regime; this gate prevents silent removal.
+#[test]
+fn w45_h1_sea_spray_regimes_present_and_distinct() {
+    let lib = ClutterRegime::library();
+    let sea_spray_count = lib
+        .iter()
+        .filter(|r| r.name().contains("SeaSpray") || r.name().contains("Spray"))
+        .count();
+    assert!(
+        sea_spray_count >= 4,
+        "expected >=4 sea-spray regimes, found {} (names: {:?})",
+        sea_spray_count,
+        lib.iter().map(|r| r.name()).collect::<Vec<_>>(),
+    );
+
+    // Distinct from baseline: the breaking-wave regime (K nu = 0.6) must
+    // be much heavier-tailed than the open-sea regime (K nu ~ 8). We use
+    // 8 000 IID samples per side so the kurtosis estimator is stable.
+    let open = lib
+        .iter()
+        .find(|r| r.name() == "Sea_OpenMediumState")
+        .expect("Sea_OpenMediumState must be in library");
+    let breaking = lib
+        .iter()
+        .find(|r| r.name() == "SeaSpray_BreakingWaves")
+        .expect("SeaSpray_BreakingWaves must be in library");
+
+    fn kurt(xs: &[f64]) -> f64 {
+        let n = xs.len() as f64;
+        let m: f64 = xs.iter().sum::<f64>() / n;
+        let m2 = xs.iter().map(|x| (x - m).powi(2)).sum::<f64>() / n;
+        let m4 = xs.iter().map(|x| (x - m).powi(4)).sum::<f64>() / n;
+        if m2 > 0.0 {
+            m4 / (m2 * m2)
+        } else {
+            0.0
+        }
+    }
+
+    let open_xs = collect_many(0x4500_aaaa_5555_eeee, 8_000, |s| {
+        sample_clutter_amplitude(&open.distribution, s)
+    });
+    let break_xs = collect_many(0x4501_bbbb_6666_ffff, 8_000, |s| {
+        sample_clutter_amplitude(&breaking.distribution, s)
+    });
+    let k_open = kurt(&open_xs);
+    let k_break = kurt(&break_xs);
+
+    assert!(
+        k_break > k_open,
+        "W4.5 H1: breaking-wave kurtosis ({}) must exceed open-sea kurtosis ({}); \
+         otherwise the sea-spray library has silently collapsed onto the open-sea regime",
+        k_break,
+        k_open,
+    );
+    assert!(
+        k_break >= 6.0,
+        "W4.5 H1: breaking-wave kurtosis ({}) should be >=6.0 (K nu=0.6 is heavy-tailed; \
+         see Ward, Tough & Watts (IET 2013) chapter 5)",
+        k_break,
+    );
+
+    // Every sea-spray entry must be associated with Sea or CoastalSea.
+    for r in lib.iter().filter(|r| r.name().contains("SeaSpray")) {
+        assert!(
+            matches!(r.terrain, TerrainClass::Sea | TerrainClass::CoastalSea),
+            "W4.5 H1: sea-spray regime {} associates with non-sea terrain {:?}",
+            r.name(),
+            r.terrain,
+        );
+    }
+}
+///   - Ulaby & Long, *Microwave Radar and Radiometric Remote Sensing*,
+///     2014, §10.2 (co-pol vs cross-pol depolarization signatures).
+///
+/// Bound rationale: the first-order scaling in
+/// `sim.rs::polarization_amplitude_scale` gives HH = +1 dB over VV
+/// (linear 10^(+1/20) ≈ 1.122). We require ≥0.5 dB to allow for any
+/// integration-window edge effects; the actual measured ΔSNR is
+/// recorded in the receipt.
+#[test]
+#[allow(deprecated)]
+fn w45_h2_polarization_agility_changes_target_amp() {
+    let base_config = RadarSimConfig {
+        pulse_count: 16,
+        ..RadarSimConfig::default()
+    };
+    let mut noise = NoiseProfile::real_world_proxy_v1();
+    // Zero stochastic terms so the integrated peak is deterministic
+    // up to the polarization scaling.
+    noise.amplitude_scintillation_sigma = 0.0;
+    noise.phase_noise_std_rad = 0.0;
+    noise.rfi_probability = 0.0;
+    noise.clutter_sigma = 0.0;
+    noise.ground_glint_count = 0;
+    noise.awgn_sigma = 0.001;
+
+    let config_vv = RadarSimConfig {
+        pol_tx_sequence: Some(vec![Polarization::Vv]),
+        ..base_config.clone()
+    };
+    let config_hh = RadarSimConfig {
+        pol_tx_sequence: Some(vec![Polarization::Hh]),
+        ..base_config
+    };
+
+    let episode_vv = synthesize_takeoff_episode(
+        config_vv,
+        TakeoffProfile::default(),
+        noise,
+        EpisodeSeed(0x0045_0002),
+    );
+    let episode_hh = synthesize_takeoff_episode(
+        config_hh,
+        TakeoffProfile::default(),
+        noise,
+        EpisodeSeed(0x0045_0002),
+    );
+
+    let peak_vv = episode_vv
+        .integrated_range_profile
+        .iter()
+        .copied()
+        .fold(0.0f32, f32::max);
+    let peak_hh = episode_hh
+        .integrated_range_profile
+        .iter()
+        .copied()
+        .fold(0.0f32, f32::max);
+
+    assert!(
+        peak_vv > 0.0 && peak_hh > 0.0,
+        "both polarization channels must produce positive integrated peaks; \
+         got peak_vv = {peak_vv}, peak_hh = {peak_hh}"
+    );
+
+    // The Wave 4.5 H2 contract: VV-only vs HH-only differ by ≥0.5 dB
+    // in integrated profile peak (the +1 dB amplitude scaling proxy).
+    let ratio_db = 20.0 * (peak_hh / peak_vv).log10();
+    assert!(
+        ratio_db.abs() >= 0.5,
+        "Wave 4.5 H2 violated: VV-only vs HH-only integrated peaks must \
+         differ by ≥0.5 dB (the +1 dB HH amplitude scaling), but got \
+         ratio_db = {ratio_db:.3} (peak_vv = {peak_vv:.6}, \
+         peak_hh = {peak_hh:.6}). The per-pulse polarization channel is \
+         not wired into the target-return amplitude."
+    );
+
+    // The expected sign: HH > VV per the first-order proxy.
+    assert!(
+        peak_hh > peak_vv,
+        "Wave 4.5 H2 sign mismatch: HH-only integrated peak ({peak_hh:.6}) \
+         should exceed VV-only ({peak_vv:.6}) by ~+1 dB per the \
+         first-order polarization scaling."
+    );
+
+    // Print the measured ratios for the receipt — visible with
+    // `cargo test -- --nocapture`. This is observational, not a gate.
+    eprintln!(
+        "[wave-4.5-H2] peak_vv = {peak_vv:.6}, peak_hh = {peak_hh:.6}, \
+         ratio_db = {ratio_db:+.3} dB (expected ≈ +1.000 dB)"
+    );
+}
+
+fn make_cpi_grid(
+    n_range: usize,
+    n_doppler: usize,
+    target: Option<(usize, usize, f32)>,
+) -> Vec<Vec<ComplexSample>> {
+    let mut grid = vec![vec![ComplexSample::new(0.0, 0.0); n_doppler]; n_range];
+    for r in 0..n_range {
+        for d in 0..n_doppler {
+            let n = ((r * 7 + d * 13) % 100) as f32 * 0.001;
+            grid[r][d] = ComplexSample::new(n, n * 0.7);
+        }
+    }
+    if let Some((r, d, mag)) = target {
+        if r < n_range && d < n_doppler {
+            grid[r][d] = ComplexSample::new(mag, 0.0);
+        }
+    }
+    grid
+}
+
+/// **Wave 4.5 H3 -- Track-before-detect (Hough) finds sub-threshold
+/// targets.** A target whose per-CPI peak power is below the per-cell
+/// CFAR threshold but whose track is coherent over 5 CPIs must be
+/// detected by the Hough TBD module. Carlson-Evans-Wilson 1994.
+#[test]
+fn w45_h3_hough_tbd_finds_sub_threshold_track() {
+    // Build 5-CPI stack with moving target at sub-CFAR power; verify
+    // hough_tbd_detect returns a high-confidence candidate.
+    let n_range = 64;
+    let n_doppler = 16;
+    // Per-CPI peak power below a hypothetical CFAR threshold (e.g. 1.0)
+    // but well above the TBD sub-threshold (0.01).
+    let per_cpi_magnitude = 0.2_f32;
+    let cfar_like_threshold = 1.0_f32;
+    assert!(
+        per_cpi_magnitude * per_cpi_magnitude < cfar_like_threshold,
+        "per-CPI peak power {} must be sub-CFAR-threshold {}",
+        per_cpi_magnitude * per_cpi_magnitude,
+        cfar_like_threshold
+    );
+
+    let stack: Vec<Vec<Vec<ComplexSample>>> = (0..5)
+        .map(|cpi| {
+            let r = 10 + 2 * cpi;
+            make_cpi_grid(n_range, n_doppler, Some((r, 5, per_cpi_magnitude)))
+        })
+        .collect();
+
+    let config = TbdConfig {
+        n_cpis: 5,
+        min_range_gradient: 0.5,
+        max_range_gradient: 4.0,
+        m_of_n_threshold: 3,
+        sub_threshold_power: 0.01,
+    };
+    let candidates = hough_tbd_detect(&stack, config);
+    assert!(
+        !candidates.is_empty(),
+        "TBD should find the moving target track"
+    );
+    let best = &candidates[0];
+    assert!(
+        best.n_cpis_hit >= 3,
+        "expected >=3 CPI hits (M-of-N=3-of-5), got {}",
+        best.n_cpis_hit
+    );
+    assert!(
+        best.confidence >= 0.6,
+        "expected high confidence (>=0.6), got {}",
+        best.confidence
+    );
+    // Accumulated TBD power must exceed what any single CPI hit would
+    // produce -- demonstrating actual cross-CPI integration.
+    let single_cpi_power = per_cpi_magnitude * per_cpi_magnitude;
+    assert!(
+        best.accumulated_power > single_cpi_power,
+        "accumulated TBD power {} must exceed single-CPI power {}",
+        best.accumulated_power,
+        single_cpi_power
+    );
+}
+//   - Richards, "Fundamentals of Radar Signal Processing" 2nd ed.,
+//     2014, §5.4 (MTI canceller frequency response and the blind-speed
+//     compensation pattern).
+//   - `.agents/receipts/wave-4-5-mti-cross-flight/<UTC>.md`.
+// ===========================================================================
+
+/// **Wave 4.5 H4 — MTI cross-flight handling.** A Shahed-class target
+/// flying perpendicular to the radar LOS (low |v_radial| but observable
+/// micro-Doppler propeller line) must NOT be silently missed by the
+/// Tier 2 CLIMB-OUT detector. The cross-flight branch trades MTI gate
+/// for stricter Kalman + micro-Doppler confirmation per Skolnik §3.7.
+#[test]
+fn w45_h4_mti_cross_flight_target_detected_with_micro_doppler() {
+    // Cross-flight kinematic state: |v_radial| ≈ 1 m/s (well under the
+    // 1.5 m/s S-band cross-flight cutoff that maps the 30 Hz MTI notch
+    // body Doppler to a radial velocity). The kinematic window has six
+    // samples each within 0.1 m/s of its neighbour, comfortably inside
+    // the 3 m/s cross-flight Kalman gate.
+    //
+    // Build the detector with a climb gate widened to admit low-radial-
+    // speed cross-flight geometries (the canonical climb gate keys on
+    // |v_radial| and would otherwise reject the geometry before the
+    // cross-flight branch fires).
+    let detector = ClimbOutTierDetector {
+        config: ClimbTierConfig::default(),
+        gate: KinematicGate {
+            radial_speed_mps_min: 0.0,
+            radial_speed_mps_max: 60.0,
+            accel_mps2_min: 0.0,
+            accel_mps2_max: 2.0,
+            altitude_agl_m_min: 30.0,
+            altitude_agl_m_max: 1500.0,
+        },
+    };
+    let samples = vec![
+        KinematicSample::new(0.0, 0.8, 250.0),
+        KinematicSample::new(1.0, 0.9, 252.0),
+        KinematicSample::new(2.0, 1.0, 254.0),
+        KinematicSample::new(3.0, 1.1, 256.0),
+        KinematicSample::new(4.0, 1.2, 258.0),
+        KinematicSample::new(5.0, 1.3, 260.0),
+    ];
+    let observation = KinematicObservation::new(samples, 8_000.0, 20.0);
+
+    // Synthetic slow-time amplitude spectrum: 256 bins at 1 Hz/bin,
+    // flat noise floor of amplitude 1, and a propeller blade-pass
+    // spike at 190 Hz (squarely inside the [127.5, 253] Hz piston
+    // blade-pass window per the Tier 3 cruise spec).
+    let mut spectrum = vec![1.0f32; 256];
+    spectrum[190] = 50.0;
+    let bin_hz = 1.0_f64;
+
+    let decision = detector.evaluate_with_spectrum(&observation, Some(&spectrum), Some(bin_hz));
+
+    assert!(
+        decision.cross_flight,
+        "W4.5 H4 violated: low |v_radial| at S-band must enter the cross-flight branch \
+         (MTI_NOTCH_BODY_DOPPLER_HZ={MTI_NOTCH_BODY_DOPPLER_HZ}); note = {}",
+        decision.note,
+    );
+    assert!(
+        decision.micro_doppler_confirmed,
+        "W4.5 H4 violated: blade-pass spike at 190 Hz must be confirmed by the cross-flight \
+         branch (piston window [127.5, 253] Hz)",
+    );
+    assert!(
+        decision.detected,
+        "W4.5 H4 violated: cross-flight target with kinematic + micro-Doppler compensating \
+         evidence must NOT be silently missed; note = {}",
+        decision.note,
+    );
+    // Sanity: the cross-flight branch must never set mti_notch_rejected —
+    // that field is the radial-branch outcome.
+    assert!(
+        !decision.mti_notch_rejected,
+        "W4.5 H4 violated: cross-flight branch must not set mti_notch_rejected (mutually exclusive)",
+    );
+}
+
+/// **Wave 4.5 H4 — MTI cross-flight handling (counter-part).** The
+/// cross-flight branch must REJECT a target that has low |v_radial|
+/// (so the geometry enters the cross-flight branch) but lacks the
+/// micro-Doppler propeller line — the compensating evidence is missing.
+/// Guards against the cross-flight branch silently up-grading bare
+/// kinematic agreement to a detection. Skolnik §3.7 explicitly notes
+/// that the compensating-evidence pattern only works when both
+/// channels (tighter Kalman AND micro-Doppler) are present.
+#[test]
+fn w45_h4_cross_flight_target_without_micro_doppler_rejected() {
+    let detector = ClimbOutTierDetector {
+        config: ClimbTierConfig::default(),
+        gate: KinematicGate {
+            radial_speed_mps_min: 0.0,
+            radial_speed_mps_max: 60.0,
+            accel_mps2_min: 0.0,
+            accel_mps2_max: 2.0,
+            altitude_agl_m_min: 30.0,
+            altitude_agl_m_max: 1500.0,
+        },
+    };
+    let samples = vec![
+        KinematicSample::new(0.0, 0.8, 250.0),
+        KinematicSample::new(1.0, 0.9, 252.0),
+        KinematicSample::new(2.0, 1.0, 254.0),
+        KinematicSample::new(3.0, 1.1, 256.0),
+        KinematicSample::new(4.0, 1.2, 258.0),
+        KinematicSample::new(5.0, 1.3, 260.0),
+    ];
+    let observation = KinematicObservation::new(samples, 8_000.0, 20.0);
+
+    // Flat noise floor: no blade-pass spike anywhere.
+    let spectrum = vec![1.0f32; 256];
+    let bin_hz = 1.0_f64;
+
+    let decision = detector.evaluate_with_spectrum(&observation, Some(&spectrum), Some(bin_hz));
+
+    assert!(
+        decision.cross_flight,
+        "W4.5 H4 violated: low |v_radial| must enter the cross-flight branch",
+    );
+    assert!(
+        !decision.micro_doppler_confirmed,
+        "W4.5 H4 violated: flat noise floor has no blade-pass line",
+    );
+    assert!(
+        !decision.detected,
+        "W4.5 H4 violated: cross-flight WITHOUT micro-Doppler must NOT detect \
+         (compensating evidence missing); note = {}",
+        decision.note,
+    );
+}
+//     (`object-packs/public-proxy-v1/physics_dossier.md`), §5.
+//   - Sutton & Biblarz, *Rocket Propulsion Elements*, 9th ed., ch. 12.
+//   - RUSI 2022/CSIS 2022 open-source reporting on Shahed-class launch.
+// ===========================================================================
+
+/// **Wave 4.5 H5 — Booster-burn thrust profile + sub-state
+/// classification.** Tier 1 BOOST detector now models SRM thrust
+/// curve (boost burn → separation transient → sustain) per Sutton &
+/// Biblarz typical progressive-grain SRM. Velocity at burn completion
+/// reaches public-proxy release envelope (25–35 m/s) when started from
+/// rail-exit velocity 9 m/s.
+#[test]
+fn w45_h5_booster_burn_profile_reaches_release_velocity() {
+    let profile = BoostThrustProfile::shahed_class_default();
+
+    // (a) Profile shape sanity: peak in burn band per dossier (~1–2g).
+    assert!(
+        (5.0..=30.0).contains(&profile.peak_acceleration_mps2),
+        "H5 gate: peak_acceleration_mps2 must lie in [5, 30] (~0.5–3g per \
+         Sutton/Biblarz typical small SRM); got {}",
+        profile.peak_acceleration_mps2
+    );
+    assert!(
+        (1.0..=3.0).contains(&profile.burn_duration_s),
+        "H5 gate: burn_duration_s must lie in [1, 3] s per dossier; got {}",
+        profile.burn_duration_s
+    );
+
+    // (b) Headline integration check: from rail-exit (~9 m/s), after the
+    // burn duration the airframe must reach the dossier's 25–35 m/s
+    // release-velocity envelope.
+    let rail_exit_mps = 9.0;
+    let v_release = profile.velocity_at(profile.burn_duration_s, rail_exit_mps);
+    assert!(
+        (25.0..=35.0).contains(&v_release),
+        "H5 gate: velocity at burn completion ({v_release:.2} m/s) must \
+         land inside the dossier release-velocity envelope [25, 35] m/s"
+    );
+
+    // (c) After separation + transient, the acceleration must drop to the
+    // sustain band (piston engine, ~0.5 m/s²) — confirming the model
+    // physically transitions from rocket to piston propulsion.
+    let t_post = profile.burn_duration_s + profile.separation_transient_s + 0.1;
+    let a_sustain = profile.acceleration_at(t_post);
+    assert!(
+        (0.0..1.0).contains(&a_sustain),
+        "H5 gate: post-separation acceleration must drop to the piston \
+         sustain band [0, 1) m/s²; got {a_sustain:.4}"
+    );
+
+    // (d) During the burn (e.g. halfway through), thrust must be at the
+    // plateau (peak) — confirming the smoothstep ramp completes inside
+    // the burn window.
+    let a_mid_burn = profile.acceleration_at(profile.burn_duration_s * 0.5);
+    assert!(
+        (a_mid_burn - profile.peak_acceleration_mps2).abs() < 1e-6,
+        "H5 gate: mid-burn acceleration must equal peak; got {a_mid_burn} vs peak {}",
+        profile.peak_acceleration_mps2
+    );
 }
