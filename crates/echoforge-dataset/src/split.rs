@@ -61,7 +61,10 @@ impl DatasetRecord {
         policy
             .protected_keys
             .iter()
-            .filter_map(|key| self.protected_value(key).map(|value| format!("{key}={value}")))
+            .filter_map(|key| {
+                self.protected_value(key)
+                    .map(|value| format!("{key}={value}"))
+            })
             .collect::<Vec<_>>()
             .join("|")
     }
@@ -94,7 +97,10 @@ pub fn default_public_proxy_split_policy() -> SplitPolicy {
 }
 
 pub fn assign_split(record: &DatasetRecord, policy: &SplitPolicy) -> SplitKind {
-    assert!(policy.ratios.validate(), "split ratios must sum to 10000 basis points");
+    assert!(
+        policy.ratios.validate(),
+        "split ratios must sum to 10000 basis points"
+    );
     let bucket = deterministic_hash(&record.split_key(policy)) % 10_000;
     if bucket < policy.ratios.train_bps as u64 {
         SplitKind::Train

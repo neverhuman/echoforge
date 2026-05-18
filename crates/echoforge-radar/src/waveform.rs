@@ -43,4 +43,3 @@ pub fn lfm_chirp(config: &LfmChirp) -> Vec<ComplexSample> {
         })
         .collect()
 }
-

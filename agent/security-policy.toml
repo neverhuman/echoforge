@@ -6,3 +6,12 @@ advisory_tools = ["jankurai doctor", "jankurai audit"]
 [severity_thresholds]
 fail_lane_on = "critical"
 
+[banlist]
+file = "agent/banned-terms.toml"
+enforce_via = "tools/vendor_scrub.mjs"
+
+[receipts]
+required = true
+guard = "tools/receipt_guard.mjs"
+filename_pattern = "^\\d{8}T\\d{6}Z?(?:-\\d{4})?\\.md$"
+

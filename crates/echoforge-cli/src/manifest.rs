@@ -96,7 +96,10 @@ impl EchoSigManifest {
         status.push(StatusCheck::new(
             "provenance",
             if self.object().and_then(|o| o.get("provenance")).is_some()
-                || self.object().and_then(|o| o.get("provenance_path")).is_some()
+                || self
+                    .object()
+                    .and_then(|o| o.get("provenance_path"))
+                    .is_some()
             {
                 Health::Ok
             } else {
@@ -125,4 +128,3 @@ impl EchoSigManifest {
         }
     }
 }
-

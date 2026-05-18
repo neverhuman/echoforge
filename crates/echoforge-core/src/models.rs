@@ -365,7 +365,14 @@ impl ObjectCard {
 impl_document!(
     ObjectCard,
     "object_card",
-    [display_name, object_family, geometry_variant, material_variant, dimensions_m, tags]
+    [
+        display_name,
+        object_family,
+        geometry_variant,
+        material_variant,
+        dimensions_m,
+        tags
+    ]
 );
 
 impl MaterialCard {
@@ -374,7 +381,9 @@ impl MaterialCard {
         ensure_non_empty(&self.material_name, "material_name")?;
         ensure_non_empty(&self.material_family, "material_family")?;
         if self.frequency_range_hz.max < self.frequency_range_hz.min {
-            return Err(CoreError::Validation("frequency_range_hz must have max >= min".to_string()));
+            return Err(CoreError::Validation(
+                "frequency_range_hz must have max >= min".to_string(),
+            ));
         }
         Ok(())
     }
@@ -382,7 +391,14 @@ impl MaterialCard {
 impl_document!(
     MaterialCard,
     "material_card",
-    [material_name, material_family, frequency_range_hz, permittivity, conductivity_s_per_m, roughness_m]
+    [
+        material_name,
+        material_family,
+        frequency_range_hz,
+        permittivity,
+        conductivity_s_per_m,
+        roughness_m
+    ]
 );
 
 impl MeshManifest {
@@ -398,7 +414,15 @@ impl MeshManifest {
 impl_document!(
     MeshManifest,
     "mesh_manifest",
-    [mesh_name, mesh_format, source_files, units, triangle_count, watertight, mesh_sha256]
+    [
+        mesh_name,
+        mesh_format,
+        source_files,
+        units,
+        triangle_count,
+        watertight,
+        mesh_sha256
+    ]
 );
 
 impl SolverCard {
@@ -414,7 +438,13 @@ impl SolverCard {
 impl_document!(
     SolverCard,
     "solver_card",
-    [solver_name, solver_family, version, container_image, supported_polarizations]
+    [
+        solver_name,
+        solver_family,
+        version,
+        container_image,
+        supported_polarizations
+    ]
 );
 
 impl RcsCampaign {
@@ -429,10 +459,14 @@ impl RcsCampaign {
             return Err(CoreError::Validation("run_count must be > 0".to_string()));
         }
         if self.frequency_range_hz.max < self.frequency_range_hz.min {
-            return Err(CoreError::Validation("frequency_range_hz must have max >= min".to_string()));
+            return Err(CoreError::Validation(
+                "frequency_range_hz must have max >= min".to_string(),
+            ));
         }
         if self.azimuth_deg.max < self.azimuth_deg.min {
-            return Err(CoreError::Validation("azimuth_deg must have max >= min".to_string()));
+            return Err(CoreError::Validation(
+                "azimuth_deg must have max >= min".to_string(),
+            ));
         }
         Ok(())
     }
@@ -440,7 +474,16 @@ impl RcsCampaign {
 impl_document!(
     RcsCampaign,
     "rcs_campaign",
-    [campaign_name, object_card_id, solver_card_id, frequency_range_hz, azimuth_deg, tx_polarization, rx_polarization, run_count]
+    [
+        campaign_name,
+        object_card_id,
+        solver_card_id,
+        frequency_range_hz,
+        azimuth_deg,
+        tx_polarization,
+        rx_polarization,
+        run_count
+    ]
 );
 
 impl EchosigManifest {
@@ -456,7 +499,13 @@ impl EchosigManifest {
 impl_document!(
     EchosigManifest,
     "echosig_manifest",
-    [artifact_name, object_card_id, tensor_axes, tensor_paths, qa_paths]
+    [
+        artifact_name,
+        object_card_id,
+        tensor_axes,
+        tensor_paths,
+        qa_paths
+    ]
 );
 
 impl SensorArchetype {
@@ -466,10 +515,14 @@ impl SensorArchetype {
         ensure_non_empty(&self.band_name, "band_name")?;
         ensure_non_empty(&self.waveform_family, "waveform_family")?;
         if self.center_frequency_hz <= 0.0 {
-            return Err(CoreError::Validation("center_frequency_hz must be positive".to_string()));
+            return Err(CoreError::Validation(
+                "center_frequency_hz must be positive".to_string(),
+            ));
         }
         if self.sample_rate_hz <= 0.0 {
-            return Err(CoreError::Validation("sample_rate_hz must be positive".to_string()));
+            return Err(CoreError::Validation(
+                "sample_rate_hz must be positive".to_string(),
+            ));
         }
         Ok(())
     }
@@ -477,7 +530,13 @@ impl SensorArchetype {
 impl_document!(
     SensorArchetype,
     "sensor_archetype",
-    [sensor_name, band_name, waveform_family, center_frequency_hz, sample_rate_hz]
+    [
+        sensor_name,
+        band_name,
+        waveform_family,
+        center_frequency_hz,
+        sample_rate_hz
+    ]
 );
 
 impl Scenario {
@@ -493,7 +552,13 @@ impl Scenario {
 impl_document!(
     Scenario,
     "scenario",
-    [scenario_name, sensor_archetype_id, object_card_ids, environment_label, seed]
+    [
+        scenario_name,
+        sensor_archetype_id,
+        object_card_ids,
+        environment_label,
+        seed
+    ]
 );
 
 impl RadarEpisode {
@@ -502,7 +567,9 @@ impl RadarEpisode {
         ensure_non_empty(&self.episode_name, "episode_name")?;
         ensure_non_empty(&self.scenario_id, "scenario_id")?;
         if self.sample_rate_hz <= 0.0 {
-            return Err(CoreError::Validation("sample_rate_hz must be positive".to_string()));
+            return Err(CoreError::Validation(
+                "sample_rate_hz must be positive".to_string(),
+            ));
         }
         ensure_non_empty_vec(&self.product_paths, "product_paths")?;
         Ok(())
@@ -533,7 +600,11 @@ impl DatasetCard {
         Ok(())
     }
 }
-impl_document!(DatasetCard, "dataset_card", [dataset_name, source_campaign_ids, splits]);
+impl_document!(
+    DatasetCard,
+    "dataset_card",
+    [dataset_name, source_campaign_ids, splits]
+);
 
 impl ValidationReport {
     fn validate_fields(&self) -> Result<(), CoreError> {
@@ -543,14 +614,23 @@ impl ValidationReport {
         ensure_non_empty(&self.subject_id, "subject_id")?;
         ensure_non_empty_vec(&self.checks, "checks")?;
         ensure_non_empty(&self.overall_status, "overall_status")?;
-        ensure_probability(self.validation.uncertainty_score, "validation.uncertainty_score")?;
+        ensure_probability(
+            self.validation.uncertainty_score,
+            "validation.uncertainty_score",
+        )?;
         Ok(())
     }
 }
 impl_document!(
     ValidationReport,
     "validation_report",
-    [report_name, subject_kind, subject_id, checks, overall_status]
+    [
+        report_name,
+        subject_kind,
+        subject_id,
+        checks,
+        overall_status
+    ]
 );
 
 fn default_schema_version() -> String {

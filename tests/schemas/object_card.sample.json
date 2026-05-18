@@ -1,13 +1,34 @@
 {
-  "schema_ref": "schemas/object_card.schema.json",
-  "id": "obj.public_proxy.fixed_wing_v1",
-  "display_name": "Public Proxy Fixed-Wing Object",
-  "family": "fixed_wing_uav",
-  "public_proxy": true,
-  "source_status": "public_proxy",
-  "geometry_variants": ["baseline_airframe", "landing_configuration", "takeoff_configuration"],
-  "material_variants": ["composite_skin_proxy", "metal_fastener_proxy"],
-  "motion_variants": ["steady_flight", "climb", "turn"],
-  "notes": "Fixture for schema tests."
+  "id": "ef:object_card:public-proxy-uav-1:0123456789abcdef:1",
+  "kind": "object_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "public-proxy-uav-1",
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "display_name": "Public Proxy Fixed-Wing UAV v1",
+  "object_family": "fixed_wing_uav",
+  "geometry_variant": "baseline",
+  "material_variant": "composite-skin-baseline",
+  "dimensions_m": { "x": 2.4, "y": 1.6, "z": 0.4 },
+  "tags": ["public_proxy", "fixed_wing_uav", "v1"]
 }
-

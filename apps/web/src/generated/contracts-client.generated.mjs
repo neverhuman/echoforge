@@ -8,7 +8,7 @@ function resolveBaseUrl(apiBaseUrl) {
   }
 
   const configBaseUrl = globalThis.__ECHOFORGE_CONFIG__?.apiBaseUrl;
-  return stripTrailingSlash(configBaseUrl ?? 'http://localhost:8080');
+  return stripTrailingSlash(configBaseUrl ?? '');
 }
 
 async function requestJson(baseUrl, path, fetchImpl) {
@@ -36,9 +36,11 @@ export function createEchoForgeClient({ apiBaseUrl, fetchImpl = globalThis.fetch
     getCatalog() {
       return requestJson(baseUrl, '/api/catalog', fetchImpl);
     },
+    getValidationLatest() {
+      return requestJson(baseUrl, '/api/validation/latest', fetchImpl);
+    },
     getContracts() {
       return requestJson(baseUrl, '/api/contracts', fetchImpl);
     },
   };
 }
-

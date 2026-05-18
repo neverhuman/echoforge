@@ -57,3 +57,8 @@ target/jankurai/
 FUCKIT.md
 agent/repo-score.json
 agent/repo-score.md
+
+# SBOM artifacts (committed roll-up only)
+sbom/*
+!sbom/.keep
+!sbom/index.md

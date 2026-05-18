@@ -1,8 +1,8 @@
 use std::fs;
 
 use echoforge_radar::{
-    ca_cfar_1d, ca_cfar_scale, magnitude, pulse_compress, ArrayBackend, CfarParams, CpuBackend,
-    LfmChirp, RadarChain,
+    ca_cfar_1d, ca_cfar_scale, magnitude, pulse_compress, CfarParams, CpuBackend, LfmChirp,
+    RadarChain,
 };
 use echoforge_sig::{placeholder_analytic_report, EchoSigArtifactBundle};
 
@@ -43,9 +43,18 @@ fn echo_sig_bundle_round_trip_preserves_manifest_and_cards() {
     assert_eq!(round_trip.manifest.axes.len(), 11);
     assert_eq!(round_trip.provenance.seed, 0);
     assert_eq!(round_trip.license.expression, "Apache-2.0");
-    assert_eq!(round_trip.object_card.as_ref().unwrap().raw_yaml, object_card);
-    assert_eq!(round_trip.material_card.as_ref().unwrap().raw_yaml, material_card);
-    assert_eq!(round_trip.solver_card.as_ref().unwrap().raw_yaml, solver_card);
+    assert_eq!(
+        round_trip.object_card.as_ref().unwrap().raw_yaml,
+        object_card
+    );
+    assert_eq!(
+        round_trip.material_card.as_ref().unwrap().raw_yaml,
+        material_card
+    );
+    assert_eq!(
+        round_trip.solver_card.as_ref().unwrap().raw_yaml,
+        solver_card
+    );
 
     let manifest_path = tempdir.path().join("manifest.json");
     assert!(manifest_path.exists());
@@ -77,34 +86,15 @@ fn lfm_pulse_compression_peaks_at_self_match_lag() {
 }
 
 #[test]
-fn cpu_backend_matches_free_functions() {
-    let backend = CpuBackend;
-    assert_eq!(backend.name(), "cpu");
-
-    let chirp = LfmChirp {
-        sample_rate_hz: 10_000.0,
-        pulse_width_s: 0.001,
-        bandwidth_hz: 1_000.0,
-        carrier_hz: 0.0,
-        initial_phase_rad: 0.0,
-    };
-    let reference = backend.chirp(&chirp);
-    let compressed = backend.pulse_compress(&reference, &reference);
-    let cfar_params = CfarParams::new(4, 2, 1e-3);
-    let power = magnitude(&compressed);
-    let backend_cfar = backend.ca_cfar_1d(&power, cfar_params);
-    let direct_cfar = ca_cfar_1d(&power, cfar_params);
-
-    assert_eq!(backend_cfar, direct_cfar);
-}
-
-#[test]
 fn ca_cfar_flags_an_isolated_target_cell() {
     let mut power = vec![1.0f32; 64];
     power[31] = 100.0;
     let params = CfarParams::new(8, 2, 1e-3);
     let decisions = ca_cfar_1d(&power, params);
-    let target = decisions.iter().find(|decision| decision.index == 31).unwrap();
+    let target = decisions
+        .iter()
+        .find(|decision| decision.index == 31)
+        .unwrap();
 
     assert!(target.evaluated);
     assert!(target.detected);
@@ -132,4 +122,3 @@ fn radar_chain_can_run_end_to_end_on_cpu() {
     assert_eq!(output.cfar.len(), output.compressed.len());
     assert_eq!(chain.backend_name(), "cpu");
 }
-

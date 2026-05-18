@@ -1,12 +1,37 @@
 {
-  "schema_ref": "schemas/dataset_card.schema.json",
-  "dataset_id": "dataset.public_proxy.clutter_v1",
-  "benchmark_id": "benchmark.public_proxy.clutter_v1",
-  "split_policy": "dataset.split.public_proxy_v1",
-  "leakage_report_ref": "tests/datasets/benchmark_report.json",
-  "validation_tier": "draft",
-  "provenance": { "source": "synthetic" },
-  "license": { "expression": "Apache-2.0" },
-  "notes": "Fixture for schema tests."
+  "id": "ef:dataset_card:public-proxy-clutter-v1:0123456789abcdef:1",
+  "kind": "dataset_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "public-proxy-clutter-v1",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "dataset_name": "Public Proxy Clutter Dataset v1",
+  "source_campaign_ids": [
+    "ef:rcs_campaign:public-proxy-uav-1-xband:0123456789abcdef:1"
+  ],
+  "splits": {
+    "train": 1000,
+    "validation": 100,
+    "test": 100
+  }
 }
-

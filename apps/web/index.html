@@ -5,26 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>EchoForge Studio</title>
     <link rel="stylesheet" href="/src/styles.css" />
-    <script>
-      globalThis.__ECHOFORGE_CONFIG__ = {
-        apiBaseUrl: '__ECHOFORGE_API_BASE_URL__',
-      };
-    </script>
-    <script type="module" src="/src/main.mjs"></script>
+    <script type="module" src="/src/main.tsx"></script>
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">EchoForge Studio</p>
-        <h1>Forge public-proxy radar artifacts with explicit uncertainty.</h1>
-        <p class="lede">
-          This surface is scaffolded only. It renders placeholder readiness
-          state until the contract and runtime layers are expanded.
-        </p>
-      </section>
-      <section class="panel">
-        <div id="app" class="app-state" aria-live="polite"></div>
-      </section>
-    </main>
+    <div id="app"></div>
   </body>
 </html>

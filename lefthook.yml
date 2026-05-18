@@ -30,7 +30,7 @@ pre-commit:
       run: npx --yes @biomejs/biome check {staged_files}
     schema-validate:
       glob: "schemas/**/*.json"
-      run: node tools/validate_schemas.mjs {staged_files}
+      run: rtk cargo test -p echoforge-contracts-smoke --locked
     vendor-scrub:
       run: node tools/vendor_scrub.mjs --staged
     receipts-staged:

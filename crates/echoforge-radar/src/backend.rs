@@ -39,3 +39,23 @@ impl ArrayBackend for CpuBackend {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub struct GpuBackendUnavailable;
+
+impl GpuBackendUnavailable {
+    pub fn is_available(&self) -> bool {
+        false
+    }
+
+    pub fn name(&self) -> &'static str {
+        "gpu-unavailable"
+    }
+
+    pub fn reason(&self) -> &'static str {
+        "GPU backend is not wired into this scaffold; use the CPU fallback explicitly."
+    }
+
+    pub fn cpu_fallback(&self) -> CpuBackend {
+        CpuBackend
+    }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "ef:rcs_campaign:public-proxy-uav-1-xband:0123456789abcdef:1",
+  "kind": "rcs_campaign",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "public-proxy-uav-1-xband",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "campaign_name": "Public proxy UAV X-band sweep v1",
+  "object_card_id": "ef:object_card:public-proxy-uav-1:0123456789abcdef:1",
+  "solver_card_id": "ef:solver_card:baseline-sbr-solver:0123456789abcdef:1",
+  "frequency_range_hz": { "min": 8.0e9, "max": 12.0e9 },
+  "azimuth_deg": { "min": 0.0, "max": 360.0 },
+  "tx_polarization": "V",
+  "rx_polarization": "V",
+  "run_count": 1024
+}

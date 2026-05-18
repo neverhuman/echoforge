@@ -1,5 +1,23 @@
 {
   "workspace": "echoforge",
+  "lanes": {
+    "science-smoke": {
+      "enabled": true,
+      "command": "rtk just science-smoke"
+    },
+    "science-validate": {
+      "enabled": true,
+      "command": "rtk just science-validate"
+    },
+    "contracts": {
+      "enabled": true,
+      "command": "rtk just contracts"
+    },
+    "drift": {
+      "enabled": true,
+      "command": "rtk just drift"
+    }
+  },
   "tests": {
     "AGENTS.md": {
       "command": "rtk just fast",
@@ -13,13 +31,29 @@
       "command": "rtk just contracts",
       "purpose": "verify the shared contract layer"
     },
+    "tests/contracts/": {
+      "command": "rtk just contracts",
+      "purpose": "verify the Rust contract smoke package"
+    },
+    "tests/gpu/": {
+      "command": "rtk just gpu-smoke",
+      "purpose": "verify the Rust GPU doctor smoke package"
+    },
+    "tests/web/": {
+      "command": "rtk just web-smoke",
+      "purpose": "verify the API/catalog/web smoke surface"
+    },
     "crates/": {
       "command": "rtk just science-smoke",
       "purpose": "verify Rust runtime crates"
     },
+    "crates/echoforge-studio/": {
+      "command": "rtk cargo test -p echoforge-studio --locked",
+      "purpose": "verify the same-origin Rust studio service"
+    },
     "docker/": {
-      "command": "rtk just gpu-smoke",
-      "purpose": "verify GPU placeholder docker and smoke checks"
+      "command": "rtk just demo",
+      "purpose": "verify the Rust studio demo image and launch recipe"
     },
     "python/ai-service/": {
       "command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
@@ -31,4 +65,3 @@
     }
   }
 }
-

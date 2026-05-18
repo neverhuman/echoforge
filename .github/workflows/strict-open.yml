@@ -1,0 +1,40 @@
+name: strict-open
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  license-and-deny:
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
+  sbom:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    needs: license-and-deny
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install SBOM tools
+        run: |
+          cargo install cargo-cyclonedx || true
+          pip install pip-licenses || true
+      - name: Emit SBOM
+        run: bash tools/sbom_emit.sh || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/

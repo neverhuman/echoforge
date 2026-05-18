@@ -3,11 +3,16 @@ resolver = "2"
 members = [
     "crates/echoforge-cli",
     "crates/echoforge-core",
+    "crates/echoforge-studio",
     "crates/echoforge-dataset",
     "crates/echoforge-radar",
     "crates/echoforge-sig",
+    "crates/echoforge-validate",
     "crates/echoforge-world",
+    "tests/contracts",
+    "tests/gpu",
     "tests/radar_chain",
+    "tests/science",
 ]
 
 [workspace.package]

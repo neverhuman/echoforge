@@ -69,4 +69,3 @@ fn placeholder_case(primitive: AnalyticPrimitive, frequency_hz: f64) -> Analytic
         notes: Some("placeholder validation record".to_string()),
     }
 }
-

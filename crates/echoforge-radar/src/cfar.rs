@@ -70,11 +70,7 @@ pub fn ca_cfar_1d(power: &[f32], params: CfarParams) -> Vec<CfarDecision> {
             count += 1;
         }
 
-        let noise_estimate = if count == 0 {
-            0.0
-        } else {
-            sum / count as f32
-        };
+        let noise_estimate = if count == 0 { 0.0 } else { sum / count as f32 };
         let threshold = alpha * noise_estimate;
         let statistic = power[index];
 
@@ -90,4 +86,3 @@ pub fn ca_cfar_1d(power: &[f32], params: CfarParams) -> Vec<CfarDecision> {
 
     decisions
 }
-

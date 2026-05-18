@@ -1,4 +1,5 @@
 use crate::core::{Health, StatusCheck, StatusSummary};
+use crate::demo::{run_demo, DemoArgs};
 use crate::manifest::EchoSigManifest;
 use crate::schema::{validate_inputs, SchemaValidationReport};
 use clap::{Args, Parser, Subcommand};
@@ -19,6 +20,29 @@ pub enum Command {
     EchoSig(ManifestArgs),
     /// Print a doctor-style status summary.
     Doctor(DoctorArgs),
+    /// Run the V-tier validation gate against an EchoSig bundle directory.
+    Validate(ValidateArgs),
+    /// Run generated data demos.
+    Demo(DemoArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct ValidateArgs {
+    /// Path to an EchoSig bundle directory containing manifest.json (+ qa/).
+    #[arg(value_name = "BUNDLE")]
+    pub bundle: PathBuf,
+    /// Canonical primitive to validate against (auto-detect by default).
+    #[arg(long, value_name = "PRIMITIVE", default_value = "auto")]
+    pub primitive: String,
+    /// Target V-tier (v0, v1, v2).
+    #[arg(long = "target-tier", value_name = "TIER", default_value = "v1")]
+    pub target_tier: String,
+    /// Optional path to write the validation report JSON.
+    #[arg(long = "write-report", value_name = "PATH")]
+    pub write_report: Option<PathBuf>,
+    /// Upgrade warnings to failures.
+    #[arg(long)]
+    pub strict: bool,
 }
 
 #[derive(Debug, Args)]
@@ -46,6 +70,30 @@ pub fn run(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<u8, Str
     let cli = Cli::try_parse_from(args).map_err(|err| err.to_string())?;
 
     let summary = match cli.command {
+        Command::Validate(args) => {
+            let v_args = echoforge_validate::cli::ValidateArgs {
+                bundle: args.bundle,
+                primitive: Some(args.primitive),
+                target_tier: args.target_tier,
+                write_report: args.write_report,
+                strict: args.strict,
+            };
+            return match echoforge_validate::cli::run(v_args) {
+                Ok(code) => Ok(code.clamp(0, 255) as u8),
+                Err(err) => {
+                    eprintln!("{err}");
+                    let rc: u8 = match err {
+                        echoforge_validate::ValidateError::BadArgs(_) => 3,
+                        echoforge_validate::ValidateError::Schema(_)
+                        | echoforge_validate::ValidateError::Io(_)
+                        | echoforge_validate::ValidateError::Json(_) => 2,
+                        echoforge_validate::ValidateError::Failed(_) => 1,
+                    };
+                    Ok(rc)
+                }
+            };
+        }
+        Command::Demo(args) => return run_demo(args),
         Command::Schema(args) => {
             let report = validate_inputs(&args.inputs);
             println!("{}", report.render());
@@ -100,5 +148,9 @@ pub fn run(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<u8, Str
         }
     };
 
-    Ok(if summary.overall() == Health::Fail { 1 } else { 0 })
+    Ok(if summary.overall() == Health::Fail {
+        1
+    } else {
+        0
+    })
 }

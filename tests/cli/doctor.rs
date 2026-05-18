@@ -1,6 +1,6 @@
+use clap::Parser;
 use echoforge_cli::manifest::EchoSigManifest;
 use echoforge_cli::schema::validate_inputs;
-use clap::Parser;
 use serde_json::json;
 use std::fs;
 
@@ -31,11 +31,7 @@ fn renders_doctor_style_summary() {
     let manifest_report = manifest.inspect();
     let schema_report = validate_inputs(&[schema_path]);
 
-    let doctor = format!(
-        "{}\n{}\n",
-        manifest_report.render(),
-        schema_report.render()
-    );
+    let doctor = format!("{}\n{}\n", manifest_report.render(), schema_report.render());
 
     assert!(doctor.contains("EchoSig manifest"));
     assert!(doctor.contains("Schema validation"));

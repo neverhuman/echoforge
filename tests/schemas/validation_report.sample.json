@@ -1,0 +1,44 @@
+{
+  "id": "ef:validation_report:public-proxy-uav-1-geometry-audit:0123456789abcdef:1",
+  "kind": "validation_report",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "public-proxy-uav-1-geometry-audit",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "report_name": "Public proxy UAV geometry audit",
+  "subject_kind": "object_card",
+  "subject_id": "ef:object_card:public-proxy-uav-1:0123456789abcdef:1",
+  "checks": [
+    {
+      "name": "dimensions_nonnegative",
+      "status": "pass",
+      "message": "all components >= 0"
+    },
+    {
+      "name": "tags_present",
+      "status": "pass",
+      "message": "at least one tag"
+    }
+  ],
+  "overall_status": "pass"
+}

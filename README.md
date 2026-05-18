@@ -26,4 +26,5 @@ and dataset/benchmark packages with reproducible provenance.
 ```bash
 rtk just fast
 rtk jankurai adapters verify .
+rtk just demo
 ```

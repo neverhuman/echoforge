@@ -13,8 +13,10 @@
     "schemas/": "schema_contract",
     "contracts/": "schema_contract",
     "crates/": "runtime_core",
+    "crates/echoforge-studio/": "runtime_core",
     "python/ai-service/": "runtime_core",
-    "docker/": "runtime_core"
+    "docker/": "runtime_core",
+    "tests/contracts/": "runtime_core",
+    "tests/gpu/": "runtime_core"
   }
 }
-

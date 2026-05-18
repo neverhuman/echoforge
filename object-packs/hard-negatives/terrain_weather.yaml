@@ -1,11 +1,36 @@
-schema_ref: schemas/scenario.schema.json
-id: hn.public_proxy.terrain_weather_v1
-display_name: Terrain, Weather, and RFI Placeholder
-source_status: public_proxy
-confuser_traits:
-  - ground_glints
-  - vegetation_multipath
-  - rain_clutter
-  - rf_interference
-notes: Placeholder entry for non-target clutter and sensor artifacts.
-
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation across
+# distinct terrain/weather clutter traits will land in v2.
+id: "ef:object_card:terrain-weather-hard-negative:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: terrain-weather-hard-negative
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Terrain + Weather Hard Negative"
+object_family: generic
+geometry_variant: terrain-weather-mixed
+material_variant: mixed-natural
+dimensions_m:
+  x: 1.0
+  y: 1.0
+  z: 1.0
+tags:
+  - hard_negative
+  - terrain
+  - weather

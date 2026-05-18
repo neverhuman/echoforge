@@ -1,47 +1,20 @@
 services:
-  api:
+  studio:
     build:
       context: ..
       dockerfile: docker/cpu-worker.Dockerfile
-    working_dir: /workspace
-    command: ["node", "apps/api/server.mjs"]
     environment:
       HOST: 0.0.0.0
       PORT: "8080"
-      ECHOFORGE_PUBLIC_API_BASE_URL: http://localhost:8080
     ports:
       - "8080:8080"
-    volumes:
-      - ../:/workspace
-
-  web:
-    build:
-      context: ..
-      dockerfile: docker/cpu-worker.Dockerfile
-    working_dir: /workspace
-    command: ["node", "apps/web/server.mjs"]
-    environment:
-      HOST: 0.0.0.0
-      PORT: "3000"
-      ECHOFORGE_API_BASE_URL: http://localhost:8080
-    ports:
-      - "3000:3000"
-    depends_on:
-      - api
-    volumes:
-      - ../:/workspace
 
   gpu-doctor:
     build:
       context: ..
       dockerfile: docker/gpu-worker.Dockerfile
-    working_dir: /workspace
-    command: ["node", "tests/gpu/gpu-doctor.mjs", "--json", "/tmp/gpu-doctor.json"]
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
       ECHOFORGE_DOCTOR_OUTPUT: /tmp/gpu-doctor.json
     gpus: all
-    volumes:
-      - ../:/workspace
-

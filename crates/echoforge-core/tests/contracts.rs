@@ -1,6 +1,5 @@
 use echoforge_core::{
-    deterministic_id, LicenseInfo, ObjectCard, Provenance, ValidationCheck, ValidationInfo,
-    Vector3,
+    deterministic_id, LicenseInfo, ObjectCard, Provenance, ValidationCheck, ValidationInfo, Vector3,
 };
 use serde_json::json;
 

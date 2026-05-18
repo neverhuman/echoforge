@@ -179,7 +179,11 @@ impl EchoSigArtifactBundle {
 
 pub fn default_axes() -> Vec<AxisDescriptor> {
     vec![
-        axis("frequency_hz", Some("Hz"), "Center or sampled radar frequency"),
+        axis(
+            "frequency_hz",
+            Some("Hz"),
+            "Center or sampled radar frequency",
+        ),
         axis("azimuth_deg", Some("deg"), "Azimuth observation angle"),
         axis("elevation_deg", Some("deg"), "Elevation observation angle"),
         axis(
@@ -239,10 +243,8 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: PathBuf) -> Result<T> {
 
 fn write_card(path: PathBuf, card: &Option<BundleCard>) -> Result<()> {
     if let Some(card) = card {
-        fs::write(&path, card.raw_yaml.as_bytes()).map_err(|source| EchoSigError::Io {
-            path,
-            source,
-        })?;
+        fs::write(&path, card.raw_yaml.as_bytes())
+            .map_err(|source| EchoSigError::Io { path, source })?;
     }
     Ok(())
 }
@@ -262,4 +264,3 @@ fn read_card(path: PathBuf) -> Result<Option<BundleCard>> {
         .to_string();
     Ok(Some(BundleCard { kind, raw_yaml }))
 }
-

@@ -16,7 +16,24 @@ mkdir -p "${OUT}"
 
 echo "== Rust cargo SBOM ==" >&2
 if command -v cargo-cyclonedx >/dev/null 2>&1; then
-  rtk cargo cyclonedx --format json --target-cyclonedx-version 1.5 --output-path "${OUT}/cargo.cdx.json" >/dev/null
+  # cargo-cyclonedx 0.5.x writes each workspace package to <manifest_dir>/<name>.cdx.json
+  # via --override-filename. Aggregate into sbom/ after emission.
+  if rtk cargo cyclonedx --format json --spec-version 1.5 --override-filename cargo.cdx >/dev/null 2>&1; then
+    # Move every emitted cargo.cdx.json from workspace members into sbom/, namespacing by crate dir.
+    while IFS= read -r path; do
+      crate_dir="$(dirname "${path}")"
+      crate_name="$(basename "${crate_dir}")"
+      cp "${path}" "${OUT}/cargo.${crate_name}.cdx.json"
+      rm -f "${path}"
+    done < <(find . -name 'cargo.cdx.json' -not -path './sbom/*' -not -path './target/*' -not -path '/Volumes/MOE/*')
+    # Collapse into a single roll-up if any were produced.
+    first_cdx="$(ls -1 "${OUT}"/cargo.*.cdx.json 2>/dev/null | head -1)"
+    if [ -n "${first_cdx}" ] && [ ! -f "${OUT}/cargo.cdx.json" ]; then
+      cp "${first_cdx}" "${OUT}/cargo.cdx.json"
+    fi
+  else
+    echo "warn: cargo cyclonedx invocation failed" >&2
+  fi
 else
   echo "warn: cargo-cyclonedx not installed, skipping cargo SBOM" >&2
 fi

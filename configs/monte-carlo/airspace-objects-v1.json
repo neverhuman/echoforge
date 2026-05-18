@@ -1,0 +1,332 @@
+{
+  "config_id": "airspace-objects-v1",
+  "display_name": "Public-Proxy Airspace Object Monte Carlo Library v1",
+  "purpose": "Broad public-proxy object, behavior, environment, and sensor-stressor envelopes for reproducible Monte Carlo dataset generation.",
+  "guardrails": [
+    "public-proxy assumptions only",
+    "statistical noise proxy, not measured truth",
+    "not proprietary-equivalent",
+    "contested-airspace fields model robustness stressors, not evasion optimization"
+  ],
+  "object_classes": [
+    {
+      "id": "iranian-public-proxy-fixed-wing-takeoff-v1",
+      "display_name": "Iranian Public-Proxy Fixed-Wing UAV Takeoff",
+      "object_family": "fixed_wing_uav",
+      "role_tags": ["public_proxy", "low_altitude", "takeoff", "propulsor"],
+      "dimensions_m": { "length": [2.4, 3.8], "wingspan": [2.0, 3.2], "height": [0.35, 0.9] },
+      "rcs_dbsm": [-18.0, -4.0],
+      "material_mix": { "composite": [0.45, 0.8], "metal": [0.05, 0.2], "polymer": [0.1, 0.35] },
+      "kinematics": {
+        "ground_speed_mps": [22.0, 44.0],
+        "acceleration_mps2": [0.6, 2.4],
+        "climb_rate_mps": [2.0, 7.5],
+        "max_altitude_m": [180.0, 650.0],
+        "turn_rate_deg_s": [0.0, 3.5],
+        "radial_velocity_mps": [-24.0, 16.0],
+        "altitude_agl_m": [0.0, 650.0]
+      },
+      "micro_motion": {
+        "propulsor_hz": [60.0, 145.0],
+        "blade_count": [2, 3],
+        "micro_doppler_hz": [20.0, 90.0],
+        "amplitude_modulation": [0.05, 0.22],
+        "attitude_jitter_deg": [0.3, 3.0]
+      },
+      "behavior": {
+        "phases": ["ground_roll", "rotation", "initial_climb"],
+        "maneuverability": "low",
+        "formation_count": [1, 2],
+        "track_persistence_s": [8.0, 90.0]
+      },
+      "sensor_observables": {
+        "expected_range_bins": [12, 80],
+        "doppler_spread_bins": [1, 6],
+        "scintillation_sigma": [0.05, 0.18],
+        "classification_prior": 0.62
+      }
+    },
+    {
+      "id": "commercial-quadrotor-low-altitude-v1",
+      "display_name": "Commercial Quadrotor Low-Altitude Proxy",
+      "object_family": "quadrotor_uav",
+      "role_tags": ["public_proxy", "hover", "slow_mover", "hard_negative"],
+      "dimensions_m": { "length": [0.25, 1.4], "wingspan": [0.25, 1.4], "height": [0.08, 0.45] },
+      "rcs_dbsm": [-30.0, -12.0],
+      "material_mix": { "composite": [0.2, 0.55], "metal": [0.05, 0.25], "polymer": [0.25, 0.7] },
+      "kinematics": {
+        "ground_speed_mps": [0.0, 18.0],
+        "acceleration_mps2": [0.0, 3.0],
+        "climb_rate_mps": [-2.0, 4.0],
+        "max_altitude_m": [30.0, 180.0],
+        "turn_rate_deg_s": [0.0, 80.0],
+        "radial_velocity_mps": [-12.0, 12.0],
+        "altitude_agl_m": [5.0, 180.0]
+      },
+      "micro_motion": {
+        "propulsor_hz": [80.0, 280.0],
+        "blade_count": [2, 4],
+        "micro_doppler_hz": [60.0, 220.0],
+        "amplitude_modulation": [0.08, 0.3],
+        "attitude_jitter_deg": [1.0, 9.0]
+      },
+      "behavior": {
+        "phases": ["hover", "translate", "altitude_step"],
+        "maneuverability": "high",
+        "formation_count": [1, 6],
+        "track_persistence_s": [3.0, 45.0]
+      },
+      "sensor_observables": {
+        "expected_range_bins": [8, 90],
+        "doppler_spread_bins": [2, 14],
+        "scintillation_sigma": [0.08, 0.28],
+        "classification_prior": 0.5
+      }
+    },
+    {
+      "id": "bird-large-and-flock-v1",
+      "display_name": "Large Bird and Flock Proxy",
+      "object_family": "bird_or_flock",
+      "role_tags": ["public_proxy", "biological", "hard_negative", "flapping"],
+      "dimensions_m": { "length": [0.25, 1.2], "wingspan": [0.5, 2.4], "height": [0.1, 0.45] },
+      "rcs_dbsm": [-36.0, -14.0],
+      "material_mix": { "water_tissue": [0.45, 0.75], "air": [0.05, 0.2], "feather_proxy": [0.2, 0.5] },
+      "kinematics": {
+        "ground_speed_mps": [4.0, 24.0],
+        "acceleration_mps2": [0.0, 2.0],
+        "climb_rate_mps": [-3.0, 4.0],
+        "max_altitude_m": [20.0, 900.0],
+        "turn_rate_deg_s": [0.0, 70.0],
+        "radial_velocity_mps": [-18.0, 18.0],
+        "altitude_agl_m": [5.0, 900.0]
+      },
+      "micro_motion": {
+        "propulsor_hz": [2.0, 9.0],
+        "blade_count": [2, 2],
+        "micro_doppler_hz": [3.0, 28.0],
+        "amplitude_modulation": [0.12, 0.45],
+        "attitude_jitter_deg": [3.0, 18.0]
+      },
+      "behavior": {
+        "phases": ["glide", "flap", "flock_split"],
+        "maneuverability": "medium",
+        "formation_count": [1, 80],
+        "track_persistence_s": [2.0, 120.0]
+      },
+      "sensor_observables": {
+        "expected_range_bins": [5, 120],
+        "doppler_spread_bins": [3, 20],
+        "scintillation_sigma": [0.12, 0.5],
+        "classification_prior": 0.38
+      }
+    },
+    {
+      "id": "balloon-kite-debris-v1",
+      "display_name": "Balloon, Kite, and Windborne Debris Proxy",
+      "object_family": "windborne_slow_object",
+      "role_tags": ["public_proxy", "slow_mover", "hard_negative", "low_doppler"],
+      "dimensions_m": { "length": [0.2, 5.0], "wingspan": [0.2, 8.0], "height": [0.2, 5.0] },
+      "rcs_dbsm": [-34.0, -6.0],
+      "material_mix": { "polymer": [0.4, 0.9], "string_or_frame": [0.0, 0.25], "payload_proxy": [0.0, 0.2] },
+      "kinematics": {
+        "ground_speed_mps": [0.0, 14.0],
+        "acceleration_mps2": [0.0, 0.8],
+        "climb_rate_mps": [-1.5, 2.0],
+        "max_altitude_m": [10.0, 1500.0],
+        "turn_rate_deg_s": [0.0, 20.0],
+        "radial_velocity_mps": [-8.0, 8.0],
+        "altitude_agl_m": [5.0, 1500.0]
+      },
+      "micro_motion": {
+        "propulsor_hz": [0.0, 2.0],
+        "blade_count": [0, 0],
+        "micro_doppler_hz": [0.0, 8.0],
+        "amplitude_modulation": [0.02, 0.18],
+        "attitude_jitter_deg": [2.0, 25.0]
+      },
+      "behavior": {
+        "phases": ["drift", "gust_response", "tether_swing"],
+        "maneuverability": "wind_driven",
+        "formation_count": [1, 12],
+        "track_persistence_s": [5.0, 300.0]
+      },
+      "sensor_observables": {
+        "expected_range_bins": [6, 150],
+        "doppler_spread_bins": [1, 5],
+        "scintillation_sigma": [0.08, 0.35],
+        "classification_prior": 0.31
+      }
+    },
+    {
+      "id": "ground-vehicle-roadside-v1",
+      "display_name": "Ground Vehicle and Roadside Multipath Proxy",
+      "object_family": "ground_vehicle",
+      "role_tags": ["public_proxy", "ground_clutter", "multipath", "hard_negative"],
+      "dimensions_m": { "length": [2.0, 14.0], "wingspan": [1.5, 3.5], "height": [1.0, 4.2] },
+      "rcs_dbsm": [-5.0, 18.0],
+      "material_mix": { "metal": [0.35, 0.85], "glass": [0.02, 0.2], "polymer": [0.05, 0.35] },
+      "kinematics": {
+        "ground_speed_mps": [0.0, 32.0],
+        "acceleration_mps2": [0.0, 3.5],
+        "climb_rate_mps": [0.0, 0.0],
+        "max_altitude_m": [0.0, 3.0],
+        "turn_rate_deg_s": [0.0, 25.0],
+        "radial_velocity_mps": [-25.0, 25.0],
+        "altitude_agl_m": [0.0, 3.0]
+      },
+      "micro_motion": {
+        "propulsor_hz": [4.0, 22.0],
+        "blade_count": [4, 18],
+        "micro_doppler_hz": [2.0, 40.0],
+        "amplitude_modulation": [0.03, 0.16],
+        "attitude_jitter_deg": [0.0, 2.0]
+      },
+      "behavior": {
+        "phases": ["stop", "accelerate", "constant_speed", "turn"],
+        "maneuverability": "surface_constrained",
+        "formation_count": [1, 30],
+        "track_persistence_s": [5.0, 240.0]
+      },
+      "sensor_observables": {
+        "expected_range_bins": [3, 140],
+        "doppler_spread_bins": [1, 8],
+        "scintillation_sigma": [0.04, 0.2],
+        "classification_prior": 0.27
+      }
+    },
+    {
+      "id": "wind-turbine-industrial-glint-v1",
+      "display_name": "Wind Turbine and Industrial Glint Proxy",
+      "object_family": "static_or_rotating_infrastructure",
+      "role_tags": ["public_proxy", "infrastructure", "hard_negative", "strong_glint"],
+      "dimensions_m": { "length": [5.0, 120.0], "wingspan": [2.0, 160.0], "height": [5.0, 160.0] },
+      "rcs_dbsm": [0.0, 32.0],
+      "material_mix": { "metal": [0.2, 0.8], "composite": [0.1, 0.6], "concrete": [0.0, 0.5] },
+      "kinematics": {
+        "ground_speed_mps": [0.0, 0.0],
+        "acceleration_mps2": [0.0, 0.0],
+        "climb_rate_mps": [0.0, 0.0],
+        "max_altitude_m": [10.0, 160.0],
+        "turn_rate_deg_s": [0.0, 0.0],
+        "radial_velocity_mps": [-4.0, 4.0],
+        "altitude_agl_m": [5.0, 160.0]
+      },
+      "micro_motion": {
+        "propulsor_hz": [0.02, 1.2],
+        "blade_count": [0, 3],
+        "micro_doppler_hz": [0.5, 45.0],
+        "amplitude_modulation": [0.02, 0.35],
+        "attitude_jitter_deg": [0.0, 1.0]
+      },
+      "behavior": {
+        "phases": ["static_glint", "slow_rotation", "sidelobe_alias"],
+        "maneuverability": "fixed_site",
+        "formation_count": [1, 40],
+        "track_persistence_s": [20.0, 600.0]
+      },
+      "sensor_observables": {
+        "expected_range_bins": [2, 180],
+        "doppler_spread_bins": [1, 12],
+        "scintillation_sigma": [0.02, 0.18],
+        "classification_prior": 0.22
+      }
+    }
+  ],
+  "environment_profiles": [
+    {
+      "id": "semi-urban-low-altitude-contested-v1",
+      "display_name": "Semi-Urban Low-Altitude Contested-Airspace Robustness Profile",
+      "terrain": "mixed_roads_buildings_open_ground",
+      "clutter_density": [0.25, 0.85],
+      "ground_glint_density": [0.05, 0.35],
+      "weather": {
+        "precipitation_rate_mm_h": [0.0, 8.0],
+        "wind_speed_mps": [0.0, 16.0],
+        "turbulence_index": [0.0, 0.7]
+      },
+      "rfi": {
+        "background_interference_probability": [0.0, 0.04],
+        "impulse_probability": [0.0, 0.02],
+        "burst_duration_pulses": [1, 6],
+        "spectral_overlap_fraction": [0.0, 0.35]
+      },
+      "contested_airspace": {
+        "traffic_density": [0.05, 0.65],
+        "cochannel_emitters": [0, 8],
+        "uncooperative_transponder_fraction": [0.0, 0.6],
+        "multipath_severity": [0.0, 0.75],
+        "sensor_dropout_probability": [0.0, 0.08],
+        "label_ambiguity_probability": [0.0, 0.18]
+      }
+    },
+    {
+      "id": "rural-open-ground-baseline-v1",
+      "display_name": "Rural Open-Ground Baseline Profile",
+      "terrain": "open_ground_sparse_structures",
+      "clutter_density": [0.05, 0.35],
+      "ground_glint_density": [0.0, 0.12],
+      "weather": {
+        "precipitation_rate_mm_h": [0.0, 3.0],
+        "wind_speed_mps": [0.0, 12.0],
+        "turbulence_index": [0.0, 0.35]
+      },
+      "rfi": {
+        "background_interference_probability": [0.0, 0.015],
+        "impulse_probability": [0.0, 0.008],
+        "burst_duration_pulses": [1, 3],
+        "spectral_overlap_fraction": [0.0, 0.18]
+      },
+      "contested_airspace": {
+        "traffic_density": [0.0, 0.25],
+        "cochannel_emitters": [0, 3],
+        "uncooperative_transponder_fraction": [0.0, 0.35],
+        "multipath_severity": [0.0, 0.3],
+        "sensor_dropout_probability": [0.0, 0.03],
+        "label_ambiguity_probability": [0.0, 0.08]
+      }
+    }
+  ],
+  "sensor_archetypes": [
+    {
+      "id": "x-band-public-proxy-pulse-doppler-v1",
+      "display_name": "X-Band Public-Proxy Pulse-Doppler Archetype",
+      "band_name": "x_band_proxy",
+      "center_frequency_hz": [9000000000.0, 10500000000.0],
+      "sample_rate_hz": [1000000.0, 4000000.0],
+      "bandwidth_hz": [500000.0, 2500000.0],
+      "pulse_width_s": [0.000064, 0.000192],
+      "pri_s": [0.0006, 0.0014],
+      "pulse_count": [16, 96],
+      "receiver_noise_figure_db": [3.0, 9.0],
+      "calibration_error_db": [0.0, 2.5]
+    }
+  ],
+  "presets": [
+    {
+      "id": "iranian-takeoff-v1",
+      "object_class_id": "iranian-public-proxy-fixed-wing-takeoff-v1",
+      "environment_profile_id": "semi-urban-low-altitude-contested-v1",
+      "sensor_archetype_id": "x-band-public-proxy-pulse-doppler-v1",
+      "scenario_label": "public-proxy fixed-wing takeoff with statistical contested-airspace stressors",
+      "episode_duration_s": [0.012, 0.12],
+      "snr_db": [10.0, 28.0],
+      "notes": [
+        "Default demo uses a public Iran-facing label but neutral proxy IDs.",
+        "No exact object, platform, or sensor-performance claim is made."
+      ]
+    },
+    {
+      "id": "mixed-low-altitude-hard-negatives-v1",
+      "object_class_id": "commercial-quadrotor-low-altitude-v1",
+      "environment_profile_id": "semi-urban-low-altitude-contested-v1",
+      "sensor_archetype_id": "x-band-public-proxy-pulse-doppler-v1",
+      "scenario_label": "mixed low-altitude hard-negative robustness profile",
+      "episode_duration_s": [0.01, 0.2],
+      "snr_db": [0.0, 24.0],
+      "notes": [
+        "Starter preset for expanding beyond a single object class.",
+        "Use for detector robustness checks, not evasion optimization."
+      ]
+    }
+  ]
+}

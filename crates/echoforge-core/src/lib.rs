@@ -1,5 +1,5 @@
-pub mod error;
 pub mod artifact;
+pub mod error;
 pub mod id;
 pub mod models;
 pub mod validation;

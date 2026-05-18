@@ -1,10 +1,36 @@
-schema_ref: schemas/scenario.schema.json
-id: hn.public_proxy.commercial_drones_v1
-display_name: Commercial Drones Placeholder
-source_status: public_proxy
-confuser_traits:
-  - rotor_micro_doppler
-  - takeoff_transients
-  - body_rotor_coupling
-notes: Placeholder entry for generic multirotor confusers.
-
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation across
+# multiple commercial drone variants will land in v2.
+id: "ef:object_card:commercial-quadrotor-hard-negative:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: commercial-quadrotor-hard-negative
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Commercial Quadrotor Hard Negative"
+object_family: multirotor
+geometry_variant: small-quad
+material_variant: plastic-shell
+dimensions_m:
+  x: 0.3
+  y: 0.3
+  z: 0.1
+tags:
+  - hard_negative
+  - multirotor
+  - commercial_drone

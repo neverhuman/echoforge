@@ -9,4 +9,4 @@ echoforge-sig = { path = "../echoforge-sig" }
 num-complex = "0.4"
 serde = { version = "1", features = ["derive"] }
 rustfft = "6"
-thiserror = "1"
+thiserror = "2"

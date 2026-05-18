@@ -1,0 +1,35 @@
+{
+  "id": "ef:mesh_manifest:public-proxy-uav-1-mesh:0123456789abcdef:1",
+  "kind": "mesh_manifest",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "public-proxy-uav-1-mesh",
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "mesh_name": "Public proxy fixed-wing baseline mesh",
+  "mesh_format": "glb",
+  "source_files": ["meshes/public-proxy-uav-1.glb"],
+  "units": "m",
+  "triangle_count": 12000,
+  "watertight": true,
+  "mesh_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

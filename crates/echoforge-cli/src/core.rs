@@ -33,11 +33,7 @@ pub struct StatusCheck {
 }
 
 impl StatusCheck {
-    pub fn new(
-        name: impl Into<String>,
-        health: Health,
-        detail: impl Into<String>,
-    ) -> Self {
+    pub fn new(name: impl Into<String>, health: Health, detail: impl Into<String>) -> Self {
         Self {
             name: name.into(),
             health,
@@ -114,4 +110,3 @@ impl ManifestSummary {
         out
     }
 }
-

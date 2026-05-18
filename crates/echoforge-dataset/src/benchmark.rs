@@ -58,4 +58,3 @@ fn bullet_list(items: &[String]) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
-

@@ -1,10 +1,33 @@
 {
-  "artifact": "ef:echo:demo:0001:1",
-  "validation_tier": "V0",
+  "id": "ef:echosig_manifest:sample-echosig-v0:0000000000000000:1",
+  "kind": "echosig_manifest",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "sample-echosig-v0",
   "provenance": {
-    "source": "synthetic"
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
   },
   "license": {
-    "spdx": "CC-BY-4.0"
-  }
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "unvalidated",
+    "status": "warn",
+    "uncertainty_score": 0.5,
+    "checks": [
+      {
+        "name": "placeholder",
+        "status": "warn",
+        "message": "fixture only, not validated"
+      }
+    ]
+  },
+  "artifact_name": "Sample EchoSig (V0 placeholder)",
+  "object_card_id": "ef:object_card:public-proxy-uav-1:0000000000000000:1",
+  "tensor_axes": ["frequency_hz", "azimuth_deg"],
+  "tensor_paths": ["tensors/sigma_m2.zarr"],
+  "qa_paths": ["qa/known_limitations.md"]
 }

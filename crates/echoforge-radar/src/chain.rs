@@ -42,7 +42,11 @@ impl<B: ArrayBackend> RadarChain<B> {
         self.backend.pulse_compress(received, reference)
     }
 
-    pub fn detect(&self, received: &[ComplexSample], reference: &[ComplexSample]) -> RadarChainOutput {
+    pub fn detect(
+        &self,
+        received: &[ComplexSample],
+        reference: &[ComplexSample],
+    ) -> RadarChainOutput {
         let compressed = self.pulse_compress(received, reference);
         let magnitudes = magnitude(&compressed);
         let cfar = ca_cfar_1d(&magnitudes, self.cfar_params);
@@ -55,4 +59,3 @@ impl<B: ArrayBackend> RadarChain<B> {
         }
     }
 }
-

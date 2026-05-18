@@ -9,6 +9,21 @@ command = "rtk just contracts"
 purpose = "Validate schema and contract scaffolding."
 
 [[lane]]
+name = "demo"
+command = "rtk just demo"
+purpose = "Launch the same-origin Rust studio demo."
+
+[[lane]]
+name = "studio"
+command = "rtk cargo test -p echoforge-studio --locked"
+purpose = "Validate the Rust studio service package."
+
+[[lane]]
+name = "web-smoke"
+command = "rtk just web-smoke"
+purpose = "Validate the API/catalog/web smoke surface."
+
+[[lane]]
 name = "science-smoke"
 command = "rtk just science-smoke"
 purpose = "Validate the scientific runtime crates."
@@ -33,3 +48,22 @@ name = "score"
 command = "rtk jankurai audit . --mode advisory"
 purpose = "Advisory repository score."
 
+[[lane]]
+name = "vendor-scrub"
+command = "rtk node tools/vendor_scrub.mjs"
+purpose = "Reject vendor names from agent/banned-terms.toml."
+
+[[lane]]
+name = "receipts"
+command = "rtk node tools/receipt_guard.mjs --all"
+purpose = "Validate receipt shape across .agents/receipts/."
+
+[[lane]]
+name = "licenses"
+command = "rtk cargo deny check"
+purpose = "Enforce strict-open license allow-list."
+
+[[lane]]
+name = "validate-schemas"
+command = "rtk cargo test -p echoforge-contracts-smoke --locked"
+purpose = "Validate every JSON Schema and sample fixture."

@@ -1,0 +1,33 @@
+{
+  "id": "ef:sensor_archetype:baseline-x-band-fmcw:0123456789abcdef:1",
+  "kind": "sensor_archetype",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "baseline-x-band-fmcw",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "sensor_name": "Baseline X-band FMCW",
+  "band_name": "X",
+  "waveform_family": "fmcw",
+  "center_frequency_hz": 10.0e9,
+  "sample_rate_hz": 50.0e6
+}

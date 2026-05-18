@@ -1,6 +1,9 @@
 use crate::ComplexSample;
 
-pub fn matched_filter(received: &[ComplexSample], reference: &[ComplexSample]) -> Vec<ComplexSample> {
+pub fn matched_filter(
+    received: &[ComplexSample],
+    reference: &[ComplexSample],
+) -> Vec<ComplexSample> {
     if received.is_empty() || reference.is_empty() {
         return Vec::new();
     }
@@ -17,11 +20,13 @@ pub fn matched_filter(received: &[ComplexSample], reference: &[ComplexSample]) -
     output
 }
 
-pub fn pulse_compress(received: &[ComplexSample], reference: &[ComplexSample]) -> Vec<ComplexSample> {
+pub fn pulse_compress(
+    received: &[ComplexSample],
+    reference: &[ComplexSample],
+) -> Vec<ComplexSample> {
     matched_filter(received, reference)
 }
 
 pub fn magnitude(samples: &[ComplexSample]) -> Vec<f32> {
     samples.iter().map(|sample| sample.norm()).collect()
 }
-

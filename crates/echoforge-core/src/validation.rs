@@ -21,7 +21,9 @@ pub fn ensure_non_empty_vec<T>(value: &[T], field: &str) -> Result<(), CoreError
 
 pub fn ensure_probability(value: f64, field: &str) -> Result<(), CoreError> {
     if !(0.0..=1.0).contains(&value) {
-        return Err(CoreError::Validation(format!("{field} must be between 0 and 1")));
+        return Err(CoreError::Validation(format!(
+            "{field} must be between 0 and 1"
+        )));
     }
     Ok(())
 }
@@ -29,7 +31,9 @@ pub fn ensure_probability(value: f64, field: &str) -> Result<(), CoreError> {
 pub fn ensure_slug(value: &str, field: &str) -> Result<(), CoreError> {
     let regex = Regex::new(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$").expect("valid slug regex");
     if !regex.is_match(value) {
-        return Err(CoreError::Validation(format!("{field} must be a lowercase slug")));
+        return Err(CoreError::Validation(format!(
+            "{field} must be a lowercase slug"
+        )));
     }
     Ok(())
 }

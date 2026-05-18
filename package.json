@@ -7,7 +7,20 @@
     "bootstrap": "just bootstrap",
     "doctor": "just doctor",
     "fast": "just fast",
-    "score": "just score"
+    "score": "just score",
+    "web:build": "vite build --config apps/web/vite.config.ts",
+    "web:test": "vitest run --config apps/web/vite.config.ts",
+    "web:smoke": "npm run web:build && npm run web:test"
   },
-  "packageManager": "npm@10.8.3"
+  "packageManager": "npm@10.8.3",
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.13",
+    "vitest": "^4.1.6"
+  }
 }

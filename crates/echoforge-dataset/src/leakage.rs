@@ -27,7 +27,8 @@ impl LeakageReport {
 }
 
 pub fn build_leakage_report(records: &[DatasetRecord], policy: &SplitPolicy) -> LeakageReport {
-    let mut bucketed: BTreeMap<(String, String), BTreeMap<SplitKind, Vec<String>>> = BTreeMap::new();
+    let mut bucketed: BTreeMap<(String, String), BTreeMap<SplitKind, Vec<String>>> =
+        BTreeMap::new();
 
     for record in records {
         let split = record
@@ -90,4 +91,3 @@ pub fn unique_split_protected_values(
     }
     values
 }
-

@@ -75,7 +75,9 @@ impl ArtifactId {
         ensure_slug(public_proxy_id, "public_proxy_id")?;
         ensure_non_empty(hash, "hash")?;
         ensure_non_empty(version, "version")?;
-        Ok(Self(format!("ef:{kind}:{public_proxy_id}:{hash}:{version}")))
+        Ok(Self(format!(
+            "ef:{kind}:{public_proxy_id}:{hash}:{version}"
+        )))
     }
 
     pub fn as_str(&self) -> &str {
