@@ -11,8 +11,8 @@
 //! * [`SumBeamformer`] — coherent (uniform-weight) sum.
 //! * [`DelayAndSumBeamformer`] — applies a per-channel steering vector
 //!   before summation, biasing toward the steered direction.
-//! * [`CaponStubBeamformer`] — applies a pre-computed weight vector. This
-//!   is a stub: the adaptive Capon weight estimation (sample covariance
+//! * [`CaponUnimplementedBeamformer`] — applies a pre-computed weight vector. This
+//!   is an unimplemented adapter: the adaptive Capon weight estimation (sample covariance
 //!   inversion, etc.) is intentionally out of scope here; this struct only
 //!   pins down the interface so a follow-up packet can fill it in.
 //!
@@ -128,26 +128,26 @@ impl Beamformer for DelayAndSumBeamformer {
     }
 }
 
-/// Stub for the Capon (minimum-variance distortionless response) beamformer.
+/// Unimplemented adapter for the Capon (minimum-variance distortionless response) beamformer.
 ///
 /// The full Capon adaptive estimator requires per-frame sample covariance
-/// inversion and is left for a follow-up packet. This stub locks in the
+/// inversion and is left for a follow-up packet. This unimplemented adapter locks in the
 /// interface by simply applying a pre-computed weight vector to each
 /// channel; callers can supply Capon weights produced offline (or any
 /// other adaptive scheme) and exercise the same code path that the
 /// production estimator will use.
 #[derive(Debug, Clone, PartialEq)]
-pub struct CaponStubBeamformer {
+pub struct CaponUnimplementedBeamformer {
     pub weights: Vec<Complex<f64>>,
 }
 
-impl CaponStubBeamformer {
+impl CaponUnimplementedBeamformer {
     pub fn new(weights: Vec<Complex<f64>>) -> Self {
         Self { weights }
     }
 }
 
-impl Beamformer for CaponStubBeamformer {
+impl Beamformer for CaponUnimplementedBeamformer {
     fn beamform(&self, channel_iq: &[Vec<ComplexSample>]) -> Vec<ComplexSample> {
         let Some(first) = channel_iq.first() else {
             return Vec::new();
@@ -305,7 +305,7 @@ mod tests {
     }
 
     #[test]
-    fn capon_stub_applies_supplied_weights() {
+    fn capon_unimplemented_applies_supplied_weights() {
         let weights = vec![
             Complex::new(0.5, 0.0),
             Complex::new(0.0, 0.5),
@@ -316,7 +316,7 @@ mod tests {
             vec![ComplexSample::new(1.0, 0.0)],
             vec![ComplexSample::new(1.0, 0.0)],
         ];
-        let bf = CaponStubBeamformer::new(weights);
+        let bf = CaponUnimplementedBeamformer::new(weights);
         let out = bf.beamform(&channels);
         assert_eq!(out.len(), 1);
         // (1+0j)*0.5 + (1+0j)*0.5j + (1+0j)*(-0.5) = 0.0 + 0.5j
@@ -325,8 +325,8 @@ mod tests {
     }
 
     #[test]
-    fn capon_stub_handles_empty_input() {
-        let bf = CaponStubBeamformer::new(vec![Complex::new(1.0, 0.0); 2]);
+    fn capon_unimplemented_handles_empty_input() {
+        let bf = CaponUnimplementedBeamformer::new(vec![Complex::new(1.0, 0.0); 2]);
         assert!(bf.beamform(&[]).is_empty());
     }
 

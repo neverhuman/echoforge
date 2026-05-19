@@ -1,16 +1,131 @@
-stack = { id = "rust-ts-vite-react-postgres-bounded-python", version = "0.1.0" }
+[[audited_runtime_boundary]]
+classification = "advanced-data"
+id = "detection-python-science-slice"
+paths = ["detection/*.py"]
+product_surface = false
+required_checks = [
+    "manifest-coverage",
+    "payload-hash-match",
+    "no-direct-db-access",
+    "no-product-routes",
+    "no-subprocess",
+    "no-import-escape",
+    "no-builtin-escape",
+]
+required_evidence = ["target/jankurai/boundaries/detection-python-science-slice/evidence.json"]
+runtime_language = "python"
+target_stack_exception = true
+
+[[audited_runtime_boundary]]
+classification = "advanced-ml"
+id = "python-ai-service-ml-slice"
+paths = [
+    "python/ai-service/*.py",
+    "python/ai-service/**/*.py",
+]
+product_surface = false
+required_checks = [
+    "manifest-coverage",
+    "payload-hash-match",
+    "no-direct-db-access",
+    "no-product-routes",
+    "no-subprocess",
+    "no-import-escape",
+    "no-builtin-escape",
+]
+required_evidence = ["target/jankurai/boundaries/python-ai-service-ml-slice/evidence.json"]
+runtime_language = "python"
+target_stack_exception = true
+
+[db]
+constraint_paths = ["db/constraints"]
+migration_paths = ["db/migrations"]
+root_paths = ["db"]
+
+[python]
+allowed_non_product_paths = ["detection/", "python/ai-service/"]
+allowed_truth_paths = ["python/ai-service"]
 
 [queues]
-adapter_paths = ["apps/", "crates/", "python/ai-service/", "docker/"]
-event_contract_paths = ["schemas/", "contracts/"]
-generated_type_paths = ["apps/web/src/generated/"]
-client_markers = ["apps/web/src/generated/contracts-client.generated.mjs"]
+adapter_paths = [
+    "apps/",
+    "crates/",
+    "python/ai-service/",
+    "docker/",
+    "crates/adapters/queues",
+    "crates/adapters/src/queues",
+]
+client_markers = [
+    "apps/web/src/generated/contracts-client.generated.mjs",
+    "apps/web/src/meshService.ts",
+    "rdkafka",
+    "kafkajs",
+    "tansu",
+    "iggy",
+    "fluvio",
+    "nats",
+    "redis streams",
+]
+event_contract_paths = [
+    "schemas/",
+    "contracts/",
+    "contracts/events",
+]
+generated_type_paths = [
+    "apps/web/src/generated/",
+    "contracts/generated",
+]
+
+[rust]
+domain_paths = [
+    "crates/domain",
+    "crates/*/src/domain",
+]
+forbidden_domain_imports = [
+    "std::fs",
+    "std::env",
+    "std::net",
+    "std::time::SystemTime",
+    "rand::",
+    "sqlx::",
+    "diesel::",
+    "reqwest::",
+    "rdkafka::",
+    "tracing::",
+    "log::",
+]
+
+[stack]
+id = "rust-ts-vite-react-postgres-bounded-python"
+version = "0.1.0"
 
 [[streaming_exception]]
-runtime = "python"
 classification = "advanced-data"
-reason = "Python is reserved for the contract/model and scientific helper slice."
-owner = "runtime_core"
 expires = "2027-01-01"
-migration_path = "none"
+migration_path = "Promote to Rust once mature ML runtimes support equivalent inference pipelines."
+owner = "runtime_core"
+reason = "python/ai-service/ is the bounded AI/ML service exception: advanced ML inference and data validation; no DB ownership, no product routes."
+runtime = "python"
 
+[[streaming_exception]]
+classification = "brownfield"
+expires = "2026-12-31"
+migration_path = "Keep Kafka behind generated event contracts and observable Rust queue adapters; evaluate Tansu, Apache Iggy, and Fluvio with replay, compatibility, and operations proof before replacement."
+owner = "platform"
+runtime = "kafka"
+
+[typescript]
+forbidden_web_imports = [
+    "sqlx",
+    "pg",
+    "postgres",
+    "mysql",
+    "better-sqlite3",
+    "@aws-sdk/client-s3",
+]
+generated_contract_paths = ["contracts/generated"]
+web_paths = [
+    "apps/web",
+    "packages/web",
+    "packages/ui",
+]

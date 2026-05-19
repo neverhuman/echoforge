@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/radar_platform_card.schema.json",
+  "title": "radar_platform_card",
+  "description": "EchoForge radar_platform_card document. Declares a named real-world radar platform (vendor + model + role + antenna + waveform + receiver + declared detection envelope) with citation-anchored physics. Authored against public datasheets and OSINT (Janes, CSIS, Reuters, Bellingcat, vendor product pages). Strict-open: no measured-truth claim; vendor names allowed per the 20260518T160000Z naming-policy reversal; each parameter MUST cite a public source via `source_refs`. Conforms to the EchoForge strict-open contract: deterministic ids, provenance, license, validation envelope. References: Skolnik 3rd ed. ch. 2 (radar equation, antenna gain), tips/detectors/tip1.txt–tip8.txt (OSINT detector matrix).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "sensor_name",
+    "vendor",
+    "model",
+    "country_of_origin",
+    "role",
+    "band_name",
+    "waveform_family",
+    "center_frequency_hz",
+    "sample_rate_hz",
+    "antenna",
+    "transmit",
+    "receiver",
+    "scan",
+    "declared_detection_envelope"
+  ],
+  "properties": {
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:radar_platform_card:<public_proxy_id>:<16hex>:1.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator; must be the literal string 'radar_platform_card'.",
+      "const": "radar_platform_card"
+    },
+    "schema_version": {
+      "description": "Schema contract version (currently pinned to 1.0.0).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Slug identifying the platform (e.g. 'saab-giraffe-1x', 'rtx-kurfs', 'hensoldt-spexer-2000-3d-mkiii').",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "sensor_name": {
+      "description": "Human-readable platform name (e.g. 'Saab Giraffe 1X').",
+      "type": "string",
+      "minLength": 1
+    },
+    "vendor": {
+      "description": "Manufacturer / OEM (e.g. 'Saab', 'RTX', 'HENSOLDT', 'Echodyne', 'Robin Radar', 'Leonardo DRS', 'SRC', 'Blighter', 'CETC', 'Rostec'). Allowed per the 20260518T160000Z naming-policy reversal. Must be cited via `vendor_datasheet_refs`.",
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "description": "Vendor model designation (e.g. 'Giraffe 1X', 'KuRFS', 'AN/MPQ-64 Sentinel A4').",
+      "type": "string",
+      "minLength": 1
+    },
+    "country_of_origin": {
+      "description": "ISO 3166-1 alpha-3 country code (e.g. 'SWE', 'USA', 'DEU', 'NLD', 'ISR', 'CHN', 'RUS', 'GBR'). Lives in metadata only; never gates code behavior.",
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "role": {
+      "description": "Primary mission role.",
+      "enum": [
+        "wide_area_surveillance",
+        "c_uas_dedicated",
+        "multi_mission",
+        "point_defense_acquisition",
+        "point_defense_tracking",
+        "counter_battery",
+        "passive_radar",
+        "ground_based_air_defense",
+        "naval_surveillance",
+        "airborne_surveillance"
+      ]
+    },
+    "band_name": {
+      "description": "IEEE 521 band designation. Typical: HF|VHF|UHF|L|S|C|X|Ku|K|Ka|V|W|mmWave.",
+      "type": "string",
+      "minLength": 1
+    },
+    "waveform_family": {
+      "description": "Primary waveform. Typical: pulsed|lfm|fmcw|nlfm|pulse_doppler|cw|stepped_frequency.",
+      "type": "string",
+      "minLength": 1
+    },
+    "center_frequency_hz": {
+      "description": "Carrier / center frequency in hertz. For tuneable systems, the nominal mid-band.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "frequency_range_hz": {
+      "description": "Optional tuneable range as {min, max} in Hz. Use when the platform is frequency-agile (e.g. Blighter A800 Mk2 15.7-17.2 GHz).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range"
+    },
+    "sample_rate_hz": {
+      "description": "Complex-baseband sample rate (Hz).",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "antenna": {
+      "description": "Antenna / aperture parameters. Computed via G = 4*pi*eta*A_phys/lambda^2 when aperture is declared; use vendor-declared gain when available.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern_type", "gain_dbi", "beamwidth_az_deg", "beamwidth_el_deg"],
+      "properties": {
+        "pattern_type": {
+          "enum": [
+            "parabolic_reflector",
+            "phased_array_pesa",
+            "phased_array_aesa",
+            "mesa_electronic_scan",
+            "fmcw_panel",
+            "three_face_array",
+            "rotating_planar_array",
+            "fixed_horn"
+          ]
+        },
+        "gain_dbi": { "type": "number" },
+        "beamwidth_az_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "beamwidth_el_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "aperture_diameter_m": { "type": "number", "exclusiveMinimum": 0 },
+        "aperture_area_m2": { "type": "number", "exclusiveMinimum": 0 },
+        "aperture_efficiency": { "type": "number", "minimum": 0, "maximum": 1 },
+        "polarization_default": {
+          "enum": ["vv", "hh", "hv", "vh", "circular_left", "circular_right", "dual_linear", "dual_circular"]
+        },
+        "polarization_options": {
+          "type": "array",
+          "items": { "enum": ["vv", "hh", "hv", "vh", "circular_left", "circular_right"] }
+        },
+        "sidelobe_max_db": {
+          "type": "number",
+          "description": "Maximum peak sidelobe level relative to mainbeam (negative dB)."
+        },
+        "panel_count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "For multi-panel platforms (e.g. SPEXER 2000 3D MkIII has 3 panels for 360 deg)."
+        }
+      }
+    },
+    "transmit": {
+      "description": "Transmit chain parameters.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["peak_power_w"],
+      "properties": {
+        "peak_power_w": { "type": "number", "exclusiveMinimum": 0 },
+        "average_power_w": { "type": "number", "exclusiveMinimum": 0 },
+        "duty_cycle": { "type": "number", "minimum": 0, "maximum": 1 },
+        "prf_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "pri_s": { "type": "number", "exclusiveMinimum": 0 },
+        "pulse_width_s": { "type": "number", "exclusiveMinimum": 0 },
+        "waveform_parameters": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "lfm_bandwidth_hz": { "type": "number", "exclusiveMinimum": 0 },
+            "fmcw_sweep_rate_hz_per_s": { "type": "number", "exclusiveMinimum": 0 },
+            "fmcw_sweep_period_s": { "type": "number", "exclusiveMinimum": 0 },
+            "nlfm_template_ref": { "type": "string" },
+            "pulse_compression_ratio": { "type": "number", "exclusiveMinimum": 1 }
+          }
+        }
+      }
+    },
+    "receiver": {
+      "description": "Receiver / processing chain parameters.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["noise_figure_db"],
+      "properties": {
+        "noise_figure_db": {
+          "type": "number",
+          "minimum": 0,
+          "description": "System noise figure (dB). Modern AESA at S/X-band typical 2-4 dB; older PESA 4-7 dB; FMCW small-form 5-7 dB."
+        },
+        "system_temperature_k": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Effective system noise temperature (K). Defaults to 290 K + (NF_linear - 1) * 290 when omitted."
+        },
+        "receiver_dynamic_range_db": { "type": "number" },
+        "adc_bits": { "type": "integer", "minimum": 1, "maximum": 32 },
+        "system_losses_db": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Cumulative non-thermal losses (atmospheric/duplexer/filter/processing) beyond what is in the propagation model."
+        }
+      }
+    },
+    "scan": {
+      "description": "Scan pattern / dwell parameters.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scan_pattern"],
+      "properties": {
+        "scan_pattern": {
+          "enum": [
+            "mechanical_360",
+            "mechanical_sector",
+            "e_scan_sector",
+            "aesa_digital",
+            "staring",
+            "three_face_array",
+            "tail_chase",
+            "track_while_scan"
+          ]
+        },
+        "azimuth_coverage_deg": { "type": "number", "minimum": 0, "maximum": 360 },
+        "elevation_coverage_deg": { "type": "number", "minimum": 0, "maximum": 180 },
+        "scan_rate_rpm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Mechanical rotation rate (RPM). Saab Giraffe 1X: 60 rpm (1 Hz scan)."
+        },
+        "revisit_rate_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Time between successive looks at the same volume (s)."
+        },
+        "dwell_time_s": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Coherent integration dwell per beam position (s)."
+        },
+        "max_simultaneous_tracks": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "declared_detection_envelope": {
+      "description": "Array of vendor-declared or OSINT-cited detection ranges per target class. Each entry MUST carry a citation_id resolving in `osint_refs` or `vendor_datasheet_refs`.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_class_slug", "range_m", "citation_id", "confidence_label"],
+        "properties": {
+          "target_class_slug": {
+            "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug",
+            "description": "Public-proxy target class (e.g. 'small-uas-class-i', 'medium-uav-class-ii', 'fighter-low-rcs', 'rcs-0p01-m2', 'rcs-1-m2', 'shahed-class-piston')."
+          },
+          "range_m": { "type": "number", "exclusiveMinimum": 0 },
+          "rcs_dbsm": { "type": "number" },
+          "rcs_m2": { "type": "number", "exclusiveMinimum": 0 },
+          "conditions": {
+            "type": "string",
+            "description": "Free text describing the conditions the range applies to (clear air, single-look detection, instrumented vs operational, scan-rate dependency)."
+          },
+          "citation_id": { "type": "string", "minLength": 1 },
+          "confidence_label": {
+            "enum": ["A", "B", "C", "D", "E"],
+            "description": "A=vendor datasheet primary spec; B=vendor secondary doc; C=Janes/credible OSINT; D=press/news; E=marketing claim."
+          }
+        }
+      }
+    },
+    "vendor_datasheet_refs": {
+      "description": "Array of vendor primary-source citations.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id", "url", "retrieved_utc"],
+        "properties": {
+          "citation_id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "osint_refs": {
+      "description": "Array of OSINT citations (Janes, CSIS, Reuters, Bellingcat, RUSI, peer-reviewed literature, public defense reporting).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id", "url", "retrieved_utc"],
+        "properties": {
+          "citation_id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "publisher": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "vendor_marketing_claims": {
+      "description": "Optional block for vendor marketing claims that don't rise to the level of declared detection envelope entries (e.g. KuRFS '9 mm bullet sensitivity'). Authored separately so readers can distinguish marketing from physics priors.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim", "citation_id"],
+        "properties": {
+          "claim": { "type": "string", "minLength": 1 },
+          "citation_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "operational_notes": {
+      "description": "Free-text notes (deployment history, integration partners, public exercises, known operational deployments). Citations encouraged inline.",
+      "type": "string"
+    },
+    "integration_refs": {
+      "description": "Other platforms this radar typically integrates with (FAAD C2, LIDS, Sky Map, Sky Fortress acoustic net, etc.).",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "aliases": {
+      "description": "Alternate designations (NATO codename, country-specific designations, export variant names).",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

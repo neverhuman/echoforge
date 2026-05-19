@@ -328,7 +328,7 @@ pub fn rda_peak(cube: &RangeDopplerAngle) -> RdaPeak {
         best.azimuth_deg = az;
         best.elevation_deg = el;
     }
-    // Default Doppler-Hz decode (PRI = 1 s, used purely as a placeholder
+    // Default Doppler-Hz decode (PRI = 1 s, used purely as a pending default
     // when callers don't have an authoritative PRI handy). Callers that
     // need physical units should multiply the index-side decoding through
     // themselves.

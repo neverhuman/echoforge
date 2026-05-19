@@ -1,0 +1,39 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Represents a co-channel RFI burst emitter (sensor pathology),
+# treated as an object-card-like entity for the hard-negative dataset.
+id: "ef:object_card:rfi-burst-emitter:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: rfi-burst-emitter
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Co-Channel RFI Burst Emitter"
+object_family: rfi_source
+geometry_variant: narrowband-emitter
+material_variant: cochannel-interference
+dimensions_m:
+  x: 1.0
+  y: 1.0
+  z: 1.0
+tags:
+  - hard_negative
+  - sensor_artifact
+  - rfi
+  - interference
+  - narrowband
+  - range_aliased

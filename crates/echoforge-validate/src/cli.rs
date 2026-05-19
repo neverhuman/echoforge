@@ -123,8 +123,10 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
             args.bundle.display()
         )));
     }
-    let target = TierAchieved::parse(&args.target_tier)
-        .ok_or_else(|| ValidateError::BadArgs(format!("unknown tier: {}", args.target_tier)))?;
+    let target = match TierAchieved::parse(&args.target_tier) {
+        Some(v) => v,
+        None => return Err(ValidateError::BadArgs(format!("unknown tier: {}", args.target_tier))),
+    };
 
     let manifest_path = args.bundle.join("manifest.json");
     if !manifest_path.exists() {
@@ -135,14 +137,20 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
     }
     let manifest: ManifestSlim = read_required_json(&manifest_path)?;
 
-    let primitive_arg = args.primitive.clone().unwrap_or_else(|| "auto".to_string());
+    let primitive_arg = match args.primitive.clone() {
+        Some(v) => v,
+        None => "auto".to_string(),
+    };
     let primitive = if primitive_arg == "auto" {
-        manifest
+        match manifest
             .object_card
             .as_ref()
             .and_then(|c| c.kind.clone())
             .or(manifest.object_card_kind.clone())
-            .unwrap_or_else(|| "unknown".to_string())
+        {
+            Some(v) => v,
+            None => "unknown".to_string(),
+        }
     } else {
         primitive_arg
     };
@@ -240,10 +248,10 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
         notes,
     };
 
-    let report_path = args
-        .write_report
-        .clone()
-        .unwrap_or_else(|| qa.join("validation_report.json"));
+    let report_path = match args.write_report.clone() {
+        Some(p) => p,
+        None => qa.join("validation_report.json"),
+    };
     if let Some(parent) = report_path.parent() {
         fs::create_dir_all(parent)?;
     }

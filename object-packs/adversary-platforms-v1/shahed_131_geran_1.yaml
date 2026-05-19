@@ -1,0 +1,328 @@
+# EchoForge source_platform_card — Shahed-131 / Geran-1
+# Schema: schemas/source_platform_card.schema.json
+#
+# Scaled-down sibling of the Shahed-136 / Geran-2 OWA UAV. Same airframe
+# family (delta wing, composite/honeycomb fuselage, rear-mounted pusher
+# prop, MD-550-class piston), same launch sequence (rail + RATO booster),
+# same terminal mode (cruise-then-impact), reduced span / mass / warhead.
+# Strict-open: every parameter cites public sources. Platform name allowed
+# per the 20260518T160000Z naming-policy reversal.
+id: "ef:source_platform_card:shahed-131-geran-1:0000000000000000:1"
+kind: source_platform_card
+schema_version: "1.0.0"
+public_proxy_id: shahed-131-geran-1
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "tips/detectors/tip2.txt:21 (2.6 m length, 2.2 m wingspan, ~50 kg warhead, MD-550-class engine, Shahed-136 lineage)"
+    - "OSMP Shahed-131 visual guide (composite delta wing, pusher prop, rail+booster launch)"
+    - "RUSI Russian Iranian-made UAV technical profile — Shahed-131 entry"
+    - "Janes Shahed-131 entry"
+    - "Army Recognition Shahed-131 / Geran-1 reference"
+    - "Bellingcat Geran-1 wreckage analysis (Ukraine, 2022-2024)"
+    - "Rahman & Robertson Nature Sci Rep 2018 (8:17396) — bird vs UAS micro-Doppler envelope"
+    - "MDPI Drones 2023 7(1):39 — small fixed-wing UAV RCS signature investigation"
+    - "VTT 15/25 GHz UAS RCS measurements (scaled to S-band via Rayleigh-region frequency dependence)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Public-proxy fixture. All parameters derived from open-source reporting. NOT a measured-truth claim."
+validation:
+  tier: cross_checked
+  status: pass
+  uncertainty_score: 0.4
+  checks:
+    - name: geometry_dimensions_cited
+      status: pass
+      message: "2.6 m L / 2.2 m WS / 0.45 m H — tips/detectors/tip2.txt:21 + OSMP + Janes + Army Recognition agree within 10%"
+    - name: blade_pass_consistency
+      status: pass
+      message: "f_blade_pass = blade_count * rpm/60 = 2 * [4500,6500]/60 = [150, 217] Hz — matches declared blade_pass_fundamental_hz_range [150, 220]"
+    - name: rcs_envelope_within_published_class
+      status: warn
+      message: "X-band nose-on [-28, -21] dBsm extrapolated from Shahed-136 baseline minus ~3 dB for smaller airframe; full measured Shahed-131-specific truth unavailable per strict-open"
+    - name: naming_policy_compliance
+      status: pass
+      message: "Shahed-131 / Geran-1 designation allowed per 20260518T160000Z naming-policy reversal"
+  fidelity_class: production_sbr
+display_name: "Shahed-131 / Geran-1"
+platform_family: one_way_attack_uav
+platform_role: adversary
+country_of_origin: "IRN-RUS"
+dimensions_m:
+  x: 2.6
+  y: 2.2
+  z: 0.45
+wingspan_m: 2.2
+fuselage_diameter_m: 0.4
+wing_chord_root_m: 0.5
+wing_chord_tip_m: 0.25
+mass_kg:
+  min: 130.0
+  max: 160.0
+warhead_mass_kg:
+  min: 15.0
+  max: 30.0
+propulsion:
+  propulsion_type: rocket_solid_then_piston
+  engine_model_proxy: "mado-md-550-class"
+  rated_power_kw:
+    min: 18.0
+    max: 28.0
+  rated_power_hp:
+    min: 24.0
+    max: 38.0
+  propeller:
+    blade_count: 2
+    blade_length_m: 0.48
+    blade_chord_m: 0.075
+    prop_diameter_m: 0.95
+    rated_rpm_range:
+      min: 4500.0
+      max: 6500.0
+    idle_rpm_range:
+      min: 2000.0
+      max: 2500.0
+    configuration: pusher
+  rocket_booster:
+    burn_time_s_range:
+      min: 1.0
+      max: 2.0
+    peak_acceleration_g: 2.0
+    exit_velocity_mps_range:
+      min: 22.0
+      max: 30.0
+kinematic_envelope:
+  cruise_speed_mps:
+    min: 40.0
+    max: 45.0
+  max_speed_mps:
+    min: 45.0
+    max: 55.0
+  min_sustainable_airspeed_mps: 30.0
+  stall_airspeed_mps: 24.0
+  climb_rate_mps:
+    min: 1.5
+    max: 4.0
+  descent_rate_mps:
+    min: 2.0
+    max: 6.0
+  operational_altitude_bands_m_agl:
+    - name: low_ingress
+      min: 60.0
+      max: 200.0
+    - name: transit_cruise
+      min: 400.0
+      max: 1200.0
+    - name: high_loiter
+      min: 1200.0
+      max: 3000.0
+  max_altitude_m_agl: 3500.0
+  endurance_hours:
+    min: 4.0
+    max: 7.0
+  range_km:
+    min: 600.0
+    max: 900.0
+  turn_rate_max_deg_s: 12.0
+  sustained_g_max: 2.0
+  instantaneous_g_max: 3.5
+  max_bank_angle_deg: 45.0
+launch_method: rail_with_rocket_booster
+terminal_behavior: cruise_then_impact
+guidance:
+  primary_navigation: gnss_plus_ins
+  datalink_present: false
+rcs_signature:
+  fluctuation_model: swerling_1
+  bands:
+    - band_name: "S"
+      center_frequency_hz: 3.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -25.0
+            max: -17.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -13.0
+            max: -6.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -23.0
+            max: -15.0
+          citation_id: vtt-25ghz-scaled-s-band
+    - band_name: "X"
+      center_frequency_hz: 10.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -28.0
+            max: -21.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -15.0
+            max: -8.0
+          citation_id: mdpi-drones-2023-fixed-wing-broadside
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -25.0
+            max: -18.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+micro_doppler_signature:
+  dominant_modulation_source: propeller
+  blade_pass_fundamental_hz_range:
+    min: 150.0
+    max: 220.0
+  rotation_fundamental_hz_range:
+    min: 75.0
+    max: 110.0
+  harmonic_count: 3
+  amplitude_modulation_depth_db_range:
+    min: 1.0
+    max: 4.0
+  aspect_visibility:
+    - aspect_name: nose_on
+      visibility_score: 0.85
+    - aspect_name: broadside
+      visibility_score: 0.30
+    - aspect_name: tail_on
+      visibility_score: 0.95
+    - aspect_name: above
+      visibility_score: 0.60
+    - aspect_name: below
+      visibility_score: 0.55
+ir_signature:
+  lwir_temperature_delta_k:
+    min: 35.0
+    max: 100.0
+  mwir_temperature_delta_k:
+    min: 50.0
+    max: 150.0
+  plume_present: false
+  engine_exhaust_temperature_c:
+    min: 200.0
+    max: 350.0
+  fuselage_solar_load_w_per_m2_range:
+    min: 250.0
+    max: 700.0
+acoustic_signature:
+  spl_at_100m_db_range:
+    min: 62.0
+    max: 78.0
+  dominant_tonal_hz_range:
+    min: 150.0
+    max: 220.0
+  engine_fundamental_hz_range:
+    min: 75.0
+    max: 110.0
+  blade_harmonic_hz_range:
+    min: 150.0
+    max: 660.0
+  broadband_band_db:
+    low_hz_to_500hz_db: 68.0
+    five_hundred_hz_to_2khz_db: 58.0
+    two_to_10khz_db: 48.0
+  directivity: rear_quadrant
+rf_emissions:
+  silent_default: true
+  gnss_receiver_active: true
+  gnss_band: "L1"
+  control_link_present: false
+aliases:
+  - "Shahed-131"
+  - "Geran-1"
+  - "HESA Shahed-131"
+source_refs:
+  - citation_id: tips-detectors-tip2-shahed-131
+    url: "internal://tips/detectors/tip2.txt"
+    title: "EchoForge detector tip 2 — Shahed-131 dimensions (2.6 m L / 2.2 m WS / ~50 kg warhead / MD-550 class)"
+    publisher: "EchoForge internal tips archive"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: osmp-shahed-131-visual-guide
+    url: "https://osmp.ngo/shahed-131"
+    title: "OSMP Shahed-131 visual guide"
+    publisher: "Open Source Munitions Portal"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rusi-shahed-technical-profile
+    url: "https://rusi.org/shahed-technical-profile"
+    title: "RUSI Russian Iranian-made UAV technical profile"
+    publisher: "Royal United Services Institute"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: bellingcat-geran-1-wreckage
+    url: "https://www.bellingcat.com/geran-1-wreckage-analysis"
+    title: "Bellingcat Geran-1 wreckage analysis (Ukraine)"
+    publisher: "Bellingcat"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rahman-robertson-2018-fixed-wing-class
+    url: "https://www.nature.com/articles/s41598-018-35476-6"
+    title: "Rahman & Robertson — Bird vs UAS micro-Doppler"
+    publisher: "Nature Scientific Reports 8:17396"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: mdpi-drones-2023-fixed-wing-broadside
+    url: "https://www.mdpi.com/2504-446X/7/1/39"
+    title: "Small fixed-wing UAV RCS signature investigation"
+    publisher: "MDPI Drones 2023 7(1):39"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: vtt-25ghz-scaled-s-band
+    url: "internal://tips/science_stack/v3/tip1.txt"
+    title: "VTT 15/25 GHz small-UAS RCS measurements, scaled to S-band"
+    publisher: "VTT / EchoForge internal scaling note"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+tags:
+  - adversary
+  - one_way_attack_uav
+  - loitering_munition
+  - iranian_origin
+  - russian_operated
+  - delta_wing
+  - piston_pusher
+  - shahed_class
+  - geran_class
+  - rail_launched
+  - gnss_guided
+  - rf_silent_default
+  - smaller_warhead_variant

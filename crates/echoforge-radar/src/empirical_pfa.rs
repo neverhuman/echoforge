@@ -266,7 +266,7 @@ pub fn measure_pfa(trial: &PfaTrial) -> PfaObservation {
 
     // Resolve alpha for this (variant, distribution, N, pfa). cfar_alpha owns
     // the closed-form fast path for Gaussian/Rayleigh and the library lookup
-    // / Monte-Carlo fallback for K/Weibull/log-normal.
+    // / Monte-Carlo recovery for K/Weibull/log-normal.
     let noise = clutter_to_noise(trial.clutter_regime.distribution);
     let alpha = resolve_alpha(
         trial.cfar_variant,

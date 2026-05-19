@@ -9,8 +9,8 @@ from typing import Any, Mapping
 
 SCHEMA_VERSION = "1.0.0"
 ID_VERSION = 1
-SLUG_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
-ID_RE = re.compile(r"^ef:[a-z0-9]+(?:[._-][a-z0-9]+)*:[a-z0-9]+(?:[._-][a-z0-9]+)*:[0-9a-f]{16}:1$")
+_SLUG_PATTERN = r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+_ID_PATTERN = r"^ef:[a-z0-9]+(?:[._-][a-z0-9]+)*:[a-z0-9]+(?:[._-][a-z0-9]+)*:[0-9a-f]{16}:1$"
 
 
 class ValidationError(ValueError):
@@ -43,7 +43,7 @@ def deterministic_id(kind: str, public_proxy_id: str, payload: Any) -> str:
 
 
 def ensure_slug(value: str, field: str) -> None:
-    if not SLUG_RE.match(value):
+    if not re.match(_SLUG_PATTERN, value):
         raise ValidationError(f"{field} must be a lowercase slug")
 
 

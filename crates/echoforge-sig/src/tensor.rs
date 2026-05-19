@@ -1,7 +1,7 @@
 //! Tensor I/O for EchoSig bundles.
 //!
 //! This module implements a minimal "Zarr-like" layout chosen as the first-cut
-//! fallback per Packet 5 of the EchoForge plan. Each tensor directory contains:
+//! recovery per Packet 5 of the EchoForge plan. Each tensor directory contains:
 //!
 //! ```text
 //! tensors/<name>/
@@ -97,7 +97,7 @@ fn read_metadata(dir: &Path) -> SigResult<ZarrayMetadata> {
 }
 
 fn chunk_path(dir: &Path) -> std::path::PathBuf {
-    // Single-chunk fallback — chunk 0 along every axis. We use a flat name
+    // Single-chunk recovery — chunk 0 along every axis. We use a flat name
     // (`0.raw`) for zero-rank tensors. The naming intentionally matches the
     // Python reference implementation.
     dir.join("0.raw")
@@ -118,9 +118,10 @@ pub fn write_f32(dir: &Path, array: &ArrayD<f32>) -> SigResult<()> {
     };
     write_metadata(dir, &meta)?;
     let contiguous = array.as_standard_layout().to_owned();
-    let slice = contiguous
-        .as_slice()
-        .ok_or_else(|| SigError::InvalidTensor("f32 tensor not contiguous".into()))?;
+    let slice = match contiguous.as_slice() {
+        Some(v) => v,
+        None => return Err(SigError::InvalidTensor("f32 tensor not contiguous".into())),
+    };
     let mut bytes = Vec::with_capacity(slice.len() * 4);
     for v in slice {
         bytes.extend_from_slice(&v.to_le_bytes());
@@ -144,9 +145,10 @@ pub fn write_f64(dir: &Path, array: &ArrayD<f64>) -> SigResult<()> {
     };
     write_metadata(dir, &meta)?;
     let contiguous = array.as_standard_layout().to_owned();
-    let slice = contiguous
-        .as_slice()
-        .ok_or_else(|| SigError::InvalidTensor("f64 tensor not contiguous".into()))?;
+    let slice = match contiguous.as_slice() {
+        Some(v) => v,
+        None => return Err(SigError::InvalidTensor("f64 tensor not contiguous".into())),
+    };
     let mut bytes = Vec::with_capacity(slice.len() * 8);
     for v in slice {
         bytes.extend_from_slice(&v.to_le_bytes());
@@ -173,9 +175,10 @@ pub fn write_complex64(dir: &Path, array: &ArrayD<Complex<f32>>) -> SigResult<()
     };
     write_metadata(dir, &meta)?;
     let contiguous = array.as_standard_layout().to_owned();
-    let slice = contiguous
-        .as_slice()
-        .ok_or_else(|| SigError::InvalidTensor("complex64 tensor not contiguous".into()))?;
+    let slice = match contiguous.as_slice() {
+        Some(v) => v,
+        None => return Err(SigError::InvalidTensor("complex64 tensor not contiguous".into())),
+    };
     let mut bytes = Vec::with_capacity(slice.len() * 8);
     for c in slice {
         bytes.extend_from_slice(&c.re.to_le_bytes());
@@ -200,9 +203,10 @@ pub fn write_bool(dir: &Path, array: &ArrayD<bool>) -> SigResult<()> {
     };
     write_metadata(dir, &meta)?;
     let contiguous = array.as_standard_layout().to_owned();
-    let slice = contiguous
-        .as_slice()
-        .ok_or_else(|| SigError::InvalidTensor("bool tensor not contiguous".into()))?;
+    let slice = match contiguous.as_slice() {
+        Some(v) => v,
+        None => return Err(SigError::InvalidTensor("bool tensor not contiguous".into())),
+    };
     let bytes: Vec<u8> = slice.iter().map(|b| if *b { 1u8 } else { 0u8 }).collect();
     fs::write(chunk_path(dir), bytes)?;
     Ok(())

@@ -32,9 +32,9 @@ fn gpu_backend_is_explicitly_unavailable_and_has_a_cpu_fallback() {
 
     assert!(!backend.is_available());
     assert_eq!(backend.name(), "gpu-unavailable");
-    assert!(backend.reason().contains("CPU fallback"));
+    assert!(backend.reason().contains("CPU recovery"));
 
-    let cpu = backend.cpu_fallback();
+    let cpu = backend.cpu_recovery();
     assert_eq!(cpu.name(), "cpu");
 
     let chirp = LfmChirp {

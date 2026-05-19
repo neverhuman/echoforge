@@ -1,0 +1,24 @@
+{
+  "schema_ref": "schemas/object_pack_manifest.schema.json",
+  "id": "pack.public-proxy",
+  "display_name": "Public Proxy Object Pack",
+  "purpose": "Neutral public-proxy object assumptions for radar-first dataset generation.",
+  "public_proxy": true,
+  "object_card_refs": [
+    "object_card.yaml"
+  ],
+  "material_card_refs": [
+    "material_card.yaml"
+  ],
+  "object_card_slugs": [
+    "public-proxy-uav"
+  ],
+  "material_card_slugs": [
+    "composite-skin-baseline"
+  ],
+  "validation_tier": "unvalidated",
+  "notes": [
+    "No exact real-world truth claim is implied.",
+    "Used to seed schema-driven scenario and dataset scaffolds."
+  ]
+}

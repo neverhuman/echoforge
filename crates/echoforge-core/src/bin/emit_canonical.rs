@@ -15,12 +15,29 @@ use echoforge_core::canonical_json;
 #[path = "../../tests/common/samples.rs"]
 mod samples;
 
-fn run() -> Result<String, String> {
-    let kind = env::args()
-        .nth(1)
-        .ok_or_else(|| "usage: emit_canonical <kind>".to_string())?;
-    let value = samples::canonical_value(&kind)?;
-    canonical_json(&value).map_err(|e| format!("canonical_json: {e}"))
+#[derive(Debug)]
+enum EmitError {
+    Usage,
+    UnknownKind(String),
+    Serialize(String),
+}
+
+impl std::fmt::Display for EmitError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Usage => write!(f, "usage: emit_canonical <kind>"),
+            Self::UnknownKind(e) => write!(f, "{e}"),
+            Self::Serialize(e) => write!(f, "canonical_json: {e}"),
+        }
+    }
+}
+
+fn run() -> Result<String, EmitError> {
+    let Some(kind) = env::args().nth(1) else {
+        return Err(EmitError::Usage);
+    };
+    let value = samples::canonical_value(&kind).map_err(EmitError::UnknownKind)?;
+    canonical_json(&value).map_err(|e| EmitError::Serialize(e.to_string()))
 }
 
 fn main() -> ExitCode {

@@ -1,0 +1,41 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Dense flock of small-to-medium birds (10-200 individuals) — composite
+# biological scatterer with wide Doppler spread from internal flock motion.
+# Common false-alarm source for surveillance and weather radars.
+id: "ef:object_card:bird-flock-dense:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: bird-flock-dense
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Radar_ornithology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Dense Bird Flock"
+object_family: biological
+geometry_variant: bird-flock-extended
+material_variant: biological-tissue
+dimensions_m:
+  x: 0.35
+  y: 0.6
+  z: 0.18
+tags:
+  - hard_negative
+  - biological
+  - bird
+  - flock
+  - extended_return
+  - wildlife_confuser

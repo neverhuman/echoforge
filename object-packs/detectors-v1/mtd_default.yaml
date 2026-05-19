@@ -1,0 +1,76 @@
+# EchoForge detector_card — MTD (Doppler filter bank, Skolnik §3.8) default
+# Schema: schemas/detector_card.schema.json
+#
+# Moving-target detector: windowed slow-time DFT filter bank that
+# concentrates each Doppler bin's energy into its own channel so CFAR
+# can be run independently per bin. Externalizes the Rust default at
+# crates/echoforge-radar/src/mti_mtd.rs (doppler_filter_bank). Default
+# window is the Taylor-35 dB taper from the radar's CompressionWindow
+# library.
+id: "ef:detector_card:mtd-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: mtd-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Skolnik, Introduction to Radar Systems, 3rd ed. §3.8 (MTD pulse-Doppler filter bank)"
+    - "Richards, Fundamentals of Radar Signal Processing, 2nd ed. §5.6 (windowed slow-time DFT)"
+    - "crates/echoforge-radar/src/mti_mtd.rs (doppler_filter_bank)"
+    - "crates/echoforge-radar/src/pulse_compression.rs (CompressionWindow::taylor_default)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.25
+  checks:
+    - name: pure_tone_lands_in_correct_bin
+      status: pass
+      message: "doppler_filter_bank_window_preserves_peak_location unit test: peak bin == injected k_d"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built doppler_filter_bank(_, n_doppler, taylor_default()) byte-for-byte on pinned slow-time fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "MTD (Doppler filter bank, Skolnik §3.8)"
+algorithm_family: mtd
+parameters:
+  doppler_bins: 64
+  doppler_window: "taylor_35db"
+  taylor_sidelobe_db: -35.0
+  pri_s_default: 9.0e-4
+  prf_hz_default: 1111.11
+default_thresholds:
+  doppler_bin_pfa: 1.0e-3
+intended_target_classes:
+  - shahed-class-piston
+  - geran-3-jet-variant
+  - small-uas-class-i
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.82
+      pd_max: 0.96
+    snr_db_required_range:
+      min: 9.0
+      max: 13.0
+    citation_id: skolnik-3rd-3-8-mtd-filter-bank
+citations:
+  - citation_id: skolnik-3rd-3-8-mtd-filter-bank
+    title: "Skolnik 3rd ed. §3.8 (MTD pulse-Doppler filter bank)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: richards-2nd-5-6-pulse-doppler
+    title: "Fundamentals of Radar Signal Processing, 2nd ed. §5.6"
+    authors: "Richards"
+    publisher: "McGraw-Hill"

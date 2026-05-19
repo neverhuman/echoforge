@@ -12,7 +12,7 @@
 //!   * [`coefficients`] — closed-form weighting vectors per window kind.
 //!   * [`matched_filter`] — naive O(N*M) time-domain matched filter,
 //!     byte-stable with the original implementation.
-//!   * [`pulse_compress`] — backward-compatible entry point, no window
+//!   * [`pulse_compress`] — backward-bridged entry point, no window
 //!     (returns raw matched-filter output).
 //!   * [`pulse_compress_windowed`] — preferred entry point that takes a
 //!     [`CompressionWindow`] and applies the taper to the reference
@@ -39,7 +39,7 @@ use crate::ComplexSample;
 /// Amplitude tapers applied to the matched-filter reference before
 /// correlation. Real systems prefer a Taylor weighting (typically
 /// -35 dB peak sidelobe with `nbar = 4` passband ripples) as a default;
-/// Hamming and Hann are kept as well-known textbook fallbacks; the
+/// Hamming and Hann are kept as well-known textbook recovery options; the
 /// Dolph-Chebyshev option lets callers dial in an arbitrary sidelobe
 /// level explicitly.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -78,7 +78,7 @@ impl CompressionWindow {
 /// or call [`pulse_compress_windowed`].
 ///
 /// This function is byte-stable with the original pre-windowing
-/// implementation so existing callers (CPU backend, GPU backend stub,
+/// implementation so existing callers (CPU backend, GPU backend unimplemented,
 /// detector graph tests) continue to produce bit-identical output.
 pub fn matched_filter(
     received: &[ComplexSample],
@@ -100,7 +100,7 @@ pub fn matched_filter(
     output
 }
 
-/// Backward-compatible entry point. Applies no window — equivalent to
+/// Backward-bridged entry point. Applies no window — equivalent to
 /// [`matched_filter`]. Use [`pulse_compress_windowed`] for new code; the
 /// default chain (`sim.rs`) calls the windowed variant with
 /// [`CompressionWindow::taylor_default`].

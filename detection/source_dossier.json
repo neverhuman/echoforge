@@ -1,0 +1,70 @@
+{
+  "dossier_id": "radar-realism-public-proxy-source-dossier",
+  "validation_tier": "unvalidated/basic synthetic public-proxy",
+  "claim_boundary": "Public-source priors and broad uncertainty bands only. This file does not claim measured target truth, proprietary-equivalent behavior, or classified fidelity.",
+  "target_proxy": {
+    "proxy_id": "owa-delta-pusher-fixed-wing-public-proxy",
+    "source_alias_context": [
+      "Shahed-136-series public references are used only to choose a broad delta/pusher fixed-wing proxy family."
+    ],
+    "geometry": {
+      "family": "delta-wing pusher fixed-wing",
+      "length_m_uncertainty": [3.3, 3.7],
+      "wingspan_m_uncertainty": [2.3, 2.7],
+      "evidence_tier": "public dimensional summaries"
+    },
+    "flight_envelope": {
+      "launch_mode": "rail or booster-assisted launch proxy; used as a radar visibility transition, not an operational deployment model",
+      "cruise_speed_mps_uncertainty": [45.0, 60.0],
+      "cruise_altitude_m_uncertainty": [60.0, 1600.0],
+      "cruise_altitude_status": "broad public-proxy stress band; not a clean measured platform altitude claim",
+      "propulsion": "rear pusher propulsor proxy",
+      "micro_doppler_status": "pusher-prop proxy band with overlap against birds, hobby aircraft, turbines, RFI, and multipath artifacts"
+    },
+    "rcs": {
+      "rcs_dbsm_uncertainty": [-16.0, -2.0],
+      "status": "bounded statistical proxy varying by aspect, band, polarization proxy, and scintillation"
+    }
+  },
+  "site_archetype": {
+    "default_id": "gulf_coastal_desert",
+    "description": "Generic coastal/desert/urban-edge radar-site archetype with low-grazing clutter, dust/rain loss, terrain horizon, scan gaps, and two-ray multipath proxies. It does not encode real operational sensor locations or deployment guidance."
+  },
+  "sources": [
+    {
+      "id": "osmp_shahed_136_series",
+      "title": "OSMP Shahed-136 series model summary",
+      "url": "https://osmp.ngo/model/shahed-136-series/",
+      "retrieved_utc": "2026-05-18T00:00:00Z",
+      "used_for": ["geometry family", "length/wingspan public prior"]
+    },
+    {
+      "id": "osmp_visual_guide",
+      "title": "OSMP Shahed-131/136 visual guide",
+      "url": "https://osmp.ngo/collection/shahed-131-136-uavs-a-visual-guide/",
+      "retrieved_utc": "2026-05-18T00:00:00Z",
+      "used_for": ["delta-wing visual family"]
+    },
+    {
+      "id": "army_recognition_public_technical_data",
+      "title": "Public technical summary for Shahed-136 loitering munition",
+      "url": "https://www.armyrecognition.com/military-products/army/unmanned-systems/unmanned-aerial-vehicles/shahed-136-loitering-munition-kamikaze-suicide-drone-technical-data",
+      "retrieved_utc": "2026-05-18T00:00:00Z",
+      "used_for": ["speed public prior", "rear pusher propulsion public prior"]
+    },
+    {
+      "id": "rahman_robertson_micro_doppler",
+      "title": "Public micro-Doppler context for drones and birds",
+      "url": "https://research-repository.st-andrews.ac.uk/handle/10023/16577",
+      "retrieved_utc": "2026-05-18T00:00:00Z",
+      "used_for": ["micro-Doppler overlap context"]
+    },
+    {
+      "id": "low_grazing_uav_detection_context",
+      "title": "Low-grazing UAV detection literature on clutter and CFAR failure modes",
+      "url": "https://arxiv.org/abs/1902.05483",
+      "retrieved_utc": "2026-05-18T00:00:00Z",
+      "used_for": ["low-grazing clutter and detection-mode context"]
+    }
+  ]
+}

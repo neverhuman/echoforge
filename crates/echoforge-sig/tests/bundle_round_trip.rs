@@ -30,6 +30,7 @@ fn sample_manifest() -> EchosigManifest {
                 status: "pass".to_string(),
                 message: "ok".to_string(),
             }],
+            fidelity_class: None,
         },
         artifact_name: "round-trip-artifact".to_string(),
         object_card_id: "ef:object_card:proxy-bundle-1:abcdef0123456789:1".to_string(),

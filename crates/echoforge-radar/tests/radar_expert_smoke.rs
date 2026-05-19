@@ -148,7 +148,7 @@ fn smoke_2_rcs_10db_swap_range_177x() {
 /// horizon. A 50 m target is therefore sub-horizon and the
 /// `LinkBudgetResult::above_horizon` field must report `false`. A
 /// silent zero-SNR miss would let the simulator pretend horizon-blocked
-/// targets are simply non-detections, which is a classic stub failure
+/// targets are simply non-detections, which is a classic silent-failure
 /// mode.
 #[test]
 fn smoke_3_sub_horizon_target_reports_blocked() {

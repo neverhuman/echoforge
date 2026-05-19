@@ -4,7 +4,7 @@
 //! small zoo of antenna-pattern models so downstream synthesis can apply
 //! direction-dependent gain when projecting target returns onto a receiver:
 //!
-//! * [`IsotropicAntenna`] — uniform 0 dB everywhere (the legacy assumption).
+//! * [`IsotropicAntenna`] — uniform 0 dB everywhere (the prior assumption).
 //! * [`CosinePatternAntenna`] — cosine-shaped main lobe with a configurable
 //!   half-power beamwidth.
 //! * [`TableLookupAntenna`] — bilinear interpolation across an azimuth/

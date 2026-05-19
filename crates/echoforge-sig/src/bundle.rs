@@ -13,7 +13,7 @@
 //!   tensors/<name>/.zarray   minimal zarr-v2 metadata
 //!   tensors/<name>/0.raw     single-chunk little-endian payload
 //!   qa/<name>.json           qa documents (e.g. canonical_validation.json)
-//!   dynamic/state_sequence.csv   optional state sequence (CSV fallback)
+//!   dynamic/state_sequence.csv   optional state sequence (CSV recovery)
 //! ```
 //!
 //! All tensor and QA paths must be declared in `manifest.tensor_paths` /

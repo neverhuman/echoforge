@@ -5,9 +5,9 @@
 //! windows: the contaminated side has a high mean, but the clean side keeps
 //! the noise estimate low so the CUT can still cross threshold.
 
-use crate::cfar::{ca_cfar_scale, CfarParams};
+use crate::cfar::CfarParams;
 
-use super::{magnitude_to_db, DetectionEvent, DetectionKind, Detector};
+use super::{DetectionEvent, DetectionKind, Detector};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SoCfarDetector {
@@ -24,33 +24,7 @@ impl Detector for SoCfarDetector {
     type Input = Vec<f32>;
 
     fn detect(&self, input: &Self::Input) -> Vec<DetectionEvent> {
-        let n_train = self.params.training_cells;
-        let g = self.params.guard_cells;
-        let window = n_train + g;
-        let alpha = ca_cfar_scale(n_train, self.params.pfa);
-        let mut events = Vec::new();
-        if input.len() < 2 * window + 1 || n_train == 0 {
-            return events;
-        }
-
-        for index in window..(input.len() - window) {
-            let lead = &input[index - window..index - g];
-            let lag = &input[index + g + 1..=index + window];
-            let mean_lead = lead.iter().sum::<f32>() / lead.len() as f32;
-            let mean_lag = lag.iter().sum::<f32>() / lag.len() as f32;
-            let noise = mean_lead.min(mean_lag);
-            let threshold = alpha * noise;
-            let stat = input[index];
-            if stat > threshold && threshold.is_finite() {
-                events.push(DetectionEvent::new(
-                    index,
-                    None,
-                    magnitude_to_db(stat as f64),
-                    DetectionKind::SoCfar,
-                ));
-            }
-        }
-        events
+        super::cfar_minmax_detect(input, &self.params, DetectionKind::SoCfar, f32::min)
     }
 
     fn kind(&self) -> DetectionKind {

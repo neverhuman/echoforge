@@ -6,7 +6,7 @@
 //! such that `threshold = alpha * noise_estimate` produces a target
 //! false-alarm probability `Pfa` for the named clutter / variant pair.
 //! They complement (not replace) `crate::detectors::cfar_alpha`'s
-//! Gaussian closed forms + ALPHA_LIBRARY lookup + MC fallback.
+//! Gaussian closed forms + ALPHA_LIBRARY lookup + MC recovery.
 //!
 //! The empirical Pfa calibrator validates each of these against the
 //! Monte-Carlo observation; see `outputs/empirical_pfa/<UTC>_post_g_c.jsonl`

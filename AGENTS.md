@@ -23,6 +23,12 @@ EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. T
 - `agent/`: Jankurai/bootstrap metadata and worker maps.
 - `.github/`: advisory workflow scaffolding and repo policy automation.
 - `docs/`: human-readable governance and scaffold notes.
+  - `docs/architecture.md` — layer map and stack decisions
+  - `docs/testing.md` — proof lanes, cost budgets, kill-switches
+  - `docs/audit-rubric.md` — jankurai rule interpretations and boundary/zone guidance
+  - `docs/validation-tiers.md` — tier definitions and escalation paths
+- `agent/generated-zones.toml` — generated artifact zone declarations
+- `agent/boundaries.toml` — boundary slice definitions and exception roots
 - `schemas/`, `crates/`, `python/ai-service/`, `docker/`: reserved runtime and contract work.
 
 ## Validation
@@ -54,3 +60,4 @@ EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. T
 ## Stack discipline
 - Rust + Vite + TypeScript + React only outside deep science.
 - Python is reserved for deep-science cross-checks (Mie series scipy oracle, validators that need scipy/numpy). All product, control-plane, and tooling code lives in Rust or TypeScript.
+

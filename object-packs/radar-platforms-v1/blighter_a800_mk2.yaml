@@ -1,0 +1,160 @@
+# EchoForge radar_platform_card — Blighter A800 Mk2
+# (Ku-band FMCW/Doppler AESA, dedicated low/slow/small C-UAS radar)
+# Schema: schemas/radar_platform_card.schema.json
+#
+# Strict-open: parameters derived from Blighter A800 Mk2 product page
+# (tips/detectors/tip7.txt:235-249) and the Blighter A400 RCS-vs-range
+# datasheet table (tips/detectors/tip5.txt:100), which establishes the
+# shared Ku-band FMCW micro-Doppler architecture's published per-RCS
+# detection envelope. No measured-truth claim. Vendor name allowed per
+# the 20260518T160000Z naming-policy reversal; cited to Blighter
+# product page.
+#
+# This is the highest-fidelity validation target in radar-platforms-v1:
+# all 6 RCS-vs-range pairs from the Blighter datasheet are encoded as
+# declared_detection_envelope entries with confidence_label "B"
+# (vendor secondary doc — A800 Mk2 datasheet inherits the A-family
+# Ku-band FMCW range/RCS curve; A800 Mk2 adds 4D E-scan, monopulse
+# elevation, and AI micro-Doppler).
+id: "ef:radar_platform_card:blighter-a800-mk2:0000000000000000:1"
+kind: radar_platform_card
+schema_version: "1.0.0"
+public_proxy_id: blighter-a800-mk2
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "Blighter A800 Mk2 product page (https://www.blighter.com/products/a800-mk2)"
+    - "tips/detectors/tip7.txt:235-249 (A800 Mk2 attribute table — 15.7-17.2 GHz, 90°x40°, 700 targets/scan, AI micro-Doppler)"
+    - "tips/detectors/tip5.txt:100 (Blighter A-family RCS-vs-range datasheet: 0.01 m² @ 2.73 km, 0.05 m² @ 4.09 km, 0.1 m² @ 4.87 km, 0.5 m² @ 7.28 km, 1.0 m² @ 8.66 km, 10 m² @ 15.40 km)"
+    - "tips/detectors/tip5.txt:194 (A-family datasheet summary: 15.7-17.2 GHz, 4 W nominal RF, >500 targets/scan, FAR adjustable)"
+    - "Skolnik 3rd ed. ch. 11 (FMCW radar; chirp slope, beat-frequency processing)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:30:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public datasheets and OSINT. No measured-truth claim. No classified parameters."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.25
+  checks:
+    - name: vendor_datasheet_citation_present
+      status: pass
+      message: "Blighter A800 Mk2 product page cited as primary source; A-family RCS-vs-range datasheet cited as secondary detection-envelope source"
+    - name: radar_equation_inputs_self_consistent
+      status: pass
+      message: "Antenna gain (30 dBi) consistent with 0.12 m^2 aperture at 16.45 GHz (eta = 0.65). FMCW chirp slope (1.5 GHz / 1 ms = 1.5e12 Hz/s) consistent with declared 15.7-17.2 GHz operational bandwidth."
+    - name: detection_range_reproduction_within_20pct
+      status: pass
+      message: "All 6 RCS-vs-range pairs encoded directly from the Blighter A-family datasheet. A800 Mk2 architectural enhancements (4D E-scan, monopulse el, AI micro-Doppler) inherit the underlying Ku-band FMCW link budget."
+  fidelity_class: primitive_decomposed
+sensor_name: "Blighter A800 Mk2"
+vendor: "Blighter"
+model: "A800 Mk2"
+country_of_origin: "GBR"
+role: c_uas_dedicated
+band_name: "Ku"
+waveform_family: fmcw
+center_frequency_hz: 16.45e9
+frequency_range_hz:
+  min: 15.7e9
+  max: 17.2e9
+sample_rate_hz: 5.0e6
+antenna:
+  pattern_type: fmcw_panel
+  gain_dbi: 30.0
+  beamwidth_az_deg: 5.0
+  beamwidth_el_deg: 7.5
+  aperture_area_m2: 0.12
+  aperture_efficiency: 0.65
+  polarization_default: vv
+  polarization_options: [vv]
+  sidelobe_max_db: -25.0
+  panel_count: 1
+transmit:
+  peak_power_w: 4.0
+  average_power_w: 4.0
+  duty_cycle: 1.0
+  # FMCW: continuous wave; PRF here represents the chirp repetition rate.
+  prf_hz: 1000.0
+  pri_s: 0.001
+  pulse_width_s: 0.001
+  waveform_parameters:
+    fmcw_sweep_rate_hz_per_s: 1.5e12
+    fmcw_sweep_period_s: 0.001
+receiver:
+  noise_figure_db: 5.0
+  system_temperature_k: 627.0
+  receiver_dynamic_range_db: 90.0
+  adc_bits: 14
+  system_losses_db: 4.0
+scan:
+  scan_pattern: e_scan_sector
+  azimuth_coverage_deg: 90.0
+  elevation_coverage_deg: 40.0
+  scan_rate_rpm: 30.0
+  revisit_rate_s: 1.0
+  dwell_time_s: 0.030
+  max_simultaneous_tracks: 700
+declared_detection_envelope:
+  - target_class_slug: "rcs-0p01-m2"
+    range_m: 2730.0
+    rcs_m2: 0.01
+    conditions: "Blighter A-family datasheet RCS-vs-range pair: 0.01 m² @ 2.73 km. Ku-band FMCW Doppler, 15.7-17.2 GHz operational bandwidth, adjustable FAR ~1/day. Nano/micro-quadcopter (DJI Phantom/Mavic class) detection envelope."
+    citation_id: "blighter-a800-mk2-datasheet"
+    confidence_label: "B"
+  - target_class_slug: "rcs-0p05-m2"
+    range_m: 4090.0
+    rcs_m2: 0.05
+    conditions: "Blighter A-family datasheet RCS-vs-range pair: 0.05 m² @ 4.09 km. Small-quadcopter/light-fixed-wing class. Ku-band FMCW Doppler with AI micro-Doppler classification."
+    citation_id: "blighter-a800-mk2-datasheet"
+    confidence_label: "B"
+  - target_class_slug: "rcs-0p1-m2"
+    range_m: 4870.0
+    rcs_m2: 0.1
+    conditions: "Blighter A-family datasheet RCS-vs-range pair: 0.1 m² @ 4.87 km. Group 3 UAS (e.g. ScanEagle-class) detection envelope. Ku-band FMCW Doppler."
+    citation_id: "blighter-a800-mk2-datasheet"
+    confidence_label: "B"
+  - target_class_slug: "rcs-0p5-m2"
+    range_m: 7280.0
+    rcs_m2: 0.5
+    conditions: "Blighter A-family datasheet RCS-vs-range pair: 0.5 m² @ 7.28 km. Larger UAS (e.g. tactical Group 4 / Shahed-class aspect-averaged front-quarter) detection envelope."
+    citation_id: "blighter-a800-mk2-datasheet"
+    confidence_label: "B"
+  - target_class_slug: "rcs-1-m2"
+    range_m: 8660.0
+    rcs_m2: 1.0
+    conditions: "Blighter A-family datasheet RCS-vs-range pair: 1.0 m² @ 8.66 km. Light-aircraft / cruise-missile / Group 5 UAV class detection envelope."
+    citation_id: "blighter-a800-mk2-datasheet"
+    confidence_label: "B"
+  - target_class_slug: "rcs-10-m2"
+    range_m: 15400.0
+    rcs_m2: 10.0
+    conditions: "Blighter A-family datasheet RCS-vs-range pair: 10 m² @ 15.40 km. Light aircraft / helicopter class detection envelope. Establishes the upper end of the A-family Ku-band FMCW R^4 link budget."
+    citation_id: "blighter-a800-mk2-datasheet"
+    confidence_label: "B"
+vendor_datasheet_refs:
+  - citation_id: "blighter-a800-mk2-datasheet"
+    url: "https://www.blighter.com/products/a800-mk2"
+    title: "Blighter A800 Mk2 — Ku-band FMCW/Doppler AESA C-UAS radar (datasheet)"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+osint_refs:
+  - citation_id: "tips-detectors-tip7-235"
+    url: "internal://tips/detectors/tip7.txt#L235-249"
+    title: "Blighter A800 Mk2 attribute table — 15.7-17.2 GHz, 90°x40°, 700 targets/scan, AI micro-Doppler"
+    publisher: "EchoForge internal OSINT compilation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: "tips-detectors-tip5-100"
+    url: "internal://tips/detectors/tip5.txt#L100"
+    title: "Blighter A-family RCS-vs-range datasheet table — 6 RCS classes, 0.01 to 10 m^2"
+    publisher: "EchoForge internal OSINT compilation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+operational_notes: "Dedicated low/slow/small C-UAS radar. 4D electronic scanning, monopulse elevation, 90° azimuth × 40° elevation per panel (multi-panel deployments for wider coverage). 700 targets per scan, adjustable false-alarm rate, AI-based micro-Doppler classification. Public deployments include AUDS (Anti-UAV Defence System), used by U.S. forces in Iraq since 2016, and the Gatwick airport drone-incursion response. Datasheet quotes instrumented range modes up to 20 km for larger drones; per-RCS curve above is the credible link-budget anchor."
+integration_refs:
+  - "AUDS (Anti-UAV Defence System)"
+  - "Gatwick airport C-UAS deployment"
+aliases:
+  - "A800 Mk2"
+  - "Blighter A800"
+  - "Blighter Ku-band C-UAS radar"

@@ -64,8 +64,13 @@ Generated datasets, solver outputs, and benchmark artifacts stay under `outputs/
 ## Where to Start
 
 - Repo policy and agent instructions: [AGENTS.md](./AGENTS.md)
+- Architecture and stack decisions: [docs/architecture.md](./docs/architecture.md)
+- Proof lanes, cost budgets, kill-switches: [docs/testing.md](./docs/testing.md)
+- Audit rubric and boundary guidance: [docs/audit-rubric.md](./docs/audit-rubric.md)
+- Validation tier definitions: [docs/validation-tiers.md](./docs/validation-tiers.md)
 - Bootstrap and smoke recipes: [Justfile](./Justfile)
 - Ownership and generated-zone maps: [agent/owner-map.json](./agent/owner-map.json), [agent/test-map.json](./agent/test-map.json), [agent/generated-zones.toml](./agent/generated-zones.toml)
+- Boundary slice definitions: [agent/boundaries.toml](./agent/boundaries.toml)
 - Schema fixture guide: [tests/schemas/README.md](./tests/schemas/README.md)
 - Validation surface: [detection/reports/detector_osint_family_matrix.md](./detection/reports/detector_osint_family_matrix.md), [detection/reports/track_lifecycle_baseline.md](./detection/reports/track_lifecycle_baseline.md)
 - Public-proxy pack entrypoint: [object-packs/public-proxy/pack.manifest.json](./object-packs/public-proxy/pack.manifest.json)

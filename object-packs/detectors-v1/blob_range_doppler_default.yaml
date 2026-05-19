@@ -1,0 +1,75 @@
+# EchoForge detector_card — Range-Doppler blob default
+# Schema: schemas/detector_card.schema.json
+#
+# Connected-component clustering on a thresholded R-D magnitude grid
+# with 4-way adjacency. Emits one detection per cluster carrying the
+# magnitude-weighted centroid (range_bin, doppler_bin) and peak
+# magnitude in dB. Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/blob_rd.rs (BlobRdDetector).
+id: "ef:detector_card:blob-range-doppler-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: blob-range-doppler-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Skolnik, Introduction to Radar Systems, 3rd ed. §13.7 (constant-Pfa detection + cluster post-processing)"
+    - "Rosenfeld & Pfaltz, Sequential operations in digital picture processing, JACM 13(4) 1966 (connected-component labelling)"
+    - "crates/echoforge-radar/src/detectors/blob_rd.rs (BlobRdDetector)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: connected_component_4way_adjacency
+      status: pass
+      message: "BFS clustering with 4-way adjacency implemented in blob_rd::BlobRdDetector::detect"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built BlobRdDetector::new(BlobRdParams::new(threshold, min_cluster_size)) byte-for-byte on pinned RD fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "Range-Doppler blob (4-way connected-component)"
+algorithm_family: blob_range_doppler
+parameters:
+  threshold_linear: 5.0
+  min_cluster_size: 3
+  adjacency: "four_way"
+  centroid_weighting: "magnitude_weighted"
+default_thresholds:
+  threshold_linear: 5.0
+  min_cluster_size: 3
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - rcs-0p01-m2
+  - rcs-1-m2
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.75
+      pd_max: 0.90
+    snr_db_required_range:
+      min: 12.0
+      max: 16.0
+    citation_id: skolnik-3rd-ch13-7-cluster-post-processing
+citations:
+  - citation_id: skolnik-3rd-ch13-7-cluster-post-processing
+    title: "Skolnik 3rd ed. §13.7 (constant-Pfa detection + cluster post-processing)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: rosenfeld-pfaltz-1966-connected-components
+    title: "Sequential operations in digital picture processing"
+    authors: "Rosenfeld & Pfaltz"
+    publisher: "JACM 13(4) 1966"

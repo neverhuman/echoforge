@@ -150,11 +150,14 @@ pub fn assert_fidelity_floor(
     envelope: &ValidationInfo,
     floor: &FidelityFloor,
 ) -> Result<(), FidelityFloorError> {
-    let required = parse_fidelity_class(&floor.min_fidelity).ok_or_else(|| {
-        FidelityFloorError::UnparseableFloor {
-            value: floor.min_fidelity.clone(),
+    let required = match parse_fidelity_class(&floor.min_fidelity) {
+        Some(v) => v,
+        None => {
+            return Err(FidelityFloorError::UnparseableFloor {
+                value: floor.min_fidelity.clone(),
+            })
         }
-    })?;
+    };
 
     let envelope_label = match envelope.fidelity_class.as_deref() {
         Some(value) => value,
@@ -165,11 +168,14 @@ pub fn assert_fidelity_floor(
         }
     };
 
-    let got = parse_fidelity_class(envelope_label).ok_or_else(|| {
-        FidelityFloorError::UnparseableEnvelope {
-            value: envelope_label.to_string(),
+    let got = match parse_fidelity_class(envelope_label) {
+        Some(v) => v,
+        None => {
+            return Err(FidelityFloorError::UnparseableEnvelope {
+                value: envelope_label.to_string(),
+            })
         }
-    })?;
+    };
 
     if got < required {
         return Err(FidelityFloorError::Below {

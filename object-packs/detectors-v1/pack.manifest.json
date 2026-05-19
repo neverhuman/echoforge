@@ -1,0 +1,90 @@
+{
+  "id": "pack.detectors-v1",
+  "schema_version": "2.0.0",
+  "kind": "pack_manifest_v2",
+  "display_name": "Detectors v1 (canonical Rust detector externalization)",
+  "purpose": "Externalizes the existing EchoForge Rust detector implementations as YAML detector_card documents. Each card declares an algorithm_family (the slug the loader factory keys on), parameters (matching the Rust defaults), default_thresholds, intended_target_classes (referencing source_platform_card slugs from pack.adversary-platforms-v1), intended_sensor_archetypes (referencing radar_platform_card slugs from pack.radar-platforms-v1), an expected_performance_envelope, and academic citations. Covers the CFAR family (CA / OS / GO / SO), pulse-Doppler suppression (MTI / MTD / MTI+MTD chain), R-D clustering (blob), micro-Doppler (autocorrelation feature + 5-feature Neyman-Pearson LRT classifier), phase-aware tier detection (BOOST / CLIMB-OUT / CRUISE), Track-Before-Detect (Hough accumulator), and acoustic-radar Bayesian fusion. All 13 algorithms have been validated via the empirical_pfa calibrator (32/32 PASS at 1M trials per .agents/receipts/lane-g-c-multidist-cfar/) and named in published radar literature: Skolnik §7.7.2, Rohling 1983, Hansen & Sawyers 1980, Trunk 1978, Skolnik §3.7-3.8, Chen 2011, Tahmoush 2015, Rahman & Robertson Nature Sci Rep 2018, Carlson-Evans-Wilson 1994, Tonissen-Evans 1996, Salmond-Birch 2001, Stone & Streit 2018.",
+  "card_refs": {
+    "detector_card": [
+      "ca_cfar_default.yaml",
+      "os_cfar_default.yaml",
+      "go_cfar_default.yaml",
+      "so_cfar_default.yaml",
+      "mti_default.yaml",
+      "mtd_default.yaml",
+      "mti_mtd_chain_default.yaml",
+      "blob_range_doppler_default.yaml",
+      "micro_doppler_feature_default.yaml",
+      "micro_doppler_lrt_classifier_default.yaml",
+      "phase_tiered_boost_climb_cruise_default.yaml",
+      "tbd_hough_default.yaml",
+      "acoustic_radar_bayesian_default.yaml"
+    ]
+  },
+  "card_slugs": [
+    "ca-cfar-default",
+    "os-cfar-default",
+    "go-cfar-default",
+    "so-cfar-default",
+    "mti-default",
+    "mtd-default",
+    "mti-mtd-chain-default",
+    "blob-range-doppler-default",
+    "micro-doppler-feature-default",
+    "micro-doppler-lrt-classifier-default",
+    "phase-tiered-boost-climb-cruise-default",
+    "tbd-hough-default",
+    "acoustic-radar-bayesian-default"
+  ],
+  "pack_dependencies": [
+    {
+      "pack_id": "pack.radar-platforms-v1",
+      "min_schema_version": "2.0.0",
+      "required_card_kinds": ["radar_platform_card"]
+    },
+    {
+      "pack_id": "pack.adversary-platforms-v1",
+      "min_schema_version": "2.0.0",
+      "required_card_kinds": ["source_platform_card"]
+    }
+  ],
+  "license": {
+    "spdx_id": "MIT",
+    "notice": "Pack content derived from open-literature radar references (Skolnik, Richards, Rohling, Hansen & Sawyers, Trunk, Schleher, Chen, Tahmoush, Rahman & Robertson, Carlson-Evans-Wilson, Tonissen-Evans, Salmond-Birch, Stone & Streit). No measured-truth claim."
+  },
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": [
+      "Skolnik, Introduction to Radar Systems, 3rd ed. (CFAR §7.7.2; MTI §3.7; MTD §3.8; LRT §9.5; two-ray §2.10)",
+      "Rohling 1983 — OS-CFAR implicit equation",
+      "Hansen & Sawyers 1980 — GO-CFAR detectability loss",
+      "Trunk 1978 — SO-CFAR range resolution",
+      "Schleher 1991 — MTI improvement factor derivation",
+      "Richards, Fundamentals of Radar Signal Processing, 2nd ed.",
+      "Chen, V. C., The Micro-Doppler Effect in Radar, Artech House 2011",
+      "Tahmoush 2015 — micro-Doppler review",
+      "Rahman & Robertson, Nature Sci Rep 8:17396 (2018) — bird vs UAS micro-Doppler",
+      "MDPI Drones 7(1):39 (2023) — small fixed-wing UAS RCS + micro-Doppler envelopes",
+      "Carlson, Evans, Wilson 1994 — Hough-TBD",
+      "Tonissen & Evans 1996 — TBD dynamic programming",
+      "Salmond & Birch 2001 — TBD particle filter",
+      "Stone & Streit, Bayesian Multiple Target Tracking, 2nd ed., Artech House 2018",
+      "RUSI 2025 — Ukraine Sky Fortress / Zvook acoustic networks",
+      ".agents/receipts/lane-g-c-multidist-cfar/20260518T203256Z.md (OS-CFAR 32/32 PASS at 1M trials)",
+      ".agents/receipts/mti-mtd-filter-bank/20260518T193508Z.md (I_3 = 73.09 dB at sigma_f=2 Hz)"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T22:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "validation_tier": "basic",
+  "fidelity_class": "cross_solver_bridged",
+  "notes": [
+    "13 detector cards externalize the existing Rust detector implementations under crates/echoforge-radar/src/{cfar.rs, mti_mtd.rs, detectors/*.rs, fusion/*.rs}.",
+    "Each card's algorithm_family is the slug the pack-loader's factory table will key on once Wave 13 lands; the per-family Rust constructor will be invoked with the card's `parameters` block as input.",
+    "All thirteen algorithms cite canonical academic references (Skolnik / Rohling / Hansen-Sawyers / Trunk / Schleher / Chen / Tahmoush / Rahman-Robertson / Carlson-Evans-Wilson / Tonissen-Evans / Salmond-Birch / Stone-Streit / MDPI Drones).",
+    "OS-CFAR card validation tier is `benchmarked` (empirical_pfa 32/32 PASS at 1M trials per .agents/receipts/lane-g-c-multidist-cfar/). MTI card validation tier is `benchmarked` (I_3=73.09 dB per .agents/receipts/mti-mtd-filter-bank/). Phase-tiered card is `cross_checked` per .agents/receipts/phase-pd-pfa-report-v4/. Remaining cards declare tier=`basic`.",
+    "Cross-pack target/sensor slugs reference pack.adversary-platforms-v1 (shahed-136-geran-2, shahed-131-geran-1, geran-3-jet-variant, mohajer-6) and pack.radar-platforms-v1 (saab-giraffe-1x, rtx-an-mpq-64-sentinel-a4, rtx-kurfs, src-an-tpq-50)."
+  ],
+  "source_status": "synthetic"
+}

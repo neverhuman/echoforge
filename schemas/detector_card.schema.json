@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/detector_card.schema.json",
+  "title": "detector_card",
+  "description": "EchoForge detector_card document. Declares a loadable detector (algorithm + parameters + thresholds + expected performance + citations) that the pack-loader instantiates as a `Box<dyn Detector>` at runtime. Externalizes the previously-hardcoded Rust enum dispatch so radar engineers can author new detector configurations or pull in non-Rust detectors via the optional `external_binary` block (stdio JSONL, gRPC, or FFI). Strict-open: each algorithm cites Skolnik / Rohling / Ward-Tough-Watts / Chen / Carlson-Evans-Wilson / Stone-Streit / Kelly / Reed-Mallett-Brennan as applicable. References: tips/detectors/tip{1..8}.txt for the OSINT detector-family matrix; existing implementations at crates/echoforge-radar/src/{cfar.rs,detectors/*.rs,fusion/*.rs}.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "display_name",
+    "algorithm_family",
+    "parameters",
+    "intended_target_classes"
+  ],
+  "properties": {
+    "id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "detector_card" },
+    "schema_version": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license" },
+    "validation": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation" },
+    "display_name": { "type": "string", "minLength": 1 },
+    "algorithm_family": {
+      "description": "Built-in algorithm family. The pack-loader's factory table maps each family string to a Rust constructor (or to an external_binary adapter when present).",
+      "enum": [
+        "ca_cfar",
+        "os_cfar",
+        "go_cfar",
+        "so_cfar",
+        "vi_cfar",
+        "tm_cfar",
+        "censored_mld_cfar",
+        "cfar_2d_range_azimuth",
+        "mti",
+        "mtd",
+        "mti_mtd_chain",
+        "blob_range_doppler",
+        "micro_doppler_feature_autocorrelation",
+        "micro_doppler_lrt_classifier",
+        "phase_tiered_boost_climb_cruise",
+        "tbd_hough",
+        "tbd_dynamic_programming",
+        "tbd_particle_filter",
+        "glrt_kelly",
+        "amf",
+        "stap",
+        "ka_stap",
+        "adaptive_subspace_detector",
+        "polarimetric_whitening_filter",
+        "sidelobe_canceller_howells_applebaum",
+        "kalman_track",
+        "jpdaf",
+        "mht_reid",
+        "particle_filter_track",
+        "acoustic_radar_bayesian",
+        "n_way_modality_fusion_bayesian",
+        "detector_graph",
+        "external"
+      ]
+    },
+    "parameters": {
+      "description": "Free-form parameter object validated by the per-family Rust struct. Common params: training_cells, guard_cells, pfa, k_quantile (OS-CFAR), mti_order, doppler_bins, hough_accumulator_size, classifier_features, fusion_weights, etc.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "default_thresholds": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Default decision thresholds (e.g. {pfa: 1e-3, micro_doppler_lrt_threshold: 4.5}); may be overridden at runtime."
+    },
+    "intended_target_classes": {
+      "description": "Slugs of source_platform_card / object_card classes this detector is calibrated for.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" }
+    },
+    "intended_sensor_archetypes": {
+      "description": "Slugs of radar_platform_card / sensor_archetype documents this detector is matched to (band, waveform, dwell, etc.).",
+      "type": "array",
+      "items": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" }
+    },
+    "expected_performance_envelope": {
+      "description": "Cited (algorithm × target_class × sensor_archetype) → expected (Pd, Pfa) bands. Used by `radar-expert-credibility-report` to confirm performance falls in published envelopes.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_class_slug", "sensor_archetype_slug", "pd_at_pfa", "citation_id"],
+        "properties": {
+          "target_class_slug": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+          "sensor_archetype_slug": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+          "pd_at_pfa": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pfa", "pd_min", "pd_max"],
+            "properties": {
+              "pfa": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+              "pd_min": { "type": "number", "minimum": 0, "maximum": 1 },
+              "pd_max": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          },
+          "snr_db_required_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+          "citation_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "external_binary": {
+      "description": "Optional spec for non-Rust detector binaries. The pack-loader spawns a subprocess (stdio JSONL), connects to a gRPC service, or loads a shared library via FFI based on `ipc_protocol`. Each card MUST also declare `parameters.command` or `parameters.endpoint` per protocol.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "ipc_protocol"],
+      "properties": {
+        "language": { "enum": ["python", "cpp", "matlab", "julia", "c", "other"] },
+        "container_image": {
+          "type": "string",
+          "description": "Optional OCI image reference (e.g. 'echoforge/detector-foo:1.2.0'). When present, the loader runs the detector in container isolation."
+        },
+        "ipc_protocol": { "enum": ["stdio", "grpc", "ffi"] },
+        "schema_url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Schema URL for the IPC payload (input view + output detections)."
+        }
+      }
+    },
+    "graph_topology": {
+      "description": "For `algorithm_family: detector_graph` cards: a DAG of upstream detector slugs and fusion nodes. Mirrors the existing `detector_graph.schema.json` shape inline here for self-containment.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["node_slug", "detector_card_slug"],
+            "properties": {
+              "node_slug": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+              "detector_card_slug": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" }
+            }
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["from_node", "to_node"],
+            "properties": {
+              "from_node": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+              "to_node": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" }
+            }
+          }
+        }
+      }
+    },
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id"],
+        "properties": {
+          "citation_id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "authors": { "type": "string" },
+          "publisher": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

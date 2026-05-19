@@ -1,0 +1,22 @@
+accessibilityScanRequired = true
+ariaSnapshotRequired = true
+artifactRoot = "target/jankurai/ux-qa"
+outputRoot = "."
+readyState = "domcontentloaded"
+requiredStates = [
+    "loading",
+    "empty",
+    "error",
+    "success",
+    "permission-denied",
+]
+screenshotRequired = true
+timeoutMs = 15000
+
+[ux-qa]
+mode = "smoke"
+screenshot_path = "apps/web/playwright-report/ux-qa-state.png"
+
+[ux-qa.smoke]
+artifact_paths = ["apps/web/dist/index.html"]
+check_build_artifacts = true

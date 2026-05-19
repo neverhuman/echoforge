@@ -19,8 +19,8 @@ pub mod micro_doppler;
 pub mod polarization;
 pub mod primitives;
 pub mod report;
-pub mod tier_v3;
-pub mod tier_v4;
+pub mod tier_benchmarked;
+pub mod tier_measured_anchored;
 pub mod tolerance;
 pub mod uncertainty;
 pub mod units;
@@ -45,11 +45,11 @@ pub use primitives::{
     CanonicalTruth, Conditions, Status, Truth,
 };
 pub use report::{ErrorBudget, TierAchieved, ValidateChecks, ValidateReport};
-pub use tier_v3::{
+pub use tier_benchmarked::{
     evaluate_v3_from_benchmark_json, evaluate_v3_gate, tier_alias_benchmarked, GateStatus,
     V3GateReport, V3MetricObservation, V3MetricThresholds,
 };
-pub use tier_v4::{
+pub use tier_measured_anchored::{
     evaluate_v4_from_calibration_report, evaluate_v4_gate, ks_distance_1d_sorted,
     tier_alias_measured_anchored, wasserstein_1d_sorted, AnchorMetric, CalibrationReportFile,
     V4AnchorOutcome, V4DistributionAnchor, V4DistributionObservation, V4GateReport,

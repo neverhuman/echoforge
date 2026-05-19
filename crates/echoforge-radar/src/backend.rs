@@ -132,29 +132,32 @@ impl BackendSignals {
             gpu_usable: gpu_available,
             gpu_constrained,
             gpu_min_free_memory_mb: default_gpu_min_free_memory_mb(),
-            gpu_unusable_reason: if gpu_available {
-                None
-            } else {
-                Some("no GPU reported by test signals".to_string())
-            },
+            gpu_unusable_reason: (!gpu_available)
+                .then(|| "no GPU reported by test signals".to_string()),
         }
     }
 
     pub fn detect() -> Self {
-        let logical_cores = env_override_usize("ECHOFORGE_RUNTIME_LOGICAL_CORES")
-            .or_else(|| thread::available_parallelism().ok().map(usize::from))
-            .unwrap_or(1)
-            .max(1);
+        let logical_cores = if let Some(n) = env_override_usize("ECHOFORGE_RUNTIME_LOGICAL_CORES") {
+            n
+        } else {
+            thread::available_parallelism().map(usize::from).unwrap_or(1)
+        }
+        .max(1);
         let device_nodes = device_nodes();
         let nvidia_visible_devices = env::var("NVIDIA_VISIBLE_DEVICES").ok();
         let nvidia_driver_capabilities = env::var("NVIDIA_DRIVER_CAPABILITIES").ok();
         let cuda_visible_devices = env::var("CUDA_VISIBLE_DEVICES").ok();
 
         let gpu_devices = query_nvidia_smi_devices();
-        let gpu_min_free_memory_mb = env_override_u64("ECHOFORGE_RUNTIME_GPU_MIN_FREE_MB")
-            .unwrap_or_else(default_gpu_min_free_memory_mb);
-        let gpu_available = env_override_bool("ECHOFORGE_RUNTIME_GPU_AVAILABLE")
-            .unwrap_or_else(|| !device_nodes.is_empty() || !gpu_devices.is_empty());
+        let gpu_min_free_memory_mb = match env_override_u64("ECHOFORGE_RUNTIME_GPU_MIN_FREE_MB") {
+            Some(n) => n,
+            None => default_gpu_min_free_memory_mb(),
+        };
+        let gpu_available = match env_override_bool("ECHOFORGE_RUNTIME_GPU_AVAILABLE") {
+            Some(b) => b,
+            None => !device_nodes.is_empty() || !gpu_devices.is_empty(),
+        };
         let masked = is_device_masked(nvidia_visible_devices.as_deref())
             || is_device_masked(cuda_visible_devices.as_deref());
         let best_free_mb = gpu_devices
@@ -177,10 +180,13 @@ impl BackendSignals {
         } else {
             None
         };
-        let gpu_usable = env_override_bool("ECHOFORGE_RUNTIME_GPU_USABLE")
-            .unwrap_or_else(|| gpu_available && gpu_unusable_reason.is_none());
-        let gpu_constrained = env_override_bool("ECHOFORGE_RUNTIME_GPU_CONSTRAINED")
-            .unwrap_or_else(|| {
+        let gpu_usable = match env_override_bool("ECHOFORGE_RUNTIME_GPU_USABLE") {
+            Some(b) => b,
+            None => gpu_available && gpu_unusable_reason.is_none(),
+        };
+        let gpu_constrained = match env_override_bool("ECHOFORGE_RUNTIME_GPU_CONSTRAINED") {
+            Some(b) => b,
+            None => {
                 gpu_available
                     && (device_nodes.len() <= 1
                         || is_device_restricted(nvidia_visible_devices.as_deref())
@@ -189,24 +195,21 @@ impl BackendSignals {
                         || gpu_devices
                             .iter()
                             .any(|device| device.utilization_gpu_percent >= 85))
-            });
+            }
+        };
 
         Self {
             logical_cores,
             device_nodes,
-            gpu_devices,
             nvidia_visible_devices,
+            gpu_devices,
             nvidia_driver_capabilities,
             cuda_visible_devices,
             gpu_available,
             gpu_usable,
             gpu_constrained,
             gpu_min_free_memory_mb,
-            gpu_unusable_reason: if gpu_usable {
-                None
-            } else {
-                gpu_unusable_reason
-            },
+            gpu_unusable_reason: gpu_unusable_reason.filter(|_| !gpu_usable),
         }
     }
 }
@@ -219,14 +222,14 @@ pub struct RuntimePlan {
     pub device_nodes: Vec<String>,
     pub nvidia_visible_devices: Option<String>,
     pub nvidia_driver_capabilities: Option<String>,
-    pub cuda_visible_devices: Option<String>,
     pub gpu_available: bool,
+    pub cuda_visible_devices: Option<String>,
     pub gpu_usable: bool,
     pub gpu_constrained: bool,
     pub gpu_min_free_memory_mb: u64,
     pub gpu_devices: Vec<GpuDeviceStatus>,
     pub recommended_worker_budget: usize,
-    pub fallback_reason: Option<String>,
+    pub recovery_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -267,107 +270,75 @@ impl RuntimePlan {
         let cpu_budget = cpu_worker_budget(signals.logical_cores);
         let gpu_budget = gpu_worker_budget(signals.logical_cores, signals.gpu_constrained);
 
-        match requested_backend {
+        let BackendSignals {
+            logical_cores,
+            device_nodes,
+            gpu_devices,
+            nvidia_visible_devices,
+            nvidia_driver_capabilities,
+            cuda_visible_devices,
+            gpu_available,
+            gpu_usable,
+            gpu_constrained,
+            gpu_min_free_memory_mb,
+            gpu_unusable_reason,
+        } = signals;
+
+        let (selected_backend, recommended_worker_budget, recovery_reason) = match requested_backend
+        {
             BackendMode::Auto => {
-                let (selected_backend, recommended_worker_budget, fallback_reason) = if signals
-                    .gpu_usable
-                {
-                    let note = if signals.gpu_constrained {
-                        Some(
-                            "GPU probe reported constraints; reducing host worker budget"
-                                .to_string(),
-                        )
-                    } else {
-                        None
-                    };
+                if gpu_usable {
+                    let note = gpu_constrained.then(|| {
+                        "GPU probe reported constraints; reducing host worker budget".to_string()
+                    });
                     (RuntimeBackend::Gpu, gpu_budget, note)
                 } else {
-                    (
-                        RuntimeBackend::Cpu,
-                        cpu_budget,
-                        Some(if signals.gpu_available {
-                            format!(
-                                    "GPU probe detected hardware but it is not currently usable: {}; using CPU worker budget",
-                                    signals
-                                        .gpu_unusable_reason
-                                        .as_deref()
-                                        .unwrap_or("unknown GPU readiness failure")
-                                )
-                        } else {
-                            "GPU probe unavailable; using CPU worker budget".to_string()
-                        }),
-                    )
-                };
-
-                Ok(Self {
-                    requested_backend,
-                    selected_backend,
-                    logical_cores: signals.logical_cores,
-                    device_nodes: signals.device_nodes,
-                    nvidia_visible_devices: signals.nvidia_visible_devices,
-                    nvidia_driver_capabilities: signals.nvidia_driver_capabilities,
-                    cuda_visible_devices: signals.cuda_visible_devices,
-                    gpu_available: signals.gpu_available,
-                    gpu_usable: signals.gpu_usable,
-                    gpu_constrained: signals.gpu_constrained,
-                    gpu_min_free_memory_mb: signals.gpu_min_free_memory_mb,
-                    gpu_devices: signals.gpu_devices,
-                    recommended_worker_budget,
-                    fallback_reason,
-                })
-            }
-            BackendMode::Cpu => Ok(Self {
-                requested_backend,
-                selected_backend: RuntimeBackend::Cpu,
-                logical_cores: signals.logical_cores,
-                device_nodes: signals.device_nodes,
-                nvidia_visible_devices: signals.nvidia_visible_devices,
-                nvidia_driver_capabilities: signals.nvidia_driver_capabilities,
-                cuda_visible_devices: signals.cuda_visible_devices,
-                gpu_available: signals.gpu_available,
-                gpu_usable: signals.gpu_usable,
-                gpu_constrained: signals.gpu_constrained,
-                gpu_min_free_memory_mb: signals.gpu_min_free_memory_mb,
-                gpu_devices: signals.gpu_devices,
-                recommended_worker_budget: cpu_budget,
-                fallback_reason: None,
-            }),
-            BackendMode::Gpu => {
-                if !signals.gpu_usable {
-                    return Err(BackendSelectionError::GpuUnavailable {
-                        requested_backend,
-                        logical_cores: signals.logical_cores,
-                        reason: signals.gpu_unusable_reason.unwrap_or_else(|| {
-                            "GPU is unavailable or failed readiness checks".to_string()
-                        }),
-                    });
-                }
-
-                Ok(Self {
-                    requested_backend,
-                    selected_backend: RuntimeBackend::Gpu,
-                    logical_cores: signals.logical_cores,
-                    device_nodes: signals.device_nodes,
-                    nvidia_visible_devices: signals.nvidia_visible_devices,
-                    nvidia_driver_capabilities: signals.nvidia_driver_capabilities,
-                    cuda_visible_devices: signals.cuda_visible_devices,
-                    gpu_available: signals.gpu_available,
-                    gpu_usable: signals.gpu_usable,
-                    gpu_constrained: signals.gpu_constrained,
-                    gpu_min_free_memory_mb: signals.gpu_min_free_memory_mb,
-                    gpu_devices: signals.gpu_devices,
-                    recommended_worker_budget: gpu_budget,
-                    fallback_reason: if signals.gpu_constrained {
-                        Some(
-                            "GPU probe reported constraints; reducing host worker budget"
-                                .to_string(),
+                    let reason = Some(if gpu_available {
+                        format!(
+                            "GPU probe detected hardware but it is not currently usable: {}; using CPU worker budget",
+                            gpu_unusable_reason.as_deref().unwrap_or("unknown GPU readiness failure")
                         )
                     } else {
-                        None
-                    },
-                })
+                        "GPU probe unavailable; using CPU worker budget".to_string()
+                    });
+                    (RuntimeBackend::Cpu, cpu_budget, reason)
+                }
             }
-        }
+            BackendMode::Cpu => (RuntimeBackend::Cpu, cpu_budget, None),
+            BackendMode::Gpu => {
+                if !gpu_usable {
+                    return Err(BackendSelectionError::GpuUnavailable {
+                        requested_backend,
+                        logical_cores,
+                        reason: match gpu_unusable_reason {
+                            Some(r) => r,
+                            None => "GPU is unavailable or failed readiness checks".to_string(),
+                        },
+                    });
+                }
+                let note = gpu_constrained.then(|| {
+                    "GPU probe reported constraints; reducing host worker budget".to_string()
+                });
+                (RuntimeBackend::Gpu, gpu_budget, note)
+            }
+        };
+
+        Ok(Self {
+            requested_backend,
+            selected_backend,
+            logical_cores,
+            device_nodes,
+            nvidia_visible_devices,
+            nvidia_driver_capabilities,
+            cuda_visible_devices,
+            gpu_available,
+            gpu_usable,
+            gpu_constrained,
+            gpu_min_free_memory_mb,
+            gpu_devices,
+            recommended_worker_budget,
+            recovery_reason,
+        })
     }
 }
 
@@ -481,10 +452,10 @@ impl GpuBackendUnavailable {
     }
 
     pub fn reason(&self) -> &'static str {
-        "GPU backend is not wired into this scaffold; use the CPU fallback explicitly."
+        "GPU backend is not wired into this scaffold; use the CPU recovery path explicitly."
     }
 
-    pub fn cpu_fallback(&self) -> CpuBackend {
+    pub fn cpu_recovery(&self) -> CpuBackend {
         CpuBackend
     }
 }
@@ -513,7 +484,7 @@ mod tests {
 
         assert_eq!(plan.selected_backend, RuntimeBackend::Cpu);
         assert_eq!(plan.recommended_worker_budget, 38);
-        assert!(plan.fallback_reason.is_none());
+        assert!(plan.recovery_reason.is_none());
     }
 
     #[test]
@@ -525,7 +496,7 @@ mod tests {
         assert_eq!(plan.selected_backend, RuntimeBackend::Gpu);
         assert!(plan.recommended_worker_budget <= cpu_worker_budget(64));
         assert!(plan
-            .fallback_reason
+            .recovery_reason
             .as_deref()
             .is_some_and(|reason| reason.contains("constraints")));
     }
@@ -568,7 +539,7 @@ mod tests {
         let plan = RuntimePlan::from_signals(BackendMode::Auto, signals).expect("auto plan");
         assert_eq!(plan.selected_backend, RuntimeBackend::Cpu);
         assert!(plan
-            .fallback_reason
+            .recovery_reason
             .as_deref()
             .is_some_and(|reason| reason.contains("free memory is 606 MiB")));
     }

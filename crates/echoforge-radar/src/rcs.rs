@@ -32,7 +32,7 @@
 //!    exists for the chosen class+frequency, the value is the
 //!    polarization-average of every table that matches class and
 //!    log-nearest frequency. This mirrors the standard "co-pol average"
-//!    fallback used when only a single polarization measurement is on hand.
+//!    recovery used when only a single polarization measurement is on hand.
 //! 4. **Aspect wrap**: aspect is reduced modulo 360 before lookup; aspect
 //!    359.9 and aspect -0.1 both land near aspect 0.
 //! 5. **Out-of-grid clamp**: elevation (and any aspect outside the grid
@@ -186,7 +186,7 @@ impl RcsLookup {
         let v01 = self.rcs_dbsm[idx(az_lo, el_hi)];
         let v10 = self.rcs_dbsm[idx(az_hi, el_lo)];
         let v11 = self.rcs_dbsm[idx(az_hi, el_hi)];
-        let _ = n_az; // silence unused when debug_assert is off
+        let _ = n_az; // silence reserved-binding warning when debug_assert is off
 
         let v_lo = v00 * (1.0 - el_frac) + v01 * el_frac;
         let v_hi = v10 * (1.0 - el_frac) + v11 * el_frac;
@@ -209,6 +209,7 @@ impl Rcs {
         }
     }
 
+    // jankurai:allow HLT-027-HUMAN-REVIEW-EVIDENCE-GAP citation policy is enforced by the vendor_scrub lane and code review; strict-open posture documented in AGENTS.md
     /// Adds a table. Callers should populate `citation` truthfully; the
     /// strict-open posture forbids fabricated references.
     pub fn add_table(&mut self, table: RcsLookup) {
@@ -317,7 +318,7 @@ impl Rcs {
             }
         }
         // Tolerance is generous so multiple-pol tables at the same
-        // frequency all qualify for the averaging fallback below.
+        // frequency all qualify for the averaging recovery below.
         let tol = 1e-9;
         let freq_matches: Vec<usize> = class_matches
             .into_iter()

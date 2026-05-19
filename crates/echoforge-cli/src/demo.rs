@@ -15,7 +15,7 @@ pub enum DemoCommand {
 
 #[derive(Debug, Args)]
 pub struct MonteCarloArgs {
-    #[arg(long, default_value = "iranian-takeoff-v1")]
+    #[arg(long, default_value = "low-altitude-fixed-wing-takeoff-v1")]
     pub preset: String,
 
     #[arg(long, default_value_t = 32)]
@@ -66,6 +66,7 @@ fn run_monte_carlo(args: MonteCarloArgs) -> Result<u8, String> {
         noise_profile: args.noise_profile,
         sample_rate_hz: args.sample_rate_hz,
         pulse_count: args.pulse_count,
+        runtime: echoforge_dataset::MonteCarloRuntimePolicy::default(),
     };
     let report = echoforge_dataset::run_monte_carlo_demo(config).map_err(|err| err.to_string())?;
 

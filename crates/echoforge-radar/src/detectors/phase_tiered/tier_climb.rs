@@ -214,7 +214,36 @@ impl ClimbOutTierDetector {
         let f_d = self.body_doppler_hz(speed);
         if f_d < MTI_NOTCH_BODY_DOPPLER_HZ {
             // ---- Cross-flight branch (Skolnik §3.7 MTI blind speed). ----
-            return self.evaluate_cross_flight(obs, slow_time_spectrum, spectrum_bin_hz);
+            // MTI gate skipped: target is in the notch by geometry, not because it
+            // is clutter. Compensating evidence: stricter Kalman M-of-N + confirmed
+            // propeller blade-pass line in the slow-time spectrum.
+            out.cross_flight = true;
+            let Some(kalman_ok) = self.apply_mofn(
+                &mut out,
+                obs,
+                self.config.cross_flight_kalman_speed_gate_mps,
+                self.config.cross_flight_mof_n_threshold,
+                "cross-flight: insufficient history for M-of-N",
+            ) else {
+                return out;
+            };
+            out.micro_doppler_confirmed = match (slow_time_spectrum, spectrum_bin_hz) {
+                (Some(spec), Some(bin_hz)) if bin_hz > 0.0 => {
+                    check_blade_pass_line_piston(spec, bin_hz)
+                }
+                _ => false,
+            };
+            out.detected = kalman_ok && out.micro_doppler_confirmed;
+            out.note = if out.detected {
+                "cross-flight: detected (Kalman + micro-Doppler)"
+            } else if !kalman_ok && !out.micro_doppler_confirmed {
+                "cross-flight: Kalman M-of-N below threshold and no micro-Doppler line"
+            } else if !kalman_ok {
+                "cross-flight: Kalman M-of-N below threshold"
+            } else {
+                "cross-flight: no micro-Doppler blade-pass line"
+            };
+            return out;
         }
 
         // ---- Radial-velocity branch (existing behaviour). ----
@@ -225,41 +254,17 @@ impl ClimbOutTierDetector {
             return out;
         }
 
-        // (3) M-of-N over a trailing 5-CPI window with constant-velocity
-        // Kalman residual scoring. Each consecutive pair (s_k, s_{k+1})
-        // produces a residual |s_{k+1} - s_k|; if that residual is
-        // within the gate, the CPI counts as a match. The average
-        // (1 - residual/gate) over considered pairs is the consistency
-        // score.
-        let win = self.config.mof_n_window;
-        let trailing = obs.trailing(win + 1);
-        if trailing.len() < 2 {
-            out.note = "insufficient history for M-of-N";
+        // (3) M-of-N over a trailing 5-CPI window.
+        let Some(radial_ok) = self.apply_mofn(
+            &mut out,
+            obs,
+            self.config.kalman_speed_gate_mps,
+            self.config.mof_n_threshold,
+            "insufficient history for M-of-N",
+        ) else {
             return out;
-        }
-        let mut matches = 0usize;
-        let mut considered = 0usize;
-        let mut consistency_sum = 0.0f64;
-        for pair in trailing.windows(2) {
-            let residual = (pair[1].radial_speed_mps - pair[0].radial_speed_mps).abs();
-            let normalized = (residual / self.config.kalman_speed_gate_mps).min(1.0);
-            consistency_sum += 1.0 - normalized;
-            considered += 1;
-            if residual <= self.config.kalman_speed_gate_mps {
-                matches += 1;
-            }
-        }
-        out.mof_n_ratio = if considered == 0 {
-            0.0
-        } else {
-            matches as f32 / considered as f32
         };
-        out.kalman_consistency = if considered == 0 {
-            0.0
-        } else {
-            (consistency_sum / considered as f64) as f32
-        };
-        out.detected = matches >= self.config.mof_n_threshold;
+        out.detected = radial_ok;
         out.note = if out.detected {
             "climb-out detected"
         } else {
@@ -268,78 +273,40 @@ impl ClimbOutTierDetector {
         out
     }
 
-    /// Cross-flight branch (Skolnik §3.7 MTI blind speed). The MTI gate
-    /// is skipped because the target is in the notch *by geometry*, not
-    /// because it is clutter. Compensating evidence: stricter Kalman
-    /// (4-of-5 within a 3 m/s gate by default) AND a confirmed propeller
-    /// blade-pass line in [150, 220] Hz ± 15% in the supplied slow-time
-    /// amplitude spectrum. Without either the cross-flight branch
-    /// rejects so an under-evidenced cross-flight target is never a
-    /// silent miss.
-    fn evaluate_cross_flight(
+    /// Apply the 1-D constant-velocity Kalman M-of-N gate and write
+    /// `out.mof_n_ratio` / `out.kalman_consistency`. Returns `None` (with
+    /// `out.note` set) when the observation window has fewer than 2 samples;
+    /// returns `Some(ok)` indicating whether `matches >= threshold`.
+    fn apply_mofn(
         &self,
+        out: &mut ClimbDecision,
         obs: &KinematicObservation,
-        slow_time_spectrum: Option<&[f32]>,
-        spectrum_bin_hz: Option<f64>,
-    ) -> ClimbDecision {
-        let mut out = ClimbDecision::empty();
-        out.cross_flight = true;
-
-        // (a) Stricter Kalman: trailing window, narrower gate, higher
-        // M-of-N threshold.
-        let win = self.config.mof_n_window;
-        let trailing = obs.trailing(win + 1);
+        gate_mps: f64,
+        threshold: usize,
+        short_window_note: &'static str,
+    ) -> Option<bool> {
+        let trailing = obs.trailing(self.config.mof_n_window + 1);
         if trailing.len() < 2 {
-            out.note = "cross-flight: insufficient history for M-of-N";
-            return out;
+            out.note = short_window_note;
+            return None;
         }
-        let gate_mps = self.config.cross_flight_kalman_speed_gate_mps;
         let mut matches = 0usize;
         let mut considered = 0usize;
-        let mut consistency_sum = 0.0f64;
+        let mut score_sum = 0.0f64;
         for pair in trailing.windows(2) {
             let residual = (pair[1].radial_speed_mps - pair[0].radial_speed_mps).abs();
             let normalized = (residual / gate_mps).min(1.0);
-            consistency_sum += 1.0 - normalized;
+            score_sum += 1.0 - normalized;
             considered += 1;
             if residual <= gate_mps {
                 matches += 1;
             }
         }
-        out.mof_n_ratio = if considered == 0 {
-            0.0
-        } else {
-            matches as f32 / considered as f32
-        };
-        out.kalman_consistency = if considered == 0 {
-            0.0
-        } else {
-            (consistency_sum / considered as f64) as f32
-        };
-        let kalman_ok = matches >= self.config.cross_flight_mof_n_threshold;
-
-        // (b) Micro-Doppler confirmation in [150, 220] Hz ± 15% (matches
-        // the Tier 3 piston cruise blade-pass spec).
-        out.micro_doppler_confirmed = match (slow_time_spectrum, spectrum_bin_hz) {
-            (Some(spec), Some(bin_hz)) if bin_hz > 0.0 => {
-                check_blade_pass_line_piston(spec, bin_hz)
-            }
-            _ => false,
-        };
-
-        // Both compensating-evidence channels must agree.
-        out.detected = kalman_ok && out.micro_doppler_confirmed;
-        out.note = if out.detected {
-            "cross-flight: detected (Kalman + micro-Doppler)"
-        } else if !kalman_ok && !out.micro_doppler_confirmed {
-            "cross-flight: Kalman M-of-N below threshold and no micro-Doppler line"
-        } else if !kalman_ok {
-            "cross-flight: Kalman M-of-N below threshold"
-        } else {
-            "cross-flight: no micro-Doppler blade-pass line"
-        };
-        out
+        out.mof_n_ratio = if considered == 0 { 0.0 } else { matches as f32 / considered as f32 };
+        out.kalman_consistency = if considered == 0 { 0.0 } else { (score_sum / considered as f64) as f32 };
+        Some(matches >= threshold)
     }
+
 }
 
 /// Cross-flight blade-pass confirmation: look for any bin in the
@@ -371,6 +338,19 @@ mod tests {
     use super::super::kinematic_gate::KinematicSample;
     use super::*;
 
+    fn cross_flight_climb_detector() -> ClimbOutTierDetector {
+        use super::super::kinematic_gate::climb_kinematic_gate;
+        ClimbOutTierDetector {
+            config: ClimbTierConfig::default(),
+            gate: KinematicGate { radial_speed_mps_min: 0.0, accel_mps2_min: 0.0, ..climb_kinematic_gate() },
+        }
+    }
+
+    fn cross_flight_obs() -> KinematicObservation {
+        // v_radial steady ~1 m/s (cross-flight), rising 0.1 m/s/CPI — within 3 m/s Kalman gate
+        climb_window((0..6).map(|k| (k as f64, 0.8 + k as f64 * 0.1, 250.0 + k as f64 * 2.0)).collect())
+    }
+
     fn climb_window(samples: Vec<(f64, f64, f64)>) -> KinematicObservation {
         KinematicObservation::new(
             samples
@@ -388,14 +368,7 @@ mod tests {
         // 250 m altitude. All 5 deltas should fall within the 5 m/s
         // Kalman gate, satisfying 3-of-5.
         let detector = ClimbOutTierDetector::with_default();
-        let obs = climb_window(vec![
-            (0.0, 30.0, 250.0),
-            (1.0, 31.0, 252.0),
-            (2.0, 32.0, 254.0),
-            (3.0, 33.0, 256.0),
-            (4.0, 34.0, 258.0),
-            (5.0, 35.0, 260.0),
-        ]);
+        let obs = climb_window((0..6).map(|k| (k as f64, 30.0 + k as f64, 250.0 + k as f64 * 2.0)).collect());
         let dec = detector.evaluate(&obs);
         assert!(dec.detected, "canonical climb-out must detect; {}", dec.note);
         assert!(!dec.mti_notch_rejected, "30+ m/s must clear MTI notch");
@@ -491,17 +464,7 @@ mod tests {
     fn cross_flight_target_with_micro_doppler_detected() {
         // Construct a custom climb gate that admits low-radial-speed
         // targets (cross-flight geometry).
-        let detector = ClimbOutTierDetector {
-            config: ClimbTierConfig::default(),
-            gate: KinematicGate {
-                radial_speed_mps_min: 0.0,
-                radial_speed_mps_max: 60.0,
-                accel_mps2_min: 0.0,
-                accel_mps2_max: 2.0,
-                altitude_agl_m_min: 30.0,
-                altitude_agl_m_max: 1500.0,
-            },
-        };
+        let detector = cross_flight_climb_detector();
         // 6 samples → 5 deltas, all within the tighter 3 m/s gate.
         // The branching is on the MOST RECENT speed; at S-band 3 GHz,
         // f_d = 2*v*f_c/c. v < 30 * c / (2 * 3e9) ≈ 1.499 m/s is the
@@ -510,14 +473,7 @@ mod tests {
         // canonical cross-flight geometry — tangential velocity is
         // ~50 m/s (consistent with the climb-out envelope) but the
         // radial projection on the radar LOS is tiny.
-        let obs = climb_window(vec![
-            (0.0, 0.8, 250.0),
-            (1.0, 0.9, 252.0),
-            (2.0, 1.0, 254.0),
-            (3.0, 1.1, 256.0),
-            (4.0, 1.2, 258.0),
-            (5.0, 1.3, 260.0),
-        ]);
+        let obs = cross_flight_obs();
         // 256 bins at 1 Hz/bin = 256 Hz Nyquist. Spike at 190 Hz,
         // squarely in [127.5, 253] Hz blade-pass window.
         let spec = synthetic_slow_time_spectrum(256, 1.0, Some(190.0), 50.0, 1.0);
@@ -549,25 +505,8 @@ mod tests {
     /// only kinematic evidence — insufficient to publish a detection.
     #[test]
     fn cross_flight_target_without_micro_doppler_rejected() {
-        let detector = ClimbOutTierDetector {
-            config: ClimbTierConfig::default(),
-            gate: KinematicGate {
-                radial_speed_mps_min: 0.0,
-                radial_speed_mps_max: 60.0,
-                accel_mps2_min: 0.0,
-                accel_mps2_max: 2.0,
-                altitude_agl_m_min: 30.0,
-                altitude_agl_m_max: 1500.0,
-            },
-        };
-        let obs = climb_window(vec![
-            (0.0, 0.8, 250.0),
-            (1.0, 0.9, 252.0),
-            (2.0, 1.0, 254.0),
-            (3.0, 1.1, 256.0),
-            (4.0, 1.2, 258.0),
-            (5.0, 1.3, 260.0),
-        ]);
+        let detector = cross_flight_climb_detector();
+        let obs = cross_flight_obs();
         // Flat noise floor: no blade-pass spike at all.
         let spec = synthetic_slow_time_spectrum(256, 1.0, None, 0.0, 1.0);
         let dec = detector.evaluate_with_spectrum(&obs, Some(&spec), Some(1.0));
@@ -591,25 +530,8 @@ mod tests {
     /// upgraded to a detection.
     #[test]
     fn cross_flight_target_without_spectrum_rejected() {
-        let detector = ClimbOutTierDetector {
-            config: ClimbTierConfig::default(),
-            gate: KinematicGate {
-                radial_speed_mps_min: 0.0,
-                radial_speed_mps_max: 60.0,
-                accel_mps2_min: 0.0,
-                accel_mps2_max: 2.0,
-                altitude_agl_m_min: 30.0,
-                altitude_agl_m_max: 1500.0,
-            },
-        };
-        let obs = climb_window(vec![
-            (0.0, 0.8, 250.0),
-            (1.0, 0.9, 252.0),
-            (2.0, 1.0, 254.0),
-            (3.0, 1.1, 256.0),
-            (4.0, 1.2, 258.0),
-            (5.0, 1.3, 260.0),
-        ]);
+        let detector = cross_flight_climb_detector();
+        let obs = cross_flight_obs();
         let dec = detector.evaluate(&obs);
         assert!(dec.cross_flight);
         assert!(!dec.micro_doppler_confirmed);
@@ -623,14 +545,7 @@ mod tests {
     #[test]
     fn standard_climb_target_detected_normally() {
         let detector = ClimbOutTierDetector::with_default();
-        let obs = climb_window(vec![
-            (0.0, 40.0, 250.0),
-            (1.0, 41.0, 252.0),
-            (2.0, 42.0, 254.0),
-            (3.0, 43.0, 256.0),
-            (4.0, 44.0, 258.0),
-            (5.0, 45.0, 260.0),
-        ]);
+        let obs = climb_window((0..6).map(|k| (k as f64, 40.0 + k as f64, 250.0 + k as f64 * 2.0)).collect());
         let dec = detector.evaluate(&obs);
         assert!(!dec.cross_flight, "40 m/s radial must take the radial branch");
         assert!(!dec.mti_notch_rejected, "40 m/s clears the notch");
@@ -650,27 +565,11 @@ mod tests {
     /// compensating evidence is missing.
     #[test]
     fn cross_flight_erratic_kinematic_rejected_even_with_micro_doppler() {
-        let detector = ClimbOutTierDetector {
-            config: ClimbTierConfig::default(),
-            gate: KinematicGate {
-                radial_speed_mps_min: 0.0,
-                radial_speed_mps_max: 60.0,
-                accel_mps2_min: 0.0,
-                accel_mps2_max: 20.0,
-                altitude_agl_m_min: 30.0,
-                altitude_agl_m_max: 1500.0,
-            },
-        };
+        let mut detector = cross_flight_climb_detector();
+        detector.gate.accel_mps2_max = 20.0;
         // 6 samples, alternating ±5 m/s residuals — far outside the
         // 3 m/s cross-flight Kalman gate.
-        let obs = climb_window(vec![
-            (0.0, 0.5, 250.0),
-            (1.0, 7.0, 252.0),
-            (2.0, 0.5, 254.0),
-            (3.0, 7.0, 256.0),
-            (4.0, 0.5, 258.0),
-            (5.0, 7.0, 260.0),
-        ]);
+        let obs = climb_window((0..6).map(|k| (k as f64, if k % 2 == 0 { 0.5 } else { 7.0 }, 250.0 + k as f64 * 2.0)).collect());
         let spec = synthetic_slow_time_spectrum(256, 1.0, Some(190.0), 50.0, 1.0);
         let dec = detector.evaluate_with_spectrum(&obs, Some(&spec), Some(1.0));
         // Last sample is 7 m/s → f_d = 2*7*3e9 / 3e8 = 140 Hz, ABOVE
@@ -702,17 +601,7 @@ mod tests {
         // At 3 GHz carrier, v giving f_d = 30 Hz exactly is
         // v = 30 * c / (2 * 3e9) = 1.499 m/s. The cutoff comparison
         // is `<`, so f_d == cutoff is the radial branch.
-        let detector = ClimbOutTierDetector {
-            config: ClimbTierConfig::default(),
-            gate: KinematicGate {
-                radial_speed_mps_min: 0.0,
-                radial_speed_mps_max: 60.0,
-                accel_mps2_min: 0.0,
-                accel_mps2_max: 2.0,
-                altitude_agl_m_min: 30.0,
-                altitude_agl_m_max: 1500.0,
-            },
-        };
+        let detector = cross_flight_climb_detector();
         let v_at_cutoff = MTI_NOTCH_BODY_DOPPLER_HZ
             * crate::propagation::SPEED_OF_LIGHT_M_PER_S
             / (2.0 * 3.0e9);

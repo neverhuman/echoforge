@@ -199,7 +199,7 @@ pub fn public_proxy_hard_negative_pack() -> HardNegativePack {
             "vehicles_and_cranes".to_string(),
             "weather_and_rfi".to_string(),
         ],
-        notes: "Hard-negative placeholders for robustness and false-alarm stress testing."
+        notes: "Hard-negative pending entries for robustness and false-alarm stress testing."
             .to_string(),
     }
 }

@@ -4,7 +4,7 @@ use echoforge_radar::{
     ca_cfar_1d, ca_cfar_scale, magnitude, pulse_compress, CfarParams, CpuBackend, LfmChirp,
     RadarChain,
 };
-use echoforge_sig::{placeholder_analytic_report, EchoSigArtifactBundle};
+use echoforge_sig::{pending_analytic_report, EchoSigArtifactBundle};
 
 fn peak_index(samples: &[f32]) -> usize {
     samples
@@ -17,8 +17,8 @@ fn peak_index(samples: &[f32]) -> usize {
 
 #[test]
 fn echo_sig_bundle_round_trip_preserves_manifest_and_cards() {
-    let tempdir = tempfile::tempdir().expect("tempdir");
-    let bundle = EchoSigArtifactBundle::placeholder("ef:artifact:demo:0001:0");
+    let workdir = tempfile::tempdir().expect("tempdir");
+    let bundle = EchoSigArtifactBundle::pending("ef:artifact:demo:0001:0");
     let object_card = "kind: object\nname: demo-object\n".to_string();
     let material_card = "kind: material\nname: demo-material\n".to_string();
     let solver_card = "kind: solver\nname: demo-solver\n".to_string();
@@ -36,8 +36,8 @@ fn echo_sig_bundle_round_trip_preserves_manifest_and_cards() {
         raw_yaml: solver_card.clone(),
     });
 
-    bundle.write_to_dir(tempdir.path()).expect("write");
-    let round_trip = EchoSigArtifactBundle::read_from_dir(tempdir.path()).expect("read");
+    bundle.write_to_dir(workdir.path()).expect("write");
+    let round_trip = EchoSigArtifactBundle::read_from_dir(workdir.path()).expect("read");
 
     assert_eq!(round_trip.manifest.artifact_id, "ef:artifact:demo:0001:0");
     assert_eq!(round_trip.manifest.axes.len(), 11);
@@ -56,14 +56,14 @@ fn echo_sig_bundle_round_trip_preserves_manifest_and_cards() {
         solver_card
     );
 
-    let manifest_path = tempdir.path().join("manifest.json");
+    let manifest_path = workdir.path().join("manifest.json");
     assert!(manifest_path.exists());
     assert!(fs::metadata(manifest_path).expect("metadata").is_file());
 }
 
 #[test]
 fn analytic_placeholder_report_covers_expected_primitives() {
-    let report = placeholder_analytic_report();
+    let report = pending_analytic_report();
     assert_eq!(report.cases.len(), 6);
     assert!(!report.passed);
     assert!(report.summary.contains("placeholder"));

@@ -1,0 +1,3289 @@
+{
+  "report_fingerprint": "sha256:27b6a8fad777449940519865f19fc51361963ff1441ec7d2647dfa1f603e8b6d",
+  "input_fingerprint": "sha256:9d0b036822ee7d1b7d8a140b367c89b219d18b9564e78bb5367411bd32aca972",
+  "policy_fingerprint": "sha256:93b49ac0ba1aa78be3f9054b8f3c2e8c12e4a9ce4fd495fa425ae92f1b1a30d9",
+  "manifest_fingerprints": {
+    "owner_map": "sha256:29a2d3e497290283de0f7668b430145a93bc178345800eb25c695dd8373b3c08",
+    "test_map": "sha256:a0a6f4ee8088a77993e259d13d5f4f56af57c4af3573aa7d9a9d28f089711b17",
+    "generated_zones": "sha256:8640f0886f351c9333b8152813db790cbf40e01efa18841f57758706c4f00566",
+    "boundaries": "sha256:dbf86cc35f7161d8d0a313c112d9f561220d9d5888dd86bbe5282bbfee882599",
+    "proof_lanes": "sha256:4fe829e5c6b519bee5b84e85fc8a1b76eed4eca40f2effe6881f524a71af5e60",
+    "standard_version": "sha256:c1a108b0452a9a0dab4bc32874d88661912ae56f3fde472d4297e89f5e268dd4"
+  },
+  "dirty_worktree": true,
+  "generated_at": "1779221320",
+  "schema_url": "schemas/repo-score.schema.json",
+  "standard": "jankurai",
+  "standard_version": "0.9.0",
+  "auditor_version": "1.4.3",
+  "schema_version": "1.9.0",
+  "paper_edition": "2026.05-ed8",
+  "target_stack_id": "rust-ts-vite-react-postgres-bounded-python",
+  "target_stack": "Rust core + TypeScript/React/Vite + PostgreSQL + generated contracts + exception-only Python AI/data service",
+  "claimed_conformance_level": "HL3",
+  "observed_conformance_level": "HL3",
+  "conformance_decision": "pass",
+  "conformance_blockers": [],
+  "repo": ".",
+  "run_id": "1779221320",
+  "started_at": "1779221320",
+  "elapsed_ms": 9088,
+  "scope": {
+    "mode": "full",
+    "paths": []
+  },
+  "score": 88,
+  "raw_score": 88,
+  "decision": {
+    "status": "advisory",
+    "minimum_score": 85,
+    "passed": true,
+    "hard_findings": 0,
+    "soft_findings": 4,
+    "ratchet": {
+      "baseline_score": 88,
+      "allowed_drop": 0,
+      "passed": true,
+      "score_delta": 0,
+      "baseline_report_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "baseline_input_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "baseline_policy_fingerprint": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "new_caps": [],
+      "new_hard_findings": [],
+      "policy_changed": false
+    }
+  },
+  "git": {
+    "head": "e122a7c",
+    "base": null,
+    "changed_files": 0,
+    "mode": "full",
+    "dirty_worktree": true
+  },
+  "policy": {
+    "path": "./agent/audit-policy.toml",
+    "minimum_score": 85,
+    "fail_on": [
+      "critical",
+      "high"
+    ],
+    "advisory_on": [
+      "medium",
+      "low"
+    ],
+    "mode": "advisory",
+    "standard_version": "0.9.0",
+    "auditor_version": "1.4.3",
+    "schema_version": "1.9.0",
+    "paper_edition": "2026.05-ed8",
+    "target_stack": "rust-ts-vite-react-postgres-bounded-python"
+  },
+  "caps_applied": [],
+  "hard_rules": [
+    {
+      "id": "no-root-agent-instructions",
+      "max_score": 75
+    },
+    {
+      "id": "no-one-command-setup-or-validation",
+      "max_score": 70
+    },
+    {
+      "id": "no-deterministic-fast-lane",
+      "max_score": 65
+    },
+    {
+      "id": "no-security-lane-on-high-risk-repo",
+      "max_score": 60
+    },
+    {
+      "id": "generated-contracts-or-public-api-drift-untested",
+      "max_score": 80
+    },
+    {
+      "id": "python-direct-product-truth-or-db-ownership",
+      "max_score": 72
+    },
+    {
+      "id": "no-secret-or-dependency-scanning-in-ci",
+      "max_score": 78
+    },
+    {
+      "id": "no-jankurai-audit-lane-in-ci",
+      "max_score": 82
+    },
+    {
+      "id": "jankurai-required-tool-ci-evidence-gap",
+      "max_score": 88
+    },
+    {
+      "id": "non-optimal-product-language-found",
+      "max_score": 74
+    },
+    {
+      "id": "too-much-python-in-product-surface",
+      "max_score": 72
+    },
+    {
+      "id": "boundary-reclassification-evidence-gap",
+      "max_score": 72
+    },
+    {
+      "id": "vibe-placeholders-in-product-code",
+      "max_score": 68
+    },
+    {
+      "id": "fallback-soup-in-product-code",
+      "max_score": 70
+    },
+    {
+      "id": "future-hostile-dead-language-in-product-code",
+      "max_score": 64
+    },
+    {
+      "id": "severe-duplication-in-product-code",
+      "max_score": 70
+    },
+    {
+      "id": "generated-zone-mutation-risk",
+      "max_score": 76
+    },
+    {
+      "id": "direct-db-access-from-wrong-layer",
+      "max_score": 66
+    },
+    {
+      "id": "missing-web-e2e-lane",
+      "max_score": 82
+    },
+    {
+      "id": "missing-rendered-ux-qa-lane",
+      "max_score": 84
+    },
+    {
+      "id": "prompt-injection-risk",
+      "max_score": 78
+    },
+    {
+      "id": "overbroad-agent-agency",
+      "max_score": 65
+    },
+    {
+      "id": "secret-like-content-detected",
+      "max_score": 60
+    },
+    {
+      "id": "false-green-test-risk",
+      "max_score": 76
+    },
+    {
+      "id": "destructive-migration-risk",
+      "max_score": 70
+    },
+    {
+      "id": "authz-or-data-isolation-gap",
+      "max_score": 78
+    },
+    {
+      "id": "input-boundary-gap",
+      "max_score": 78
+    },
+    {
+      "id": "agent-tool-supply-chain-gap",
+      "max_score": 78
+    },
+    {
+      "id": "release-readiness-gap",
+      "max_score": 80
+    },
+    {
+      "id": "missing-rust-property-or-integration-tests",
+      "max_score": 82
+    },
+    {
+      "id": "no-agent-friendly-exception-pattern",
+      "max_score": 76
+    },
+    {
+      "id": "missing-agent-readable-docs",
+      "max_score": 80
+    },
+    {
+      "id": "streaming-runtime-drift",
+      "max_score": 78
+    },
+    {
+      "id": "rust-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "sql-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "typescript-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "docker-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "python-bad-behavior",
+      "max_score": 72
+    },
+    {
+      "id": "ci-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "git-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "gittools-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "release-bad-behavior",
+      "max_score": 70
+    },
+    {
+      "id": "web-security-bad-behavior",
+      "max_score": 68
+    },
+    {
+      "id": "repo-rot-bad-behavior",
+      "max_score": 88
+    },
+    {
+      "id": "comment-hygiene-dangerous-residue",
+      "max_score": 72
+    },
+    {
+      "id": "ci-local-parity",
+      "max_score": 70
+    }
+  ],
+  "dimensions": [
+    {
+      "name": "Ownership and navigation surface",
+      "weight": 13,
+      "score": 100,
+      "weighted_points": 13.0,
+      "evidence": [
+        "root `AGENTS.md` present",
+        "owner map present",
+        "test/proof routing map present",
+        "local `AGENTS.md` file(s)",
+        "reference-profile cell `web` is canonical",
+        "reference-profile cell `web` has local AGENTS.md guidance",
+        "reference-profile cell `contracts` is canonical",
+        "reference-profile cell `contracts` has local AGENTS.md guidance",
+        "reference-profile cell `db` is canonical",
+        "reference-profile cell `db` has local AGENTS.md guidance",
+        "reference-profile cell `python-ai` is canonical",
+        "reference-profile cell `python-ai` has local AGENTS.md guidance",
+        "reference-profile cell `ops` is canonical",
+        "reference-profile cell `ops` has local AGENTS.md guidance",
+        "root `README.md` routes to workspace layout",
+        "owner map covers audited paths",
+        "test map covers audited paths",
+        "authored code file exceeds 500 LOC"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Contract and boundary integrity",
+      "weight": 13,
+      "score": 100,
+      "weighted_points": 13.0,
+      "evidence": [
+        "contract surface found",
+        "generated contract artifacts found",
+        "polyglot boundary layout present",
+        "boundary manifest present",
+        "machine-readable schemas present",
+        "Rust typed boundary helpers found",
+        "all contract sources have generated zone entries",
+        "schema/tooling contract posture is clean"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Proof lanes and test routing",
+      "weight": 12,
+      "score": 100,
+      "weighted_points": 12.0,
+      "evidence": [
+        "one-command setup/validation lane found",
+        "deterministic fast lane found",
+        "test runner present in automation surface",
+        "GitHub workflow files present",
+        "test/proof routing map present",
+        "jankurai audit lane found in CI",
+        "web e2e lane present or no web surface",
+        "rendered UX QA lane present or no web surface",
+        "DOM geometry UX QA runtime found",
+        "Rust property/integration tests present or no Rust surface",
+        "proofbind artifact found: surfaces=258 missing=258 high_or_critical_missing=35 verdict=review"
+      ],
+      "notes": [
+        "proofbind reports 258 unresolved obligation(s)",
+        "proofbind reports 35 missing high/critical semantic proof obligation(s)"
+      ]
+    },
+    {
+      "name": "Security and supply-chain posture",
+      "weight": 12,
+      "score": 78,
+      "weighted_points": 9.36,
+      "evidence": [
+        "lockfile present",
+        "secret or dependency scan tooling found",
+        "provenance/SBOM tooling found",
+        "security lane present",
+        "canonical security lane wrapper present",
+        "agent-readiness audit gate found in CI",
+        "rust bad-behavior advisory signals: 1176",
+        "typescript bad-behavior advisory signals: 1",
+        "docker bad-behavior advisory signals: 3",
+        "ci bad-behavior advisory signals: 1",
+        "gittools bad-behavior advisory signals: 2",
+        "secret scanning command is operational"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Code shape and semantic surface",
+      "weight": 12,
+      "score": 65,
+      "weighted_points": 7.8,
+      "evidence": [
+        "largest authored code file: crates/echoforge-studio/src/traceability.rs (846 LOC)",
+        "code file exceeds 500 LOC",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 44 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 1176",
+        "typescript bad-behavior advisory signals: 1",
+        "docker bad-behavior advisory signals: 3",
+        "ci bad-behavior advisory signals: 1",
+        "gittools bad-behavior advisory signals: 2",
+        "no hard bad-behavior findings across detector-backed language families"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Data truth and workflow safety",
+      "weight": 8,
+      "score": 85,
+      "weighted_points": 6.8,
+      "evidence": [
+        "database surface present",
+        "structured db boundary manifest present",
+        "db boundary routes roots, migrations, and constraints",
+        "migration directory present"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Observability and repair evidence",
+      "weight": 8,
+      "score": 80,
+      "weighted_points": 6.4,
+      "evidence": [
+        "observability libraries or patterns found",
+        "ops/observability directory present",
+        "repair receipts or raw artifact language found",
+        "agent-friendly exception pattern found",
+        "repair receipt guidance is documented"
+      ],
+      "notes": [
+        "free-form logging appears in scope"
+      ]
+    },
+    {
+      "name": "Context economy and agent instructions",
+      "weight": 7,
+      "score": 100,
+      "weighted_points": 7.0,
+      "evidence": [
+        "root `AGENTS.md` present",
+        "root `AGENTS.md` stays short",
+        "machine-readable routing artifacts present",
+        "thin IDE/agent adapters are present",
+        "local instruction files present",
+        "root README routes to the right docs",
+        "core agent-readable docs present"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Jankurai tool adoption and CI replacement",
+      "weight": 7,
+      "score": 83,
+      "weighted_points": 5.81,
+      "evidence": [
+        "control-plane files present",
+        "applicable=16",
+        "configured=16",
+        "ci_evidence=12",
+        "artifact_verified=12"
+      ],
+      "notes": [
+        "some applicable tools lack CI evidence",
+        "missing CI evidence for `copy-code`",
+        "missing CI evidence for `ci-bad-behavior`",
+        "missing CI evidence for `git-bad-behavior`",
+        "missing CI evidence for `release-bad-behavior`"
+      ]
+    },
+    {
+      "name": "Python containment and polyglot hygiene",
+      "weight": 4,
+      "score": 100,
+      "weighted_points": 4.0,
+      "evidence": [
+        "no Python files in scope"
+      ],
+      "notes": []
+    },
+    {
+      "name": "Build speed signals",
+      "weight": 4,
+      "score": 80,
+      "weighted_points": 3.2,
+      "evidence": [
+        "build acceleration markers found",
+        "targeted test/build commands found",
+        "locked dependency graph present",
+        "CI cache hint found",
+        "explicit cache marker plus narrow per-package target found"
+      ],
+      "notes": []
+    }
+  ],
+  "ux_qa": {
+    "web_surface": true,
+    "has_rendered_ux_lane": true,
+    "missing_categories": [],
+    "evidence": {
+      "accessibility": [
+        "agent/baselines/main.repo-score.json",
+        "apps/web/agent/repo-score.json"
+      ],
+      "api_mocks": [
+        "package-lock.json"
+      ],
+      "artifact_backed_proof": [
+        ".agents/receipts/calibration-anchor-v4-integration/20260518T193858Z.md",
+        ".agents/receipts/campaign-gpu-readiness-gate/20260518T123955Z.md",
+        ".agents/receipts/detection-realism-fix-generator/20260518T170733Z.md",
+        ".agents/receipts/hard-negative-mining-loop/20260518T124636Z.md",
+        ".agents/receipts/named-platform-case-study-v1/20260518T223000Z.md"
+      ],
+      "design_tokens": [
+        "apps/web/agent/repo-score.json"
+      ],
+      "geometry_runtime": [
+        "agent/ux-qa.toml",
+        "apps/web/agent/repo-score.json"
+      ],
+      "layout_stability": [
+        "apps/web/agent/repo-score.json",
+        "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs",
+        "python/ai-service/echoforge_core/models.py",
+        "tests/case_studies/src/report.rs",
+        "tests/python/test_mie_cross_check.py"
+      ],
+      "playwright_visual": [
+        "apps/web/e2e/smoke.spec.ts"
+      ],
+      "storybook": [
+        "agent/baselines/main.repo-score.json",
+        "apps/web/agent/repo-score.json"
+      ],
+      "visual_review": [
+        "apps/web/agent/repo-score.json"
+      ]
+    }
+  },
+  "tool_adoption": {
+    "control_plane_present": true,
+    "applicable_count": 16,
+    "configured_count": 16,
+    "ci_evidence_count": 12,
+    "artifact_verified_count": 12,
+    "replaced_count": 12,
+    "items": [
+      {
+        "id": "audit-ci",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual repo scoring",
+          "ad hoc score gates"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      },
+      {
+        "id": "proof-routing",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "ad hoc proof lane selection",
+          "manual proof receipts"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md, target/jankurai/repair-queue.jsonl"
+        ],
+        "missing": [],
+        "local_command": "jankurai proof . --changed-from origin/main --out target/jankurai/proof-plan.json --md target/jankurai/proof-plan.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md",
+          "target/jankurai/repair-queue.jsonl"
+        ]
+      },
+      {
+        "id": "proofbind",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual changed-surface routing",
+          "ad hoc proof obligation lists"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/proofbind/surface-witness.json, target/jankurai/proofbind/obligations.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai proofbind verify . --changed-from origin/main",
+        "ci_command": "jankurai proofbind verify . --changed-from origin/main",
+        "artifact_paths": [
+          "target/jankurai/proofbind/surface-witness.json",
+          "target/jankurai/proofbind/obligations.json"
+        ]
+      },
+      {
+        "id": "proofmark-rust",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "line-only coverage review",
+          "manual in-diff mutation review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/proofmark/proofmark-receipt.json, target/jankurai/proofmark/proof-receipt.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json",
+        "ci_command": "jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json",
+        "artifact_paths": [
+          "target/jankurai/proofmark/proofmark-receipt.json",
+          "target/jankurai/proofmark/proof-receipt.json"
+        ]
+      },
+      {
+        "id": "copy-code",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "configured",
+        "replaced_tools": [
+          "ad hoc copy-code review",
+          "manual duplication triage"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present"
+        ],
+        "missing": [
+          "CI command evidence"
+        ],
+        "local_command": "cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md",
+        "ci_command": "cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md",
+        "artifact_paths": [
+          "target/jankurai/copy-code.json",
+          "target/jankurai/copy-code.md"
+        ]
+      },
+      {
+        "id": "security",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "gitleaks",
+          "dependency review",
+          "SBOM/provenance"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/security/evidence.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai security run . --out target/jankurai/security/evidence.json",
+        "ci_command": "jankurai security run . --out target/jankurai/security/evidence.json",
+        "artifact_paths": [
+          "target/jankurai/security/evidence.json"
+        ]
+      },
+      {
+        "id": "ci-bad-behavior",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "configured",
+        "replaced_tools": [
+          "mutable workflow refs",
+          "secret echo/debug workflow checks",
+          "non-blocking security scans"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present"
+        ],
+        "missing": [
+          "CI command evidence"
+        ],
+        "local_command": "cargo test -p jankurai --test language_bad_behavior",
+        "ci_command": "cargo test -p jankurai --test language_bad_behavior",
+        "artifact_paths": [
+          "target/jankurai/language-bad-behavior.log"
+        ]
+      },
+      {
+        "id": "git-bad-behavior",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": true,
+        "status": "configured",
+        "replaced_tools": [
+          "destructive git automation",
+          "force-push release scripts",
+          "hidden stash-based state"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present"
+        ],
+        "missing": [
+          "CI command evidence"
+        ],
+        "local_command": "cargo test -p jankurai --test language_bad_behavior",
+        "ci_command": "cargo test -p jankurai --test language_bad_behavior",
+        "artifact_paths": [
+          "target/jankurai/language-bad-behavior.log"
+        ]
+      },
+      {
+        "id": "release-bad-behavior",
+        "category": "release",
+        "mode": "auto",
+        "applicable": true,
+        "status": "configured",
+        "replaced_tools": [
+          "manual release checklist",
+          "ad hoc tag and artifact review",
+          "manual provenance review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present"
+        ],
+        "missing": [
+          "CI command evidence"
+        ],
+        "local_command": "cargo test -p jankurai --test language_bad_behavior",
+        "ci_command": "cargo test -p jankurai --test language_bad_behavior",
+        "artifact_paths": [
+          "target/jankurai/language-bad-behavior.log"
+        ]
+      },
+      {
+        "id": "ux-qa",
+        "category": "ux",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "playwright",
+          "axe-core",
+          "visual baselines"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/ux-qa.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
+        "ci_command": "jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json",
+        "artifact_paths": [
+          "target/jankurai/ux-qa.json"
+        ]
+      },
+      {
+        "id": "db-migration-analyze",
+        "category": "db",
+        "mode": "auto",
+        "applicable": false,
+        "status": "not_applicable",
+        "replaced_tools": [
+          "manual migration review"
+        ],
+        "evidence": [
+          "mode=auto"
+        ],
+        "missing": [],
+        "local_command": "jankurai migrate . --analyze --json target/jankurai/migration-report.json",
+        "ci_command": "jankurai migrate . --analyze --json target/jankurai/migration-report.json",
+        "artifact_paths": [
+          "target/jankurai/migration-report.json"
+        ]
+      },
+      {
+        "id": "contract-drift",
+        "category": "contract",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "handwritten contract drift checks",
+          "openapi diff"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      },
+      {
+        "id": "rust-witness",
+        "category": "rust",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual witness graphing"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/rust/witness-graph.json"
+        ],
+        "missing": [],
+        "local_command": "jankurai rust witness build .",
+        "ci_command": "jankurai rust witness build .",
+        "artifact_paths": [
+          "target/jankurai/rust/witness-graph.json"
+        ]
+      },
+      {
+        "id": "vibe-coverage",
+        "category": "audit",
+        "mode": "auto",
+        "applicable": false,
+        "status": "not_applicable",
+        "replaced_tools": [
+          "manual vibe-coding coverage spreadsheet"
+        ],
+        "evidence": [
+          "mode=auto"
+        ],
+        "missing": [],
+        "local_command": "jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md",
+        "ci_command": "jankurai vibe coverage --source agent/vibe-coverage.toml --tips tips/vibe_coding --json target/jankurai/vibe-coverage.json --md target/jankurai/vibe-coverage.md",
+        "artifact_paths": [
+          "target/jankurai/vibe-coverage.json",
+          "target/jankurai/vibe-coverage.md"
+        ]
+      },
+      {
+        "id": "coverage-evidence",
+        "category": "proof",
+        "mode": "auto",
+        "applicable": false,
+        "status": "not_applicable",
+        "replaced_tools": [
+          "manual coverage report review",
+          "ad hoc mutation survivor review"
+        ],
+        "evidence": [
+          "mode=auto"
+        ],
+        "missing": [],
+        "local_command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md",
+        "ci_command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md",
+        "artifact_paths": [
+          "target/jankurai/coverage/coverage-audit.json",
+          "target/jankurai/coverage/coverage-audit.md"
+        ]
+      },
+      {
+        "id": "authz-matrix",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual authz matrix review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      },
+      {
+        "id": "input-boundary",
+        "category": "security",
+        "mode": "auto",
+        "applicable": false,
+        "status": "not_applicable",
+        "replaced_tools": [
+          "manual unsafe sink review"
+        ],
+        "evidence": [
+          "mode=auto"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      },
+      {
+        "id": "agent-tool-supply",
+        "category": "security",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual MCP/tool trust review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      },
+      {
+        "id": "release-readiness",
+        "category": "release",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual launch checklist"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      },
+      {
+        "id": "cost-budget",
+        "category": "release",
+        "mode": "auto",
+        "applicable": true,
+        "status": "artifact_verified",
+        "replaced_tools": [
+          "manual spend review"
+        ],
+        "evidence": [
+          "mode=auto",
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: agent/repo-score.json, agent/repo-score.md"
+        ],
+        "missing": [],
+        "local_command": "jankurai audit . --mode advisory --json agent/repo-score.json --md agent/repo-score.md",
+        "ci_command": "jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+        "artifact_paths": [
+          "agent/repo-score.json",
+          "agent/repo-score.md"
+        ]
+      }
+    ],
+    "evidence": {
+      "applicable_count": 16,
+      "applicable_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "copy-code",
+        "security",
+        "ci-bad-behavior",
+        "git-bad-behavior",
+        "release-bad-behavior",
+        "ux-qa",
+        "contract-drift",
+        "rust-witness",
+        "authz-matrix",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "artifact_verified_count": 12,
+      "artifact_verified_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "security",
+        "ux-qa",
+        "contract-drift",
+        "rust-witness",
+        "authz-matrix",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "ci_evidence_count": 12,
+      "ci_evidence_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "security",
+        "ux-qa",
+        "contract-drift",
+        "rust-witness",
+        "authz-matrix",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "config_present": true,
+      "configured_count": 16,
+      "configured_tools": [
+        "audit-ci",
+        "proof-routing",
+        "proofbind",
+        "proofmark-rust",
+        "copy-code",
+        "security",
+        "ci-bad-behavior",
+        "git-bad-behavior",
+        "release-bad-behavior",
+        "ux-qa",
+        "contract-drift",
+        "rust-witness",
+        "authz-matrix",
+        "agent-tool-supply",
+        "release-readiness",
+        "cost-budget"
+      ],
+      "control_plane_present": true
+    },
+    "missing": [
+      "copy-code",
+      "ci-bad-behavior",
+      "git-bad-behavior",
+      "release-bad-behavior"
+    ]
+  },
+  "security_evidence": {
+    "artifact": {
+      "path": "target/jankurai/security/evidence.json",
+      "envelope_exit_code": 0,
+      "elapsed_ms": 73098,
+      "wrapper_strict": false,
+      "profile": "local",
+      "commands_ran": 1,
+      "commands_skipped": 0,
+      "commands_failed": 0,
+      "required_commands_skipped": 0,
+      "required_commands_failed": 0,
+      "blocking_commands": [],
+      "generated_at": "1779220975",
+      "git_head": "e122a7c352376106cff9498f4de7c5096746738e"
+    }
+  },
+  "boundaries": {
+    "artifact": {
+      "path": "agent/boundaries.toml",
+      "content_fingerprint": "sha256:dbf86cc35f7161d8d0a313c112d9f561220d9d5888dd86bbe5282bbfee882599",
+      "stack_id": "rust-ts-vite-react-postgres-bounded-python",
+      "stack_version": "0.1.0",
+      "adapter_path_count": 6,
+      "event_contract_path_count": 3,
+      "generated_type_path_count": 2,
+      "client_marker_count": 9,
+      "streaming_exception_count": 2
+    },
+    "reclassifications": [
+      {
+        "id": "detection-python-science-slice",
+        "paths": [
+          "detection/*.py"
+        ],
+        "classification": "advanced-data",
+        "product_surface": false,
+        "runtime_language": "python",
+        "status": "passed",
+        "reclassified_caps": [
+          "non-optimal-product-language-found",
+          "too-much-python-in-product-surface"
+        ],
+        "covered_file_count": 22,
+        "covered_line_count": 6868,
+        "covered_files": [
+          "detection/01_cfar_tbd_fusion.py",
+          "detection/02_lightgbm_window_gbdt.py",
+          "detection/03_catboost_ordered_boosting.py",
+          "detection/04_tcn_inception_time.py",
+          "detection/05_multiview_radar_transformer.py",
+          "detection/benchmark_regeneration_report.py",
+          "detection/detection_common.py",
+          "detection/detector_osint_family_matrix.py",
+          "detection/generate_ml_training.py",
+          "detection/generate_ml_training_v2.py",
+          "detection/ml_training_acoustic.py",
+          "detection/ml_training_calibration.py",
+          "detection/ml_training_config.py",
+          "detection/ml_training_generators.py",
+          "detection/ml_training_report.py",
+          "detection/ml_training_scenarios.py",
+          "detection/ml_training_v2_config.py",
+          "detection/ml_training_v2_diagnostics.py",
+          "detection/ml_training_v2_generators.py",
+          "detection/ml_training_v2_report.py",
+          "detection/passive_rf_eoir_passive_radar_backlog.py",
+          "detection/track_lifecycle_baseline.py"
+        ],
+        "evidence_artifacts": [
+          {
+            "path": "target/jankurai/boundaries/detection-python-science-slice/evidence.json",
+            "status": "loaded",
+            "sha256": "sha256:018b51bd373dd3747255135ded31e8dc54234ac5185d5459712f0d57f5158c7e",
+            "file_count": 22,
+            "check_count": 7
+          }
+        ],
+        "missing_checks": [],
+        "failed_checks": [],
+        "rerun_command": "cargo run -p jankurai -- ."
+      },
+      {
+        "id": "python-ai-service-ml-slice",
+        "paths": [
+          "python/ai-service/*.py",
+          "python/ai-service/**/*.py"
+        ],
+        "classification": "advanced-ml",
+        "product_surface": false,
+        "runtime_language": "python",
+        "status": "passed",
+        "reclassified_caps": [
+          "non-optimal-product-language-found",
+          "too-much-python-in-product-surface"
+        ],
+        "covered_file_count": 9,
+        "covered_line_count": 1008,
+        "covered_files": [
+          "python/ai-service/echoforge_core/__init__.py",
+          "python/ai-service/echoforge_core/models.py",
+          "python/ai-service/echoforge_core/validation.py",
+          "python/ai-service/echoforge_radar/__init__.py",
+          "python/ai-service/echoforge_radar/primitives.py",
+          "python/ai-service/echoforge_signatures/__init__.py",
+          "python/ai-service/echoforge_validate/__init__.py",
+          "python/ai-service/echoforge_validate/closed_forms.py",
+          "python/ai-service/echoforge_validate/mie.py"
+        ],
+        "evidence_artifacts": [
+          {
+            "path": "target/jankurai/boundaries/python-ai-service-ml-slice/evidence.json",
+            "status": "loaded",
+            "sha256": "sha256:d8f4acbc08fe59426f07b6f609641b8f85b6d6358bd06fe3a77059ae7b7ed5d2",
+            "file_count": 9,
+            "check_count": 7
+          }
+        ],
+        "missing_checks": [],
+        "failed_checks": [],
+        "rerun_command": "cargo run -p jankurai -- ."
+      }
+    ]
+  },
+  "copy_code": {
+    "schema_version": "1.1.0",
+    "generated_by": "jankurai copy-code",
+    "generated_at": "2026-05-19T20:08:31.421648452+00:00",
+    "repo": ".",
+    "auditor_version": "1.4.3",
+    "status": "review",
+    "policy": {
+      "active_source_only": true,
+      "include_tests": false,
+      "min_lines": 10,
+      "min_tokens": 100,
+      "max_findings": 50,
+      "strict": false,
+      "excluded_roots": [
+        "build/",
+        "cache/",
+        "dist/",
+        "docs/",
+        "generated/",
+        "node_modules/",
+        "paper/",
+        "reference/",
+        "target/",
+        "tips/",
+        "vendor/"
+      ],
+      "warning_only_roots": [
+        "config/",
+        "docker/",
+        "fixtures/",
+        "migrations/",
+        "ops/scripts/",
+        "python_runtime/",
+        "stories/",
+        "runtime_payload/",
+        "seed_data/",
+        "tests/"
+      ]
+    },
+    "summary": {
+      "files_scanned": 727,
+      "files_considered": 235,
+      "active_files": 235,
+      "exact_file_classes": 0,
+      "hard_classes": 0,
+      "warning_classes": 44,
+      "hard_instances": 0,
+      "warning_instances": 103,
+      "duplicate_lines": 167,
+      "duplicate_tokens": 891,
+      "duplicate_bytes": 6340,
+      "total_redundant_lines": 187,
+      "total_redundant_tokens": 952,
+      "total_redundant_bytes": 6962
+    },
+    "classes": [
+      {
+        "id": "copy-code-unit-python-1959fc140a923cb6",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "parse_args",
+        "duplicate_lines": 19,
+        "duplicate_tokens": 53,
+        "duplicate_bytes": 596,
+        "instance_count": 2,
+        "total_redundant_lines": 19,
+        "total_redundant_tokens": 53,
+        "total_redundant_bytes": 596,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e6e3eede95a7d993",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/detector_osint_family_matrix.py",
+            "language": "python",
+            "start_line": 505,
+            "end_line": 526,
+            "unit_name": "parse_args"
+          },
+          {
+            "path": "detection/passive_rf_eoir_passive_radar_backlog.py",
+            "language": "python",
+            "start_line": 341,
+            "end_line": 362,
+            "unit_name": "parse_args"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-21f253a1d46e6304",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 13,
+        "duplicate_tokens": 122,
+        "duplicate_bytes": 501,
+        "instance_count": 2,
+        "total_redundant_lines": 13,
+        "total_redundant_tokens": 122,
+        "total_redundant_bytes": 501,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "246390bb19020933",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 325,
+            "end_line": 337
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 307,
+            "end_line": 320
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-f6c3414fb2fa13e7",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 13,
+        "duplicate_tokens": 119,
+        "duplicate_bytes": 486,
+        "instance_count": 2,
+        "total_redundant_lines": 13,
+        "total_redundant_tokens": 119,
+        "total_redundant_bytes": 486,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "246390bb19020933",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 324,
+            "end_line": 336
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 306,
+            "end_line": 319
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-3802cddf60f04ada",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "probe_auc",
+        "duplicate_lines": 10,
+        "duplicate_tokens": 49,
+        "duplicate_bytes": 406,
+        "instance_count": 2,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 49,
+        "total_redundant_bytes": 406,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c1807af76eeeae48",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 28,
+            "end_line": 40,
+            "unit_name": "probe_auc"
+          },
+          {
+            "path": "detection/ml_training_v2_diagnostics.py",
+            "language": "python",
+            "start_line": 69,
+            "end_line": 81,
+            "unit_name": "probe_auc"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-3cd9b8f86c03cd39",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "parse_args",
+        "duplicate_lines": 9,
+        "duplicate_tokens": 56,
+        "duplicate_bytes": 516,
+        "instance_count": 2,
+        "total_redundant_lines": 9,
+        "total_redundant_tokens": 56,
+        "total_redundant_bytes": 516,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "1ad5918d03f467e4",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/04_tcn_inception_time.py",
+            "language": "python",
+            "start_line": 59,
+            "end_line": 70,
+            "unit_name": "parse_args"
+          },
+          {
+            "path": "detection/05_multiview_radar_transformer.py",
+            "language": "python",
+            "start_line": 69,
+            "end_line": 80,
+            "unit_name": "parse_args"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-aa398bfe492bf0a9",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "parse_args",
+        "duplicate_lines": 9,
+        "duplicate_tokens": 56,
+        "duplicate_bytes": 516,
+        "instance_count": 2,
+        "total_redundant_lines": 9,
+        "total_redundant_tokens": 56,
+        "total_redundant_bytes": 516,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9cad8c7e8c2df080",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/02_lightgbm_window_gbdt.py",
+            "language": "python",
+            "start_line": 20,
+            "end_line": 31,
+            "unit_name": "parse_args"
+          },
+          {
+            "path": "detection/03_catboost_ordered_boosting.py",
+            "language": "python",
+            "start_line": 20,
+            "end_line": 31,
+            "unit_name": "parse_args"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-47ebcd54395ad29e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "one_hot_frame",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 50,
+        "duplicate_bytes": 378,
+        "instance_count": 2,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 50,
+        "total_redundant_bytes": 378,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c496b9575259d44e",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 41,
+            "end_line": 51,
+            "unit_name": "one_hot_frame"
+          },
+          {
+            "path": "detection/ml_training_v2_diagnostics.py",
+            "language": "python",
+            "start_line": 82,
+            "end_line": 92,
+            "unit_name": "one_hot_frame"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-9d7253ec6c27a139",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "main",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 36,
+        "duplicate_bytes": 322,
+        "instance_count": 2,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 36,
+        "total_redundant_bytes": 322,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c383a3ad05c6d757",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/detector_osint_family_matrix.py",
+            "language": "python",
+            "start_line": 527,
+            "end_line": 537,
+            "unit_name": "main"
+          },
+          {
+            "path": "detection/passive_rf_eoir_passive_radar_backlog.py",
+            "language": "python",
+            "start_line": 363,
+            "end_line": 373,
+            "unit_name": "main"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-180dac84ea0329a1",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "fmt",
+        "duplicate_lines": 7,
+        "duplicate_tokens": 23,
+        "duplicate_bytes": 184,
+        "instance_count": 2,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 23,
+        "total_redundant_bytes": 184,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9438a2479858a23c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/benchmark_regeneration_report.py",
+            "language": "python",
+            "start_line": 71,
+            "end_line": 80,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "detection/track_lifecycle_baseline.py",
+            "language": "python",
+            "start_line": 79,
+            "end_line": 88,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-bbb712c7e5a3a213",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 24,
+        "duplicate_bytes": 118,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 24,
+        "total_redundant_bytes": 118,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "62943c42579b8999",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-world/src/mesh/math.rs",
+            "language": "rust",
+            "start_line": 5,
+            "end_line": 11,
+            "unit_name": "cross"
+          },
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/math.rs",
+            "language": "rust",
+            "start_line": 15,
+            "end_line": 21,
+            "unit_name": "cross3"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-566d428ca22411f0",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 19,
+        "duplicate_bytes": 126,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 19,
+        "total_redundant_bytes": 126,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b80786f9067ac2c0",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/cfar.rs",
+            "language": "rust",
+            "start_line": 48,
+            "end_line": 54,
+            "unit_name": "ca_cfar_scale"
+          },
+          {
+            "path": "crates/echoforge-radar/src/detectors/cfar_alpha.rs",
+            "language": "rust",
+            "start_line": 86,
+            "end_line": 92,
+            "unit_name": "ca_cfar_scale_gaussian"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-34c9c1292e95c217",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "new",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 31,
+        "instance_count": 3,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 62,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "0dd894f5a83f3dcf",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/detectors/ca_cfar.rs",
+            "language": "rust",
+            "start_line": 17,
+            "end_line": 20,
+            "unit_name": "new"
+          },
+          {
+            "path": "crates/echoforge-radar/src/detectors/go_cfar.rs",
+            "language": "rust",
+            "start_line": 18,
+            "end_line": 21,
+            "unit_name": "new"
+          },
+          {
+            "path": "crates/echoforge-radar/src/detectors/so_cfar.rs",
+            "language": "rust",
+            "start_line": 18,
+            "end_line": 21,
+            "unit_name": "new"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-a38c7998908cf6b7",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "default",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 27,
+        "instance_count": 3,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 54,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c69e70ad80e27cd0",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/detectors/phase_tiered/tier_arbiter.rs",
+            "language": "rust",
+            "start_line": 54,
+            "end_line": 57,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/echoforge-solver-contract/src/lib.rs",
+            "language": "rust",
+            "start_line": 309,
+            "end_line": 312,
+            "unit_name": "default"
+          },
+          {
+            "path": "crates/echoforge-solver-sagitta/src/lib.rs",
+            "language": "rust",
+            "start_line": 116,
+            "end_line": 119,
+            "unit_name": "default"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-fa3afcacf2b5516c",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "correlated_noise",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 33,
+        "duplicate_bytes": 202,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 33,
+        "total_redundant_bytes": 202,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "bce7e885201d37b7",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 45,
+            "end_line": 52,
+            "unit_name": "correlated_noise"
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 118,
+            "end_line": 125,
+            "unit_name": "correlated_noise"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-bd90c590d1c4f958",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "parse_args",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 31,
+        "duplicate_bytes": 309,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 31,
+        "total_redundant_bytes": 309,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "1939cc25c91fb524",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/benchmark_regeneration_report.py",
+            "language": "python",
+            "start_line": 42,
+            "end_line": 49,
+            "unit_name": "parse_args"
+          },
+          {
+            "path": "detection/track_lifecycle_baseline.py",
+            "language": "python",
+            "start_line": 71,
+            "end_line": 78,
+            "unit_name": "parse_args"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-ed57c13542da9cd4",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "write_csv",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 22,
+        "duplicate_bytes": 196,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 22,
+        "total_redundant_bytes": 196,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c41e107546bc132d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/ml_training_report.py",
+            "language": "python",
+            "start_line": 31,
+            "end_line": 38,
+            "unit_name": "write_csv"
+          },
+          {
+            "path": "detection/ml_training_v2_report.py",
+            "language": "python",
+            "start_line": 21,
+            "end_line": 28,
+            "unit_name": "write_csv"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-b0e2569b9280c62c",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 9,
+        "duplicate_bytes": 105,
+        "instance_count": 2,
+        "total_redundant_lines": 5,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 105,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "7923d5110c5b375e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-dataset/src/campaign/reporting.rs",
+            "language": "rust",
+            "start_line": 608,
+            "end_line": 613,
+            "unit_name": "campaign_guardrails"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/ml_training/report.rs",
+            "language": "rust",
+            "start_line": 558,
+            "end_line": 563,
+            "unit_name": "guardrails"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-8056c1b2af789214",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "elapsed_ns",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 10,
+        "duplicate_bytes": 65,
+        "instance_count": 3,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 20,
+        "total_redundant_bytes": 130,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6ac002db9ba8ce58",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/echoforge-dataset/src/campaign/rng.rs",
+            "language": "rust",
+            "start_line": 6,
+            "end_line": 8,
+            "unit_name": "elapsed_ns"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/ml_training/util.rs",
+            "language": "rust",
+            "start_line": 387,
+            "end_line": 389,
+            "unit_name": "elapsed_ns"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/monte_carlo/helpers.rs",
+            "language": "rust",
+            "start_line": 69,
+            "end_line": 71,
+            "unit_name": "elapsed_ns"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-3328504273043e39",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 68,
+        "instance_count": 5,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 16,
+        "total_redundant_bytes": 272,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c4ab978f12030f6e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-dataset/src/scenarios.rs",
+            "language": "rust",
+            "start_line": 254,
+            "end_line": 255,
+            "unit_name": "embedded_uae_coastal_parses"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/scenarios.rs",
+            "language": "rust",
+            "start_line": 267,
+            "end_line": 268,
+            "unit_name": "embedded_scenario_has_exactly_three_launch_sites"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/scenarios.rs",
+            "language": "rust",
+            "start_line": 283,
+            "end_line": 284,
+            "unit_name": "embedded_scenario_ranges_are_50_100_150_km"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/scenarios.rs",
+            "language": "rust",
+            "start_line": 302,
+            "end_line": 303,
+            "unit_name": "embedded_scenario_sensor_frequency_is_s_band"
+          },
+          {
+            "path": "crates/echoforge-dataset/src/scenarios.rs",
+            "language": "rust",
+            "start_line": 315,
+            "end_line": 316,
+            "unit_name": "embedded_scenario_antenna_height_is_twenty_m_agl"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-0e8fc78ed197dfd4",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 32,
+        "instance_count": 5,
+        "total_redundant_lines": 4,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 128,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "429db21b75904de9",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-studio/src/mesh_serve.rs",
+            "language": "rust",
+            "start_line": 422,
+            "end_line": 423,
+            "unit_name": "list_endpoint_returns_five_primitive_ids"
+          },
+          {
+            "path": "crates/echoforge-studio/src/mesh_serve.rs",
+            "language": "rust",
+            "start_line": 457,
+            "end_line": 458,
+            "unit_name": "sphere_endpoint_returns_binary_stl_with_expected_content_type"
+          },
+          {
+            "path": "crates/echoforge-studio/src/mesh_serve.rs",
+            "language": "rust",
+            "start_line": 500,
+            "end_line": 501,
+            "unit_name": "unknown_primitive_returns_404"
+          },
+          {
+            "path": "crates/echoforge-studio/src/mesh_serve.rs",
+            "language": "rust",
+            "start_line": 521,
+            "end_line": 522,
+            "unit_name": "invalid_parameter_returns_400"
+          },
+          {
+            "path": "crates/echoforge-studio/src/mesh_serve.rs",
+            "language": "rust",
+            "start_line": 542,
+            "end_line": 543,
+            "unit_name": "all_primitives_round_trip_via_http"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-7d20b3e637063ead",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 32,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 15,
+        "total_redundant_bytes": 96,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "384b332261a6b9ba",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-dataset/src/monte_carlo/helpers.rs",
+            "language": "rust",
+            "start_line": 243,
+            "end_line": 244,
+            "unit_name": "records_jsonl"
+          },
+          {
+            "path": "crates/echoforge-radar/src/empirical_pfa.rs",
+            "language": "rust",
+            "start_line": 390,
+            "end_line": 391,
+            "unit_name": "render_markdown"
+          },
+          {
+            "path": "crates/echoforge-radar/src/empirical_pfa.rs",
+            "language": "rust",
+            "start_line": 439,
+            "end_line": 440,
+            "unit_name": "render_jsonl"
+          },
+          {
+            "path": "crates/echoforge-studio/src/traceability.rs",
+            "language": "rust",
+            "start_line": 540,
+            "end_line": 541,
+            "unit_name": "humanize_class_id"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-0303e81793eb70ee",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 3,
+        "duplicate_bytes": 27,
+        "instance_count": 4,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 81,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "0893ddd3b2929c93",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 388,
+            "end_line": 389,
+            "unit_name": "evaluate_passes_when_all_distances_within_tolerance"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 425,
+            "end_line": 426,
+            "unit_name": "evaluate_fails_when_any_anchor_exceeds_tolerance"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 478,
+            "end_line": 479,
+            "unit_name": "evaluate_fails_when_observation_is_missing"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 571,
+            "end_line": 572,
+            "unit_name": "evaluate_from_calibration_report_round_trip"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-python-c930d8823a539221",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 9,
+        "duplicate_bytes": 78,
+        "instance_count": 2,
+        "total_redundant_lines": 3,
+        "total_redundant_tokens": 9,
+        "total_redundant_bytes": 78,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "0d787952b2b37422",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "detection/ml_training_acoustic.py",
+            "language": "python",
+            "start_line": 98,
+            "end_line": 101,
+            "unit_name": "build_acoustic_cue_products"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 171,
+            "end_line": 174,
+            "unit_name": "build_calibration_artifacts"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-72d0caaeb6f042f9",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 37,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 74,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "7148af6058aa4a42",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 355,
+            "end_line": 356,
+            "unit_name": "env_override_bool"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 364,
+            "end_line": 365,
+            "unit_name": "env_override_usize"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 369,
+            "end_line": 370,
+            "unit_name": "env_override_u64"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-856d94a4d883bf1d",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 12,
+        "duplicate_bytes": 45,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 45,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6fe2d4f4237ea09e",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-world/src/mesh/tests.rs",
+            "language": "rust",
+            "start_line": 7,
+            "end_line": 9,
+            "unit_name": "dot"
+          },
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/math.rs",
+            "language": "rust",
+            "start_line": 11,
+            "end_line": 13,
+            "unit_name": "dot3"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-b460e57f07556c46",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 12,
+        "duplicate_bytes": 45,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 45,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "2931c04b8ecae5a8",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-world/src/mesh/math.rs",
+            "language": "rust",
+            "start_line": 1,
+            "end_line": 3,
+            "unit_name": "sub"
+          },
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/math.rs",
+            "language": "rust",
+            "start_line": 7,
+            "end_line": 9,
+            "unit_name": "sub3"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e637bcccf10ee477",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 44,
+        "instance_count": 3,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 8,
+        "total_redundant_bytes": 88,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "73f0aa92411f8682",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
+            "language": "rust",
+            "start_line": 185,
+            "end_line": 186,
+            "unit_name": "evaluate_v3_fails_on_low_pd"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
+            "language": "rust",
+            "start_line": 194,
+            "end_line": 195,
+            "unit_name": "evaluate_v3_fails_on_multiple_violations"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
+            "language": "rust",
+            "start_line": 254,
+            "end_line": 255,
+            "unit_name": "nan_pd_is_treated_as_failure"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-84d910b4cc91c62b",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "manifest",
+        "duplicate_lines": 2,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 28,
+        "instance_count": 2,
+        "total_redundant_lines": 2,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 28,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "badf8196730a721e",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/echoforge-sig/src/bundle.rs",
+            "language": "rust",
+            "start_line": 117,
+            "end_line": 119,
+            "unit_name": "manifest"
+          },
+          {
+            "path": "crates/echoforge-sig/src/bundle.rs",
+            "language": "rust",
+            "start_line": 269,
+            "end_line": 271,
+            "unit_name": "manifest"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-8d9966b73e672e8b",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "train_and_score",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 15,
+        "duplicate_bytes": 94,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 15,
+        "total_redundant_bytes": 94,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "5f53079548e5c88f",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/02_lightgbm_window_gbdt.py",
+            "language": "python",
+            "start_line": 32,
+            "end_line": 33,
+            "unit_name": "train_and_score"
+          },
+          {
+            "path": "detection/03_catboost_ordered_boosting.py",
+            "language": "python",
+            "start_line": 32,
+            "end_line": 33,
+            "unit_name": "train_and_score"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-5f6fb737012692f3",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 12,
+        "duplicate_bytes": 99,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 12,
+        "total_redundant_bytes": 99,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "29ea8b14f9bb3f18",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-sig/src/tensor.rs",
+            "language": "rust",
+            "start_line": 147,
+            "end_line": 148,
+            "unit_name": "write_f32"
+          },
+          {
+            "path": "crates/echoforge-sig/src/tensor.rs",
+            "language": "rust",
+            "start_line": 153,
+            "end_line": 154,
+            "unit_name": "write_f64"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-d057c26d0073e546",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 11,
+        "duplicate_bytes": 41,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 11,
+        "total_redundant_bytes": 41,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a62f721c93ad7fac",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 342,
+            "end_line": 343,
+            "unit_name": "wasserstein_zero_for_identical_distributions"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 366,
+            "end_line": 367,
+            "unit_name": "ks_zero_for_identical_distributions"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-eb13cdcf58028f00",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "uniform",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 10,
+        "duplicate_bytes": 65,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 10,
+        "total_redundant_bytes": 65,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ebfbb97169ebac5d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 41,
+            "end_line": 44,
+            "unit_name": "uniform"
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 79,
+            "end_line": 82,
+            "unit_name": "uniform"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-e40e49a293d83c5a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "sigmoid",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 10,
+        "duplicate_bytes": 52,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 10,
+        "total_redundant_bytes": 52,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ebfbb97169ebac5d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 37,
+            "end_line": 40,
+            "unit_name": "sigmoid"
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 126,
+            "end_line": 129,
+            "unit_name": "sigmoid"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-850e3b63550ae3e6",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 8,
+        "duplicate_bytes": 63,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 8,
+        "total_redundant_bytes": 63,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e357367dc0494ded",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 521,
+            "end_line": 522,
+            "unit_name": "auto_backend_falls_back_when_gpu_memory_is_too_low"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 548,
+            "end_line": 549,
+            "unit_name": "forced_gpu_fails_when_gpu_memory_is_too_low"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-51178ebf68ea4b68",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 8,
+        "duplicate_bytes": 42,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 8,
+        "total_redundant_bytes": 42,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "12171d896f7ba939",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
+            "language": "rust",
+            "start_line": 51,
+            "end_line": 52,
+            "unit_name": "nan_vertex_fails_finite_gate"
+          },
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
+            "language": "rust",
+            "start_line": 62,
+            "end_line": 63,
+            "unit_name": "degenerate_triangle_fails_degenerate_gate"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-63abb4bb874cf06b",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 7,
+        "duplicate_bytes": 40,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 7,
+        "total_redundant_bytes": 40,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "12171d896f7ba939",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
+            "language": "rust",
+            "start_line": 12,
+            "end_line": 13,
+            "unit_name": "sphere_mesh_finite_and_consistent"
+          },
+          {
+            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
+            "language": "rust",
+            "start_line": 115,
+            "end_line": 116,
+            "unit_name": "sphere_volume_matches_pi_over_six"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-a2ce42d31a05789e",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 6,
+        "duplicate_bytes": 43,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 6,
+        "total_redundant_bytes": 43,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "dc871743cca0fe61",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs",
+            "language": "rust",
+            "start_line": 227,
+            "end_line": 228,
+            "unit_name": "spectral_entropy_bits"
+          },
+          {
+            "path": "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs",
+            "language": "rust",
+            "start_line": 244,
+            "end_line": 245,
+            "unit_name": "doppler_centroid_hz"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-2f544a46383142c5",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 86,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 86,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a4e2e373aff9aed1",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
+            "language": "rust",
+            "start_line": 175,
+            "end_line": 176,
+            "unit_name": "evaluate_v3_passes_when_every_metric_beats_threshold"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
+            "language": "rust",
+            "start_line": 263,
+            "end_line": 264,
+            "unit_name": "v3_gate_does_not_mention_v0_v1_v2_strings"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-e70fe0750a0d8651",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 58,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 58,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "06df9f6dc93cf542",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-cli/src/pack.rs",
+            "language": "rust",
+            "start_line": 90,
+            "end_line": 91,
+            "unit_name": "run_list"
+          },
+          {
+            "path": "crates/echoforge-cli/src/pack.rs",
+            "language": "rust",
+            "start_line": 152,
+            "end_line": 153,
+            "unit_name": "run_validate"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-0f469b66731d7ff2",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 33,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 33,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a62f721c93ad7fac",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 359,
+            "end_line": 360,
+            "unit_name": "wasserstein_handles_empty"
+          },
+          {
+            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
+            "language": "rust",
+            "start_line": 381,
+            "end_line": 382,
+            "unit_name": "ks_handles_empty"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-283bae4f35189069",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 5,
+        "duplicate_bytes": 32,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 5,
+        "total_redundant_bytes": 32,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e357367dc0494ded",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 424,
+            "end_line": 425,
+            "unit_name": "is_device_masked"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 433,
+            "end_line": 434,
+            "unit_name": "is_device_restricted"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-rust-38a448361e29a6b9",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "rust",
+        "unit_name": "fmt",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 4,
+        "duplicate_bytes": 34,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 4,
+        "total_redundant_bytes": 34,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "26740460eb8650ef",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 69,
+            "end_line": 70,
+            "unit_name": "fmt"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 91,
+            "end_line": 92,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-0a76d27a920f262f",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 20,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 20,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e357367dc0494ded",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 82,
+            "end_line": 83,
+            "unit_name": "as_str"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 245,
+            "end_line": 246,
+            "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-body-rust-693cd8fc1081df02",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "rust",
+        "duplicate_lines": 1,
+        "duplicate_tokens": 2,
+        "duplicate_bytes": 18,
+        "instance_count": 2,
+        "total_redundant_lines": 1,
+        "total_redundant_tokens": 2,
+        "total_redundant_bytes": 18,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "e357367dc0494ded",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 480,
+            "end_line": 481,
+            "unit_name": "cpu_only_signals_select_cpu_and_keep_budget"
+          },
+          {
+            "path": "crates/echoforge-radar/src/backend.rs",
+            "language": "rust",
+            "start_line": 491,
+            "end_line": 492,
+            "unit_name": "auto_backend_prefers_gpu_when_available"
+          }
+        ]
+      }
+    ],
+    "notes": [
+      "hard classes are limited to exact active-source file matches and substantial exact same-name units",
+      "warning classes include same-body different-name units and token/block duplication",
+      "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set"
+    ]
+  },
+  "profile_structure": {
+    "applicable_count": 5,
+    "canonical_count": 5,
+    "noncanonical_count": 0,
+    "guidance_missing_count": 0,
+    "cells": [
+      {
+        "id": "web",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "apps/web/",
+        "detected_paths": [
+          "apps/web"
+        ],
+        "aliases": [
+          "frontend/",
+          "ui/",
+          "packages/web/",
+          "packages/ui/"
+        ],
+        "guidance_status": "present",
+        "owner": "apps/web",
+        "proof_lane": "rendered UX / Playwright",
+        "agent_fix": "keep `apps/web/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "api",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "apps/api/",
+        "detected_paths": [],
+        "aliases": [
+          "api/",
+          "server/",
+          "backend/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "apps/api",
+        "proof_lane": "edge handler / contract tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "domain",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/domain/",
+        "detected_paths": [],
+        "aliases": [
+          "domain/",
+          "core/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/domain",
+        "proof_lane": "unit / property tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "application",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/application/",
+        "detected_paths": [],
+        "aliases": [
+          "application/",
+          "usecases/",
+          "use-cases/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/application",
+        "proof_lane": "use-case / authz tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "adapters",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/adapters/",
+        "detected_paths": [],
+        "aliases": [
+          "adapters/",
+          "infra/",
+          "integrations/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/adapters",
+        "proof_lane": "adapter integration tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "workers",
+        "applicable": false,
+        "status": "not_applicable",
+        "canonical_path": "crates/workers/",
+        "detected_paths": [],
+        "aliases": [
+          "workers/",
+          "jobs/",
+          "scheduler/",
+          "queue/"
+        ],
+        "guidance_status": "not_required",
+        "owner": "crates/workers",
+        "proof_lane": "workflow / replay tests",
+        "agent_fix": "no action"
+      },
+      {
+        "id": "contracts",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "contracts/",
+        "detected_paths": [
+          "contracts"
+        ],
+        "aliases": [
+          "openapi/",
+          "protobuf/",
+          "json-schema/",
+          "generated/"
+        ],
+        "guidance_status": "present",
+        "owner": "contracts",
+        "proof_lane": "generation / drift checks",
+        "agent_fix": "keep `contracts/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "db",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "db/",
+        "detected_paths": [
+          "db"
+        ],
+        "aliases": [
+          "migrations/",
+          "constraints/",
+          "sql/"
+        ],
+        "guidance_status": "present",
+        "owner": "db",
+        "proof_lane": "migration / constraint tests",
+        "agent_fix": "keep `db/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "python-ai",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "python/ai-service/",
+        "detected_paths": [
+          "python",
+          "python/ai-service"
+        ],
+        "aliases": [
+          "python/",
+          "ai-service/",
+          "evals/",
+          "embeddings/",
+          "model/"
+        ],
+        "guidance_status": "present",
+        "owner": "python/ai-service",
+        "proof_lane": "eval / contract tests",
+        "agent_fix": "keep `python/ai-service/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      },
+      {
+        "id": "ops",
+        "applicable": true,
+        "status": "canonical",
+        "canonical_path": "ops/",
+        "detected_paths": [
+          ".github",
+          ".github/workflows",
+          "ops"
+        ],
+        "aliases": [
+          ".github/",
+          ".github/workflows/",
+          "ci/",
+          "release/",
+          "observability/",
+          "security/"
+        ],
+        "guidance_status": "present",
+        "owner": "ops",
+        "proof_lane": "security lane / workflow lint",
+        "agent_fix": "keep `ops/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
+      }
+    ],
+    "evidence": {
+      "applicable_count": 5,
+      "canonical_count": 5,
+      "detected_cells": [
+        {
+          "canonical_path": "apps/web/",
+          "detected_paths": [
+            "apps/web"
+          ],
+          "guidance_status": "present",
+          "id": "web",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "contracts/",
+          "detected_paths": [
+            "contracts"
+          ],
+          "guidance_status": "present",
+          "id": "contracts",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "db/",
+          "detected_paths": [
+            "db"
+          ],
+          "guidance_status": "present",
+          "id": "db",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "python/ai-service/",
+          "detected_paths": [
+            "python",
+            "python/ai-service"
+          ],
+          "guidance_status": "present",
+          "id": "python-ai",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "ops/",
+          "detected_paths": [
+            ".github",
+            ".github/workflows",
+            "ops"
+          ],
+          "guidance_status": "present",
+          "id": "ops",
+          "status": "canonical"
+        }
+      ],
+      "guidance_missing_count": 0,
+      "noncanonical_count": 0
+    }
+  },
+  "findings": [
+    {
+      "severity": "medium",
+      "category": "shape",
+      "path": ".",
+      "problem": "`Code shape and semantic surface` scored 65 below the standard floor of 85",
+      "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "evidence": [
+        "largest authored code file: crates/echoforge-studio/src/traceability.rs (846 LOC)",
+        "code file exceeds 500 LOC",
+        "most code files stay under 300 LOC",
+        "copy-code advisory classes found: 44 (advisory only, no score impact)"
+      ],
+      "check_id": "HLT-001-DEAD-MARKER:shape",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:cf97b1902487a66a8a641f9516fc7864c63bc70847714f37c49cc57242b3eeba",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
+      "owner": "tools"
+    },
+    {
+      "severity": "medium",
+      "category": "security",
+      "path": ".github/workflows/jankurai.yml",
+      "problem": "`Security and supply-chain posture` scored 78 below the standard floor of 85",
+      "agent_fix": "wire secret, dependency, provenance, and workflow scans into an operational CI lane",
+      "evidence": [
+        "lockfile present",
+        "secret or dependency scan tooling found",
+        "provenance/SBOM tooling found",
+        "security lane present"
+      ],
+      "check_id": "HLT-016-SUPPLY-CHAIN-DRIFT:security",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "workflow-command",
+      "rerun_command": "just security",
+      "fingerprint": "sha256:d24ab5697e66411af8d5424d1d36ebf888793ebced3685d5fa95bb912e9f12e2",
+      "rule_id": "HLT-016-SUPPLY-CHAIN-DRIFT",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "docs_url": "docs/audit-rubric.md#top-level-risk-mapping",
+      "owner": "governance"
+    },
+    {
+      "severity": "medium",
+      "category": "proof",
+      "path": "Justfile",
+      "problem": "`Build speed signals` scored 80 below the standard floor of 85",
+      "agent_fix": "add fast deterministic build/test targets, caches, and narrow proof lanes for agent iteration",
+      "evidence": [
+        "build acceleration markers found",
+        "targeted test/build commands found",
+        "locked dependency graph present",
+        "CI cache hint found"
+      ],
+      "check_id": "HLT-018-PERF-CONCURRENCY-DRIFT:proof",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just fast",
+      "fingerprint": "sha256:2f2531223d7f7036c20d44b58cd52e64aa53ffd6cb85e01e541c1feff0c09cb2",
+      "rule_id": "HLT-018-PERF-CONCURRENCY-DRIFT",
+      "tlr": "Verification",
+      "lane": "fast",
+      "docs_url": "docs/testing.md",
+      "owner": "governance"
+    },
+    {
+      "severity": "medium",
+      "category": "observability",
+      "path": "docs/testing.md",
+      "problem": "`Observability and repair evidence` scored 80 below the standard floor of 85",
+      "agent_fix": "add structured errors, telemetry, and repair receipts that tell the next agent where to rerun proof",
+      "evidence": [
+        "observability libraries or patterns found",
+        "ops/observability directory present",
+        "repair receipts or raw artifact language found",
+        "agent-friendly exception pattern found"
+      ],
+      "check_id": "HLT-017-OPAQUE-OBSERVABILITY:observability",
+      "hardness": "soft",
+      "confidence": 0.76,
+      "evidence_kind": "repository-scan",
+      "rerun_command": "just score",
+      "fingerprint": "sha256:65f3b47174cc80ae87728fb2987add4bead4b427d73f35dceca1b39297a2f661",
+      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
+      "tlr": "Repair",
+      "lane": "observability",
+      "docs_url": "agent/JANKURAI_STANDARD.md#repair-receipts",
+      "owner": "governance"
+    }
+  ],
+  "agent_fix_queue": [
+    {
+      "path": "Justfile",
+      "priority": "medium",
+      "rule_id": "HLT-018-PERF-CONCURRENCY-DRIFT",
+      "tlr": "Verification",
+      "lane": "fast",
+      "owner": "governance",
+      "task": "add fast deterministic build/test targets, caches, and narrow proof lanes for agent iteration",
+      "why": "`Build speed signals` scored 80 below the standard floor of 85"
+    },
+    {
+      "path": "docs/testing.md",
+      "priority": "medium",
+      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
+      "tlr": "Repair",
+      "lane": "observability",
+      "owner": "governance",
+      "task": "add structured errors, telemetry, and repair receipts that tell the next agent where to rerun proof",
+      "why": "`Observability and repair evidence` scored 80 below the standard floor of 85"
+    },
+    {
+      "path": ".",
+      "priority": "medium",
+      "rule_id": "HLT-001-DEAD-MARKER",
+      "tlr": "Entropy",
+      "lane": "fast",
+      "owner": "tools",
+      "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
+      "why": "`Code shape and semantic surface` scored 65 below the standard floor of 85"
+    },
+    {
+      "path": ".github/workflows/jankurai.yml",
+      "priority": "medium",
+      "rule_id": "HLT-016-SUPPLY-CHAIN-DRIFT",
+      "tlr": "Security, secrets, agency",
+      "lane": "security",
+      "owner": "governance",
+      "task": "wire secret, dependency, provenance, and workflow scans into an operational CI lane",
+      "why": "`Security and supply-chain posture` scored 78 below the standard floor of 85"
+    }
+  ]
+}

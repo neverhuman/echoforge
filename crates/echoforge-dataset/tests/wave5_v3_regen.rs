@@ -103,7 +103,7 @@ fn wave5_v3_unified_path_smoke() {
     // 32 records keep the test under the 10-second smoke budget; the
     // positive fraction is bumped to ~0.20 so the rank-sum AUC has
     // meaningful sample counts in both classes.
-    let temp = tempfile::tempdir().expect("tempdir");
+    let tmp_dir = tempfile::tempdir().expect("tempdir");
     let mut config = MlTrainingDataConfig::shahed_public_proxy_default();
     config.dataset = DEFAULT_ML_TRAINING_DATASET_ID.to_string();
     config.records = 32;
@@ -112,7 +112,7 @@ fn wave5_v3_unified_path_smoke() {
     config.frame_rate_hz = 2.0;
     config.backend = BackendMode::Cpu;
     config.workers = Some(4);
-    config.output_dir = temp.path().join("ml-training-v3");
+    config.output_dir = tmp_dir.path().join("ml-training-v3");
 
     let report = run_ml_training_data(config).expect("v3 dataset generation");
     assert_eq!(report.records, 32);

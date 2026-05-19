@@ -330,7 +330,7 @@ mod tests {
             .expect("scenario must serialize back to JSON");
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().join("uae-coastal-roundtrip.json");
-        std::fs::write(&path, &json).expect("write temp scenario");
+        std::fs::write(&path, &json).expect("write scenario to disk");
         let loaded = SurveillanceScenario::load(&path).expect("load back");
         assert_eq!(loaded, scenario);
     }

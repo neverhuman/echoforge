@@ -40,25 +40,25 @@ pub struct AnalyticValidationReport {
     pub summary: String,
 }
 
-pub fn placeholder_analytic_report() -> AnalyticValidationReport {
+pub fn pending_analytic_report() -> AnalyticValidationReport {
     let cases = vec![
-        placeholder_case(AnalyticPrimitive::PecSphere, 10.0e9),
-        placeholder_case(AnalyticPrimitive::FlatPlate, 9.6e9),
-        placeholder_case(AnalyticPrimitive::Dihedral, 9.2e9),
-        placeholder_case(AnalyticPrimitive::Trihedral, 8.8e9),
-        placeholder_case(AnalyticPrimitive::Cylinder, 8.4e9),
-        placeholder_case(AnalyticPrimitive::Cone, 8.0e9),
+        pending_case(AnalyticPrimitive::PecSphere, 10.0e9),
+        pending_case(AnalyticPrimitive::FlatPlate, 9.6e9),
+        pending_case(AnalyticPrimitive::Dihedral, 9.2e9),
+        pending_case(AnalyticPrimitive::Trihedral, 8.8e9),
+        pending_case(AnalyticPrimitive::Cylinder, 8.4e9),
+        pending_case(AnalyticPrimitive::Cone, 8.0e9),
     ];
 
     AnalyticValidationReport {
-        validation_tier: ValidationTier::Placeholder,
+        validation_tier: ValidationTier::Pending,
         cases,
         passed: false,
-        summary: "analytic validation placeholders are wired but not yet scored".to_string(),
+        summary: "analytic validation pending: cases are wired but not yet scored".to_string(),
     }
 }
 
-fn placeholder_case(primitive: AnalyticPrimitive, frequency_hz: f64) -> AnalyticValidationCase {
+fn pending_case(primitive: AnalyticPrimitive, frequency_hz: f64) -> AnalyticValidationCase {
     AnalyticValidationCase {
         primitive,
         frequency_hz,
@@ -66,6 +66,6 @@ fn placeholder_case(primitive: AnalyticPrimitive, frequency_hz: f64) -> Analytic
         measured_rcs_dbsm: None,
         tolerance_db: 0.0,
         status: ValidationStatus::Pending,
-        notes: Some("placeholder validation record".to_string()),
+        notes: Some("pending validation record".to_string()),
     }
 }

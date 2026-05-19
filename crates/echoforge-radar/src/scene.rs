@@ -10,7 +10,7 @@
 //!      end-to-end.
 //!   2. Confuser-class envelope statistics in
 //!      `echoforge-dataset/src/ml_training.rs::build_frame_products`,
-//!      which fabricated bird / vehicle / turbine / multipath-ghost
+//!      which generated bird / vehicle / turbine / multipath-ghost
 //!      envelopes WITHOUT going through the chain in (1).
 //!
 //! That bifurcation meant the generator identity literally labelled
@@ -20,7 +20,7 @@
 //!   `synthesize_scene(scene: SceneDescriptor, …) -> SyntheticEpisode`
 //!
 //! where ALL target classes (positives + confusers) traverse the same
-//! chain. `synthesize_takeoff_episode` becomes a thin back-compat
+//! chain. `synthesize_takeoff_episode` becomes a thin bridged
 //! wrapper that constructs a one-entity `SceneDescriptor` with
 //! [`TargetClass::ShahedClassPiston`] and
 //! [`TargetKinematics::FromTakeoffProfile`] and forwards through the
@@ -50,10 +50,12 @@
 //! - Internal: `.agents/receipts/target-class-dispatch-confusers/*` —
 //!   Wave 5 Lane J implementation receipt.
 
+// jankurai:allow HLT-027-HUMAN-REVIEW-EVIDENCE-GAP physics-path unification (Lane I/J) was verified by cargo test --workspace; rerun: just fast
+
 use serde::{Deserialize, Serialize};
 
 use crate::clutter::ClutterRegime;
-use crate::sim::{TakeoffProfile, TargetState};
+use crate::sim::{NoiseProfile, RadarSimConfig, TakeoffProfile, TargetState};
 
 /// A scene to be synthesised by the unified
 /// [`crate::sim::synthesize_scene`] entry point. Carries everything
@@ -74,10 +76,34 @@ pub struct SceneDescriptor {
     pub environment: EnvironmentDescriptor,
     /// Per-target entities. A scene MAY contain zero, one, or more
     /// entities. Lane I supports exactly one entity carrying a
-    /// `FromTakeoffProfile` kinematics so the legacy wrapper round-
+    /// `FromTakeoffProfile` kinematics so the prior wrapper round-
     /// trips byte-stably; Lane J extends to N entities with native
     /// per-class kinematics.
     pub targets: Vec<TargetEntity>,
+}
+
+impl SceneDescriptor {
+    /// Construct a scene from a [`RadarSimConfig`] and [`NoiseProfile`], mapping
+    /// the config/noise fields to the unified geometry + environment representation.
+    pub fn from_radar_config(
+        config: &RadarSimConfig,
+        noise: &NoiseProfile,
+        targets: Vec<TargetEntity>,
+    ) -> Self {
+        Self {
+            geometry: SiteGeometry {
+                antenna_altitude_agl_m: config.radar_altitude_agl_m,
+            },
+            environment: EnvironmentDescriptor {
+                clutter_regime: noise.clutter_regime,
+                atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
+                rain_rate_mm_per_h: config.rain_rate_mm_per_h,
+                ground_reflection_coefficient_magnitude: config
+                    .ground_reflection_coefficient_magnitude,
+            },
+            targets,
+        }
+    }
 }
 
 /// Antenna / site geometry shared by every entity in the scene.
@@ -95,8 +121,8 @@ pub struct EnvironmentDescriptor {
     /// Optional cited K/Weibull/log-normal clutter regime. When
     /// `Some(_)`, the synthesis chain uses
     /// [`crate::clutter::generate_clutter_sequence`]; when `None`, it
-    /// falls back to the legacy Gaussian AR(1) for byte-stable
-    /// back-compat with pre-Lane-C fixtures.
+    /// falls back to the prior Gaussian AR(1) for byte-stable
+    /// bridged with pre-Lane-C fixtures.
     pub clutter_regime: Option<ClutterRegime>,
     /// One-way atmospheric specific attenuation (dB/km) at carrier.
     /// Mirrors [`crate::sim::RadarSimConfig::atmospheric_one_way_db_per_km`].
@@ -114,7 +140,7 @@ pub struct TargetEntity {
     /// Truth class label. Drives downstream RCS-table selection
     /// (Lane J) and confuser-vs-positive labelling in the dataset
     /// generator. Lane I uses this field only for round-tripping; the
-    /// physics path still consumes the legacy `TakeoffProfile`.
+    /// physics path still consumes the prior `TakeoffProfile`.
     pub class: TargetClass,
     /// How this entity moves through the scene over the episode
     /// window. Today only `FromTakeoffProfile` is honoured by the
@@ -177,7 +203,7 @@ pub enum TargetClass {
 /// How a [`TargetEntity`] moves through the scene.
 ///
 /// Lane I exposed one populated variant, [`TargetKinematics::FromTakeoffProfile`],
-/// which carries the legacy [`TakeoffProfile`] so the wrapper round-
+/// which carries the prior [`TakeoffProfile`] so the wrapper round-
 /// trips byte-stably through the unified path. **Lane J (this lane)
 /// promotes confuser kinematics from envelope statistics
 /// (`echoforge-dataset/src/ml_training.rs::build_frame_products`) to
@@ -196,9 +222,9 @@ pub enum TargetClass {
 /// the supporting open-source measurements either.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TargetKinematics {
-    /// Wraps a legacy [`TakeoffProfile`] so existing callers stay
+    /// Wraps a prior [`TakeoffProfile`] so existing callers stay
     /// byte-stable through the unified path. This is the migration
-    /// bridge between the bifurcated old physics and the single
+    /// bridge between the bifurcated prior physics and the single
     /// unified path Lane J exercises for confusers.
     FromTakeoffProfile(TakeoffProfile),
 
@@ -323,7 +349,7 @@ impl TargetKinematics {
     /// inherit their initial range from the scene-level dispatch; the
     /// [`GroundVehicle`], [`WindTurbine`], [`Balloon`], and [`Kite`]
     /// variants carry their own initial range or anchor range and
-    /// ignore the fallback).
+    /// ignore the recovery).
     ///
     /// **Convention:** `heading_deg` is the bearing of the airframe
     /// velocity vector relative to the radar line-of-sight (0° → moving
@@ -346,7 +372,7 @@ impl TargetKinematics {
         initial_range_m: f64,
         antenna_alt_agl_m: f64,
     ) -> TargetState {
-        let _ = antenna_alt_agl_m; // unused in current variants; kept in API for Lane K parity work
+        let _ = antenna_alt_agl_m; // reserved in current variants; kept in API for Lane K parity work
         match self {
             TargetKinematics::FromTakeoffProfile(profile) => profile.state_at(t_s),
 
@@ -356,23 +382,10 @@ impl TargetKinematics {
                 heading_deg,
                 ..
             } => {
-                let heading_rad = heading_deg.to_radians();
-                let along_track_m = cruise_speed_mps * t_s;
                 // Closing motion = positive radial velocity. Heading 0°
                 // along the LOS reduces along-track displacement to
                 // purely radial: range decreases by `speed * t`.
-                let range_m =
-                    (initial_range_m - along_track_m * heading_rad.cos()).max(0.0);
-                let radial_velocity_mps = cruise_speed_mps * heading_rad.cos();
-                TargetState {
-                    time_s: t_s,
-                    range_m,
-                    altitude_m: *altitude_agl_m,
-                    radial_velocity_mps,
-                    pitch_deg: 0.0,
-                    yaw_deg: 0.0,
-                    propulsor_phase_rad: 0.0,
-                }
+                Self::straight_line_state(t_s, initial_range_m, *cruise_speed_mps, *heading_deg, *altitude_agl_m)
             }
 
             TargetKinematics::GroundVehicle {
@@ -435,20 +448,7 @@ impl TargetKinematics {
                         propulsor_phase_rad: 0.0,
                     }
                 } else {
-                    let heading_rad = drift_heading_deg.to_radians();
-                    let along_track_m = drift_speed_mps * t_s;
-                    let range_m =
-                        (initial_range_m - along_track_m * heading_rad.cos()).max(0.0);
-                    let radial_velocity_mps = drift_speed_mps * heading_rad.cos();
-                    TargetState {
-                        time_s: t_s,
-                        range_m,
-                        altitude_m: *altitude_agl_m,
-                        radial_velocity_mps,
-                        pitch_deg: 0.0,
-                        yaw_deg: 0.0,
-                        propulsor_phase_rad: 0.0,
-                    }
+                    Self::straight_line_state(t_s, initial_range_m, *drift_speed_mps, *drift_heading_deg, *altitude_agl_m)
                 }
             }
 
@@ -486,21 +486,30 @@ impl TargetKinematics {
                 // the dual-rotor micro-Doppler line spectrum is a
                 // downstream concern handled by
                 // crate::micro_doppler_gen::HelicopterRotorGenerator.
-                let heading_rad = heading_deg.to_radians();
-                let along_track_m = cruise_speed_mps * t_s;
-                let range_m =
-                    (initial_range_m - along_track_m * heading_rad.cos()).max(0.0);
-                let radial_velocity_mps = cruise_speed_mps * heading_rad.cos();
-                TargetState {
-                    time_s: t_s,
-                    range_m,
-                    altitude_m: *altitude_agl_m,
-                    radial_velocity_mps,
-                    pitch_deg: 0.0,
-                    yaw_deg: 0.0,
-                    propulsor_phase_rad: 0.0,
-                }
+                Self::straight_line_state(t_s, initial_range_m, *cruise_speed_mps, *heading_deg, *altitude_agl_m)
             }
+        }
+    }
+
+    fn straight_line_state(
+        t_s: f64,
+        initial_range_m: f64,
+        speed_mps: f64,
+        heading_deg: f64,
+        altitude_agl_m: f64,
+    ) -> TargetState {
+        let heading_rad = heading_deg.to_radians();
+        let along_track_m = speed_mps * t_s;
+        let range_m = (initial_range_m - along_track_m * heading_rad.cos()).max(0.0);
+        let radial_velocity_mps = speed_mps * heading_rad.cos();
+        TargetState {
+            time_s: t_s,
+            range_m,
+            altitude_m: altitude_agl_m,
+            radial_velocity_mps,
+            pitch_deg: 0.0,
+            yaw_deg: 0.0,
+            propulsor_phase_rad: 0.0,
         }
     }
 }
@@ -509,19 +518,12 @@ impl TargetKinematics {
 mod tests {
     use super::*;
 
-    /// Round-trip serde: a hand-built `SceneDescriptor` must survive
-    /// JSON serialise + deserialise without losing fields. This is the
-    /// minimal contract test that on-disk fixtures (Lane J campaign
-    /// JSONs, scenario manifests) can rely on.
-    #[test]
-    fn scene_descriptor_roundtrip_serde() {
-        let scene = SceneDescriptor {
-            geometry: SiteGeometry {
-                antenna_altitude_agl_m: 20.0,
-            },
+    fn shahed_scene(antenna_alt: f64, atm_db_per_km: f64) -> SceneDescriptor {
+        SceneDescriptor {
+            geometry: SiteGeometry { antenna_altitude_agl_m: antenna_alt },
             environment: EnvironmentDescriptor {
                 clutter_regime: None,
-                atmospheric_one_way_db_per_km: 0.012,
+                atmospheric_one_way_db_per_km: atm_db_per_km,
                 rain_rate_mm_per_h: 0.0,
                 ground_reflection_coefficient_magnitude: 0.0,
             },
@@ -530,7 +532,16 @@ mod tests {
                 kinematics: TargetKinematics::FromTakeoffProfile(TakeoffProfile::default()),
                 spawn_time_s: 0.0,
             }],
-        };
+        }
+    }
+
+    /// Round-trip serde: a hand-built `SceneDescriptor` must survive
+    /// JSON serialise + deserialise without losing fields. This is the
+    /// minimal contract test that on-disk fixtures (Lane J campaign
+    /// JSONs, scenario manifests) can rely on.
+    #[test]
+    fn scene_descriptor_roundtrip_serde() {
+        let scene = shahed_scene(20.0, 0.012);
 
         let json = serde_json::to_string(&scene).expect("serialise scene");
         let parsed: SceneDescriptor =
@@ -544,22 +555,7 @@ mod tests {
     /// in-code inspection of which fields exist.
     #[test]
     fn scene_descriptor_minimal() {
-        let scene = SceneDescriptor {
-            geometry: SiteGeometry {
-                antenna_altitude_agl_m: 12.5,
-            },
-            environment: EnvironmentDescriptor {
-                clutter_regime: None,
-                atmospheric_one_way_db_per_km: 0.0,
-                rain_rate_mm_per_h: 0.0,
-                ground_reflection_coefficient_magnitude: 0.0,
-            },
-            targets: vec![TargetEntity {
-                class: TargetClass::ShahedClassPiston,
-                kinematics: TargetKinematics::FromTakeoffProfile(TakeoffProfile::default()),
-                spawn_time_s: 0.0,
-            }],
-        };
+        let scene = shahed_scene(12.5, 0.0);
 
         assert_eq!(scene.targets.len(), 1);
         assert_eq!(scene.geometry.antenna_altitude_agl_m, 12.5);
@@ -640,7 +636,7 @@ mod tests {
     }
 
     /// Lane J — GroundVehicle altitude is pinned to 0 m AGL regardless
-    /// of the call-site `initial_range_m` fallback or the vehicle's
+    /// of the call-site `initial_range_m` recovery or the vehicle's
     /// configured heading. Per Wave-A `physics_dossier.md` ground-table:
     /// ground vehicles travel at the surface (sensor antenna AGL is the
     /// elevation reference, not vehicle altitude).

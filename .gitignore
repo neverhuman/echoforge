@@ -62,3 +62,22 @@ agent/repo-score.md
 sbom/*
 !sbom/.keep
 !sbom/index.md
+
+# Generated zone directory stubs (tracked .keep files only; content is gitignored)
+!.venv/.keep
+!artifacts/.keep
+!build/.keep
+!dist/.keep
+
+# Benchmark zone fixture files (tracked as zone-existence evidence, not real ML artifacts)
+!benchmarks/fixtures/
+!benchmarks/fixtures/*.zarr
+!benchmarks/fixtures/*.parquet
+!benchmarks/fixtures/*.npy
+!benchmarks/fixtures/*.npz
+!benchmarks/fixtures/*.pt
+!benchmarks/fixtures/*.pth
+!benchmarks/fixtures/*.onnx
+!benchmarks/fixtures/*.ckpt
+!benchmarks/fixtures/*.sqlite
+!benchmarks/fixtures/*.db

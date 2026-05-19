@@ -47,6 +47,24 @@ pub struct KinematicObservation {
     pub radar_altitude_agl_m: f64,
 }
 
+/// Finite-difference helper: `(f(samples[n-1]) - f(samples[n-2])) / dt`.
+/// Returns `None` when fewer than two samples exist or `dt <= 0`.
+fn last_pair_delta_per_dt(
+    samples: &[KinematicSample],
+    extract: impl Fn(&KinematicSample) -> f64,
+) -> Option<f64> {
+    if samples.len() < 2 {
+        return None;
+    }
+    let n = samples.len();
+    let (a, b) = (&samples[n - 2], &samples[n - 1]);
+    let dt = b.time_s - a.time_s;
+    if dt <= 0.0 {
+        return None;
+    }
+    Some((extract(b) - extract(a)) / dt)
+}
+
 impl KinematicObservation {
     pub fn new(samples: Vec<KinematicSample>, range_m: f64, radar_altitude_agl_m: f64) -> Self {
         Self {
@@ -66,38 +84,39 @@ impl KinematicObservation {
         self.samples.last().map(|s| s.altitude_agl_m)
     }
 
+    /// Absolute radial speed (m/s). Returns `0.0` when no samples are present.
+    pub fn abs_radial_speed(&self) -> f64 {
+        self.current_radial_speed_mps().map(f64::abs).unwrap_or(0.0)
+    }
+
+    /// Absolute acceleration magnitude (m/s²). Returns `f64::INFINITY` when
+    /// fewer than two samples exist or timestamps are degenerate.
+    pub fn abs_acceleration(&self) -> f64 {
+        self.current_acceleration_mps2()
+            .map(f64::abs)
+            .unwrap_or(f64::INFINITY)
+    }
+
+    /// Absolute altitude rate (m/s). Returns `f64::INFINITY` when fewer than
+    /// two samples exist or timestamps are degenerate.
+    pub fn abs_altitude_rate(&self) -> f64 {
+        self.altitude_rate_mps()
+            .map(f64::abs)
+            .unwrap_or(f64::INFINITY)
+    }
+
     /// Finite-difference acceleration in m/s² between the last two
     /// samples, or `None` if fewer than two samples exist or the time
     /// delta is non-positive (degenerate or duplicate timestamps).
     pub fn current_acceleration_mps2(&self) -> Option<f64> {
-        if self.samples.len() < 2 {
-            return None;
-        }
-        let n = self.samples.len();
-        let a = self.samples[n - 2];
-        let b = self.samples[n - 1];
-        let dt = b.time_s - a.time_s;
-        if dt <= 0.0 {
-            return None;
-        }
-        Some((b.radial_speed_mps - a.radial_speed_mps) / dt)
+        last_pair_delta_per_dt(&self.samples, |s| s.radial_speed_mps)
     }
 
     /// Finite-difference altitude rate (climb rate) in m/s between the
     /// last two samples, or `None` if fewer than two samples or
     /// non-positive time delta.
     pub fn altitude_rate_mps(&self) -> Option<f64> {
-        if self.samples.len() < 2 {
-            return None;
-        }
-        let n = self.samples.len();
-        let a = self.samples[n - 2];
-        let b = self.samples[n - 1];
-        let dt = b.time_s - a.time_s;
-        if dt <= 0.0 {
-            return None;
-        }
-        Some((b.altitude_agl_m - a.altitude_agl_m) / dt)
+        last_pair_delta_per_dt(&self.samples, |s| s.altitude_agl_m)
     }
 
     /// Trailing-window slice helper: returns the last `n` samples

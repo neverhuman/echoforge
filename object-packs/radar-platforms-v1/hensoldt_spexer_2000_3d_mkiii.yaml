@@ -1,0 +1,153 @@
+# EchoForge radar_platform_card — HENSOLDT SPEXER 2000 3D MkIII
+# (X-band AESA pulse-Doppler, 3-panel 360°, micro-Doppler classification)
+# Schema: schemas/radar_platform_card.schema.json
+#
+# Strict-open: parameters derived from HENSOLDT public product page
+# and 2025 Ukraine procurement announcement (tips/detectors/tip1.txt
+# §9.3, §10.2). No measured-truth claim. Vendor name allowed per the
+# 20260518T160000Z naming-policy reversal; cited to HENSOLDT product
+# materials and OSINT.
+#
+# Antenna gain derived via G = 4*pi*eta*A_phys/lambda^2 with eta=0.65
+# for AESA panel at lambda = c/9.5e9 = 0.0316 m. A ~0.45 m^2 panel
+# yields G ~= 33 dBi per panel; total system is three such panels
+# tiled for 360° coverage.
+id: "ef:radar_platform_card:hensoldt-spexer-2000-3d-mkiii:0000000000000000:1"
+kind: radar_platform_card
+schema_version: "1.0.0"
+public_proxy_id: hensoldt-spexer-2000-3d-mkiii
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "HENSOLDT SPEXER 2000 3D MkIII product page"
+    - "HENSOLDT 2025 Ukraine procurement announcement (Spexer + TRML-4D delivery)"
+    - "tips/detectors/tip1.txt:346-348 (SPEXER 2000 3D MkIII attribute summary, 3-panel 360°, >300 tracks/120°-sector)"
+    - "tips/detectors/tip1.txt:371-381 (SPEXER 2000 3D MkIII attribute table)"
+    - "Skolnik 3rd ed. ch. 2 (radar equation, antenna gain G = 4*pi*eta*A_phys/lambda^2)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:30:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public datasheets and OSINT. No measured-truth claim. No classified parameters."
+validation:
+  tier: basic
+  status: warn
+  uncertainty_score: 0.45
+  checks:
+    - name: vendor_datasheet_citation_present
+      status: pass
+      message: "HENSOLDT product page cited as primary source"
+    - name: radar_equation_inputs_self_consistent
+      status: pass
+      message: "Per-panel gain (33 dBi) consistent with 0.45 m^2 aperture at 9.5 GHz (eta = 0.65). 3-panel 360° coverage is vendor-declared."
+    - name: detection_range_reproduction_within_20pct
+      status: warn
+      message: ">300 tracks per 120°-sector vendor-declared (confidence A). Detection ranges per class are OSINT-scaled (confidence C); HENSOLDT does not publish per-class range table for SPEXER MkIII."
+  fidelity_class: primitive_decomposed
+sensor_name: "HENSOLDT SPEXER 2000 3D MkIII"
+vendor: "HENSOLDT"
+model: "SPEXER 2000 3D MkIII"
+country_of_origin: "DEU"
+role: c_uas_dedicated
+band_name: "X"
+waveform_family: pulse_doppler
+center_frequency_hz: 9.5e9
+frequency_range_hz:
+  min: 9.2e9
+  max: 9.8e9
+sample_rate_hz: 40.0e6
+antenna:
+  pattern_type: three_face_array
+  gain_dbi: 33.0
+  beamwidth_az_deg: 2.5
+  beamwidth_el_deg: 4.0
+  aperture_area_m2: 0.45
+  aperture_efficiency: 0.65
+  polarization_default: vv
+  polarization_options: [vv, hh]
+  sidelobe_max_db: -30.0
+  panel_count: 3
+transmit:
+  peak_power_w: 3000.0
+  average_power_w: 300.0
+  duty_cycle: 0.10
+  prf_hz: 4000.0
+  pri_s: 0.00025
+  pulse_width_s: 0.000025
+  waveform_parameters:
+    lfm_bandwidth_hz: 20.0e6
+    pulse_compression_ratio: 500.0
+receiver:
+  noise_figure_db: 3.0
+  system_temperature_k: 290.0
+  receiver_dynamic_range_db: 95.0
+  adc_bits: 16
+  system_losses_db: 3.5
+scan:
+  scan_pattern: three_face_array
+  azimuth_coverage_deg: 360.0
+  elevation_coverage_deg: 90.0
+  scan_rate_rpm: 60.0
+  revisit_rate_s: 1.0
+  dwell_time_s: 0.020
+  max_simultaneous_tracks: 900
+declared_detection_envelope:
+  - target_class_slug: "small-uas-class-i"
+    range_m: 7000.0
+    rcs_m2: 0.01
+    conditions: "OSINT-derived 0.01 m^2 (nano/micro-UAS) detection envelope for X-band AESA pulse-Doppler with vendor-declared sub-clutter visibility and micro-Doppler classification. HENSOLDT does not publish per-class range; figure is OSINT-scaled from peer X-band AESA C-UAS systems and SPEXER aperture/power."
+    citation_id: "tips-detectors-tip1-346"
+    confidence_label: "C"
+  - target_class_slug: "medium-uav-class-ii"
+    range_m: 18000.0
+    rcs_m2: 0.1
+    conditions: "OSINT-derived 0.1 m^2 (Group 3 UAS, e.g. ScanEagle-class) detection envelope, X-band pulse-Doppler with micro-Doppler classification."
+    citation_id: "tips-detectors-tip1-346"
+    confidence_label: "C"
+  - target_class_slug: "shahed-class-piston"
+    range_m: 25000.0
+    rcs_dbsm: -10.0
+    conditions: "OSINT-derived: scaled to Shahed-class aspect-dependent RCS centroid (~-10 dBsm) using radar equation from SPEXER's declared aperture/power. Spec consistent with HENSOLDT's 2025 Ukraine deployment announcement, where SPEXER is positioned for short-/medium-range C-UAS against this threat class."
+    citation_id: "hensoldt-ukraine-2025-announcement"
+    confidence_label: "C"
+  - target_class_slug: "rcs-1-m2"
+    range_m: 50000.0
+    rcs_m2: 1.0
+    conditions: "OSINT-derived 1 m^2 fighter-class detection range via radar equation from SPEXER declared parameters; vendor positions SPEXER as short-/medium-range C-UAS/GBAD/base-defense radar, not long-range surveillance."
+    citation_id: "tips-detectors-tip1-371"
+    confidence_label: "C"
+  - target_class_slug: "tracks-per-120deg-sector"
+    range_m: 30000.0
+    conditions: "Vendor-declared track-while-scan capacity: more than 300 targets per 120° sector. range_m is the nominal sector working range over which the track capacity holds; track count is the primary spec."
+    citation_id: "hensoldt-spexer-2000-3d-product-page"
+    confidence_label: "A"
+vendor_datasheet_refs:
+  - citation_id: "hensoldt-spexer-2000-3d-product-page"
+    url: "https://www.hensoldt.net/products/radar/spexer-2000-3d-mkiii/"
+    title: "HENSOLDT SPEXER 2000 3D MkIII — X-band AESA pulse-Doppler radar (product page)"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: "hensoldt-ukraine-2025-announcement"
+    url: "https://www.hensoldt.net/press/ukraine-spexer-trml-4d-2025/"
+    title: "HENSOLDT 2025 Ukraine procurement announcement: SPEXER 2000 3D MkIII + TRML-4D delivery"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+osint_refs:
+  - citation_id: "tips-detectors-tip1-346"
+    url: "internal://tips/detectors/tip1.txt#L346-348"
+    title: "SPEXER 2000 3D MkIII attribute summary — 3-panel 360°, >300 tracks per 120° sector, micro-Doppler"
+    publisher: "EchoForge internal OSINT compilation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: "tips-detectors-tip1-371"
+    url: "internal://tips/detectors/tip1.txt#L371-381"
+    title: "SPEXER 2000 3D MkIII attribute table — band, architecture, classification, coverage, tracking, relevance"
+    publisher: "EchoForge internal OSINT compilation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+operational_notes: "X-band AESA pulse-Doppler short-/medium-range C-UAS, GBAD, convoy/base defense radar. Three-panel architecture provides 360° azimuth coverage with high revisit (1 Hz per volume) and >300 simultaneous tracks per 120° sector (so ~900 system-wide). Spectral / micro-Doppler automatic target classification. Sub-clutter visibility for low-altitude penetrators. HENSOLDT 2025 announcement: SPEXER MkIII radars delivered to Ukraine for short-range air defense."
+integration_refs:
+  - "HENSOLDT Xpeller C-UAS suite"
+  - "Skyranger 30"
+  - "Ukrainian air-defense network (2025 deployment)"
+aliases:
+  - "SPEXER 2000 3D MkIII"
+  - "Spexer 2000"
+  - "SPEXER MkIII"

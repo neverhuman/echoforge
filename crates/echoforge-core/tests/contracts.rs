@@ -45,6 +45,7 @@ fn object_card_finalizes_with_schema_version_and_fingerprint() {
                 status: "pass".to_string(),
                 message: "ok".to_string(),
             }],
+            fidelity_class: None,
         },
         display_name: "Proxy 1".to_string(),
         object_family: "airframe".to_string(),

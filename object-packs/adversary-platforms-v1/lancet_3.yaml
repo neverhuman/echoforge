@@ -1,0 +1,331 @@
+# EchoForge source_platform_card — Lancet-3 (Izdeliye 52)
+# Schema: schemas/source_platform_card.schema.json
+#
+# Russian small loitering munition. X-wing (dual cruciform) configuration,
+# electric brushless propulsion, EO terminal seeker with operator
+# co-handling. Rail-catapult launch only (no booster). Loiter-then-dive
+# terminal mode. Strict-open: every parameter cites public sources.
+# Platform name allowed per the 20260518T160000Z naming-policy reversal.
+id: "ef:source_platform_card:lancet-3:0000000000000000:1"
+kind: source_platform_card
+schema_version: "1.0.0"
+public_proxy_id: lancet-3
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "Janes Lancet-3 (Izdeliye 52) entry (X-wing loitering munition, ~12 kg, ~5 kg warhead, ~40 km range, ~40 min endurance)"
+    - "RUSI Russian loitering munition technical profile — Lancet family"
+    - "CSIS Russian loitering munition reference (Lancet-3 catapult-launched, EO terminal seeker)"
+    - "Army Recognition Lancet-3 reference"
+    - "Bellingcat Lancet-3 wreckage and operations analysis (Ukraine, 2022-2024)"
+    - "OSMP Lancet-3 visual guide"
+    - "Rahman & Robertson Nature Sci Rep 2018 (8:17396) — bird vs UAS micro-Doppler envelope"
+    - "MDPI Drones 2023 7(1):39 — small fixed-wing UAV RCS signature investigation"
+    - "VTT 15/25 GHz UAS RCS measurements (scaled to S-band via Rayleigh-region frequency dependence)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Public-proxy fixture. All parameters derived from open-source reporting. NOT a measured-truth claim."
+validation:
+  tier: cross_checked
+  status: pass
+  uncertainty_score: 0.45
+  checks:
+    - name: geometry_dimensions_cited
+      status: pass
+      message: "~1.6 m L / ~1.2 m WS / ~0.4 m H — Janes + Army Recognition + OSMP agree within 10%"
+    - name: mass_warhead_cited
+      status: pass
+      message: "~12 kg total mass, ~5 kg warhead — Janes + RUSI + CSIS agree"
+    - name: rcs_envelope_within_published_class
+      status: warn
+      message: "X-band nose-on [-30, -22] dBsm extrapolated from MDPI fixed-wing class scaled DOWN by ~5 dB for very small airframe; full measured Lancet-3-specific truth unavailable per strict-open"
+    - name: naming_policy_compliance
+      status: pass
+      message: "Lancet-3 / Izdeliye 52 designation allowed per 20260518T160000Z naming-policy reversal"
+  fidelity_class: production_sbr
+display_name: "Lancet-3 (Izdeliye 52)"
+platform_family: loitering_munition
+platform_role: adversary
+country_of_origin: "RUS"
+dimensions_m:
+  x: 1.65
+  y: 1.2
+  z: 0.4
+wingspan_m: 1.2
+fuselage_diameter_m: 0.12
+mass_kg:
+  min: 11.0
+  max: 13.0
+warhead_mass_kg:
+  min: 3.0
+  max: 5.0
+propulsion:
+  propulsion_type: electric_brushless
+  engine_model_proxy: "lancet-3-brushless-pmsm"
+  rated_power_kw:
+    min: 1.0
+    max: 2.5
+  propeller:
+    blade_count: 2
+    blade_length_m: 0.18
+    blade_chord_m: 0.04
+    prop_diameter_m: 0.36
+    rated_rpm_range:
+      min: 4500.0
+      max: 8000.0
+    idle_rpm_range:
+      min: 1500.0
+      max: 2500.0
+    configuration: pusher
+kinematic_envelope:
+  cruise_speed_mps:
+    min: 25.0
+    max: 35.0
+  max_speed_mps:
+    min: 60.0
+    max: 90.0
+  min_sustainable_airspeed_mps: 20.0
+  stall_airspeed_mps: 15.0
+  climb_rate_mps:
+    min: 1.0
+    max: 3.5
+  descent_rate_mps:
+    min: 25.0
+    max: 80.0
+  operational_altitude_bands_m_agl:
+    - name: low_ingress
+      min: 50.0
+      max: 300.0
+    - name: transit_cruise
+      min: 300.0
+      max: 1500.0
+    - name: terminal_dive
+      min: 50.0
+      max: 1500.0
+  max_altitude_m_agl: 5000.0
+  endurance_hours:
+    min: 0.5
+    max: 0.8
+  range_km:
+    min: 30.0
+    max: 70.0
+  turn_rate_max_deg_s: 20.0
+  sustained_g_max: 3.0
+  instantaneous_g_max: 6.0
+  max_bank_angle_deg: 60.0
+launch_method: rail_catapult_only
+terminal_behavior: loiter_then_dive
+guidance:
+  primary_navigation: autonomous_visual
+  datalink_present: true
+  datalink_band: "UHF/L-band command + video downlink"
+rcs_signature:
+  fluctuation_model: swerling_1
+  bands:
+    - band_name: "S"
+      center_frequency_hz: 3.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -28.0
+            max: -20.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -18.0
+            max: -10.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -26.0
+            max: -18.0
+          citation_id: vtt-25ghz-scaled-s-band
+    - band_name: "X"
+      center_frequency_hz: 10.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -30.0
+            max: -22.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -20.0
+            max: -12.0
+          citation_id: mdpi-drones-2023-fixed-wing-broadside
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -28.0
+            max: -20.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+micro_doppler_signature:
+  dominant_modulation_source: propeller
+  blade_pass_fundamental_hz_range:
+    min: 150.0
+    max: 267.0
+  rotation_fundamental_hz_range:
+    min: 75.0
+    max: 133.0
+  harmonic_count: 3
+  amplitude_modulation_depth_db_range:
+    min: 1.0
+    max: 4.0
+  aspect_visibility:
+    - aspect_name: nose_on
+      visibility_score: 0.80
+    - aspect_name: broadside
+      visibility_score: 0.40
+    - aspect_name: tail_on
+      visibility_score: 0.90
+    - aspect_name: above
+      visibility_score: 0.60
+    - aspect_name: below
+      visibility_score: 0.55
+ir_signature:
+  lwir_temperature_delta_k:
+    min: 3.0
+    max: 12.0
+  mwir_temperature_delta_k:
+    min: 4.0
+    max: 18.0
+  plume_present: false
+  engine_exhaust_temperature_c:
+    min: 30.0
+    max: 65.0
+  fuselage_solar_load_w_per_m2_range:
+    min: 250.0
+    max: 700.0
+acoustic_signature:
+  spl_at_100m_db_range:
+    min: 45.0
+    max: 60.0
+  dominant_tonal_hz_range:
+    min: 150.0
+    max: 267.0
+  engine_fundamental_hz_range:
+    min: 75.0
+    max: 133.0
+  blade_harmonic_hz_range:
+    min: 150.0
+    max: 800.0
+  broadband_band_db:
+    low_hz_to_500hz_db: 50.0
+    five_hundred_hz_to_2khz_db: 45.0
+    two_to_10khz_db: 38.0
+  directivity: rear_quadrant
+rf_emissions:
+  silent_default: false
+  gnss_receiver_active: true
+  gnss_band: "L1 + GLONASS L1"
+  control_link_present: true
+  control_link_band_hz_range:
+    min: 8.0e8
+    max: 1.5e9
+  telemetry_band_hz_range:
+    min: 2.4e9
+    max: 2.5e9
+  datalink_eirp_dbm_range:
+    min: 20.0
+    max: 35.0
+aliases:
+  - "Lancet-3"
+  - "Izdeliye 52"
+  - "ZALA Lancet-3"
+source_refs:
+  - citation_id: janes-lancet-3
+    url: "https://www.janes.com/lancet-3"
+    title: "Janes Lancet-3 (Izdeliye 52) entry"
+    publisher: "Janes"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rusi-russian-loitering-munition-lancet
+    url: "https://rusi.org/russian-loitering-munition-lancet"
+    title: "RUSI Russian loitering munition technical profile — Lancet family"
+    publisher: "Royal United Services Institute"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: csis-russian-loitering-munition
+    url: "https://www.csis.org/analysis/russian-loitering-munition"
+    title: "CSIS Russian loitering munition reference"
+    publisher: "Center for Strategic and International Studies"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: army-recognition-lancet-3
+    url: "https://www.armyrecognition.com/lancet-3"
+    title: "Army Recognition Lancet-3 reference"
+    publisher: "Army Recognition"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: bellingcat-lancet-3-wreckage
+    url: "https://www.bellingcat.com/lancet-3-wreckage-operations"
+    title: "Bellingcat Lancet-3 wreckage and operations analysis"
+    publisher: "Bellingcat"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: osmp-lancet-3-visual-guide
+    url: "https://osmp.ngo/lancet-3"
+    title: "OSMP Lancet-3 visual guide"
+    publisher: "Open Source Munitions Portal"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rahman-robertson-2018-fixed-wing-class
+    url: "https://www.nature.com/articles/s41598-018-35476-6"
+    title: "Rahman & Robertson — Bird vs UAS micro-Doppler"
+    publisher: "Nature Scientific Reports 8:17396"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: mdpi-drones-2023-fixed-wing-broadside
+    url: "https://www.mdpi.com/2504-446X/7/1/39"
+    title: "Small fixed-wing UAV RCS signature investigation"
+    publisher: "MDPI Drones 2023 7(1):39"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: vtt-25ghz-scaled-s-band
+    url: "internal://tips/science_stack/v3/tip1.txt"
+    title: "VTT 15/25 GHz small-UAS RCS measurements, scaled to S-band"
+    publisher: "VTT / EchoForge internal scaling note"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+tags:
+  - adversary
+  - loitering_munition
+  - russian_origin
+  - x_wing
+  - electric_propulsion
+  - rail_launched
+  - eo_terminal_seeker
+  - operator_in_loop
+  - datalink_active
+  - small_warhead

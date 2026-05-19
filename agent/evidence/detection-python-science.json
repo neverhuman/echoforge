@@ -1,0 +1,132 @@
+{
+  "boundary_id": "detection-python-science-slice",
+  "classification": "advanced-data",
+  "runtime_language": "python",
+  "paths": [
+    "detection/"
+  ],
+  "files": [
+    {
+      "path": "detection/01_cfar_tbd_fusion.py",
+      "sha256": "e08502ae53b0c93d5bcbab2a5cacbed3a63e0de0d8d3ee902b50fdc7da264dca"
+    },
+    {
+      "path": "detection/02_lightgbm_window_gbdt.py",
+      "sha256": "4082f7b5e0afa7a692a79c1532ba737a3cc9c14d6c5aa8bbf8baf52bb01f62a9"
+    },
+    {
+      "path": "detection/03_catboost_ordered_boosting.py",
+      "sha256": "351b552741ec874872a5361751f80d0be4a19f801862e15124bc16c9a1ac56bc"
+    },
+    {
+      "path": "detection/04_tcn_inception_time.py",
+      "sha256": "bf267c40d39eadb14a5a21ffdf14f8ff5a22d0278a70c277d230dd332bdc816b"
+    },
+    {
+      "path": "detection/05_multiview_radar_transformer.py",
+      "sha256": "3662b0e1844392245b4992f6d9d62a0755e98759198fbf6ce4dd31fc91618f95"
+    },
+    {
+      "path": "detection/benchmark_regeneration_report.py",
+      "sha256": "958f1840d2452839c8b10f8a16f83f5192cbb8a75c078c860e9a2ec076f0d3f3"
+    },
+    {
+      "path": "detection/detection_common.py",
+      "sha256": "bf235a6e1a65b7fbd7b5d60446c67edb004f46e82e846d9eb59b91f96e6e6194"
+    },
+    {
+      "path": "detection/detector_osint_family_matrix.py",
+      "sha256": "5cfad525f1a02791a32b3c2d06a3296d68c5d9912bb1e0ad257ad376ba60d0cd"
+    },
+    {
+      "path": "detection/generate_ml_training.py",
+      "sha256": "12320c4042163b3ee18d9388cd49dcc46e4fd346fd7ba113c2128b6827c98414"
+    },
+    {
+      "path": "detection/generate_ml_training_v2.py",
+      "sha256": "579ca15743250b3e9b1834f5aead5607de0af59c1774b049f19d7b3a6645b436"
+    },
+    {
+      "path": "detection/ml_training_acoustic.py",
+      "sha256": "b450dc81635b09460d861227f0b56d171e26f18a2473d9374391a8417d06ab58"
+    },
+    {
+      "path": "detection/ml_training_calibration.py",
+      "sha256": "46f4382319df71def4a631dbd14bc3aa8e1fe1926a5deac3e26a3454ffe1233f"
+    },
+    {
+      "path": "detection/ml_training_config.py",
+      "sha256": "f526a70c7ac7e74a51d287a235d0abfe6f550a6b1a1391fdd88ec1a30e5b7a0a"
+    },
+    {
+      "path": "detection/ml_training_generators.py",
+      "sha256": "90057deca8522b25ce1372ff11aa706bc70a54fd0a330d3f5bb398edd5152758"
+    },
+    {
+      "path": "detection/ml_training_report.py",
+      "sha256": "721ff4805c5d3c540485a8105d42307cf494afee6dd48871f5857e337d995d4d"
+    },
+    {
+      "path": "detection/ml_training_scenarios.py",
+      "sha256": "dabb284e09fd2c518cd44973b8b294ee4d3201a682c390c1f638d8d47a8b0f1e"
+    },
+    {
+      "path": "detection/ml_training_v2_config.py",
+      "sha256": "9c5b3af33147338c4df2758776bc51b8d3020b94cc0d7c3d7ddd49576a652fff"
+    },
+    {
+      "path": "detection/ml_training_v2_diagnostics.py",
+      "sha256": "91866bd6328245ea1c92e446bd4cc862054e5a502b9706b12ccdb403b1d5302d"
+    },
+    {
+      "path": "detection/ml_training_v2_generators.py",
+      "sha256": "fe9ff6bd38d66b6baef78a631669088b017e76ff108a5ab1ab471f96e1c055a0"
+    },
+    {
+      "path": "detection/ml_training_v2_report.py",
+      "sha256": "bf17bb6ed2c3ffe2c239e183aed43bcd9b37a9297abd28a413df36ab07a8ca00"
+    },
+    {
+      "path": "detection/passive_rf_eoir_passive_radar_backlog.py",
+      "sha256": "f2048f0f59b3788fbae645b293219146a0e4b4f31611bdde299e9ca528fe6a45"
+    },
+    {
+      "path": "detection/track_lifecycle_baseline.py",
+      "sha256": "8539c652093ceeeecaa1ed048096561ab0f20c09e31e039ec5f179fbbf938fa3"
+    }
+  ],
+  "checks": [
+    {
+      "id": "manifest-coverage",
+      "status": "passed"
+    },
+    {
+      "id": "payload-hash-match",
+      "status": "passed"
+    },
+    {
+      "id": "no-direct-db-access",
+      "status": "passed"
+    },
+    {
+      "id": "no-product-routes",
+      "status": "passed"
+    },
+    {
+      "id": "no-subprocess",
+      "status": "passed"
+    },
+    {
+      "id": "no-import-escape",
+      "status": "passed"
+    },
+    {
+      "id": "no-builtin-escape",
+      "status": "passed"
+    }
+  ],
+  "summary": {
+    "passed": true,
+    "failed_count": 0
+  }
+}

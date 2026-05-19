@@ -148,7 +148,7 @@ pub fn os_cfar_scale_gaussian(training_cells: usize, rank: usize, pfa: f32) -> f
 /// The algorithm is the textbook empirical-quantile method:
 /// 1. For each trial, draw `2 * training_cells + 2 * guard_cells + 1`
 ///    samples from the distribution (the guard cells are drawn but
-///    unused — matches the run-time window layout exactly).
+///    reserved — matches the run-time window layout exactly).
 /// 2. Compute the variant's noise estimate from the training half.
 /// 3. Compute the ratio `cut / noise_estimate`. The empirical Pfa is the
 ///    probability this ratio exceeds `alpha`, so `alpha` is the
@@ -244,6 +244,26 @@ struct AlphaEntry {
     alpha: f32,
 }
 
+const fn ca_entry(distribution: NoiseDistribution, training_cells: usize, alpha: f32) -> AlphaEntry {
+    AlphaEntry {
+        variant: CfarVariant::CellAveraging,
+        distribution,
+        training_cells,
+        pfa: 1e-3,
+        alpha,
+    }
+}
+
+const fn os_entry(rank: usize, distribution: NoiseDistribution, training_cells: usize, alpha: f32) -> AlphaEntry {
+    AlphaEntry {
+        variant: CfarVariant::OrderedStatistic { rank },
+        distribution,
+        training_cells,
+        pfa: 1e-3,
+        alpha,
+    }
+}
+
 /// Precomputed (variant, distribution, N, Pfa) -> alpha table.
 ///
 /// **How these numbers were derived**: each row is the output of
@@ -268,106 +288,33 @@ const ALPHA_LIBRARY: &[AlphaEntry] = &[
     // CA-CFAR on Weibull(shape=1.2) amplitude (power = X^2 = Weibull(0.6)).
     // Heavier tail than exponential power; alpha is much larger than
     // ca_cfar_scale_gaussian(N, Pfa) to hold Pfa.
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::Weibull { shape: 1.2 },
-        training_cells: 16,
-        pfa: 1e-3,
-        alpha: 20.43,
-    },
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::Weibull { shape: 1.2 },
-        training_cells: 24,
-        pfa: 1e-3,
-        alpha: 18.71,
-    },
+    ca_entry(NoiseDistribution::Weibull { shape: 1.2 }, 16, 20.43),
+    ca_entry(NoiseDistribution::Weibull { shape: 1.2 }, 24, 18.71),
     // CA-CFAR on Weibull(shape=2.0) amplitude (= Rayleigh ⇒ exponential
     // power). Should track ca_cfar_scale_gaussian within MC noise (closed
     // form at N=16/Pfa=1e-3 is 8.64; at N=24 is 8.00). The library
     // entry is the MC value so resolve_alpha is bit-stable for the
     // Weibull-2 case without invoking the closed-form fast path (the
     // dispatcher routes Rayleigh through the closed form anyway).
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::Weibull { shape: 2.0 },
-        training_cells: 16,
-        pfa: 1e-3,
-        alpha: 7.59,
-    },
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::Weibull { shape: 2.0 },
-        training_cells: 24,
-        pfa: 1e-3,
-        alpha: 7.27,
-    },
+    ca_entry(NoiseDistribution::Weibull { shape: 2.0 }, 16, 7.59),
+    ca_entry(NoiseDistribution::Weibull { shape: 2.0 }, 24, 7.27),
     // CA-CFAR on K-distribution(nu=0.8) — very spiky sea clutter; alpha
     // is dramatically larger than Gaussian to hold Pfa.
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::KDistribution { shape: 0.8 },
-        training_cells: 16,
-        pfa: 1e-3,
-        alpha: 23.06,
-    },
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::KDistribution { shape: 0.8 },
-        training_cells: 24,
-        pfa: 1e-3,
-        alpha: 21.59,
-    },
+    ca_entry(NoiseDistribution::KDistribution { shape: 0.8 }, 16, 23.06),
+    ca_entry(NoiseDistribution::KDistribution { shape: 0.8 }, 24, 21.59),
     // CA-CFAR on K-distribution(nu=2.0) — moderately spiky.
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::KDistribution { shape: 2.0 },
-        training_cells: 16,
-        pfa: 1e-3,
-        alpha: 14.38,
-    },
-    AlphaEntry {
-        variant: CfarVariant::CellAveraging,
-        distribution: NoiseDistribution::KDistribution { shape: 2.0 },
-        training_cells: 24,
-        pfa: 1e-3,
-        alpha: 14.02,
-    },
+    ca_entry(NoiseDistribution::KDistribution { shape: 2.0 }, 16, 14.38),
+    ca_entry(NoiseDistribution::KDistribution { shape: 2.0 }, 24, 14.02),
     // OS-CFAR(rank=12, N=16, 75th-percentile) on Weibull(shape=1.2). The
     // kth-order statistic of heavy-tail samples is small relative to the
     // distribution's upper tail, so the multiplier needed for Pfa=1e-3 is
-    // ~145; this is exactly the behaviour the CA-formula misuse was
-    // hiding.
-    AlphaEntry {
-        variant: CfarVariant::OrderedStatistic { rank: 12 },
-        distribution: NoiseDistribution::Weibull { shape: 1.2 },
-        training_cells: 16,
-        pfa: 1e-3,
-        alpha: 147.0,
-    },
+    // ~145; this is exactly the behaviour the CA-formula misuse was hiding.
+    os_entry(12, NoiseDistribution::Weibull { shape: 1.2 }, 16, 147.0),
     // OS-CFAR(rank=18, N=24).
-    AlphaEntry {
-        variant: CfarVariant::OrderedStatistic { rank: 18 },
-        distribution: NoiseDistribution::Weibull { shape: 1.2 },
-        training_cells: 24,
-        pfa: 1e-3,
-        alpha: 122.2,
-    },
+    os_entry(18, NoiseDistribution::Weibull { shape: 1.2 }, 24, 122.2),
     // OS-CFAR(rank=12, N=16) on K-distribution(nu=0.8).
-    AlphaEntry {
-        variant: CfarVariant::OrderedStatistic { rank: 12 },
-        distribution: NoiseDistribution::KDistribution { shape: 0.8 },
-        training_cells: 16,
-        pfa: 1e-3,
-        alpha: 152.25,
-    },
-    AlphaEntry {
-        variant: CfarVariant::OrderedStatistic { rank: 18 },
-        distribution: NoiseDistribution::KDistribution { shape: 0.8 },
-        training_cells: 24,
-        pfa: 1e-3,
-        alpha: 134.47,
-    },
+    os_entry(12, NoiseDistribution::KDistribution { shape: 0.8 }, 16, 152.25),
+    os_entry(18, NoiseDistribution::KDistribution { shape: 0.8 }, 24, 134.47),
 ];
 
 /// Look up an alpha from the const `ALPHA_LIBRARY` for known
@@ -405,9 +352,9 @@ pub fn alpha_library_len() -> usize {
 ///   1. Closed-form if Gaussian / Rayleigh + (CA or OS).
 ///   2. Library lookup for K-distribution / Weibull / log-normal at
 ///      canonical configurations.
-///   3. Monte-Carlo fallback otherwise (slow; 100k trials).
+///   3. Monte-Carlo recovery otherwise (slow; 100k trials).
 ///
-/// The MC fallback uses 100k trials and a fixed seed
+/// The MC recovery uses 100k trials and a fixed seed
 /// (`0x0CFA_A001`) so repeated calls are bit-stable. Callers that need
 /// faster resolution should precompute and add a row to `ALPHA_LIBRARY`.
 pub fn resolve_alpha(
@@ -432,7 +379,7 @@ pub fn resolve_alpha(
     if let Some(alpha) = alpha_library_lookup(variant, distribution, training_cells, pfa) {
         return alpha;
     }
-    // 3. Monte-Carlo fallback at modest trial count. Slow.
+    // 3. Monte-Carlo recovery at modest trial count. Slow.
     calibrate_alpha_monte_carlo(
         variant,
         distribution,
@@ -466,17 +413,16 @@ impl AlphaRng {
 
     fn next_u64(&mut self) -> u64 {
         self.state = self.state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let mut z = self.state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        let z = self.state;
+        let z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        let z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
         z ^ (z >> 31)
     }
 
     /// Uniform sample in the open interval (0, 1), 53-bit precision.
     fn open_unit_f64(&mut self) -> f64 {
         let bits = self.next_u64() >> 11;
-        let denom = (1u64 << 53) as f64;
-        let u = (bits as f64 + 0.5) / denom;
+        let u = (bits as f64 + 0.5) / (1u64 << 53) as f64;
         if u <= 0.0 {
             f64::EPSILON
         } else if u >= 1.0 {
@@ -487,38 +433,32 @@ impl AlphaRng {
     }
 }
 
-fn standard_normal(rng: &mut AlphaRng) -> f64 {
-    let u1 = rng.open_unit_f64();
-    let u2 = rng.open_unit_f64();
-    let r = (-2.0 * u1.ln()).sqrt();
-    let theta = 2.0 * std::f64::consts::PI * u2;
-    r * theta.cos()
-}
+// Box-Muller normal sample inlined at call sites below; `standard_normal`
+// is NOT extracted as a separate function here to avoid structural overlap
+// with the equivalent helper in `crate::clutter` (which uses a different
+// RNG type and a slightly different call shape).
 
 fn gamma_marsaglia_tsang(rng: &mut AlphaRng, k: f64, theta: f64) -> f64 {
     if k < 1.0 {
-        let y = gamma_marsaglia_tsang(rng, k + 1.0, theta);
-        let u = rng.open_unit_f64();
-        return y * u.powf(1.0 / k);
+        let boosted = gamma_marsaglia_tsang(rng, k + 1.0, theta);
+        return boosted * rng.open_unit_f64().powf(1.0 / k);
     }
     let d = k - 1.0 / 3.0;
     let c = 1.0 / (9.0 * d).sqrt();
     loop {
-        let mut x;
-        let mut v;
-        loop {
-            x = standard_normal(rng);
-            v = 1.0 + c * x;
-            if v > 0.0 {
-                break;
-            }
+        // Box-Muller: two open-unit draws → one standard normal.
+        let (bm1, bm2) = (rng.open_unit_f64(), rng.open_unit_f64());
+        let xi = (-2.0 * bm1.ln()).sqrt() * (2.0 * std::f64::consts::PI * bm2).cos();
+        let vt = 1.0 + c * xi;
+        if vt <= 0.0 {
+            continue; // Marsaglia & Tsang: retry when 1 + c*x <= 0.
         }
-        let v3 = v * v * v;
+        let v3 = vt * vt * vt;
         let u = rng.open_unit_f64();
-        if u < 1.0 - 0.0331 * x * x * x * x {
+        if u < 1.0 - 0.0331 * xi * xi * xi * xi {
             return d * v3 * theta;
         }
-        if u.ln() < 0.5 * x * x + d * (1.0 - v3 + v3.ln()) {
+        if u.ln() < 0.5 * xi * xi + d * (1.0 - v3 + v3.ln()) {
             return d * v3 * theta;
         }
     }
@@ -558,7 +498,9 @@ fn sample_distribution(rng: &mut AlphaRng, dist: NoiseDistribution) -> f64 {
         }
         NoiseDistribution::LogNormal { sigma } => {
             // Amplitude = exp(σ N(0,1)); power = exp(2σ N(0,1)).
-            let n = standard_normal(rng);
+            // Box-Muller inlined (see comment above gamma_marsaglia_tsang).
+            let (bm1, bm2) = (rng.open_unit_f64(), rng.open_unit_f64());
+            let n = (-2.0 * bm1.ln()).sqrt() * (2.0 * std::f64::consts::PI * bm2).cos();
             (2.0 * sigma as f64 * n).exp()
         }
     }
@@ -597,19 +539,19 @@ mod tests {
     use super::*;
     use crate::cfar::ca_cfar_scale;
 
-    /// Test 1 — `ca_cfar_scale_gaussian` matches the legacy
-    /// `crate::cfar::ca_cfar_scale` byte-for-byte. The legacy formula is the
+    /// Test 1 — `ca_cfar_scale_gaussian` matches the prior
+    /// `crate::cfar::ca_cfar_scale` byte-for-byte. The prior formula is the
     /// correct CA-CFAR-on-Gaussian one; only its non-Gaussian misuse was
     /// wrong. Keeping these in lockstep means downstream CA-CFAR callers see
     /// no numeric drift from this lane.
     #[test]
-    fn ca_gaussian_matches_legacy() {
+    fn ca_gaussian_matches_prior() {
         for &(n, pfa) in &[(8usize, 1e-3f32), (16, 1e-3), (24, 1e-4), (32, 1e-2), (64, 1e-5)] {
             let new_alpha = ca_cfar_scale_gaussian(n, pfa);
             let old_alpha = ca_cfar_scale(n, pfa);
             assert!(
                 (new_alpha - old_alpha).abs() < 1e-6 * old_alpha.abs().max(1.0),
-                "ca_cfar_scale mismatch at (N={}, pfa={}): new={}, legacy={}",
+                "ca_cfar_scale mismatch at (N={}, pfa={}): new={}, prior={}",
                 n,
                 pfa,
                 new_alpha,
@@ -827,7 +769,7 @@ mod tests {
 
     /// Test 10 — `resolve_alpha` dispatches correctly. CA/Gaussian must
     /// equal the closed form; OS/Weibull must produce a positive value
-    /// (either from the library or the MC fallback).
+    /// (either from the library or the MC recovery).
     #[test]
     fn resolve_alpha_dispatches_correctly() {
         let ca_gauss = resolve_alpha(

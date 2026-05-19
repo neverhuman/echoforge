@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/acoustic_sensor_card.schema.json",
+  "title": "acoustic_sensor_card",
+  "description": "EchoForge acoustic_sensor_card document. Declares a microphone / acoustic-array sensor (single mic, tetrahedral, linear, planar, volumetric) with sample rate, bandwidth, bearing accuracy, and declared detection range envelope against named piston/jet/multirotor target classes. Critical for modeling Ukraine's Sky Fortress 10,000+ microphone net — THE most distinctive C-UAS lesson in tips/detectors/tip1.txt §4.7. Strict-open: vendor names allowed; ISO 9613-2 outdoor sound attenuation as the propagation reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "sensor_name",
+    "mic_count",
+    "array_geometry",
+    "sample_rate_hz",
+    "bandwidth_hz_range"
+  ],
+  "properties": {
+    "id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "acoustic_sensor_card" },
+    "schema_version": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license" },
+    "validation": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation" },
+    "sensor_name": { "type": "string", "minLength": 1 },
+    "vendor": { "type": "string" },
+    "model": { "type": "string" },
+    "mic_count": { "type": "integer", "minimum": 1 },
+    "array_geometry": {
+      "enum": ["single", "stereo_pair", "tetrahedral", "linear", "circular_planar", "planar_grid", "volumetric_3d", "distributed_network"]
+    },
+    "aperture_diameter_m": { "type": "number", "exclusiveMinimum": 0 },
+    "sample_rate_hz": { "type": "number", "exclusiveMinimum": 0 },
+    "bandwidth_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+    "sensitivity_dbv_per_pa": {
+      "type": "number",
+      "description": "Microphone sensitivity (typical: cellphone MEMS ~-38, measurement mic ~-26 dBV/Pa)."
+    },
+    "self_noise_db_a": { "type": "number" },
+    "bearing_accuracy_deg": { "type": "number", "exclusiveMinimum": 0 },
+    "doa_method": {
+      "enum": ["none_single_mic", "time_difference_arrival", "steered_response_power", "music_subspace", "beamforming_dsbf", "minimum_variance_distortionless_response"]
+    },
+    "unit_cost_usd_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+    "form_factor": { "enum": ["smartphone_pole_mount", "fixed_pole", "mast", "vehicle_roof", "soldier_helmet", "uav_payload", "ship_hull", "buried_geophone"] },
+    "network_topology": {
+      "enum": ["standalone", "triangulated_grid", "mesh", "centralized_fusion", "distributed_consensus"]
+    },
+    "network_density_per_km2": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Typical sensor count per km² for a deployed network (Ukraine Sky Fortress ≈ 0.01-0.1 per km² depending on region)."
+    },
+    "declared_detection_envelope": {
+      "description": "Vendor-declared or ISO-9613-2-derived detection range per target class.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_class_slug", "range_m", "conditions"],
+        "properties": {
+          "target_class_slug": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+          "range_m": { "type": "number", "exclusiveMinimum": 0 },
+          "conditions": { "type": "string", "description": "e.g. 'rural night 25 dB ambient', 'urban day 55 dB ambient', 'sea breeze 10 dB upwind penalty'." },
+          "citation_id": { "type": "string" }
+        }
+      }
+    },
+    "weather_dependence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wind_attenuation_db_per_5mps": { "type": "number" },
+        "rain_masking_threshold_mm_per_h": { "type": "number", "minimum": 0 },
+        "temperature_gradient_refraction_factor": { "type": "number" }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id"],
+        "properties": {
+          "citation_id": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

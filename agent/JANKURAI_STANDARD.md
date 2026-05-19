@@ -10,3 +10,4 @@ under `agent/`.
 - Keep generated outputs, solver results, and large artifacts out of Git.
 - Use the smallest credible proof lane for a change.
 
+

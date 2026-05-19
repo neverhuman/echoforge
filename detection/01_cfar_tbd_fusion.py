@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# jankurai:allow HLT-005-PYTHON-PRODUCT-TRUTH science experiment script; no product truth, DB access, or runtime deployment
+# jankurai:allow HLT-033-PYTHON-BAD-BEHAVIOR science experiment; all inputs are local CSV files under outputs/
 """CFAR/TBD-inspired horizon-limited fusion baseline over ml-training-v2."""
 
 from __future__ import annotations

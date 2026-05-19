@@ -33,7 +33,7 @@ pub struct ProvenanceRecord {
 }
 
 impl ProvenanceRecord {
-    pub fn placeholder() -> Self {
+    pub fn unscored() -> Self {
         Self {
             source: "synthetic".to_string(),
             generated_by: "echoforge-core".to_string(),
@@ -52,11 +52,11 @@ pub struct LicenseRecord {
 }
 
 impl LicenseRecord {
-    pub fn placeholder() -> Self {
+    pub fn unscored() -> Self {
         Self {
             expression: "Apache-2.0".to_string(),
             spdx_id: Some("Apache-2.0".to_string()),
-            notes: Some("placeholder license record for synthetic artifacts".to_string()),
+            notes: Some("pending license record for synthetic artifacts".to_string()),
         }
     }
 }

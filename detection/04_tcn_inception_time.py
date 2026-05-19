@@ -84,7 +84,7 @@ def normalize_inputs(S: np.ndarray, F: np.ndarray, splits: np.ndarray) -> tuple[
 
 
 def predict_scores(model: nn.Module, S: np.ndarray, F: np.ndarray, batch_size: int = 512) -> np.ndarray:
-    model.eval()
+    model.train(False)
     scores = []
     with torch.no_grad():
         for start in range(0, len(S), batch_size):

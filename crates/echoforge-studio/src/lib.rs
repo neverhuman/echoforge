@@ -28,6 +28,11 @@ pub struct CatalogEntry {
     pub python_type: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct CatalogFile {
+    schemas: Vec<CatalogEntry>,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct HealthResponse {
     pub service: String,
@@ -76,26 +81,36 @@ pub struct StudioConfig {
 
 impl StudioConfig {
     pub fn from_env() -> Result<Self, StudioError> {
-        let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-        let port = std::env::var("PORT")
-            .unwrap_or_else(|_| "8080".to_string())
-            .parse::<u16>()
-            .map_err(|err| StudioError::Config(format!("invalid PORT: {err}")))?;
-        let service_name = std::env::var("ECHOFORGE_SERVICE_NAME")
-            .unwrap_or_else(|_| DEFAULT_SERVICE_NAME.to_string());
-        let public_base_url = std::env::var("ECHOFORGE_PUBLIC_BASE_URL")
-            .unwrap_or_else(|_| DEFAULT_PUBLIC_BASE_URL.to_string());
-        let catalog_path = PathBuf::from(
-            std::env::var("ECHOFORGE_CATALOG_PATH")
-                .unwrap_or_else(|_| DEFAULT_CATALOG_PATH.to_string()),
-        );
-        let bundle_path = PathBuf::from(
-            std::env::var("ECHOFORGE_BUNDLE_PATH")
-                .unwrap_or_else(|_| DEFAULT_BUNDLE_PATH.to_string()),
-        );
-        let web_dist = PathBuf::from(
-            std::env::var("ECHOFORGE_WEB_DIST").unwrap_or_else(|_| DEFAULT_WEB_DIST.to_string()),
-        );
+        let host = match std::env::var("HOST") {
+            Ok(v) => v,
+            Err(_) => "127.0.0.1".to_string(),
+        };
+        let port = match std::env::var("PORT") {
+            Ok(v) => v,
+            Err(_) => "8080".to_string(),
+        }
+        .parse::<u16>()
+        .map_err(|err| StudioError::Config(format!("invalid PORT: {err}")))?;
+        let service_name = match std::env::var("ECHOFORGE_SERVICE_NAME") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_SERVICE_NAME.to_string(),
+        };
+        let public_base_url = match std::env::var("ECHOFORGE_PUBLIC_BASE_URL") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_PUBLIC_BASE_URL.to_string(),
+        };
+        let catalog_path = PathBuf::from(match std::env::var("ECHOFORGE_CATALOG_PATH") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_CATALOG_PATH.to_string(),
+        });
+        let bundle_path = PathBuf::from(match std::env::var("ECHOFORGE_BUNDLE_PATH") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_BUNDLE_PATH.to_string(),
+        });
+        let web_dist = PathBuf::from(match std::env::var("ECHOFORGE_WEB_DIST") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_WEB_DIST.to_string(),
+        });
 
         Ok(Self {
             host,
@@ -144,7 +159,8 @@ impl StudioState {
             )));
         }
 
-        let catalog_entries: Vec<CatalogEntry> = load_json(&config.catalog_path)?;
+        let catalog_file: CatalogFile = load_json(&config.catalog_path)?;
+        let catalog_entries = catalog_file.schemas;
         let catalog_source = config.catalog_path.display().to_string();
         let validation = load_validation_report(&config.bundle_path)?;
         let catalog = CatalogResponse {
@@ -202,8 +218,8 @@ fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, StudioErr
 }
 
 fn load_validation_report(bundle_path: &Path) -> Result<ValidateReport, StudioError> {
-    let temp = NamedTempFile::new()?;
-    let report_path = temp.path().to_path_buf();
+    let tmp_file = NamedTempFile::new()?;
+    let report_path = tmp_file.path().to_path_buf();
     let args = ValidateArgs {
         bundle: bundle_path.to_path_buf(),
         primitive: Some("auto".to_string()),
