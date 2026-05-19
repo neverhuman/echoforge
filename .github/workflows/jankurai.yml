@@ -156,6 +156,7 @@ jobs:
           mkdir -p target/jankurai
           jankurai proof . --changed-from origin/main --out target/jankurai/proof-plan.json --md target/jankurai/proof-plan.md
       - name: Copy code analysis
+        # catalog-ci: cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md
         run: |
           mkdir -p target/jankurai
           jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md

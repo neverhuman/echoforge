@@ -71,7 +71,15 @@ score:
 
 score-fast:
     mkdir -p target/jankurai
-    jankurai audit . --changed-fast --changed-from origin/main --json target/jankurai/audit-fast.json --md target/jankurai/audit-fast.md
+    jankurai audit . --changed-fast --changed-from origin/main --json target/jankurai/fast-score.json --md target/jankurai/fast-score.md
+
+# Targeted single-package test (no rtk wrapper — for direct narrow-scope proof runs)
+test-pkg pkg:
+    cargo nextest run -p {{pkg}} --locked
+
+# sccache-accelerated cache lane: RUSTC_WRAPPER=sccache with per-package scope
+just-cache pkg:
+    CARGO_INCREMENTAL=0 RUSTC_WRAPPER=sccache cargo nextest run -p {{pkg}} --locked
 
 validate-tier:
     rtk cargo run -p echoforge-cli -- validate tests/science/fixtures/bundles/v1_pass --target-tier v1 || true
@@ -107,6 +115,8 @@ audit:
 
 security:
     jankurai security run . --out target/jankurai/security/evidence.json
+security-lane:
+    bash tools/security-lane.sh
 rust-map:
     jankurai rust map .
 rust-witness:

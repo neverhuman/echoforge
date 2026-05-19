@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:ab497d17a0d76d53c294480b1c5b627a477a9718f29b6d27ff297932b10d63a9",
-  "input_fingerprint": "sha256:705fe9ba138f4fbd01c9c62fc1312f0eb34a5566f2c00ae9654f8d96d7941940",
+  "report_fingerprint": "sha256:209b190dead03b2b57a57ea2fd71b70da8024ac27dcab5e2432fabf41a14fdbf",
+  "input_fingerprint": "sha256:43aad05c995df9d51ea48cb8611f8a82eff926b166da28ddf1eed8ec61223e07",
   "policy_fingerprint": "sha256:93b49ac0ba1aa78be3f9054b8f3c2e8c12e4a9ce4fd495fa425ae92f1b1a30d9",
   "manifest_fingerprints": {
     "owner_map": "sha256:29a2d3e497290283de0f7668b430145a93bc178345800eb25c695dd8373b3c08",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:c1a108b0452a9a0dab4bc32874d88661912ae56f3fde472d4297e89f5e268dd4"
   },
   "dirty_worktree": true,
-  "generated_at": "1779225221",
+  "generated_at": "1779227857",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,23 +25,23 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779225221",
-  "started_at": "1779225221",
-  "elapsed_ms": 9354,
+  "run_id": "1779227857",
+  "started_at": "1779227857",
+  "elapsed_ms": 10001,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 90,
-  "raw_score": 90,
+  "score": 93,
+  "raw_score": 93,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
-    "soft_findings": 3,
+    "soft_findings": 2,
     "ratchet": {
-      "baseline_score": 90,
+      "baseline_score": 93,
       "allowed_drop": 0,
       "passed": true,
       "score_delta": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "52d2aee",
+    "head": "f5533c8",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -73,7 +73,7 @@
     ],
     "mode": "advisory",
     "standard_version": "0.9.0",
-    "auditor_version": "1.4.3",
+    "auditor_version": "1.5.1",
     "schema_version": "1.9.0",
     "paper_edition": "2026.05-ed8",
     "target_stack": "rust-ts-vite-react-postgres-bounded-python"
@@ -337,8 +337,8 @@
     {
       "name": "Security and supply-chain posture",
       "weight": 12,
-      "score": 94,
-      "weighted_points": 11.28,
+      "score": 100,
+      "weighted_points": 12.0,
       "evidence": [
         "lockfile present",
         "secret or dependency scan tooling found",
@@ -353,7 +353,8 @@
         "ci bad-behavior advisory signals: 1",
         "gittools bad-behavior advisory signals: 2",
         "Rust and npm dependency audits are operational commands",
-        "secret scanning command is operational"
+        "secret scanning command is operational",
+        "complete operational security command posture with zero hard language findings"
       ],
       "notes": []
     },
@@ -392,13 +393,15 @@
     {
       "name": "Observability and repair evidence",
       "weight": 8,
-      "score": 80,
-      "weighted_points": 6.4,
+      "score": 98,
+      "weighted_points": 7.84,
       "evidence": [
         "observability libraries or patterns found",
+        "diagnostic shaping hints found",
         "ops/observability directory present",
         "repair receipts or raw artifact language found",
         "agent-friendly exception pattern found",
+        "repair-hint and receipt convention are documented",
         "repair receipt guidance is documented"
       ],
       "notes": [
@@ -424,18 +427,17 @@
     {
       "name": "Jankurai tool adoption and CI replacement",
       "weight": 7,
-      "score": 83,
-      "weighted_points": 5.81,
+      "score": 87,
+      "weighted_points": 6.09,
       "evidence": [
         "control-plane files present",
         "applicable=16",
         "configured=16",
-        "ci_evidence=12",
-        "artifact_verified=12"
+        "ci_evidence=13",
+        "artifact_verified=13"
       ],
       "notes": [
         "some applicable tools lack CI evidence",
-        "missing CI evidence for `copy-code`",
         "missing CI evidence for `ci-bad-behavior`",
         "missing CI evidence for `git-bad-behavior`",
         "missing CI evidence for `release-bad-behavior`"
@@ -515,9 +517,9 @@
     "control_plane_present": true,
     "applicable_count": 16,
     "configured_count": 16,
-    "ci_evidence_count": 12,
-    "artifact_verified_count": 12,
-    "replaced_count": 12,
+    "ci_evidence_count": 13,
+    "artifact_verified_count": 13,
+    "replaced_count": 13,
     "items": [
       {
         "id": "audit-ci",
@@ -621,18 +623,18 @@
         "category": "audit",
         "mode": "auto",
         "applicable": true,
-        "status": "configured",
+        "status": "artifact_verified",
         "replaced_tools": [
           "ad hoc copy-code review",
           "manual duplication triage"
         ],
         "evidence": [
           "mode=auto",
-          "tool-adoption config entry present"
+          "tool-adoption config entry present",
+          "CI command found in workflow",
+          "artifact uploads found: target/jankurai/copy-code.json, target/jankurai/copy-code.md"
         ],
-        "missing": [
-          "CI command evidence"
-        ],
+        "missing": [],
         "local_command": "cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md",
         "ci_command": "cargo run -p jankurai -- copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md",
         "artifact_paths": [
@@ -999,12 +1001,13 @@
         "release-readiness",
         "cost-budget"
       ],
-      "artifact_verified_count": 12,
+      "artifact_verified_count": 13,
       "artifact_verified_tools": [
         "audit-ci",
         "proof-routing",
         "proofbind",
         "proofmark-rust",
+        "copy-code",
         "security",
         "ux-qa",
         "contract-drift",
@@ -1014,12 +1017,13 @@
         "release-readiness",
         "cost-budget"
       ],
-      "ci_evidence_count": 12,
+      "ci_evidence_count": 13,
       "ci_evidence_tools": [
         "audit-ci",
         "proof-routing",
         "proofbind",
         "proofmark-rust",
+        "copy-code",
         "security",
         "ux-qa",
         "contract-drift",
@@ -1052,7 +1056,6 @@
       "control_plane_present": true
     },
     "missing": [
-      "copy-code",
       "ci-bad-behavior",
       "git-bad-behavior",
       "release-bad-behavior"
@@ -1185,9 +1188,9 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-19T21:13:32.301227476+00:00",
+    "generated_at": "2026-05-19T21:57:28.101082895+00:00",
     "repo": ".",
-    "auditor_version": "1.4.3",
+    "auditor_version": "1.5.1",
     "status": "review",
     "policy": {
       "active_source_only": true,
@@ -3405,30 +3408,6 @@
       "lane": "fast",
       "docs_url": "docs/testing.md",
       "owner": "governance"
-    },
-    {
-      "severity": "medium",
-      "category": "observability",
-      "path": "docs/testing.md",
-      "problem": "`Observability and repair evidence` scored 80 below the standard floor of 85",
-      "agent_fix": "add structured errors, telemetry, and repair receipts that tell the next agent where to rerun proof",
-      "evidence": [
-        "observability libraries or patterns found",
-        "ops/observability directory present",
-        "repair receipts or raw artifact language found",
-        "agent-friendly exception pattern found"
-      ],
-      "check_id": "HLT-017-OPAQUE-OBSERVABILITY:observability",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "repository-scan",
-      "rerun_command": "just score",
-      "fingerprint": "sha256:65f3b47174cc80ae87728fb2987add4bead4b427d73f35dceca1b39297a2f661",
-      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
-      "tlr": "Repair",
-      "lane": "observability",
-      "docs_url": "agent/JANKURAI_STANDARD.md#repair-receipts",
-      "owner": "governance"
     }
   ],
   "agent_fix_queue": [
@@ -3441,16 +3420,6 @@
       "owner": "governance",
       "task": "add fast deterministic build/test targets, caches, and narrow proof lanes for agent iteration",
       "why": "`Build speed signals` scored 80 below the standard floor of 85"
-    },
-    {
-      "path": "docs/testing.md",
-      "priority": "medium",
-      "rule_id": "HLT-017-OPAQUE-OBSERVABILITY",
-      "tlr": "Repair",
-      "lane": "observability",
-      "owner": "governance",
-      "task": "add structured errors, telemetry, and repair receipts that tell the next agent where to rerun proof",
-      "why": "`Observability and repair evidence` scored 80 below the standard floor of 85"
     },
     {
       "path": ".",

@@ -8,6 +8,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 // When OTEL_EXPORTER_OTLP_ENDPOINT is set, spans and metrics are forwarded
 // to an OTLP collector via gRPC; otherwise a no-op in-process provider is used.
 // Env vars: OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_SERVICE_NAME, OTEL_RESOURCE_ATTRIBUTES.
+//
+// Span context: each request id and correlation id from the dataset campaign pipeline
+// propagates through child spans so collectors can filter by request id to reconstruct
+// a full scene-generation → validation chain.
 fn init_otel() {
     let filter = match EnvFilter::try_from_default_env() {
         Ok(f) => f,

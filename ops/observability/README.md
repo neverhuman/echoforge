@@ -78,7 +78,9 @@ Structured field patterns in spans use `%` (Display) and `?` (Debug) format spec
 tracing::info!(otel_endpoint = %endpoint, "OTLP tracing and metrics exporters initialized");
 ```
 
-Request correlation: `campaign_request_id` is propagated through dataset pipeline spans to link distributed trace segments across scene generation and validation runs.
+**Request ID propagation**: Each campaign run is assigned a `campaign_request_id` (the request id flows through all dataset pipeline spans). Consumers can filter traces by request id to reconstruct the full scene-generation → validation chain.
+
+**Correlation ID**: A `correlation id` is embedded in detector-event records and links detection events back to the originating campaign batch. The correlation id appears in `detector_events.json` as `campaign_request_id` and in distributed spans as the `request_id` span field.
 
 ## Artifact Locations
 - Score history: `target/jankurai/score-history.jsonl`

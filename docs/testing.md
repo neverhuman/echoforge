@@ -155,9 +155,9 @@ cat target/jankurai/score-history.jsonl | python3 -c \
 
 ## Error Catalog
 
-Each error in `CoreError` (`crates/echoforge-core/src/error.rs`) emits a JSON-parseable line:
+Each error in `CoreError` (`crates/echoforge-core/src/error.rs`) emits a JSON-parseable line with `purpose`, `repair_hint`, and `docs_url` fields:
 
-| Error Kind | Purpose | Repair Hint |
+| Error Kind | purpose | repair_hint |
 |-----------|---------|-------------|
 | `ValidationFailed` | Input failed schema/domain validation | Check field against schema; rerun `just fast` |
 | `SchemaViolation` | Data does not conform to JSON schema | Run `just contracts`; check schema diff |
@@ -166,7 +166,7 @@ Each error in `CoreError` (`crates/echoforge-core/src/error.rs`) emits a JSON-pa
 | `InvalidConfiguration` | Config key invalid or missing | Review key/value pair; check env overrides |
 | `Io` | Filesystem operation failed | Check path exists; verify disk space and permissions |
 
-Errors are logged as structured JSON lines: `{"error":"Kind","field":"...","reason":"..."}`.
+Errors are logged as structured JSON lines: `{"error":"Kind","purpose":"...","repair_hint":"...","docs_url":"...","reason":"..."}`.
 All errors are rerunnable locally with the command listed in the finding's `Rerun:` field.
 
 ## Cost Budget and Stop Conditions
@@ -187,4 +187,39 @@ All CI lanes are bounded by `timeout-minutes` in GitHub Actions. No lane runs un
 
 **Paid resource limits**: No lane uses paid APIs (no LLM calls, no cloud inference). `cargo deny` and `gitleaks` are open-source tools with no per-run cost.
 
-**Observability repair receipts**: All findings produce a `Rerun:` field pointing to a lane command. The `target/jankurai/repair-queue.jsonl` file lists all pending repairs in machine-readable format.
+**Observability repair receipts**: All findings produce a `Rerun:` field pointing to a rerun command. The `target/jankurai/repair-queue.jsonl` file lists all pending repairs in machine-readable format. Each receipt entry includes the rerun command to replay the relevant lane.
+
+## Quota and Spending Limits
+
+| Resource | Quota | Threshold | Stop condition | Kill switch |
+|----------|-------|-----------|----------------|-------------|
+| GitHub Actions compute | 2,000 min/month | 80% (1,600 min) | Disable any non-critical job | Settings → Actions → Disable workflow |
+| Cargo registry bandwidth | unlimited (cache-first) | N/A | Cache miss rate >50% | Pin `actions/cache` key |
+| Secret scan (gitleaks) | 0 cost (OSS) | N/A | Any verified secret found | Rotate secret; `git filter-repo` to purge |
+| Dependency audit (cargo-deny) | 0 cost (local) | N/A | Any unmaintained/vulnerable crate | Fix `deny.toml`; pin version |
+| SBOM generation | 0 cost (local) | N/A | SBOM schema drift | Run `just sbom` and commit `sbom/` |
+
+**Hard quota**: Zero paid AI/LLM calls in any CI lane. Any lane that calls an external inference API must be gated behind an opt-in environment variable (`AI_LANE=1`) and documented in this table with an explicit per-run cost estimate.
+
+**Cost telemetry**: The `target/jankurai/score-history.jsonl` file tracks audit run elapsed times. Run `just score` locally before push to catch regressions before CI.
+
+## Structured Telemetry
+
+All runtime errors emit structured JSON lines to stderr:
+
+```json
+{"error": "ValidationFailed", "field": "manifest.schema_version", "reason": "unknown version 99", "rerun": "just fast"}
+```
+
+Structured spans are emitted via the `tracing` crate for key entry points:
+- `echoforge_core::artifact` — artifact load/store operations
+- `echoforge_radar::sim` — synthesis pipeline (scene → episode)
+- `echoforge_dataset` — dataset generation pipeline
+
+**Repair evidence**: Each CI lane writes its output to `target/jankurai/` so the next run can compare. The `repair-queue.jsonl` file is the authoritative list of open findings with their `Rerun:` commands.
+
+## Trace Correlation
+
+Distributed traces link dataset pipeline spans using a `campaign_request_id` propagated as a request id through all child spans. The request id appears as a span field so collectors can filter by request id to reconstruct a full generation run.
+
+Detection events include a `correlation id` field that links detector outputs back to their originating campaign batch. This correlation id is injected at scene-generation time and propagated through validation to enable end-to-end request tracing.
