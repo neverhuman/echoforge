@@ -1,17 +1,17 @@
 {
-  "report_fingerprint": "sha256:9e3ebd61cc8442b04c42b30575f87c11a5d1c5fc3944490846a1761d3ba874cf",
-  "input_fingerprint": "sha256:81a2f47485d24d3e2943608406f6dde8adb4d4ed2631aa24e55b5fcd7f919c06",
+  "report_fingerprint": "sha256:ab497d17a0d76d53c294480b1c5b627a477a9718f29b6d27ff297932b10d63a9",
+  "input_fingerprint": "sha256:705fe9ba138f4fbd01c9c62fc1312f0eb34a5566f2c00ae9654f8d96d7941940",
   "policy_fingerprint": "sha256:93b49ac0ba1aa78be3f9054b8f3c2e8c12e4a9ce4fd495fa425ae92f1b1a30d9",
   "manifest_fingerprints": {
     "owner_map": "sha256:29a2d3e497290283de0f7668b430145a93bc178345800eb25c695dd8373b3c08",
     "test_map": "sha256:a0a6f4ee8088a77993e259d13d5f4f56af57c4af3573aa7d9a9d28f089711b17",
     "generated_zones": "sha256:8640f0886f351c9333b8152813db790cbf40e01efa18841f57758706c4f00566",
     "boundaries": "sha256:dbf86cc35f7161d8d0a313c112d9f561220d9d5888dd86bbe5282bbfee882599",
-    "proof_lanes": "sha256:4fe829e5c6b519bee5b84e85fc8a1b76eed4eca40f2effe6881f524a71af5e60",
+    "proof_lanes": "sha256:64a13920cbe99ab8b09cdd61898e906d961b2012bbb1ce65e975d5849dcc5eed",
     "standard_version": "sha256:c1a108b0452a9a0dab4bc32874d88661912ae56f3fde472d4297e89f5e268dd4"
   },
   "dirty_worktree": true,
-  "generated_at": "1779224497",
+  "generated_at": "1779225221",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,9 +25,9 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779224497",
-  "started_at": "1779224497",
-  "elapsed_ms": 9383,
+  "run_id": "1779225221",
+  "started_at": "1779225221",
+  "elapsed_ms": 9354,
   "scope": {
     "mode": "full",
     "paths": []
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "5b7a3be",
+    "head": "52d2aee",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -1185,7 +1185,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-19T21:01:28.068951055+00:00",
+    "generated_at": "2026-05-19T21:13:32.301227476+00:00",
     "repo": ".",
     "auditor_version": "1.4.3",
     "status": "review",

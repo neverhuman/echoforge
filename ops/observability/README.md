@@ -65,6 +65,21 @@ fn init_otel() {
 
 Env vars: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`.
 
+## Diagnostic Shaping
+
+EchoForge uses structured tracing spans with explicit field shaping to ensure diagnostic signals are machine-readable and agent-navigable.
+
+Key `#[tracing::instrument]` usage:
+- `echoforge_studio::serve_from_env` — root entry point span, no args (avoids config secret leakage)
+- `echoforge_studio::serve` — captures `host` and `port` as span fields for request tracing
+
+Structured field patterns in spans use `%` (Display) and `?` (Debug) format specifiers:
+```rust
+tracing::info!(otel_endpoint = %endpoint, "OTLP tracing and metrics exporters initialized");
+```
+
+Request correlation: `campaign_request_id` is propagated through dataset pipeline spans to link distributed trace segments across scene generation and validation runs.
+
 ## Artifact Locations
 - Score history: `target/jankurai/score-history.jsonl`
 - Security evidence: `target/jankurai/security/evidence.json`

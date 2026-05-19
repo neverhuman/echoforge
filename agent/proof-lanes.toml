@@ -87,3 +87,8 @@ purpose = "secret, dependency, and workflow proof"
 command = "just check"
 name = "release"
 purpose = "full merge gate"
+
+[[lane]]
+command = "jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md"
+name = "copy-code"
+purpose = "Detect and report duplicate code classes across active sources."

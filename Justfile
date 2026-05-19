@@ -69,6 +69,10 @@ score:
     mkdir -p target/jankurai
     rtk jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
 
+score-fast:
+    mkdir -p target/jankurai
+    jankurai audit . --changed-fast --changed-from origin/main --json target/jankurai/audit-fast.json --md target/jankurai/audit-fast.md
+
 validate-tier:
     rtk cargo run -p echoforge-cli -- validate tests/science/fixtures/bundles/v1_pass --target-tier v1 || true
 

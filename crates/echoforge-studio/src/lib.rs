@@ -272,11 +272,13 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
         .fallback_service(static_files)
 }
 
+#[tracing::instrument(name = "studio.serve_from_env")]
 pub async fn serve_from_env() -> Result<(), StudioError> {
     let config = StudioConfig::from_env()?;
     serve(config).await
 }
 
+#[tracing::instrument(name = "studio.serve", fields(host = %config.host, port = %config.port))]
 pub async fn serve(config: StudioConfig) -> Result<(), StudioError> {
     let state = Arc::new(StudioState::load(&config)?);
     let router = build_router(state, config.web_dist.clone());
