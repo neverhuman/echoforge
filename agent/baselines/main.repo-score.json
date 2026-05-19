@@ -1,6 +1,6 @@
 {
-  "report_fingerprint": "sha256:27b6a8fad777449940519865f19fc51361963ff1441ec7d2647dfa1f603e8b6d",
-  "input_fingerprint": "sha256:9d0b036822ee7d1b7d8a140b367c89b219d18b9564e78bb5367411bd32aca972",
+  "report_fingerprint": "sha256:9e3ebd61cc8442b04c42b30575f87c11a5d1c5fc3944490846a1761d3ba874cf",
+  "input_fingerprint": "sha256:81a2f47485d24d3e2943608406f6dde8adb4d4ed2631aa24e55b5fcd7f919c06",
   "policy_fingerprint": "sha256:93b49ac0ba1aa78be3f9054b8f3c2e8c12e4a9ce4fd495fa425ae92f1b1a30d9",
   "manifest_fingerprints": {
     "owner_map": "sha256:29a2d3e497290283de0f7668b430145a93bc178345800eb25c695dd8373b3c08",
@@ -11,7 +11,7 @@
     "standard_version": "sha256:c1a108b0452a9a0dab4bc32874d88661912ae56f3fde472d4297e89f5e268dd4"
   },
   "dirty_worktree": true,
-  "generated_at": "1779221320",
+  "generated_at": "1779224497",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
@@ -25,23 +25,23 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779221320",
-  "started_at": "1779221320",
-  "elapsed_ms": 9088,
+  "run_id": "1779224497",
+  "started_at": "1779224497",
+  "elapsed_ms": 9383,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 88,
-  "raw_score": 88,
+  "score": 90,
+  "raw_score": 90,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
     "passed": true,
     "hard_findings": 0,
-    "soft_findings": 4,
+    "soft_findings": 3,
     "ratchet": {
-      "baseline_score": 88,
+      "baseline_score": 90,
       "allowed_drop": 0,
       "passed": true,
       "score_delta": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "e122a7c",
+    "head": "5b7a3be",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -289,7 +289,8 @@
         "root `README.md` routes to workspace layout",
         "owner map covers audited paths",
         "test map covers audited paths",
-        "authored code file exceeds 500 LOC"
+        "authored code file exceeds 500 LOC",
+        "authored code file exceeds 1000 LOC"
       ],
       "notes": []
     },
@@ -336,20 +337,22 @@
     {
       "name": "Security and supply-chain posture",
       "weight": 12,
-      "score": 78,
-      "weighted_points": 9.36,
+      "score": 94,
+      "weighted_points": 11.28,
       "evidence": [
         "lockfile present",
         "secret or dependency scan tooling found",
         "provenance/SBOM tooling found",
+        "workflow linting tooling found",
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 1176",
+        "rust bad-behavior advisory signals: 1179",
         "typescript bad-behavior advisory signals: 1",
         "docker bad-behavior advisory signals: 3",
         "ci bad-behavior advisory signals: 1",
         "gittools bad-behavior advisory signals: 2",
+        "Rust and npm dependency audits are operational commands",
         "secret scanning command is operational"
       ],
       "notes": []
@@ -363,8 +366,8 @@
         "largest authored code file: crates/echoforge-studio/src/traceability.rs (846 LOC)",
         "code file exceeds 500 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 44 (advisory only, no score impact)",
-        "rust bad-behavior advisory signals: 1176",
+        "copy-code advisory classes found: 97 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 1179",
         "typescript bad-behavior advisory signals: 1",
         "docker bad-behavior advisory signals: 3",
         "ci bad-behavior advisory signals: 1",
@@ -1059,7 +1062,7 @@
     "artifact": {
       "path": "target/jankurai/security/evidence.json",
       "envelope_exit_code": 0,
-      "elapsed_ms": 73098,
+      "elapsed_ms": 85944,
       "wrapper_strict": false,
       "profile": "local",
       "commands_ran": 1,
@@ -1068,8 +1071,8 @@
       "required_commands_skipped": 0,
       "required_commands_failed": 0,
       "blocking_commands": [],
-      "generated_at": "1779220975",
-      "git_head": "e122a7c352376106cff9498f4de7c5096746738e"
+      "generated_at": "1779223162",
+      "git_head": "5b7a3be640ebf7098bdde6a0ff7eadbfad1ed1a6"
     }
   },
   "boundaries": {
@@ -1099,7 +1102,7 @@
           "too-much-python-in-product-surface"
         ],
         "covered_file_count": 22,
-        "covered_line_count": 6868,
+        "covered_line_count": 8816,
         "covered_files": [
           "detection/01_cfar_tbd_fusion.py",
           "detection/02_lightgbm_window_gbdt.py",
@@ -1128,7 +1131,7 @@
           {
             "path": "target/jankurai/boundaries/detection-python-science-slice/evidence.json",
             "status": "loaded",
-            "sha256": "sha256:018b51bd373dd3747255135ded31e8dc54234ac5185d5459712f0d57f5158c7e",
+            "sha256": "sha256:2b373adfd5ca84016023a15442236f0bfd96a3370c6a046f4d54f13d546f694d",
             "file_count": 22,
             "check_count": 7
           }
@@ -1182,7 +1185,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-19T20:08:31.421648452+00:00",
+    "generated_at": "2026-05-19T21:01:28.068951055+00:00",
     "repo": ".",
     "auditor_version": "1.4.3",
     "status": "review",
@@ -1220,22 +1223,635 @@
       ]
     },
     "summary": {
-      "files_scanned": 727,
+      "files_scanned": 729,
       "files_considered": 235,
       "active_files": 235,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 44,
+      "warning_classes": 97,
       "hard_instances": 0,
-      "warning_instances": 103,
-      "duplicate_lines": 167,
-      "duplicate_tokens": 891,
-      "duplicate_bytes": 6340,
-      "total_redundant_lines": 187,
-      "total_redundant_tokens": 952,
-      "total_redundant_bytes": 6962
+      "warning_instances": 219,
+      "duplicate_lines": 858,
+      "duplicate_tokens": 4245,
+      "duplicate_bytes": 34954,
+      "total_redundant_lines": 940,
+      "total_redundant_tokens": 4739,
+      "total_redundant_bytes": 38018
     },
     "classes": [
+      {
+        "id": "copy-code-unit-python-b123ba2402e385be",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "calibration_anchor_specs",
+        "duplicate_lines": 62,
+        "duplicate_tokens": 225,
+        "duplicate_bytes": 3309,
+        "instance_count": 2,
+        "total_redundant_lines": 62,
+        "total_redundant_tokens": 225,
+        "total_redundant_bytes": 3309,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "6bfc58dfec011942",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "calibration_anchor_specs: generate_ml_training.py self-contained copy of ml_training_calibration.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1357,
+            "end_line": 1421,
+            "unit_name": "calibration_anchor_specs"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 106,
+            "end_line": 170,
+            "unit_name": "calibration_anchor_specs"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-ab96a617b0821620",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "negative_control_audit",
+        "duplicate_lines": 62,
+        "duplicate_tokens": 223,
+        "duplicate_bytes": 2891,
+        "instance_count": 2,
+        "total_redundant_lines": 62,
+        "total_redundant_tokens": 223,
+        "total_redundant_bytes": 2891,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a5356a9b4f27f73f",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "negative_control_audit: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1122,
+            "end_line": 1186,
+            "unit_name": "negative_control_audit"
+          },
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 205,
+            "end_line": 267,
+            "unit_name": "negative_control_audit"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-dc9e617000817567",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "operational_metrics",
+        "duplicate_lines": 56,
+        "duplicate_tokens": 318,
+        "duplicate_bytes": 3526,
+        "instance_count": 2,
+        "total_redundant_lines": 56,
+        "total_redundant_tokens": 318,
+        "total_redundant_bytes": 3526,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "4f8f5bb09d721ef4",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "operational_metrics: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1063,
+            "end_line": 1121,
+            "unit_name": "operational_metrics"
+          },
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 146,
+            "end_line": 204,
+            "unit_name": "operational_metrics"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-5571a2bf5c961bae",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "build_kinematics_audit",
+        "duplicate_lines": 31,
+        "duplicate_tokens": 110,
+        "duplicate_bytes": 1663,
+        "instance_count": 2,
+        "total_redundant_lines": 31,
+        "total_redundant_tokens": 110,
+        "total_redundant_bytes": 1663,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "afa706b106368537",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "build_kinematics_audit: generate_ml_training.py self-contained copy of ml_training_calibration.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1235,
+            "end_line": 1268,
+            "unit_name": "build_kinematics_audit"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 302,
+            "end_line": 333,
+            "unit_name": "build_kinematics_audit"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-92010d1b6ebb0140",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "denylist_violations",
+        "duplicate_lines": 27,
+        "duplicate_tokens": 110,
+        "duplicate_bytes": 1042,
+        "instance_count": 2,
+        "total_redundant_lines": 27,
+        "total_redundant_tokens": 110,
+        "total_redundant_bytes": 1042,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "832374cb5f0c4d60",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "denylist_violations: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1018,
+            "end_line": 1047,
+            "unit_name": "denylist_violations"
+          },
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 101,
+            "end_line": 130,
+            "unit_name": "denylist_violations"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-21f253a1d46e6304",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 13,
+        "duplicate_tokens": 122,
+        "duplicate_bytes": 501,
+        "instance_count": 3,
+        "total_redundant_lines": 26,
+        "total_redundant_tokens": 244,
+        "total_redundant_bytes": 1002,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa2ddbced1dd2083",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 894,
+            "end_line": 906
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 325,
+            "end_line": 337
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 307,
+            "end_line": 320
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-f6c3414fb2fa13e7",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 13,
+        "duplicate_tokens": 119,
+        "duplicate_bytes": 486,
+        "instance_count": 3,
+        "total_redundant_lines": 26,
+        "total_redundant_tokens": 238,
+        "total_redundant_bytes": 972,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "aa2ddbced1dd2083",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 893,
+            "end_line": 905
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 324,
+            "end_line": 336
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 306,
+            "end_line": 319
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-b0f8e3b6cce82540",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "group_conditions",
+        "duplicate_lines": 26,
+        "duplicate_tokens": 130,
+        "duplicate_bytes": 1451,
+        "instance_count": 2,
+        "total_redundant_lines": 26,
+        "total_redundant_tokens": 130,
+        "total_redundant_bytes": 1451,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "762df1d57c2892c3",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "group_conditions: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 593,
+            "end_line": 621,
+            "unit_name": "group_conditions"
+          },
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 72,
+            "end_line": 100,
+            "unit_name": "group_conditions"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-0015839467ead8e9",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "aggregate_features",
+        "duplicate_lines": 23,
+        "duplicate_tokens": 128,
+        "duplicate_bytes": 1089,
+        "instance_count": 2,
+        "total_redundant_lines": 23,
+        "total_redundant_tokens": 128,
+        "total_redundant_bytes": 1089,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "70bddf44d982780f",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "aggregate_features: generate_ml_training.py self-contained copy of ml_training_generators.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 992,
+            "end_line": 1017,
+            "unit_name": "aggregate_features"
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 423,
+            "end_line": 446,
+            "unit_name": "aggregate_features"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-b0421341f26282d6",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 20,
+        "duplicate_tokens": 111,
+        "duplicate_bytes": 450,
+        "instance_count": 2,
+        "total_redundant_lines": 20,
+        "total_redundant_tokens": 111,
+        "total_redundant_bytes": 450,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9d4a1b05b0f0b628",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 897,
+            "end_line": 916
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 328,
+            "end_line": 347
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-f2bcb8fc1d870a71",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 20,
+        "duplicate_tokens": 105,
+        "duplicate_bytes": 428,
+        "instance_count": 2,
+        "total_redundant_lines": 20,
+        "total_redundant_tokens": 105,
+        "total_redundant_bytes": 428,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9d4a1b05b0f0b628",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 899,
+            "end_line": 918
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 330,
+            "end_line": 349
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-a7667fb705243e9d",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 20,
+        "duplicate_tokens": 103,
+        "duplicate_bytes": 417,
+        "instance_count": 2,
+        "total_redundant_lines": 20,
+        "total_redundant_tokens": 103,
+        "total_redundant_bytes": 417,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "9d4a1b05b0f0b628",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 898,
+            "end_line": 917
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 329,
+            "end_line": 348
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-3802cddf60f04ada",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "probe_auc",
+        "duplicate_lines": 10,
+        "duplicate_tokens": 49,
+        "duplicate_bytes": 406,
+        "instance_count": 3,
+        "total_redundant_lines": 20,
+        "total_redundant_tokens": 98,
+        "total_redundant_bytes": 812,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "de67743fdea1621d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 97,
+            "end_line": 109,
+            "unit_name": "probe_auc"
+          },
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 28,
+            "end_line": 40,
+            "unit_name": "probe_auc"
+          },
+          {
+            "path": "detection/ml_training_v2_diagnostics.py",
+            "language": "python",
+            "start_line": 69,
+            "end_line": 81,
+            "unit_name": "probe_auc"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-8559a4c754ccdedb",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 19,
+        "duplicate_tokens": 116,
+        "duplicate_bytes": 479,
+        "instance_count": 2,
+        "total_redundant_lines": 19,
+        "total_redundant_tokens": 116,
+        "total_redundant_bytes": 479,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "d16ead2452c56160",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 895,
+            "end_line": 913
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 326,
+            "end_line": 344
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-024bdb38a9e71a7f",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 19,
+        "duplicate_tokens": 114,
+        "duplicate_bytes": 468,
+        "instance_count": 2,
+        "total_redundant_lines": 19,
+        "total_redundant_tokens": 114,
+        "total_redundant_bytes": 468,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "d16ead2452c56160",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 896,
+            "end_line": 914
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 327,
+            "end_line": 345
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-537550156d87afd7",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 19,
+        "duplicate_tokens": 100,
+        "duplicate_bytes": 400,
+        "instance_count": 2,
+        "total_redundant_lines": 19,
+        "total_redundant_tokens": 100,
+        "total_redundant_bytes": 400,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "b3c9d9a0b885435b",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1587,
+            "end_line": 1605
+          },
+          {
+            "path": "detection/ml_training_acoustic.py",
+            "language": "python",
+            "start_line": 55,
+            "end_line": 73
+          }
+        ]
+      },
       {
         "id": "copy-code-unit-python-1959fc140a923cb6",
         "kind": "exact_unit_same_name",
@@ -1273,104 +1889,416 @@
         ]
       },
       {
-        "id": "copy-code-block-python-21f253a1d46e6304",
-        "kind": "token_block",
-        "severity": "warning",
-        "confidence": "medium",
+        "id": "copy-code-unit-python-281dbd6024ed33a1",
+        "kind": "exact_unit_same_name",
+        "severity": "hard",
+        "confidence": "high",
         "language": "python",
-        "duplicate_lines": 13,
-        "duplicate_tokens": 122,
-        "duplicate_bytes": 501,
+        "unit_name": "speed_prior_manifest_payload",
+        "duplicate_lines": 18,
+        "duplicate_tokens": 154,
+        "duplicate_bytes": 1337,
         "instance_count": 2,
-        "total_redundant_lines": 13,
-        "total_redundant_tokens": 122,
-        "total_redundant_bytes": 501,
+        "total_redundant_lines": 18,
+        "total_redundant_tokens": 154,
+        "total_redundant_bytes": 1337,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "246390bb19020933",
-        "reason": "strict token/block duplication exceeded the configured threshold",
-        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "fingerprint": "3f28ad85b2fcafc4",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "suppressed": {
+          "by": "allowlist",
+          "owner": null,
+          "reason": "speed_prior_manifest_payload: generate_ml_training.py self-contained copy of ml_training_report.py — intentional for offline batch harness",
+          "expires": "2026-12-31"
+        },
         "instances": [
           {
-            "path": "detection/ml_training_generators.py",
+            "path": "detection/generate_ml_training.py",
             "language": "python",
-            "start_line": 325,
-            "end_line": 337
+            "start_line": 1214,
+            "end_line": 1234,
+            "unit_name": "speed_prior_manifest_payload"
           },
           {
-            "path": "detection/ml_training_v2_generators.py",
+            "path": "detection/ml_training_report.py",
             "language": "python",
-            "start_line": 307,
-            "end_line": 320
+            "start_line": 53,
+            "end_line": 73,
+            "unit_name": "speed_prior_manifest_payload"
           }
         ]
       },
       {
-        "id": "copy-code-block-python-f6c3414fb2fa13e7",
+        "id": "copy-code-block-python-82757a06429e39a1",
         "kind": "token_block",
         "severity": "warning",
         "confidence": "medium",
         "language": "python",
-        "duplicate_lines": 13,
-        "duplicate_tokens": 119,
-        "duplicate_bytes": 486,
+        "duplicate_lines": 18,
+        "duplicate_tokens": 103,
+        "duplicate_bytes": 426,
         "instance_count": 2,
-        "total_redundant_lines": 13,
-        "total_redundant_tokens": 119,
-        "total_redundant_bytes": 486,
+        "total_redundant_lines": 18,
+        "total_redundant_tokens": 103,
+        "total_redundant_bytes": 426,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "246390bb19020933",
+        "fingerprint": "0fa514784a6cbce0",
         "reason": "strict token/block duplication exceeded the configured threshold",
         "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
         "instances": [
           {
-            "path": "detection/ml_training_generators.py",
+            "path": "detection/generate_ml_training.py",
             "language": "python",
-            "start_line": 324,
-            "end_line": 336
+            "start_line": 886,
+            "end_line": 903
           },
           {
-            "path": "detection/ml_training_v2_generators.py",
+            "path": "detection/ml_training_generators.py",
             "language": "python",
-            "start_line": 306,
-            "end_line": 319
+            "start_line": 317,
+            "end_line": 334
           }
         ]
       },
       {
-        "id": "copy-code-unit-python-3802cddf60f04ada",
+        "id": "copy-code-unit-python-11dda4f9f9085e7a",
         "kind": "exact_unit_same_name",
         "severity": "warning",
         "confidence": "high",
         "language": "python",
-        "unit_name": "probe_auc",
-        "duplicate_lines": 10,
-        "duplicate_tokens": 49,
-        "duplicate_bytes": 406,
+        "unit_name": "acoustic_detection_probability",
+        "duplicate_lines": 18,
+        "duplicate_tokens": 86,
+        "duplicate_bytes": 808,
         "instance_count": 2,
-        "total_redundant_lines": 10,
-        "total_redundant_tokens": 49,
-        "total_redundant_bytes": 406,
+        "total_redundant_lines": 18,
+        "total_redundant_tokens": 86,
+        "total_redundant_bytes": 808,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "c1807af76eeeae48",
+        "fingerprint": "03955c1dc27e4ed3",
         "reason": "same-name semantic unit copied across multiple files",
         "recommended_action": "keep the named unit in one owner and call it from the other sites",
         "instances": [
           {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1571,
+            "end_line": 1591,
+            "unit_name": "acoustic_detection_probability"
+          },
+          {
+            "path": "detection/ml_training_acoustic.py",
+            "language": "python",
+            "start_line": 39,
+            "end_line": 59,
+            "unit_name": "acoustic_detection_probability"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-ce03e29aeee39f74",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 16,
+        "duplicate_tokens": 112,
+        "duplicate_bytes": 459,
+        "instance_count": 2,
+        "total_redundant_lines": 16,
+        "total_redundant_tokens": 112,
+        "total_redundant_bytes": 459,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "24dbd9341300fc99",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 889,
+            "end_line": 904
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 320,
+            "end_line": 335
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-47ebcd54395ad29e",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "one_hot_frame",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 50,
+        "duplicate_bytes": 378,
+        "instance_count": 3,
+        "total_redundant_lines": 16,
+        "total_redundant_tokens": 100,
+        "total_redundant_bytes": 756,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "bcae4c4e9652fbd4",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 110,
+            "end_line": 119,
+            "unit_name": "one_hot_frame"
+          },
+          {
             "path": "detection/ml_training_scenarios.py",
             "language": "python",
-            "start_line": 28,
-            "end_line": 40,
-            "unit_name": "probe_auc"
+            "start_line": 41,
+            "end_line": 51,
+            "unit_name": "one_hot_frame"
           },
           {
             "path": "detection/ml_training_v2_diagnostics.py",
             "language": "python",
-            "start_line": 69,
-            "end_line": 81,
-            "unit_name": "probe_auc"
+            "start_line": 82,
+            "end_line": 92,
+            "unit_name": "one_hot_frame"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-block-python-cfe3fb809e9444a0",
+        "kind": "token_block",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 15,
+        "duplicate_tokens": 106,
+        "duplicate_bytes": 434,
+        "instance_count": 2,
+        "total_redundant_lines": 15,
+        "total_redundant_tokens": 106,
+        "total_redundant_bytes": 434,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "a897e3f35e69ed1c",
+        "reason": "strict token/block duplication exceeded the configured threshold",
+        "recommended_action": "review whether the block is intentional; otherwise consolidate the shared logic behind one owner",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 883,
+            "end_line": 897
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 314,
+            "end_line": 328
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-9fa94f4d3ea35be1",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "SensorArchetype",
+        "duplicate_lines": 15,
+        "duplicate_tokens": 30,
+        "duplicate_bytes": 340,
+        "instance_count": 2,
+        "total_redundant_lines": 15,
+        "total_redundant_tokens": 30,
+        "total_redundant_bytes": 340,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "cd2689a8ab65788f",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 178,
+            "end_line": 194,
+            "unit_name": "SensorArchetype"
+          },
+          {
+            "path": "detection/ml_training_config.py",
+            "language": "python",
+            "start_line": 120,
+            "end_line": 136,
+            "unit_name": "SensorArchetype"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-fa3afcacf2b5516c",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "correlated_noise",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 33,
+        "duplicate_bytes": 202,
+        "instance_count": 3,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 66,
+        "total_redundant_bytes": 404,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ebf49b3717834803",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 566,
+            "end_line": 573,
+            "unit_name": "correlated_noise"
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 45,
+            "end_line": 52,
+            "unit_name": "correlated_noise"
+          },
+          {
+            "path": "detection/ml_training_v2_generators.py",
+            "language": "python",
+            "start_line": 118,
+            "end_line": 125,
+            "unit_name": "correlated_noise"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-ed57c13542da9cd4",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "write_csv",
+        "duplicate_lines": 5,
+        "duplicate_tokens": 22,
+        "duplicate_bytes": 196,
+        "instance_count": 3,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 44,
+        "total_redundant_bytes": 392,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "24e12eac7ec6ab44",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1192,
+            "end_line": 1199,
+            "unit_name": "write_csv"
+          },
+          {
+            "path": "detection/ml_training_report.py",
+            "language": "python",
+            "start_line": 31,
+            "end_line": 38,
+            "unit_name": "write_csv"
+          },
+          {
+            "path": "detection/ml_training_v2_report.py",
+            "language": "python",
+            "start_line": 21,
+            "end_line": 28,
+            "unit_name": "write_csv"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-160dabdc58abcc66",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "FamilyTraits",
+        "duplicate_lines": 10,
+        "duplicate_tokens": 32,
+        "duplicate_bytes": 301,
+        "instance_count": 2,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 32,
+        "total_redundant_bytes": 301,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "95d673b7879e664a",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 195,
+            "end_line": 206,
+            "unit_name": "FamilyTraits"
+          },
+          {
+            "path": "detection/ml_training_config.py",
+            "language": "python",
+            "start_line": 137,
+            "end_line": 148,
+            "unit_name": "FamilyTraits"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-a3611737c440b718",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "SiteArchetype",
+        "duplicate_lines": 10,
+        "duplicate_tokens": 19,
+        "duplicate_bytes": 258,
+        "instance_count": 2,
+        "total_redundant_lines": 10,
+        "total_redundant_tokens": 19,
+        "total_redundant_bytes": 258,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "95d673b7879e664a",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 166,
+            "end_line": 177,
+            "unit_name": "SiteArchetype"
+          },
+          {
+            "path": "detection/ml_training_config.py",
+            "language": "python",
+            "start_line": 108,
+            "end_line": 119,
+            "unit_name": "SiteArchetype"
           }
         ]
       },
@@ -1447,38 +2375,159 @@
         ]
       },
       {
-        "id": "copy-code-unit-python-47ebcd54395ad29e",
+        "id": "copy-code-body-python-c930d8823a539221",
+        "kind": "exact_unit_different_name",
+        "severity": "warning",
+        "confidence": "medium",
+        "language": "python",
+        "duplicate_lines": 3,
+        "duplicate_tokens": 9,
+        "duplicate_bytes": 78,
+        "instance_count": 4,
+        "total_redundant_lines": 9,
+        "total_redundant_tokens": 27,
+        "total_redundant_bytes": 234,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "5b291396abd0f5d2",
+        "reason": "same body appears under different names across files",
+        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1422,
+            "end_line": 1425,
+            "unit_name": "build_calibration_artifacts"
+          },
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1630,
+            "end_line": 1633,
+            "unit_name": "build_acoustic_cue_products"
+          },
+          {
+            "path": "detection/ml_training_acoustic.py",
+            "language": "python",
+            "start_line": 98,
+            "end_line": 101,
+            "unit_name": "build_acoustic_cue_products"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 171,
+            "end_line": 174,
+            "unit_name": "build_calibration_artifacts"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-936ef763d1a7f219",
         "kind": "exact_unit_same_name",
         "severity": "warning",
         "confidence": "high",
         "language": "python",
-        "unit_name": "one_hot_frame",
+        "unit_name": "pad_frames",
         "duplicate_lines": 8,
-        "duplicate_tokens": 50,
-        "duplicate_bytes": 378,
+        "duplicate_tokens": 66,
+        "duplicate_bytes": 471,
         "instance_count": 2,
         "total_redundant_lines": 8,
-        "total_redundant_tokens": 50,
-        "total_redundant_bytes": 378,
+        "total_redundant_tokens": 66,
+        "total_redundant_bytes": 471,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "c496b9575259d44e",
+        "fingerprint": "f6cf653650a83d6d",
         "reason": "same-name semantic unit copied across multiple files",
         "recommended_action": "keep the named unit in one owner and call it from the other sites",
         "instances": [
           {
-            "path": "detection/ml_training_scenarios.py",
+            "path": "detection/generate_ml_training.py",
             "language": "python",
-            "start_line": 41,
-            "end_line": 51,
-            "unit_name": "one_hot_frame"
+            "start_line": 981,
+            "end_line": 991,
+            "unit_name": "pad_frames"
           },
           {
-            "path": "detection/ml_training_v2_diagnostics.py",
+            "path": "detection/ml_training_generators.py",
             "language": "python",
-            "start_line": 82,
-            "end_line": 92,
-            "unit_name": "one_hot_frame"
+            "start_line": 412,
+            "end_line": 422,
+            "unit_name": "pad_frames"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-0b648aa31416a1e7",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "ks_distance_1d_sorted",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 52,
+        "duplicate_bytes": 373,
+        "instance_count": 2,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 52,
+        "total_redundant_bytes": 373,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "ee923f26026b0386",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1312,
+            "end_line": 1322,
+            "unit_name": "ks_distance_1d_sorted"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 61,
+            "end_line": 71,
+            "unit_name": "ks_distance_1d_sorted"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-874f262ca2003cbf",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "speed_profile_for_baseline",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 47,
+        "duplicate_bytes": 341,
+        "instance_count": 2,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 47,
+        "total_redundant_bytes": 341,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "f6cf653650a83d6d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 638,
+            "end_line": 648,
+            "unit_name": "speed_profile_for_baseline"
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 69,
+            "end_line": 79,
+            "unit_name": "speed_profile_for_baseline"
           }
         ]
       },
@@ -1519,6 +2568,150 @@
         ]
       },
       {
+        "id": "copy-code-unit-python-b31faa1a0020e283",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "SpeedPrior",
+        "duplicate_lines": 8,
+        "duplicate_tokens": 23,
+        "duplicate_bytes": 233,
+        "instance_count": 2,
+        "total_redundant_lines": 8,
+        "total_redundant_tokens": 23,
+        "total_redundant_bytes": 233,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "2e557f4aac2a6b90",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 207,
+            "end_line": 217,
+            "unit_name": "SpeedPrior"
+          },
+          {
+            "path": "detection/ml_training_config.py",
+            "language": "python",
+            "start_line": 149,
+            "end_line": 159,
+            "unit_name": "SpeedPrior"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-86e6c6ee397e65ff",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "two_ray_loss_db",
+        "duplicate_lines": 7,
+        "duplicate_tokens": 60,
+        "duplicate_bytes": 382,
+        "instance_count": 2,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 60,
+        "total_redundant_bytes": 382,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "c462e19e218f0e6d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 719,
+            "end_line": 728,
+            "unit_name": "two_ray_loss_db"
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 150,
+            "end_line": 159,
+            "unit_name": "two_ray_loss_db"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-06d30f4fb117959a",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "acoustic_false_source",
+        "duplicate_lines": 7,
+        "duplicate_tokens": 42,
+        "duplicate_bytes": 462,
+        "instance_count": 2,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 42,
+        "total_redundant_bytes": 462,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "15d43f4fc244c88b",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1561,
+            "end_line": 1570,
+            "unit_name": "acoustic_false_source"
+          },
+          {
+            "path": "detection/ml_training_acoustic.py",
+            "language": "python",
+            "start_line": 29,
+            "end_line": 38,
+            "unit_name": "acoustic_false_source"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-be3a5901a43adf94",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "calibration_distance",
+        "duplicate_lines": 7,
+        "duplicate_tokens": 37,
+        "duplicate_bytes": 398,
+        "instance_count": 2,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 37,
+        "total_redundant_bytes": 398,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "edafa28add28bcb7",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1323,
+            "end_line": 1332,
+            "unit_name": "calibration_distance"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 72,
+            "end_line": 81,
+            "unit_name": "calibration_distance"
+          }
+        ]
+      },
+      {
         "id": "copy-code-unit-python-180dac84ea0329a1",
         "kind": "exact_unit_same_name",
         "severity": "warning",
@@ -1551,6 +2744,150 @@
             "start_line": 79,
             "end_line": 88,
             "unit_name": "fmt"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-7d3529215ec253ea",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "range_bin",
+        "duplicate_lines": 7,
+        "duplicate_tokens": 20,
+        "duplicate_bytes": 199,
+        "instance_count": 2,
+        "total_redundant_lines": 7,
+        "total_redundant_tokens": 20,
+        "total_redundant_bytes": 199,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "7b89df4f4e2b089d",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1200,
+            "end_line": 1209,
+            "unit_name": "range_bin"
+          },
+          {
+            "path": "detection/ml_training_report.py",
+            "language": "python",
+            "start_line": 39,
+            "end_line": 48,
+            "unit_name": "range_bin"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-1b2f96196d3733ac",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "wasserstein_1d_sorted",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 48,
+        "duplicate_bytes": 270,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 48,
+        "total_redundant_bytes": 270,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "af60dc405f4497a8",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1303,
+            "end_line": 1311,
+            "unit_name": "wasserstein_1d_sorted"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 52,
+            "end_line": 60,
+            "unit_name": "wasserstein_1d_sorted"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-b67bf9ad1c219c84",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "quantile_samples",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 38,
+        "duplicate_bytes": 270,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 38,
+        "total_redundant_bytes": 270,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "af60dc405f4497a8",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1274,
+            "end_line": 1282,
+            "unit_name": "quantile_samples"
+          },
+          {
+            "path": "detection/ml_training_calibration.py",
+            "language": "python",
+            "start_line": 23,
+            "end_line": 31,
+            "unit_name": "quantile_samples"
+          }
+        ]
+      },
+      {
+        "id": "copy-code-unit-python-c8daeb9e38bcb350",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "stable_seed",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 28,
+        "duplicate_bytes": 277,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 28,
+        "total_redundant_bytes": 277,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "64ab05a0e82d3640",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 84,
+            "end_line": 92,
+            "unit_name": "stable_seed"
+          },
+          {
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 28,
+            "end_line": 36,
+            "unit_name": "stable_seed"
           }
         ]
       },
@@ -1590,6 +2927,42 @@
         ]
       },
       {
+        "id": "copy-code-unit-python-e234a5b3bc6f2d11",
+        "kind": "exact_unit_same_name",
+        "severity": "warning",
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "longest_true_run",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 22,
+        "duplicate_bytes": 153,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 22,
+        "total_redundant_bytes": 153,
+        "effective_severity": "warning",
+        "hard_fail": false,
+        "fingerprint": "cd7901190aaf015c",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
+        "instances": [
+          {
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 1054,
+            "end_line": 1062,
+            "unit_name": "longest_true_run"
+          },
+          {
+            "path": "detection/ml_training_scenarios.py",
+            "language": "python",
+            "start_line": 137,
+            "end_line": 145,
+            "unit_name": "longest_true_run"
+          }
+        ]
+      },
+      {
         "id": "copy-code-body-rust-566d428ca22411f0",
         "kind": "exact_unit_different_name",
         "severity": "warning",
@@ -1625,1273 +2998,110 @@
         ]
       },
       {
-        "id": "copy-code-unit-rust-34c9c1292e95c217",
+        "id": "copy-code-unit-python-1d493ca96c2ec0f2",
         "kind": "exact_unit_same_name",
         "severity": "warning",
         "confidence": "high",
-        "language": "rust",
-        "unit_name": "new",
-        "duplicate_lines": 3,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 31,
-        "instance_count": 3,
+        "language": "python",
+        "unit_name": "write_metadata",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 18,
+        "duplicate_bytes": 164,
+        "instance_count": 2,
         "total_redundant_lines": 6,
-        "total_redundant_tokens": 4,
-        "total_redundant_bytes": 62,
+        "total_redundant_tokens": 18,
+        "total_redundant_bytes": 164,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "0dd894f5a83f3dcf",
+        "fingerprint": "d87afac5e5f27c28",
         "reason": "same-name semantic unit copied across multiple files",
         "recommended_action": "keep the named unit in one owner and call it from the other sites",
         "instances": [
           {
-            "path": "crates/echoforge-radar/src/detectors/ca_cfar.rs",
-            "language": "rust",
-            "start_line": 17,
-            "end_line": 20,
-            "unit_name": "new"
-          },
-          {
-            "path": "crates/echoforge-radar/src/detectors/go_cfar.rs",
-            "language": "rust",
-            "start_line": 18,
-            "end_line": 21,
-            "unit_name": "new"
-          },
-          {
-            "path": "crates/echoforge-radar/src/detectors/so_cfar.rs",
-            "language": "rust",
-            "start_line": 18,
-            "end_line": 21,
-            "unit_name": "new"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-a38c7998908cf6b7",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "default",
-        "duplicate_lines": 3,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 27,
-        "instance_count": 3,
-        "total_redundant_lines": 6,
-        "total_redundant_tokens": 4,
-        "total_redundant_bytes": 54,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "c69e70ad80e27cd0",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/detectors/phase_tiered/tier_arbiter.rs",
-            "language": "rust",
-            "start_line": 54,
-            "end_line": 57,
-            "unit_name": "default"
-          },
-          {
-            "path": "crates/echoforge-solver-contract/src/lib.rs",
-            "language": "rust",
-            "start_line": 309,
-            "end_line": 312,
-            "unit_name": "default"
-          },
-          {
-            "path": "crates/echoforge-solver-sagitta/src/lib.rs",
-            "language": "rust",
-            "start_line": 116,
-            "end_line": 119,
-            "unit_name": "default"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-python-fa3afcacf2b5516c",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "python",
-        "unit_name": "correlated_noise",
-        "duplicate_lines": 5,
-        "duplicate_tokens": 33,
-        "duplicate_bytes": 202,
-        "instance_count": 2,
-        "total_redundant_lines": 5,
-        "total_redundant_tokens": 33,
-        "total_redundant_bytes": 202,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "bce7e885201d37b7",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "detection/ml_training_generators.py",
+            "path": "detection/generate_ml_training.py",
             "language": "python",
-            "start_line": 45,
-            "end_line": 52,
-            "unit_name": "correlated_noise"
+            "start_line": 1878,
+            "end_line": 1884,
+            "unit_name": "write_metadata"
           },
-          {
-            "path": "detection/ml_training_v2_generators.py",
-            "language": "python",
-            "start_line": 118,
-            "end_line": 125,
-            "unit_name": "correlated_noise"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-python-bd90c590d1c4f958",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "python",
-        "unit_name": "parse_args",
-        "duplicate_lines": 5,
-        "duplicate_tokens": 31,
-        "duplicate_bytes": 309,
-        "instance_count": 2,
-        "total_redundant_lines": 5,
-        "total_redundant_tokens": 31,
-        "total_redundant_bytes": 309,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "1939cc25c91fb524",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "detection/benchmark_regeneration_report.py",
-            "language": "python",
-            "start_line": 42,
-            "end_line": 49,
-            "unit_name": "parse_args"
-          },
-          {
-            "path": "detection/track_lifecycle_baseline.py",
-            "language": "python",
-            "start_line": 71,
-            "end_line": 78,
-            "unit_name": "parse_args"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-python-ed57c13542da9cd4",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "python",
-        "unit_name": "write_csv",
-        "duplicate_lines": 5,
-        "duplicate_tokens": 22,
-        "duplicate_bytes": 196,
-        "instance_count": 2,
-        "total_redundant_lines": 5,
-        "total_redundant_tokens": 22,
-        "total_redundant_bytes": 196,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "c41e107546bc132d",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
           {
             "path": "detection/ml_training_report.py",
             "language": "python",
-            "start_line": 31,
-            "end_line": 38,
-            "unit_name": "write_csv"
-          },
-          {
-            "path": "detection/ml_training_v2_report.py",
-            "language": "python",
-            "start_line": 21,
-            "end_line": 28,
-            "unit_name": "write_csv"
+            "start_line": 74,
+            "end_line": 80,
+            "unit_name": "write_metadata"
           }
         ]
       },
       {
-        "id": "copy-code-body-rust-b0e2569b9280c62c",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 5,
-        "duplicate_tokens": 9,
-        "duplicate_bytes": 105,
-        "instance_count": 2,
-        "total_redundant_lines": 5,
-        "total_redundant_tokens": 9,
-        "total_redundant_bytes": 105,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "7923d5110c5b375e",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-dataset/src/campaign/reporting.rs",
-            "language": "rust",
-            "start_line": 608,
-            "end_line": 613,
-            "unit_name": "campaign_guardrails"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/ml_training/report.rs",
-            "language": "rust",
-            "start_line": 558,
-            "end_line": 563,
-            "unit_name": "guardrails"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-8056c1b2af789214",
+        "id": "copy-code-unit-python-de2c5b4990cda5b0",
         "kind": "exact_unit_same_name",
         "severity": "warning",
         "confidence": "high",
-        "language": "rust",
-        "unit_name": "elapsed_ns",
-        "duplicate_lines": 2,
-        "duplicate_tokens": 10,
-        "duplicate_bytes": 65,
-        "instance_count": 3,
-        "total_redundant_lines": 4,
-        "total_redundant_tokens": 20,
-        "total_redundant_bytes": 130,
+        "language": "python",
+        "unit_name": "frame_observation_samples",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 18,
+        "duplicate_bytes": 159,
+        "instance_count": 2,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 18,
+        "total_redundant_bytes": 159,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "6ac002db9ba8ce58",
+        "fingerprint": "af60dc405f4497a8",
         "reason": "same-name semantic unit copied across multiple files",
         "recommended_action": "keep the named unit in one owner and call it from the other sites",
         "instances": [
           {
-            "path": "crates/echoforge-dataset/src/campaign/rng.rs",
-            "language": "rust",
-            "start_line": 6,
-            "end_line": 8,
-            "unit_name": "elapsed_ns"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/ml_training/util.rs",
-            "language": "rust",
-            "start_line": 387,
-            "end_line": 389,
-            "unit_name": "elapsed_ns"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/monte_carlo/helpers.rs",
-            "language": "rust",
-            "start_line": 69,
-            "end_line": 71,
-            "unit_name": "elapsed_ns"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-3328504273043e39",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 4,
-        "duplicate_bytes": 68,
-        "instance_count": 5,
-        "total_redundant_lines": 4,
-        "total_redundant_tokens": 16,
-        "total_redundant_bytes": 272,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "c4ab978f12030f6e",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-dataset/src/scenarios.rs",
-            "language": "rust",
-            "start_line": 254,
-            "end_line": 255,
-            "unit_name": "embedded_uae_coastal_parses"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/scenarios.rs",
-            "language": "rust",
-            "start_line": 267,
-            "end_line": 268,
-            "unit_name": "embedded_scenario_has_exactly_three_launch_sites"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/scenarios.rs",
-            "language": "rust",
-            "start_line": 283,
-            "end_line": 284,
-            "unit_name": "embedded_scenario_ranges_are_50_100_150_km"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/scenarios.rs",
-            "language": "rust",
-            "start_line": 302,
-            "end_line": 303,
-            "unit_name": "embedded_scenario_sensor_frequency_is_s_band"
-          },
-          {
-            "path": "crates/echoforge-dataset/src/scenarios.rs",
-            "language": "rust",
-            "start_line": 315,
-            "end_line": 316,
-            "unit_name": "embedded_scenario_antenna_height_is_twenty_m_agl"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-0e8fc78ed197dfd4",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 3,
-        "duplicate_bytes": 32,
-        "instance_count": 5,
-        "total_redundant_lines": 4,
-        "total_redundant_tokens": 12,
-        "total_redundant_bytes": 128,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "429db21b75904de9",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-studio/src/mesh_serve.rs",
-            "language": "rust",
-            "start_line": 422,
-            "end_line": 423,
-            "unit_name": "list_endpoint_returns_five_primitive_ids"
-          },
-          {
-            "path": "crates/echoforge-studio/src/mesh_serve.rs",
-            "language": "rust",
-            "start_line": 457,
-            "end_line": 458,
-            "unit_name": "sphere_endpoint_returns_binary_stl_with_expected_content_type"
-          },
-          {
-            "path": "crates/echoforge-studio/src/mesh_serve.rs",
-            "language": "rust",
-            "start_line": 500,
-            "end_line": 501,
-            "unit_name": "unknown_primitive_returns_404"
-          },
-          {
-            "path": "crates/echoforge-studio/src/mesh_serve.rs",
-            "language": "rust",
-            "start_line": 521,
-            "end_line": 522,
-            "unit_name": "invalid_parameter_returns_400"
-          },
-          {
-            "path": "crates/echoforge-studio/src/mesh_serve.rs",
-            "language": "rust",
-            "start_line": 542,
-            "end_line": 543,
-            "unit_name": "all_primitives_round_trip_via_http"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-7d20b3e637063ead",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 5,
-        "duplicate_bytes": 32,
-        "instance_count": 4,
-        "total_redundant_lines": 3,
-        "total_redundant_tokens": 15,
-        "total_redundant_bytes": 96,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "384b332261a6b9ba",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-dataset/src/monte_carlo/helpers.rs",
-            "language": "rust",
-            "start_line": 243,
-            "end_line": 244,
-            "unit_name": "records_jsonl"
-          },
-          {
-            "path": "crates/echoforge-radar/src/empirical_pfa.rs",
-            "language": "rust",
-            "start_line": 390,
-            "end_line": 391,
-            "unit_name": "render_markdown"
-          },
-          {
-            "path": "crates/echoforge-radar/src/empirical_pfa.rs",
-            "language": "rust",
-            "start_line": 439,
-            "end_line": 440,
-            "unit_name": "render_jsonl"
-          },
-          {
-            "path": "crates/echoforge-studio/src/traceability.rs",
-            "language": "rust",
-            "start_line": 540,
-            "end_line": 541,
-            "unit_name": "humanize_class_id"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-0303e81793eb70ee",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 3,
-        "duplicate_bytes": 27,
-        "instance_count": 4,
-        "total_redundant_lines": 3,
-        "total_redundant_tokens": 9,
-        "total_redundant_bytes": 81,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "0893ddd3b2929c93",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 388,
-            "end_line": 389,
-            "unit_name": "evaluate_passes_when_all_distances_within_tolerance"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 425,
-            "end_line": 426,
-            "unit_name": "evaluate_fails_when_any_anchor_exceeds_tolerance"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 478,
-            "end_line": 479,
-            "unit_name": "evaluate_fails_when_observation_is_missing"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 571,
-            "end_line": 572,
-            "unit_name": "evaluate_from_calibration_report_round_trip"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-python-c930d8823a539221",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "python",
-        "duplicate_lines": 3,
-        "duplicate_tokens": 9,
-        "duplicate_bytes": 78,
-        "instance_count": 2,
-        "total_redundant_lines": 3,
-        "total_redundant_tokens": 9,
-        "total_redundant_bytes": 78,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "0d787952b2b37422",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "detection/ml_training_acoustic.py",
+            "path": "detection/generate_ml_training.py",
             "language": "python",
-            "start_line": 98,
-            "end_line": 101,
-            "unit_name": "build_acoustic_cue_products"
+            "start_line": 1333,
+            "end_line": 1339,
+            "unit_name": "frame_observation_samples"
           },
           {
             "path": "detection/ml_training_calibration.py",
             "language": "python",
-            "start_line": 171,
-            "end_line": 174,
-            "unit_name": "build_calibration_artifacts"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-72d0caaeb6f042f9",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 6,
-        "duplicate_bytes": 37,
-        "instance_count": 3,
-        "total_redundant_lines": 2,
-        "total_redundant_tokens": 12,
-        "total_redundant_bytes": 74,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "7148af6058aa4a42",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 355,
-            "end_line": 356,
-            "unit_name": "env_override_bool"
-          },
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 364,
-            "end_line": 365,
-            "unit_name": "env_override_usize"
-          },
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 369,
-            "end_line": 370,
-            "unit_name": "env_override_u64"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-856d94a4d883bf1d",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 2,
-        "duplicate_tokens": 12,
-        "duplicate_bytes": 45,
-        "instance_count": 2,
-        "total_redundant_lines": 2,
-        "total_redundant_tokens": 12,
-        "total_redundant_bytes": 45,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "6fe2d4f4237ea09e",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-world/src/mesh/tests.rs",
-            "language": "rust",
-            "start_line": 7,
-            "end_line": 9,
-            "unit_name": "dot"
-          },
-          {
-            "path": "crates/echoforge-world/src/mesh_qa/math.rs",
-            "language": "rust",
-            "start_line": 11,
-            "end_line": 13,
-            "unit_name": "dot3"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-b460e57f07556c46",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 2,
-        "duplicate_tokens": 12,
-        "duplicate_bytes": 45,
-        "instance_count": 2,
-        "total_redundant_lines": 2,
-        "total_redundant_tokens": 12,
-        "total_redundant_bytes": 45,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "2931c04b8ecae5a8",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-world/src/mesh/math.rs",
-            "language": "rust",
-            "start_line": 1,
-            "end_line": 3,
-            "unit_name": "sub"
-          },
-          {
-            "path": "crates/echoforge-world/src/mesh_qa/math.rs",
-            "language": "rust",
-            "start_line": 7,
-            "end_line": 9,
-            "unit_name": "sub3"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-e637bcccf10ee477",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 4,
-        "duplicate_bytes": 44,
-        "instance_count": 3,
-        "total_redundant_lines": 2,
-        "total_redundant_tokens": 8,
-        "total_redundant_bytes": 88,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "73f0aa92411f8682",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
-            "language": "rust",
-            "start_line": 185,
-            "end_line": 186,
-            "unit_name": "evaluate_v3_fails_on_low_pd"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
-            "language": "rust",
-            "start_line": 194,
-            "end_line": 195,
-            "unit_name": "evaluate_v3_fails_on_multiple_violations"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
-            "language": "rust",
-            "start_line": 254,
-            "end_line": 255,
-            "unit_name": "nan_pd_is_treated_as_failure"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-84d910b4cc91c62b",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "manifest",
-        "duplicate_lines": 2,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 28,
-        "instance_count": 2,
-        "total_redundant_lines": 2,
-        "total_redundant_tokens": 2,
-        "total_redundant_bytes": 28,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "badf8196730a721e",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "crates/echoforge-sig/src/bundle.rs",
-            "language": "rust",
-            "start_line": 117,
-            "end_line": 119,
-            "unit_name": "manifest"
-          },
-          {
-            "path": "crates/echoforge-sig/src/bundle.rs",
-            "language": "rust",
-            "start_line": 269,
-            "end_line": 271,
-            "unit_name": "manifest"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-python-8d9966b73e672e8b",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "python",
-        "unit_name": "train_and_score",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 15,
-        "duplicate_bytes": 94,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 15,
-        "total_redundant_bytes": 94,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "5f53079548e5c88f",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "detection/02_lightgbm_window_gbdt.py",
-            "language": "python",
-            "start_line": 32,
-            "end_line": 33,
-            "unit_name": "train_and_score"
-          },
-          {
-            "path": "detection/03_catboost_ordered_boosting.py",
-            "language": "python",
-            "start_line": 32,
-            "end_line": 33,
-            "unit_name": "train_and_score"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-5f6fb737012692f3",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 12,
-        "duplicate_bytes": 99,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 12,
-        "total_redundant_bytes": 99,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "29ea8b14f9bb3f18",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-sig/src/tensor.rs",
-            "language": "rust",
-            "start_line": 147,
-            "end_line": 148,
-            "unit_name": "write_f32"
-          },
-          {
-            "path": "crates/echoforge-sig/src/tensor.rs",
-            "language": "rust",
-            "start_line": 153,
-            "end_line": 154,
-            "unit_name": "write_f64"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-d057c26d0073e546",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 11,
-        "duplicate_bytes": 41,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 11,
-        "total_redundant_bytes": 41,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "a62f721c93ad7fac",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 342,
-            "end_line": 343,
-            "unit_name": "wasserstein_zero_for_identical_distributions"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 366,
-            "end_line": 367,
-            "unit_name": "ks_zero_for_identical_distributions"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-python-eb13cdcf58028f00",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "python",
-        "unit_name": "uniform",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 10,
-        "duplicate_bytes": 65,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 10,
-        "total_redundant_bytes": 65,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "ebfbb97169ebac5d",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "detection/ml_training_generators.py",
-            "language": "python",
-            "start_line": 41,
-            "end_line": 44,
-            "unit_name": "uniform"
-          },
-          {
-            "path": "detection/ml_training_v2_generators.py",
-            "language": "python",
-            "start_line": 79,
-            "end_line": 82,
-            "unit_name": "uniform"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-python-e40e49a293d83c5a",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "python",
-        "unit_name": "sigmoid",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 10,
-        "duplicate_bytes": 52,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 10,
-        "total_redundant_bytes": 52,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "ebfbb97169ebac5d",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "detection/ml_training_generators.py",
-            "language": "python",
-            "start_line": 37,
-            "end_line": 40,
-            "unit_name": "sigmoid"
-          },
-          {
-            "path": "detection/ml_training_v2_generators.py",
-            "language": "python",
-            "start_line": 126,
-            "end_line": 129,
-            "unit_name": "sigmoid"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-850e3b63550ae3e6",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 8,
-        "duplicate_bytes": 63,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 8,
-        "total_redundant_bytes": 63,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "e357367dc0494ded",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 521,
-            "end_line": 522,
-            "unit_name": "auto_backend_falls_back_when_gpu_memory_is_too_low"
-          },
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 548,
-            "end_line": 549,
-            "unit_name": "forced_gpu_fails_when_gpu_memory_is_too_low"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-51178ebf68ea4b68",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 8,
-        "duplicate_bytes": 42,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 8,
-        "total_redundant_bytes": 42,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "12171d896f7ba939",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
-            "language": "rust",
-            "start_line": 51,
-            "end_line": 52,
-            "unit_name": "nan_vertex_fails_finite_gate"
-          },
-          {
-            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
-            "language": "rust",
-            "start_line": 62,
-            "end_line": 63,
-            "unit_name": "degenerate_triangle_fails_degenerate_gate"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-63abb4bb874cf06b",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 7,
-        "duplicate_bytes": 40,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 7,
-        "total_redundant_bytes": 40,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "12171d896f7ba939",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
-            "language": "rust",
-            "start_line": 12,
-            "end_line": 13,
-            "unit_name": "sphere_mesh_finite_and_consistent"
-          },
-          {
-            "path": "crates/echoforge-world/src/mesh_qa/tests.rs",
-            "language": "rust",
-            "start_line": 115,
-            "end_line": 116,
-            "unit_name": "sphere_volume_matches_pi_over_six"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-a2ce42d31a05789e",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 6,
-        "duplicate_bytes": 43,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 6,
-        "total_redundant_bytes": 43,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "dc871743cca0fe61",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs",
-            "language": "rust",
-            "start_line": 227,
-            "end_line": 228,
-            "unit_name": "spectral_entropy_bits"
-          },
-          {
-            "path": "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs",
-            "language": "rust",
-            "start_line": 244,
-            "end_line": 245,
-            "unit_name": "doppler_centroid_hz"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-2f544a46383142c5",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 5,
-        "duplicate_bytes": 86,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 5,
-        "total_redundant_bytes": 86,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "a4e2e373aff9aed1",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
-            "language": "rust",
-            "start_line": 175,
-            "end_line": 176,
-            "unit_name": "evaluate_v3_passes_when_every_metric_beats_threshold"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_benchmarked.rs",
-            "language": "rust",
-            "start_line": 263,
-            "end_line": 264,
-            "unit_name": "v3_gate_does_not_mention_v0_v1_v2_strings"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-e70fe0750a0d8651",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 5,
-        "duplicate_bytes": 58,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 5,
-        "total_redundant_bytes": 58,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "06df9f6dc93cf542",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-cli/src/pack.rs",
-            "language": "rust",
-            "start_line": 90,
-            "end_line": 91,
-            "unit_name": "run_list"
-          },
-          {
-            "path": "crates/echoforge-cli/src/pack.rs",
-            "language": "rust",
-            "start_line": 152,
-            "end_line": 153,
-            "unit_name": "run_validate"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-0f469b66731d7ff2",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 5,
-        "duplicate_bytes": 33,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 5,
-        "total_redundant_bytes": 33,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "a62f721c93ad7fac",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 359,
-            "end_line": 360,
-            "unit_name": "wasserstein_handles_empty"
-          },
-          {
-            "path": "crates/echoforge-validate/src/tier_measured_anchored.rs",
-            "language": "rust",
-            "start_line": 381,
-            "end_line": 382,
-            "unit_name": "ks_handles_empty"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-283bae4f35189069",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 5,
-        "duplicate_bytes": 32,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 5,
-        "total_redundant_bytes": 32,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "e357367dc0494ded",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 424,
-            "end_line": 425,
-            "unit_name": "is_device_masked"
-          },
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 433,
-            "end_line": 434,
-            "unit_name": "is_device_restricted"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-unit-rust-38a448361e29a6b9",
-        "kind": "exact_unit_same_name",
-        "severity": "warning",
-        "confidence": "high",
-        "language": "rust",
-        "unit_name": "fmt",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 4,
-        "duplicate_bytes": 34,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 4,
-        "total_redundant_bytes": 34,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "26740460eb8650ef",
-        "reason": "same-name semantic unit copied across multiple files",
-        "recommended_action": "keep the named unit in one owner and call it from the other sites",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 69,
-            "end_line": 70,
-            "unit_name": "fmt"
-          },
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 91,
-            "end_line": 92,
-            "unit_name": "fmt"
-          }
-        ]
-      },
-      {
-        "id": "copy-code-body-rust-0a76d27a920f262f",
-        "kind": "exact_unit_different_name",
-        "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 20,
-        "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 2,
-        "total_redundant_bytes": 20,
-        "effective_severity": "warning",
-        "hard_fail": false,
-        "fingerprint": "e357367dc0494ded",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
-        "instances": [
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
             "start_line": 82,
-            "end_line": 83,
-            "unit_name": "as_str"
-          },
-          {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 245,
-            "end_line": 246,
-            "unit_name": "fmt"
+            "end_line": 88,
+            "unit_name": "frame_observation_samples"
           }
         ]
       },
       {
-        "id": "copy-code-body-rust-693cd8fc1081df02",
-        "kind": "exact_unit_different_name",
+        "id": "copy-code-unit-python-b4d0a05cdc2d35da",
+        "kind": "exact_unit_same_name",
         "severity": "warning",
-        "confidence": "medium",
-        "language": "rust",
-        "duplicate_lines": 1,
-        "duplicate_tokens": 2,
-        "duplicate_bytes": 18,
+        "confidence": "high",
+        "language": "python",
+        "unit_name": "radar_equation_snr_db",
+        "duplicate_lines": 6,
+        "duplicate_tokens": 16,
+        "duplicate_bytes": 170,
         "instance_count": 2,
-        "total_redundant_lines": 1,
-        "total_redundant_tokens": 2,
-        "total_redundant_bytes": 18,
+        "total_redundant_lines": 6,
+        "total_redundant_tokens": 16,
+        "total_redundant_bytes": 170,
         "effective_severity": "warning",
         "hard_fail": false,
-        "fingerprint": "e357367dc0494ded",
-        "reason": "same body appears under different names across files",
-        "recommended_action": "choose one owner for the shared body or intentionally differentiate the behavior",
+        "fingerprint": "64ab05a0e82d3640",
+        "reason": "same-name semantic unit copied across multiple files",
+        "recommended_action": "keep the named unit in one owner and call it from the other sites",
         "instances": [
           {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 480,
-            "end_line": 481,
-            "unit_name": "cpu_only_signals_select_cpu_and_keep_budget"
+            "path": "detection/generate_ml_training.py",
+            "language": "python",
+            "start_line": 692,
+            "end_line": 698,
+            "unit_name": "radar_equation_snr_db"
           },
           {
-            "path": "crates/echoforge-radar/src/backend.rs",
-            "language": "rust",
-            "start_line": 491,
-            "end_line": 492,
-            "unit_name": "auto_backend_prefers_gpu_when_available"
+            "path": "detection/ml_training_generators.py",
+            "language": "python",
+            "start_line": 123,
+            "end_line": 129,
+            "unit_name": "radar_equation_snr_db"
           }
         ]
       }
@@ -2899,7 +3109,8 @@
     "notes": [
       "hard classes are limited to exact active-source file matches and substantial exact same-name units",
       "warning classes include same-body different-name units and token/block duplication",
-      "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set"
+      "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set",
+      "showing the top 50 classes and omitting 47 lower-ranked classes"
     ]
   },
   "profile_structure": {
@@ -3157,43 +3368,19 @@
         "largest authored code file: crates/echoforge-studio/src/traceability.rs (846 LOC)",
         "code file exceeds 500 LOC",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 44 (advisory only, no score impact)"
+        "copy-code advisory classes found: 97 (advisory only, no score impact)"
       ],
       "check_id": "HLT-001-DEAD-MARKER:shape",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:cf97b1902487a66a8a641f9516fc7864c63bc70847714f37c49cc57242b3eeba",
+      "fingerprint": "sha256:cfc071caae8e09e2cc2d45a999f2ba2d96338b017e9cecf5283eee3e0989eb43",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
       "docs_url": "docs/audit-rubric.md#future-hostile-language-rule",
       "owner": "tools"
-    },
-    {
-      "severity": "medium",
-      "category": "security",
-      "path": ".github/workflows/jankurai.yml",
-      "problem": "`Security and supply-chain posture` scored 78 below the standard floor of 85",
-      "agent_fix": "wire secret, dependency, provenance, and workflow scans into an operational CI lane",
-      "evidence": [
-        "lockfile present",
-        "secret or dependency scan tooling found",
-        "provenance/SBOM tooling found",
-        "security lane present"
-      ],
-      "check_id": "HLT-016-SUPPLY-CHAIN-DRIFT:security",
-      "hardness": "soft",
-      "confidence": 0.76,
-      "evidence_kind": "workflow-command",
-      "rerun_command": "just security",
-      "fingerprint": "sha256:d24ab5697e66411af8d5424d1d36ebf888793ebced3685d5fa95bb912e9f12e2",
-      "rule_id": "HLT-016-SUPPLY-CHAIN-DRIFT",
-      "tlr": "Security, secrets, agency",
-      "lane": "security",
-      "docs_url": "docs/audit-rubric.md#top-level-risk-mapping",
-      "owner": "governance"
     },
     {
       "severity": "medium",
@@ -3274,16 +3461,6 @@
       "owner": "tools",
       "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "why": "`Code shape and semantic surface` scored 65 below the standard floor of 85"
-    },
-    {
-      "path": ".github/workflows/jankurai.yml",
-      "priority": "medium",
-      "rule_id": "HLT-016-SUPPLY-CHAIN-DRIFT",
-      "tlr": "Security, secrets, agency",
-      "lane": "security",
-      "owner": "governance",
-      "task": "wire secret, dependency, provenance, and workflow scans into an operational CI lane",
-      "why": "`Security and supply-chain posture` scored 78 below the standard floor of 85"
     }
   ]
 }

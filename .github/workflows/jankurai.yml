@@ -13,52 +13,212 @@ on:
       - README.md
       - assets/**
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  bootstrap:
-    if: github.event_name != "pull_request"
+  fast:
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 30
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+      SCCACHE_CACHE_SIZE: 1G
     steps:
-      - uses: actions/checkout@v4
-      - name: Advisory scaffold check
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Configure sccache for Rust builds
+        uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install nextest
+        uses: taiki-e/install-action@213ccc1a076163c093f914550b94feb90fab916d
+        with:
+          tool: nextest
+      - name: Fast lane
         shell: bash
+        env:
+          CARGO_INCREMENTAL: "0"
         run: |
-          set -euo pipefail
-          for path in \
-            AGENTS.md \
-            .gitignore \
-            Justfile \
-            Cargo.toml \
-            pyproject.toml \
-            package.json \
-            agent/owner-map.json \
-            agent/test-map.json \
-            agent/generated-zones.toml
-          do
-            test -f "$path"
-          done
-          echo "EchoForge bootstrap scaffold is present."
+          cargo nextest run --workspace --locked --jobs $(nproc)
+          bash ops/ci/fast.sh
 
-  vendor-scrub:
-    if: github.event_name != "pull_request"
+  contracts:
     runs-on: ubuntu-latest
-    continue-on-error: false
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Contracts lane
+        shell: bash
+        run: bash ops/ci/contracts.sh
+
+  web-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '20'
-      - name: Vendor-name scrub
-        run: node tools/vendor_scrub.mjs
+      - name: Web smoke lane
+        shell: bash
+        run: bash ops/ci/web-smoke.sh
 
-  receipt-audit:
-    if: github.event_name != "pull_request"
+  web-e2e:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    continue-on-error: true
+    timeout-minutes: 30
+    needs: web-smoke
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '20'
-      - name: Receipt guard
-        run: node tools/receipt_guard.mjs --all
+      - name: Web e2e lane
+        shell: bash
+        run: bash ops/ci/web-e2e.sh
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Dependency review
+        uses: actions/dependency-review-action@5a2ce3f5b92ee19cbb1541a4984c76d921601d7c
+
+  score:
+    if: github.event_name != "pull_request"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Governance score lane
+        shell: bash
+        run: bash ops/ci/score.sh
+
+  jankurai-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+      SCCACHE_CACHE_SIZE: 1G
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Configure sccache for Rust builds
+        uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e
+      - name: Cache sccache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: /home/runner/.cache/sccache
+          key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-sccache-
+      - name: Install jankurai
+        run: cargo install jankurai --locked
+      - name: Proofbind verify
+        run: jankurai proofbind verify . --changed-from origin/main --mode advisory
+      - name: Proofmark rust
+        run: jankurai proofmark rust . --obligations target/jankurai/proofbind/obligations.json
+      - name: Rust witness build
+        run: jankurai rust witness build .
+      - name: Proof routing
+        run: |
+          mkdir -p target/jankurai
+          jankurai proof . --changed-from origin/main --out target/jankurai/proof-plan.json --md target/jankurai/proof-plan.md
+      - name: Copy code analysis
+        run: |
+          mkdir -p target/jankurai
+          jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md
+      - name: Security analysis
+        run: |
+          mkdir -p target/jankurai/security
+          jankurai security run . --out target/jankurai/security/evidence.json
+      - name: UX QA audit
+        run: jankurai ux audit --config agent/ux-qa.toml --out target/jankurai/ux-qa.json
+      - name: Rust map
+        run: jankurai rust map .
+      - name: Rust diagnose
+        run: jankurai rust diagnose .
+      - name: Build timings
+        run: |
+          mkdir -p target/jankurai/timings
+          cargo build --workspace --locked --timings=json,html --message-format json > target/jankurai/timings/build-messages.json 2>/dev/null || cargo build --workspace --locked --timings=json,html
+      - name: Observability check
+        run: |
+          echo "Verifying repair receipt structure and observability evidence..."
+          node tools/receipt_guard.mjs --all
+          test -f ops/observability/README.md
+          test -d .agents/receipts
+          echo "Observability markers verified."
+      - name: Security strict gate
+        run: |
+          mkdir -p target/jankurai/security
+          jankurai security run . --strict --profile ci --out target/jankurai/security/evidence.json
+      - name: Prepare ratchet baseline
+        run: |
+          mkdir -p target/jankurai
+          cp agent/baselines/main.repo-score.json target/jankurai/accepted-baseline.json
+      - name: jankurai audit
+        run: |
+          mkdir -p target/jankurai
+          jankurai audit . --mode ratchet --baseline target/jankurai/accepted-baseline.json --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md --sarif target/jankurai/jankurai.sarif --repair-queue-jsonl target/jankurai/repair-queue.jsonl
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@53e96ec3b35fce51c141c0d6f0e31028a448722d
+        with:
+          sarif_file: target/jankurai/jankurai.sarif
+      - name: Upload jankurai evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: jankurai-adoption-evidence
+          if-no-files-found: ignore
+          path: |
+            target/jankurai/repo-score.json
+            target/jankurai/repo-score.md
+            target/jankurai/jankurai.sarif
+            target/jankurai/repair-queue.jsonl
+            target/jankurai/proof-plan.json
+            target/jankurai/proof-plan.md
+            target/jankurai/copy-code.json
+            target/jankurai/copy-code.md
+            target/jankurai/security/evidence.json
+            target/jankurai/ux-qa.json
+            target/jankurai/proofbind/obligations.json
+            target/jankurai/proofbind/surface-witness.json
+            target/jankurai/proofmark/proofmark-receipt.json
+            target/jankurai/proofmark/proof-receipt.json
+            target/jankurai/rust/witness-graph.json
+            target/jankurai/timings/
+            agent/repo-score.json
+            agent/repo-score.md

@@ -7,6 +7,20 @@ source "$(git rev-parse --show-toplevel)/ops/ci/lib.sh"
 ci_header "Dependency audit (cargo deny)"
 cargo deny check
 
+ci_header "Dependency audit (cargo audit)"
+if command -v cargo-audit >/dev/null 2>&1; then
+  cargo audit
+else
+  echo "cargo-audit not installed; install with: cargo install cargo-audit"
+fi
+
+ci_header "Workflow lint (actionlint)"
+if command -v actionlint >/dev/null 2>&1; then
+  actionlint .github/workflows/*.yml
+else
+  echo "actionlint not installed; install from https://github.com/rhysd/actionlint"
+fi
+
 ci_header "Secret scan (gitleaks)"
 if command -v gitleaks >/dev/null 2>&1; then
   gitleaks detect --source . --no-git

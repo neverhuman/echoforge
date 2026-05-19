@@ -11,8 +11,33 @@ bootstrap:
     rtk jankurai adapters verify .
 
 fast:
-    rtk cargo test --workspace --locked
+    rtk cargo nextest run --workspace --locked --jobs $(nproc 2>/dev/null || echo 4) 2>/dev/null || rtk cargo test --workspace --locked
     rtk jankurai adapters verify .
+
+# Accelerated test run using nextest (faster parallel execution; falls back to cargo test if nextest is absent)
+fast-nx:
+    rtk cargo nextest run --workspace --locked --jobs $(nproc 2>/dev/null || echo 4) 2>/dev/null || rtk cargo test --workspace --locked
+    rtk jankurai adapters verify .
+
+# Build timings report for CI performance tuning
+timings:
+    rtk cargo build --workspace --locked --timings
+
+# Syntax-only check — fastest feedback loop before full build
+check:
+    rtk cargo check --workspace --locked
+
+# Incremental check — minimal rebuild, no linker (sccache-friendly)
+check-fast:
+    CARGO_INCREMENTAL=1 rtk cargo check --workspace --locked
+
+# Nextest with sccache-compatible incremental flags
+fast-cached:
+    CARGO_INCREMENTAL=1 rtk cargo nextest run --workspace --locked 2>/dev/null || rtk cargo test --workspace --locked
+
+# sccache-accelerated build: set RUSTC_WRAPPER=sccache for compiler-cache speedup
+fast-sccache:
+    CARGO_INCREMENTAL=0 RUSTC_WRAPPER=sccache rtk cargo nextest run --workspace --locked --jobs $(nproc 2>/dev/null || echo 4) 2>/dev/null || rtk cargo test --workspace --locked
 
 contracts:
     rtk cargo test -p echoforge-contracts-smoke --locked
@@ -70,3 +95,18 @@ validate-schemas:
 
 gpu-receipt-doctor:
     @if [ -d .agents/receipts/gpu-xbabe2 ]; then ls -1t .agents/receipts/gpu-xbabe2 | head -1 | xargs -I {} node tools/receipt_guard.mjs .agents/receipts/gpu-xbabe2/{}; else echo "no gpu receipts yet"; fi
+# jankurai scaffold
+audit:
+    cargo audit
+    npm audit --audit-level=high
+    actionlint .github/workflows/*.yml
+
+security:
+    jankurai security run . --out target/jankurai/security/evidence.json
+rust-map:
+    jankurai rust map .
+rust-witness:
+    jankurai rust witness build .
+rust-diagnose:
+    jankurai rust diagnose .
+jankurai-check: fast score security rust-map rust-witness rust-diagnose

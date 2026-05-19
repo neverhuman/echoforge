@@ -12,22 +12,57 @@ This directory contains observability-related configurations and documentation f
 
 ## OTEL Configuration
 
-`echoforge-studio` initializes both tracing and metrics exporters at startup via `init_telemetry()`:
+`echoforge-studio` initializes both tracing and metrics exporters at startup via `init_otel()` in `crates/echoforge-studio/src/main.rs`. When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, spans and metrics are forwarded to an OTLP collector via gRPC using `opentelemetry-otlp` with tonic transport:
 
 ```rust
 use opentelemetry::global;
-use opentelemetry_sdk::metrics::SdkMeterProvider;
+use opentelemetry_otlp::{SpanExporter, MetricExporter, WithExportConfig};
+use opentelemetry_sdk::{metrics::SdkMeterProvider, trace::SdkTracerProvider, Resource};
 use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-fn init_telemetry() {
+fn init_otel() {
+    // When OTEL_EXPORTER_OTLP_ENDPOINT is set, configure OTLP gRPC exporters
+    if let Ok(endpoint) = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT") {
+        let resource = Resource::builder()
+            .with_service_name(
+                std::env::var("OTEL_SERVICE_NAME")
+                    .unwrap_or_else(|_| "echoforge-studio".to_string()),
+            )
+            .build();
+        let span_exporter = SpanExporter::builder()
+            .with_tonic()
+            .with_endpoint(&endpoint)
+            .build()
+            .expect("failed to build OTLP span exporter");
+        let tracer_provider = SdkTracerProvider::builder()
+            .with_resource(resource.clone())
+            .with_batch_exporter(span_exporter)
+            .build();
+        global::set_tracer_provider(tracer_provider);
+        let metric_exporter = MetricExporter::builder()
+            .with_tonic()
+            .with_endpoint(&endpoint)
+            .build()
+            .expect("failed to build OTLP metric exporter");
+        let meter_provider = SdkMeterProvider::builder()
+            .with_resource(resource)
+            .with_periodic_exporter(metric_exporter)
+            .build();
+        global::set_meter_provider(meter_provider);
+    } else {
+        let meter_provider = SdkMeterProvider::builder().build();
+        global::set_meter_provider(meter_provider);
+    }
     let otel_layer = OpenTelemetryLayer::new(global::tracer("echoforge-studio"));
-    // ... tracing subscriber setup with otel_layer ...
-    let meter_provider = SdkMeterProvider::builder().build();
-    global::set_meter_provider(meter_provider);
+    tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_subscriber::fmt::layer().with_target(true))
+        .with(otel_layer)
+        .init();
 }
 ```
 
-Wire `opentelemetry_otlp` to forward spans and metrics to an OTLP collector in production.
 Env vars: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES`.
 
 ## Artifact Locations

@@ -1,0 +1,47 @@
+schema_version = "0.1.0"
+
+# These 8 hard-duplicate classes exist because generate_ml_training.py is a
+# monolithic training harness that intentionally mirrors named helper functions
+# from the decomposed ml_training_*.py modules. The duplication is load-bearing:
+# generate_ml_training.py must be self-contained for offline batch runs.
+# Owner: detection/ (Python science boundary). Expires: 2026-12-31.
+
+[[entries]]
+fingerprint = "6bfc58dfec011942"
+reason = "calibration_anchor_specs: generate_ml_training.py self-contained copy of ml_training_calibration.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "a5356a9b4f27f73f"
+reason = "negative_control_audit: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "4f8f5bb09d721ef4"
+reason = "operational_metrics: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "afa706b106368537"
+reason = "build_kinematics_audit: generate_ml_training.py self-contained copy of ml_training_calibration.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "832374cb5f0c4d60"
+reason = "denylist_violations: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "762df1d57c2892c3"
+reason = "group_conditions: generate_ml_training.py self-contained copy of ml_training_scenarios.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "70bddf44d982780f"
+reason = "aggregate_features: generate_ml_training.py self-contained copy of ml_training_generators.py — intentional for offline batch harness"
+expires = "2026-12-31"
+
+[[entries]]
+fingerprint = "3f28ad85b2fcafc4"
+reason = "speed_prior_manifest_payload: generate_ml_training.py self-contained copy of ml_training_report.py — intentional for offline batch harness"
+expires = "2026-12-31"
