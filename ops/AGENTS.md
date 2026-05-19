@@ -28,3 +28,5 @@ Local dev should match CI exactly: `bash scripts/ci-local.sh` runs the same lane
 ```bash
 ln -sf ../../ops/git-hooks/pre-push .git/hooks/pre-push
 ```
+
+<!-- jankurai merge marker: review and merge canonical guidance for ops/AGENTS.md -->

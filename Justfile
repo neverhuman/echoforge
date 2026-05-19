@@ -124,3 +124,5 @@ rust-witness:
 rust-diagnose:
     jankurai rust diagnose .
 jankurai-check: fast score security rust-map rust-witness rust-diagnose
+# jankurai scaffold Justfile
+check: fast score security rust-map rust-witness rust-diagnose

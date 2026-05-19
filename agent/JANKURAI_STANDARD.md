@@ -11,3 +11,5 @@ under `agent/`.
 - Use the smallest credible proof lane for a change.
 
 
+
+<!-- jankurai merge marker: review and merge canonical guidance for agent/JANKURAI_STANDARD.md -->

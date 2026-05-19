@@ -35,3 +35,5 @@ npx playwright test  # E2E tests (requires dev server or preview)
 - One component per file; filename matches component name
 - Use `useCallback` for stable handler refs in `useEffect` deps arrays
 - Loading/error/empty states get dedicated named components (not ternary chains)
+
+<!-- jankurai merge marker: review and merge canonical guidance for apps/web/AGENTS.md -->

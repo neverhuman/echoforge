@@ -52,6 +52,9 @@ outputs/
 *.sqlite
 *.db
 
+# Claude Code agent worktrees (exact copies of source — exclude from tooling scans)
+.claude/worktrees/
+
 # Jankurai/bootstrap scratch
 target/jankurai/
 FUCKIT.md
@@ -81,3 +84,6 @@ sbom/*
 !benchmarks/fixtures/*.ckpt
 !benchmarks/fixtures/*.sqlite
 !benchmarks/fixtures/*.db
+# jankurai scaffold .gitignore
+# Keep Jankurai receipts local without hiding the rest of target/.
+.jankurai/

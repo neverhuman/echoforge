@@ -23,3 +23,5 @@ backward-compatible across minor versions.
 2. Register it in `schema_catalog.json` with a unique `$id`
 3. Run `bash ops/run-lane.sh contracts` to validate
 4. Add a Rust contract test in `tests/contracts/`
+
+<!-- jankurai merge marker: review and merge canonical guidance for contracts/AGENTS.md -->

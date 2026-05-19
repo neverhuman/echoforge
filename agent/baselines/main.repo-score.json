@@ -1,21 +1,21 @@
 {
-  "report_fingerprint": "sha256:209b190dead03b2b57a57ea2fd71b70da8024ac27dcab5e2432fabf41a14fdbf",
-  "input_fingerprint": "sha256:43aad05c995df9d51ea48cb8611f8a82eff926b166da28ddf1eed8ec61223e07",
-  "policy_fingerprint": "sha256:93b49ac0ba1aa78be3f9054b8f3c2e8c12e4a9ce4fd495fa425ae92f1b1a30d9",
+  "report_fingerprint": "sha256:eeccbc095a8ca2b5a7aa50e0731cf6c8a7255571ce0185cc31673f5a56330cfb",
+  "input_fingerprint": "sha256:3b2585d2c62ff4fd0c10b7fd147046589eaf00d9eebc53231fc726c5a56c7f22",
+  "policy_fingerprint": "sha256:89185f82443cdcd93d0bfc555eb31e9c90b301a30ee2965c6aa16dd7273835f1",
   "manifest_fingerprints": {
-    "owner_map": "sha256:29a2d3e497290283de0f7668b430145a93bc178345800eb25c695dd8373b3c08",
-    "test_map": "sha256:a0a6f4ee8088a77993e259d13d5f4f56af57c4af3573aa7d9a9d28f089711b17",
+    "owner_map": "sha256:15065db76594a1d5f76221c8122cd7e065aef00cf17316c32ee0e41529facb63",
+    "test_map": "sha256:34c3a484f4a4d9039b07cbb7fc5b675564a7c0610b1c0ae60a737746dc44e3fc",
     "generated_zones": "sha256:8640f0886f351c9333b8152813db790cbf40e01efa18841f57758706c4f00566",
-    "boundaries": "sha256:dbf86cc35f7161d8d0a313c112d9f561220d9d5888dd86bbe5282bbfee882599",
+    "boundaries": "sha256:09fd2a6cd63c8fcbe205b141cb8205cfe950d92f443b6892fe53e49e4ebbebde",
     "proof_lanes": "sha256:64a13920cbe99ab8b09cdd61898e906d961b2012bbb1ce65e975d5849dcc5eed",
-    "standard_version": "sha256:c1a108b0452a9a0dab4bc32874d88661912ae56f3fde472d4297e89f5e268dd4"
+    "standard_version": "sha256:4e16e755aa8e84ceb22224ad82418a5e8e6492daf6c4ae23907ceea3d2fc715e"
   },
   "dirty_worktree": true,
-  "generated_at": "1779227857",
+  "generated_at": "1779231133",
   "schema_url": "schemas/repo-score.schema.json",
   "standard": "jankurai",
   "standard_version": "0.9.0",
-  "auditor_version": "1.4.3",
+  "auditor_version": "1.5.1",
   "schema_version": "1.9.0",
   "paper_edition": "2026.05-ed8",
   "target_stack_id": "rust-ts-vite-react-postgres-bounded-python",
@@ -25,15 +25,15 @@
   "conformance_decision": "pass",
   "conformance_blockers": [],
   "repo": ".",
-  "run_id": "1779227857",
-  "started_at": "1779227857",
-  "elapsed_ms": 10001,
+  "run_id": "1779231133",
+  "started_at": "1779231133",
+  "elapsed_ms": 8670,
   "scope": {
     "mode": "full",
     "paths": []
   },
-  "score": 93,
-  "raw_score": 93,
+  "score": 95,
+  "raw_score": 95,
   "decision": {
     "status": "advisory",
     "minimum_score": 85,
@@ -41,7 +41,7 @@
     "hard_findings": 0,
     "soft_findings": 2,
     "ratchet": {
-      "baseline_score": 93,
+      "baseline_score": 95,
       "allowed_drop": 0,
       "passed": true,
       "score_delta": 0,
@@ -54,7 +54,7 @@
     }
   },
   "git": {
-    "head": "f5533c8",
+    "head": "1b02afc",
     "base": null,
     "changed_files": 0,
     "mode": "full",
@@ -278,6 +278,16 @@
         "local `AGENTS.md` file(s)",
         "reference-profile cell `web` is canonical",
         "reference-profile cell `web` has local AGENTS.md guidance",
+        "reference-profile cell `api` is canonical",
+        "reference-profile cell `api` has local AGENTS.md guidance",
+        "reference-profile cell `domain` is canonical",
+        "reference-profile cell `domain` has local AGENTS.md guidance",
+        "reference-profile cell `application` is canonical",
+        "reference-profile cell `application` has local AGENTS.md guidance",
+        "reference-profile cell `adapters` is canonical",
+        "reference-profile cell `adapters` has local AGENTS.md guidance",
+        "reference-profile cell `workers` is canonical",
+        "reference-profile cell `workers` has local AGENTS.md guidance",
         "reference-profile cell `contracts` is canonical",
         "reference-profile cell `contracts` has local AGENTS.md guidance",
         "reference-profile cell `db` is canonical",
@@ -347,7 +357,7 @@
         "security lane present",
         "canonical security lane wrapper present",
         "agent-readiness audit gate found in CI",
-        "rust bad-behavior advisory signals: 1179",
+        "rust bad-behavior advisory signals: 1035",
         "typescript bad-behavior advisory signals: 1",
         "docker bad-behavior advisory signals: 3",
         "ci bad-behavior advisory signals: 1",
@@ -361,14 +371,13 @@
     {
       "name": "Code shape and semantic surface",
       "weight": 12,
-      "score": 65,
-      "weighted_points": 7.8,
+      "score": 80,
+      "weighted_points": 9.6,
       "evidence": [
-        "largest authored code file: crates/echoforge-studio/src/traceability.rs (846 LOC)",
-        "code file exceeds 500 LOC",
+        "largest authored code file: crates/echoforge-radar/src/scene.rs (500 LOC)",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 97 (advisory only, no score impact)",
-        "rust bad-behavior advisory signals: 1179",
+        "copy-code advisory classes found: 91 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 1035",
         "typescript bad-behavior advisory signals: 1",
         "docker bad-behavior advisory signals: 3",
         "ci bad-behavior advisory signals: 1",
@@ -496,7 +505,7 @@
       ],
       "layout_stability": [
         "apps/web/agent/repo-score.json",
-        "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs",
+        "crates/echoforge-radar/src/detectors/micro_doppler_classifier_tests.rs",
         "python/ai-service/echoforge_core/models.py",
         "tests/case_studies/src/report.rs",
         "tests/python/test_mie_cross_check.py"
@@ -1081,7 +1090,7 @@
   "boundaries": {
     "artifact": {
       "path": "agent/boundaries.toml",
-      "content_fingerprint": "sha256:dbf86cc35f7161d8d0a313c112d9f561220d9d5888dd86bbe5282bbfee882599",
+      "content_fingerprint": "sha256:09fd2a6cd63c8fcbe205b141cb8205cfe950d92f443b6892fe53e49e4ebbebde",
       "stack_id": "rust-ts-vite-react-postgres-bounded-python",
       "stack_version": "0.1.0",
       "adapter_path_count": 6,
@@ -1188,7 +1197,7 @@
   "copy_code": {
     "schema_version": "1.1.0",
     "generated_by": "jankurai copy-code",
-    "generated_at": "2026-05-19T21:57:28.101082895+00:00",
+    "generated_at": "2026-05-19T22:52:05.395693517+00:00",
     "repo": ".",
     "auditor_version": "1.5.1",
     "status": "review",
@@ -1226,20 +1235,20 @@
       ]
     },
     "summary": {
-      "files_scanned": 729,
-      "files_considered": 235,
-      "active_files": 235,
+      "files_scanned": 759,
+      "files_considered": 242,
+      "active_files": 242,
       "exact_file_classes": 0,
       "hard_classes": 0,
-      "warning_classes": 97,
+      "warning_classes": 91,
       "hard_instances": 0,
-      "warning_instances": 219,
-      "duplicate_lines": 858,
-      "duplicate_tokens": 4245,
-      "duplicate_bytes": 34954,
-      "total_redundant_lines": 940,
-      "total_redundant_tokens": 4739,
-      "total_redundant_bytes": 38018
+      "warning_instances": 201,
+      "duplicate_lines": 852,
+      "duplicate_tokens": 4213,
+      "duplicate_bytes": 34740,
+      "total_redundant_lines": 928,
+      "total_redundant_tokens": 4687,
+      "total_redundant_bytes": 37622
     },
     "classes": [
       {
@@ -3113,12 +3122,12 @@
       "hard classes are limited to exact active-source file matches and substantial exact same-name units",
       "warning classes include same-body different-name units and token/block duplication",
       "tests, fixtures, stories, config, Docker, and migrations are omitted unless --include-tests is set",
-      "showing the top 50 classes and omitting 47 lower-ranked classes"
+      "showing the top 50 classes and omitting 41 lower-ranked classes"
     ]
   },
   "profile_structure": {
-    "applicable_count": 5,
-    "canonical_count": 5,
+    "applicable_count": 10,
+    "canonical_count": 10,
     "noncanonical_count": 0,
     "guidance_missing_count": 0,
     "cells": [
@@ -3143,83 +3152,93 @@
       },
       {
         "id": "api",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "apps/api/",
-        "detected_paths": [],
+        "detected_paths": [
+          "apps/api"
+        ],
         "aliases": [
           "api/",
           "server/",
           "backend/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "apps/api",
         "proof_lane": "edge handler / contract tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `apps/api/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "domain",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/domain/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/domain"
+        ],
         "aliases": [
           "domain/",
           "core/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/domain",
         "proof_lane": "unit / property tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/domain/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "application",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/application/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/application"
+        ],
         "aliases": [
           "application/",
           "usecases/",
           "use-cases/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/application",
         "proof_lane": "use-case / authz tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/application/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "adapters",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/adapters/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/adapters"
+        ],
         "aliases": [
           "adapters/",
           "infra/",
           "integrations/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/adapters",
         "proof_lane": "adapter integration tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/adapters/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "workers",
-        "applicable": false,
-        "status": "not_applicable",
+        "applicable": true,
+        "status": "canonical",
         "canonical_path": "crates/workers/",
-        "detected_paths": [],
+        "detected_paths": [
+          "crates/workers"
+        ],
         "aliases": [
           "workers/",
           "jobs/",
           "scheduler/",
           "queue/"
         ],
-        "guidance_status": "not_required",
+        "guidance_status": "present",
         "owner": "crates/workers",
         "proof_lane": "workflow / replay tests",
-        "agent_fix": "no action"
+        "agent_fix": "keep `crates/workers/AGENTS.md` aligned with owns / forbidden / proof lane guidance"
       },
       {
         "id": "contracts",
@@ -3304,8 +3323,8 @@
       }
     ],
     "evidence": {
-      "applicable_count": 5,
-      "canonical_count": 5,
+      "applicable_count": 10,
+      "canonical_count": 10,
       "detected_cells": [
         {
           "canonical_path": "apps/web/",
@@ -3314,6 +3333,51 @@
           ],
           "guidance_status": "present",
           "id": "web",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "apps/api/",
+          "detected_paths": [
+            "apps/api"
+          ],
+          "guidance_status": "present",
+          "id": "api",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/domain/",
+          "detected_paths": [
+            "crates/domain"
+          ],
+          "guidance_status": "present",
+          "id": "domain",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/application/",
+          "detected_paths": [
+            "crates/application"
+          ],
+          "guidance_status": "present",
+          "id": "application",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/adapters/",
+          "detected_paths": [
+            "crates/adapters"
+          ],
+          "guidance_status": "present",
+          "id": "adapters",
+          "status": "canonical"
+        },
+        {
+          "canonical_path": "crates/workers/",
+          "detected_paths": [
+            "crates/workers"
+          ],
+          "guidance_status": "present",
+          "id": "workers",
           "status": "canonical"
         },
         {
@@ -3365,20 +3429,20 @@
       "severity": "medium",
       "category": "shape",
       "path": ".",
-      "problem": "`Code shape and semantic surface` scored 65 below the standard floor of 85",
+      "problem": "`Code shape and semantic surface` scored 80 below the standard floor of 85",
       "agent_fix": "split large or ambiguous authored code into smaller semantic modules with focused tests",
       "evidence": [
-        "largest authored code file: crates/echoforge-studio/src/traceability.rs (846 LOC)",
-        "code file exceeds 500 LOC",
+        "largest authored code file: crates/echoforge-radar/src/scene.rs (500 LOC)",
         "most code files stay under 300 LOC",
-        "copy-code advisory classes found: 97 (advisory only, no score impact)"
+        "copy-code advisory classes found: 91 (advisory only, no score impact)",
+        "rust bad-behavior advisory signals: 1035"
       ],
       "check_id": "HLT-001-DEAD-MARKER:shape",
       "hardness": "soft",
       "confidence": 0.76,
       "evidence_kind": "repository-scan",
       "rerun_command": "just fast",
-      "fingerprint": "sha256:cfc071caae8e09e2cc2d45a999f2ba2d96338b017e9cecf5283eee3e0989eb43",
+      "fingerprint": "sha256:f91e62218fe86853152d8d151912b674b7fa60e900de7a2568dfe0c97c9f6eef",
       "rule_id": "HLT-001-DEAD-MARKER",
       "tlr": "Entropy",
       "lane": "fast",
@@ -3429,7 +3493,7 @@
       "lane": "fast",
       "owner": "tools",
       "task": "split large or ambiguous authored code into smaller semantic modules with focused tests",
-      "why": "`Code shape and semantic surface` scored 65 below the standard floor of 85"
+      "why": "`Code shape and semantic surface` scored 80 below the standard floor of 85"
     }
   ]
 }

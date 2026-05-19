@@ -3,6 +3,10 @@ classification = "advanced-data"
 id = "detection-python-science-slice"
 paths = ["detection/*.py"]
 product_surface = false
+reclassifies = [
+    "non-optimal-product-language-found",
+    "too-much-python-in-product-surface",
+]
 required_checks = [
     "manifest-coverage",
     "payload-hash-match",
@@ -24,6 +28,10 @@ paths = [
     "python/ai-service/**/*.py",
 ]
 product_surface = false
+reclassifies = [
+    "non-optimal-product-language-found",
+    "too-much-python-in-product-surface",
+]
 required_checks = [
     "manifest-coverage",
     "payload-hash-match",
@@ -43,7 +51,10 @@ migration_paths = ["db/migrations"]
 root_paths = ["db"]
 
 [python]
-allowed_non_product_paths = ["detection/", "python/ai-service/"]
+allowed_non_product_paths = [
+    "detection/",
+    "python/ai-service/",
+]
 allowed_truth_paths = ["python/ai-service"]
 
 [queues]

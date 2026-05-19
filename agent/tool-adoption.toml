@@ -37,9 +37,9 @@ id = "proofmark-rust"
 mode = "auto"
 
 [[tools]]
+ci_command = "jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md"
 id = "copy-code"
 mode = "auto"
-ci_command = "jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md"
 
 [[tools]]
 id = "authz-matrix"

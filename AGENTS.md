@@ -61,3 +61,5 @@ EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. T
 - Rust + Vite + TypeScript + React only outside deep science.
 - Python is reserved for deep-science cross-checks (Mie series scipy oracle, validators that need scipy/numpy). All product, control-plane, and tooling code lives in Rust or TypeScript.
 
+
+<!-- jankurai merge marker: review and merge canonical guidance for AGENTS.md -->
