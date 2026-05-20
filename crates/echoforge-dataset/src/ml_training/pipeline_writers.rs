@@ -10,8 +10,7 @@ use echoforge_radar::{
 };
 
 use super::types::{
-    MicroDopplerDescriptors, MlEnvelope, MlFeatureSummaryRow, MlFrameFeatureRow,
-    PerRecordTierObservation,
+    MicroDopplerDescriptors, MlFeatureSummaryRow, MlFrameFeatureRow, PerRecordTierObservation,
 };
 use super::util::{
     cadence_velocity, cepstrum_proxy, entropy, stft_spectrogram, weighted_spectrum,
@@ -146,7 +145,7 @@ pub(super) fn write_micro_doppler_products(
     record_dir: &Path,
     record_id: &str,
     features: &[MlFrameFeatureRow],
-    envelope: &MlEnvelope,
+    episode: &SyntheticEpisode,
 ) -> Result<(), DatasetError> {
     let dir = record_dir.join("micro_doppler");
     fs::create_dir_all(&dir)?;
@@ -169,7 +168,20 @@ pub(super) fn write_micro_doppler_products(
     write_f32_tensor(&dir.join("weighted_spectrum.zarr"), &[32], weighted.clone())?;
     let cepstrum = cepstrum_proxy(&weighted, 32);
     write_f32_tensor(&dir.join("cepstrum.zarr"), &[32], cepstrum.clone())?;
-    let cadence = cadence_velocity(&weighted, envelope.radial_velocity_mps as f32, 16, 16);
+    let radial_velocity = if features.is_empty() {
+        episode
+            .target_states
+            .first()
+            .map(|state| state.radial_velocity_mps as f32)
+            .unwrap_or(0.0)
+    } else {
+        features
+            .iter()
+            .map(|feature| feature.radial_velocity_mps as f32)
+            .sum::<f32>()
+            / features.len() as f32
+    };
+    let cadence = cadence_velocity(&weighted, radial_velocity, 16, 16);
     write_f32_tensor(
         &dir.join("cadence_velocity.zarr"),
         &[16, 16],
@@ -178,12 +190,28 @@ pub(super) fn write_micro_doppler_products(
 
     let descriptors = MicroDopplerDescriptors {
         record_id: record_id.to_string(),
-        peak_hz_proxy: envelope.micro_peak_hz,
-        bandwidth_hz_proxy: envelope.micro_bandwidth_hz,
+        peak_hz_proxy: features
+            .iter()
+            .map(|feature| feature.micro_doppler_peak_hz_proxy)
+            .fold(0.0, f32::max),
+        bandwidth_hz_proxy: if features.is_empty() {
+            0.0
+        } else {
+            features
+                .iter()
+                .map(|feature| feature.micro_doppler_bandwidth_hz_proxy)
+                .sum::<f32>()
+                / features.len() as f32
+        },
         weighted_spectrum_entropy: entropy(&weighted),
         cepstrum_peak: cepstrum.iter().copied().fold(0.0, f32::max),
         cadence_velocity_peak: cadence.iter().copied().fold(0.0, f32::max),
-        representation_note: "Publication-backed proxy formats: STFT, weighted spectrum, cepstrum, and cadence-velocity summary. Values are synthetic public proxies.".to_string(),
+        representation_note: format!(
+            "Publication-backed proxy formats derived from IQ/range-Doppler outputs. Synthetic public-proxy inputs only; diag_snr_db={:.2}, rfi_sigma={:.3}, rfi_probability={:.3}",
+            episode.diagnostic_snr_db,
+            episode.noise.amplitude_scintillation_sigma,
+            episode.noise.rfi_probability
+        ),
     };
     write_json(&dir.join("descriptors.json"), &descriptors)?;
     Ok(())

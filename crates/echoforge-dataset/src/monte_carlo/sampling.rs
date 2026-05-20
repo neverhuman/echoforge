@@ -2,8 +2,8 @@ use std::path::Path;
 
 use echoforge_core::models::RadarEpisode;
 use echoforge_radar::{
-    synthesize_takeoff_episode, DetectionRecord, EpisodeSeed, NoiseProfile, RadarSimConfig,
-    SyntheticEpisode, TakeoffProfile,
+    synthesize_scene, DetectionRecord, EpisodeSeed, NoiseProfile, RadarSimConfig, SceneDescriptor,
+    SyntheticEpisode, TakeoffProfile, TargetClass, TargetEntity, TargetKinematics,
 };
 use serde::Serialize;
 
@@ -98,6 +98,7 @@ impl<'a> ResolvedPreset<'a> {
 pub(super) struct SampledEpisodeMeta {
     pub sim_config: RadarSimConfig,
     pub profile: TakeoffProfile,
+    pub scene: SceneDescriptor,
     pub noise_profile: NoiseProfile,
     pub object_class_id: String,
     pub environment_profile_id: String,
@@ -206,9 +207,13 @@ pub(super) fn sample_episode(
         blade_length_m: None,
     };
 
+    let scene_targets = scene_targets_for_object(object, resolved.preset, &profile, rng);
+    let scene = SceneDescriptor::from_radar_config(&sim_config, &noise, scene_targets);
+
     SampledEpisodeMeta {
         sim_config,
         profile,
+        scene,
         noise_profile: noise,
         object_class_id: object.id.clone(),
         environment_profile_id: environment.id.clone(),
@@ -221,15 +226,127 @@ pub(super) fn sample_episode(
     }
 }
 
+fn scene_targets_for_object(
+    object: &ObjectClassConfig,
+    preset: &PresetConfig,
+    profile: &TakeoffProfile,
+    rng: &mut SplitMix64,
+) -> Vec<TargetEntity> {
+    let family = object.object_family.to_ascii_lowercase();
+    let scenario_label = preset.scenario_label.to_ascii_lowercase();
+    if scenario_label.contains("clutter-only")
+        || preset
+            .notes
+            .iter()
+            .any(|note| note.to_ascii_lowercase().contains("no moving target"))
+    {
+        return Vec::new();
+    }
+
+    if family.contains("fixed_wing") {
+        return vec![TargetEntity {
+            class: TargetClass::ShahedClassPiston,
+            kinematics: TargetKinematics::FromTakeoffProfile(*profile),
+            spawn_time_s: 0.0,
+        }];
+    }
+    if family.contains("quadrotor") || family.contains("hexarotor") || family.contains("multirotor")
+    {
+        return vec![TargetEntity {
+            class: TargetClass::Helicopter,
+            kinematics: TargetKinematics::Helicopter {
+                cruise_speed_mps: profile.ground_speed_mps.max(0.0),
+                altitude_agl_m: profile.max_altitude_m.max(20.0),
+                heading_deg: rng.range_f64([-35.0, 35.0]),
+                main_blade_count: 4,
+                main_rotation_hz: profile.propulsor_hz.max(3.0) / 18.0,
+                main_blade_length_m: 1.2,
+                tail_blade_count: 2,
+                tail_rotation_hz: profile.propulsor_hz.max(3.0) / 5.0,
+                tail_blade_length_m: 0.4,
+            },
+            spawn_time_s: 0.0,
+        }];
+    }
+    if family.contains("bird") {
+        return vec![TargetEntity {
+            class: TargetClass::Bird,
+            kinematics: TargetKinematics::Bird {
+                cruise_speed_mps: profile.ground_speed_mps.clamp(5.0, 38.0),
+                altitude_agl_m: profile.max_altitude_m.max(10.0),
+                heading_deg: rng.range_f64([-28.0, 28.0]),
+                wingbeat_hz: profile.micro_doppler_hz.max(2.0),
+                wing_length_m: 0.4,
+            },
+            spawn_time_s: 0.0,
+        }];
+    }
+    if family.contains("balloon") || family.contains("debris") {
+        return vec![TargetEntity {
+            class: TargetClass::Balloon,
+            kinematics: TargetKinematics::Balloon {
+                drift_speed_mps: profile.ground_speed_mps.clamp(0.0, 12.0),
+                drift_heading_deg: rng.range_f64([-180.0, 180.0]),
+                altitude_agl_m: profile.max_altitude_m.max(20.0),
+                tethered: false,
+            },
+            spawn_time_s: 0.0,
+        }];
+    }
+    if family.contains("vehicle") {
+        return vec![TargetEntity {
+            class: TargetClass::GroundVehicle,
+            kinematics: TargetKinematics::GroundVehicle {
+                speed_mps: profile.ground_speed_mps.clamp(0.0, 35.0),
+                heading_deg: rng.range_f64([-20.0, 20.0]),
+                initial_range_m: profile.initial_range_m,
+            },
+            spawn_time_s: 0.0,
+        }];
+    }
+    if family.contains("turbine") {
+        return vec![TargetEntity {
+            class: TargetClass::WindTurbine,
+            kinematics: TargetKinematics::WindTurbine {
+                hub_range_m: profile.initial_range_m,
+                hub_altitude_agl_m: profile.max_altitude_m.max(20.0),
+                blade_count: 3,
+                rotation_hz: 0.25,
+                blade_length_m: 40.0,
+            },
+            spawn_time_s: 0.0,
+        }];
+    }
+    if family.contains("glint") {
+        return vec![TargetEntity {
+            class: TargetClass::TerrainGlint,
+            kinematics: TargetKinematics::TerrainGlint {
+                range_m: profile.initial_range_m,
+                altitude_agl_m: profile.max_altitude_m.max(0.0),
+            },
+            spawn_time_s: 0.0,
+        }];
+    }
+
+    vec![TargetEntity {
+        class: TargetClass::TerrainGlint,
+        kinematics: TargetKinematics::TerrainGlint {
+            range_m: profile.initial_range_m,
+            altitude_agl_m: profile.max_altitude_m.max(0.0),
+        },
+        spawn_time_s: 0.0,
+    }]
+}
+
 /// Synthesize one takeoff episode from sampled parameters.
 /// `sim_config` is cloned before moving because `RadarSimConfig` is not `Copy`.
 pub(super) fn synthesize_episode(
     sampled: &SampledEpisodeMeta,
     episode_seed: u64,
 ) -> SyntheticEpisode {
-    synthesize_takeoff_episode(
+    synthesize_scene(
+        sampled.scene.clone(),
         sampled.sim_config.clone(),
-        sampled.profile,
         sampled.noise_profile,
         EpisodeSeed(episode_seed),
     )
@@ -252,6 +369,7 @@ pub(super) fn write_episode_json_products(
         &TruthProduct {
             target_states: episode.target_states.clone(),
             takeoff_profile: episode.profile,
+            scene_descriptor: sampled.scene.clone(),
             sampled_meta: sampled.clone(),
             limitation: "public-proxy statistical scenario truth; not measured truth".to_string(),
         },
@@ -271,6 +389,7 @@ pub(super) fn write_episode_json_products(
 struct TruthProduct {
     target_states: Vec<echoforge_radar::TargetState>,
     takeoff_profile: TakeoffProfile,
+    scene_descriptor: SceneDescriptor,
     sampled_meta: SampledEpisodeMeta,
     limitation: String,
 }

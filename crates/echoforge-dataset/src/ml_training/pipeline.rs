@@ -22,9 +22,7 @@ use super::pipeline_writers::{
     write_multi_view_products,
 };
 use super::report::{feature_family_availability, guardrails};
-use super::scene::{
-    adapt_envelope_to_takeoff_profile, build_noise_profile, build_scene_descriptor,
-};
+use super::scene::{build_noise_profile, build_scene_descriptor};
 use super::types::{
     MlRecordPlan, MlRecordSummary, MlTruthMetadata, RecordOutput, SplitManifestRow, SplitMix64,
 };
@@ -83,16 +81,14 @@ fn generate_record(
     let noise = build_noise_profile(&envelope);
 
     let sim_config = build_radar_sim_config(envelope.base_snr_db, cpi_pulses);
-    let profile = adapt_envelope_to_takeoff_profile(&envelope, &mut rng);
 
     // V3 unified path (Wave 5 Lane K_rust): construct a SceneDescriptor
-    // with an explicit `TargetClass` so the truth class is named at the
+    // with an explicit target roster so the truth class is named at the
     // scene level rather than inferred from which generator branch
-    // produced the envelope. Lane I's `synthesize_scene` currently
-    // accepts only a single `FromTakeoffProfile` entity, so multipath
-    // ghosts cannot yet be wired as paired entities; see
-    // `confuser_class_for_family` for the Lane J reconciliation items.
-    let scene = build_scene_descriptor(&plan.class, profile, &sim_config, &noise);
+    // produced the envelope. The scene builder now chooses native
+    // kinematics for birds, vehicles, turbines, multipath ghosts, and
+    // zero-target clutter-only cases when the class calls for it.
+    let scene = build_scene_descriptor(&plan.class, &envelope, &mut rng, &sim_config, &noise);
     let episode = synthesize_scene(
         scene,
         sim_config,
@@ -108,12 +104,12 @@ fn generate_record(
     let per_tier_observation = evaluate_phase_tiered(&episode, plan.class.is_public_proxy_positive);
 
     let (frame_features, frame_labels, events, first_detectable_frame) =
-        build_frame_products(config, plan, &envelope, &episode, frame_count, cpi_pulses);
+        build_frame_products(config, plan, &episode, frame_count, cpi_pulses);
     write_csv(&record_dir.join("streaming_features.csv"), &frame_features)?;
     write_csv(&record_dir.join("frame_labels.csv"), &frame_labels)?;
     write_json(&record_dir.join("detector_events.json"), &events)?;
 
-    write_micro_doppler_products(&record_dir, &plan.record_id, &frame_features, &envelope)?;
+    write_micro_doppler_products(&record_dir, &plan.record_id, &frame_features, &episode)?;
     write_multi_view_products(&record_dir, &frame_features)?;
     write_learned_windows(&record_dir, &plan.record_id, &frame_features)?;
 

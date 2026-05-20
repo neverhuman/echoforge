@@ -98,6 +98,22 @@ fn rfi_changes_products_but_stays_deterministic() {
     );
 }
 
+#[test]
+fn synthesize_scene_allows_empty_target_roster() {
+    let config = RadarSimConfig {
+        pulse_count: 4,
+        ..RadarSimConfig::default()
+    };
+    let noise = NoiseProfile::real_world_proxy_v1();
+    let scene = SceneDescriptor::from_radar_config(&config, &noise, Vec::new());
+    let episode = synthesize_scene(scene, config, noise, EpisodeSeed(2026));
+
+    assert!(episode.target_states.is_empty());
+    assert!(episode.per_target_snr_db.is_empty());
+    assert_eq!(episode.pulse_diagnostics.len(), 4);
+    assert_eq!(episode.iq.len(), 4);
+}
+
 /// Lane I (Wave 4) — `synthesize_scene` must produce the same
 /// products as `synthesize_takeoff_episode` when invoked with the
 /// equivalent single-entity `SceneDescriptor`. This is the

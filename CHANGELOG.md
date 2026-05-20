@@ -6,6 +6,18 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.6] - 2026-05-20
+
+### Added
+- Native scene rosters for public-proxy hard-negative families, including static glint, stationary return, flock, ghost, and zero-target clutter-only cases.
+- Radar noise, clutter, interference, and validation backlog notes for future public-proxy robustness work.
+
+### Changed
+- Dataset frame features and micro-Doppler descriptors now derive from synthesized range/IQ products instead of envelope-only proxies.
+
+### Fixed
+- Radar scene synthesis now supports empty target rosters for clutter-only scenarios while preserving finite diagnostic link-budget metadata.
+
 ## [0.2.5] - 2026-05-20
 
 ### Added

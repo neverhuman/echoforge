@@ -22,6 +22,21 @@ pub(super) struct EntityLinkEvaluation {
     pub diagnostics: SourceDiagnostics,
 }
 
+fn empty_link_budget_result() -> LinkBudgetResult {
+    LinkBudgetResult {
+        received_power_w: 0.0,
+        noise_power_w: 0.0,
+        snr_linear: 0.0,
+        snr_db: f64::NEG_INFINITY,
+        propagation_factor_db: 0.0,
+        atmospheric_loss_db: 0.0,
+        rain_loss_db: 0.0,
+        free_space_path_loss_db: 0.0,
+        coherent_integration_gain_db: 0.0,
+        above_horizon: false,
+    }
+}
+
 pub(super) fn evaluate_entity_link(
     scene: &SceneDescriptor,
     config: &RadarSimConfig,
@@ -247,11 +262,6 @@ pub fn synthesize_scene(
     // stream. Multipath ghost entities resolve their parent's geometry
     // and contribute a phantom return offset by the two-ray multipath
     // term (Skolnik 3rd ed. §1.6).
-    assert!(
-        !scene.targets.is_empty(),
-        "synthesize_scene requires at least one TargetEntity in SceneDescriptor::targets"
-    );
-
     // Lane I/J bridged note: scene.geometry / scene.environment
     // are preserved on the descriptor for serde + Lane K follow-up
     // (per-scene RCS dispatch); the physics path still sources antenna
@@ -267,11 +277,14 @@ pub fn synthesize_scene(
     // `episode.profile` don't blow up. The authoritative per-entity
     // state lives in `target_states` (first entity) and the per-class
     // SNR list in `per_target_snr_db`.
-    let first_entity = &scene.targets[0];
-    let first_profile = match &first_entity.kinematics {
-        TargetKinematics::FromTakeoffProfile(profile) => *profile,
-        _ => TakeoffProfile::default(),
-    };
+    let first_profile = scene
+        .targets
+        .first()
+        .and_then(|first_entity| match &first_entity.kinematics {
+            TargetKinematics::FromTakeoffProfile(profile) => Some(*profile),
+            _ => None,
+        })
+        .unwrap_or_default();
 
     let mut rng = SplitMix64::new(seed.0);
 
@@ -297,24 +310,49 @@ pub fn synthesize_scene(
             f64::NEG_INFINITY
         });
     }
-    let mut first_link_result = evaluate_entity_link(
-        &scene,
-        &config,
-        &noise,
-        &first_profile,
-        &rcs_catalog,
-        0,
-        0.0,
-        seed.0,
-        0,
-        0.0 >= scene.targets[0].spawn_time_s,
-    )
-    .link_budget;
-    if scene.targets[0].spawn_time_s > 0.0 {
-        first_link_result.received_power_w = 0.0;
-        first_link_result.snr_linear = 0.0;
-        first_link_result.snr_db = f64::NEG_INFINITY;
-    }
+    let first_link_result = if scene.targets.is_empty() {
+        let mut zero = empty_link_budget_result();
+        let default_state = super::episode::TargetState {
+            time_s: 0.0,
+            range_m: 1_450.0,
+            altitude_m: 0.0,
+            radial_velocity_mps: 0.0,
+            pitch_deg: 0.0,
+            yaw_deg: 0.0,
+            course_deg: 0.0,
+            propulsor_phase_rad: 0.0,
+        };
+        let prop = config.propagation_context(&default_state);
+        let budget = config.link_budget();
+        let eval = evaluate_link_budget(&budget, &prop, 0.0);
+        zero.noise_power_w = eval.noise_power_w;
+        zero.free_space_path_loss_db = eval.free_space_path_loss_db;
+        zero.atmospheric_loss_db = eval.atmospheric_loss_db;
+        zero.rain_loss_db = eval.rain_loss_db;
+        zero.propagation_factor_db = eval.propagation_factor_db;
+        zero.coherent_integration_gain_db = eval.coherent_integration_gain_db;
+        zero
+    } else {
+        let mut result = evaluate_entity_link(
+            &scene,
+            &config,
+            &noise,
+            &first_profile,
+            &rcs_catalog,
+            0,
+            0.0,
+            seed.0,
+            0,
+            0.0 >= scene.targets[0].spawn_time_s,
+        )
+        .link_budget;
+        if scene.targets[0].spawn_time_s > 0.0 {
+            result.received_power_w = 0.0;
+            result.snr_linear = 0.0;
+            result.snr_db = f64::NEG_INFINITY;
+        }
+        result
+    };
 
     let waveform = config.waveform();
     let sample_count = waveform.samples().len();

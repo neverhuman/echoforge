@@ -317,3 +317,46 @@ fn target_kinematics_kite_anchored_with_flutter() {
         assert_eq!(s.range_m, 1_500.0, "anchor range stays constant");
     }
 }
+
+#[test]
+fn target_kinematics_static_returns_are_fixed() {
+    let terrain = TargetKinematics::TerrainGlint {
+        range_m: 2_400.0,
+        altitude_agl_m: 35.0,
+    };
+    let man = TargetKinematics::ManRadarReturn {
+        range_m: 1_180.0,
+        altitude_agl_m: 1.5,
+    };
+    for t in [0.0, 2.0, 11.0] {
+        let terrain_state = terrain.state_at(t, 999.0, 20.0);
+        assert_eq!(terrain_state.range_m, 2_400.0);
+        assert_eq!(terrain_state.altitude_m, 35.0);
+        assert!(terrain_state.radial_velocity_mps.abs() < 1e-12);
+
+        let man_state = man.state_at(t, 999.0, 20.0);
+        assert_eq!(man_state.range_m, 1_180.0);
+        assert_eq!(man_state.altitude_m, 1.5);
+        assert!(man_state.radial_velocity_mps.abs() < 1e-12);
+    }
+}
+
+#[test]
+fn scene_descriptor_allows_empty_target_roster() {
+    let scene = SceneDescriptor {
+        geometry: SiteGeometry {
+            antenna_altitude_agl_m: 20.0,
+        },
+        environment: EnvironmentDescriptor {
+            clutter_regime: None,
+            atmospheric_one_way_db_per_km: 0.0,
+            rain_rate_mm_per_h: 0.0,
+            ground_reflection_coefficient_magnitude: 0.0,
+        },
+        targets: Vec::new(),
+    };
+    let json = serde_json::to_string(&scene).expect("serialise empty scene");
+    let parsed: SceneDescriptor = serde_json::from_str(&json).expect("deserialise empty scene");
+    assert!(parsed.targets.is_empty());
+    assert_eq!(scene, parsed);
+}

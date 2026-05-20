@@ -8,11 +8,12 @@ pub(super) const C_M_PER_S: f64 = 299_792_458.0;
 
 /// Wave 5 Lane J helper — extract a sensible recovery initial range
 /// for an entity. Variants that carry their own range (GroundVehicle,
-/// WindTurbine, Kite) return that range; variants without one
-/// (Bird, Helicopter, Balloon, FromTakeoffProfile) fall back to the
-/// TakeoffProfile default `initial_range_m`. Used by the per-entity
-/// initial-state pass so multipath ghost parents can be re-evaluated
-/// before the synthesis loop runs.
+/// WindTurbine, Kite, TerrainGlint, ManRadarReturn) return that
+/// range; variants without one (Bird, Helicopter, Balloon,
+/// FromTakeoffProfile) fall back to the TakeoffProfile default
+/// `initial_range_m`. Used by the per-entity initial-state pass so
+/// multipath ghost parents can be re-evaluated before the synthesis
+/// loop runs.
 pub(super) fn entity_initial_range_recovery(entity: &TargetEntity) -> f64 {
     match &entity.kinematics {
         TargetKinematics::FromTakeoffProfile(p) => p.initial_range_m,
@@ -21,6 +22,8 @@ pub(super) fn entity_initial_range_recovery(entity: &TargetEntity) -> f64 {
         } => *initial_range_m,
         TargetKinematics::WindTurbine { hub_range_m, .. } => *hub_range_m,
         TargetKinematics::Kite { anchor_range_m, .. } => *anchor_range_m,
+        TargetKinematics::TerrainGlint { range_m, .. }
+        | TargetKinematics::ManRadarReturn { range_m, .. } => *range_m,
         // Bird / Helicopter / Balloon / MultipathGhost don't carry a
         // range; use the TakeoffProfile default so first-entity geometry
         // is well-defined when the scene mixes types. Downstream Lane K

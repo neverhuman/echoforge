@@ -118,6 +118,24 @@ pub(super) fn target_kinematics_state_at(
             }
         }
 
+        super::TargetKinematics::TerrainGlint {
+            range_m,
+            altitude_agl_m,
+        }
+        | super::TargetKinematics::ManRadarReturn {
+            range_m,
+            altitude_agl_m,
+        } => TargetState {
+            time_s: t_s,
+            range_m: *range_m,
+            altitude_m: *altitude_agl_m,
+            radial_velocity_mps: 0.0,
+            pitch_deg: 0.0,
+            yaw_deg: 0.0,
+            course_deg: 0.0,
+            propulsor_phase_rad: 0.0,
+        },
+
         super::TargetKinematics::Helicopter {
             cruise_speed_mps,
             altitude_agl_m,
