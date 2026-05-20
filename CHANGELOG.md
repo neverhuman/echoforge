@@ -6,6 +6,8 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-05-20
+
 ### Added
 - Real-data measured-anchor registry, reference-only adapter lane, observable-only feature policy, and realism gate tests.
 - Jankurai governance compliance (score >= 85)
