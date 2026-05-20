@@ -72,9 +72,7 @@ doctor:
     rtk jankurai doctor . --fail-on critical --json target/jankurai/doctor.json --md target/jankurai/doctor.md
 
 score:
-    mkdir -p target/jankurai
-    rtk node tools/boundary_evidence.mjs
-    rtk jankurai audit . --full --mode standard --fail-under 85 --fail-on high --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
+    rtk bash ops/run-lane.sh score
 
 score-fast:
     mkdir -p target/jankurai
@@ -104,17 +102,16 @@ science-validate:
     rtk cargo test -p echoforge-tests-science --locked --test micro_doppler_rotating_rod --test micro_doppler_propeller
 
 vendor-scrub:
-    node tools/vendor_scrub.mjs
+    rtk bash ops/run-lane.sh vendor-scrub
 
 receipts:
-    node tools/receipt_guard.mjs --all
+    rtk bash ops/run-lane.sh receipts
 
 sbom:
-    bash tools/sbom_emit.sh
+    rtk bash ops/run-lane.sh sbom
 
 licenses:
-    rtk cargo deny check
-    bash tools/sbom_emit.sh
+    rtk bash ops/run-lane.sh licenses
 
 validate-schemas:
     rtk cargo test -p echoforge-contracts-smoke --locked
@@ -128,4 +125,4 @@ audit:
     actionlint .github/workflows/*.yml
 
 security-lane:
-    bash ops/run-lane.sh security
+    rtk bash ops/run-lane.sh security

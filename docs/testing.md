@@ -108,6 +108,30 @@ bash ops/run-lane.sh science-smoke
 # Output: outputs/ directory with generated artifacts
 ```
 
+### KTH Public-Proxy Hardening Workflow
+
+KTH hardening is an opt-in local measured-anchor workflow. Raw KTH data stays
+under `${ECHOFORGE_REAL_DATA_ROOT}` and generated reports stay under
+`outputs/`; neither should be committed.
+
+1. Build the KTH report:
+   `rtk python3 -m detection.real_data.cli build-report --dataset-id kth-drone-bird-human-77ghz --run-id <run>`.
+2. Generate matched baseline and hardened training datasets with the same
+   seed. The hardened run passes
+   `--real-anchor-priors outputs/real-data/kth-drone-bird-human-77ghz/<run>/calibration_coefficients.json`.
+3. Compare quantile-grid Wasserstein-1 and KS distances, overlap coefficient,
+   q50 ratios, single-feature AUC leakage gates, shortcut-leakage gates, and
+   clamp saturation.
+4. Accept only if family-specific hard-negative overlap improves on the KTH
+   holdout split and the hardened median
+   `micro_doppler_peak_hz_proxy` and
+   `micro_doppler_bandwidth_hz_proxy` are below their configured clamps.
+5. Re-run the proof lane:
+   `rtk python3 -m unittest discover -s detection/real_data/tests -p 'test_*.py'`,
+   `rtk python3 -m detection.real_data.cli validate-catalog`,
+   `rtk python3 -m detection.real_data.cli guard-git`, then the relevant
+   `just` lanes from `agent/test-map.json`.
+
 ## Error Signal Reference
 
 | Signal | Meaning | Repair |

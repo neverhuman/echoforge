@@ -88,3 +88,47 @@ distance, and leave-domain-out robustness.
 Real-data anchors are public measured references for distribution comparisons.
 They do not create exact measured truth for any Iranian platform, proprietary
 sensor equivalence, classified fidelity, or deployment-performance claims.
+
+## KTH Application To Shahed/Iranian Public-Proxy Simulation
+
+KTH is used to harden EchoForge's Shahed/Iranian-drone public-proxy
+simulation only through distribution-distance and hard-negative realism. It is
+not a measured Shahed, Geran, or Iranian-platform dataset, and it is not used
+to claim operational detection range or proprietary sensor behavior.
+
+The local KTH adapter report for
+`data_SAAB_SIRS_77GHz_FMCW.npy` processed 75,868 segment rows:
+
+| Count Type | Values |
+|---|---|
+| Class families | drone 58,768; bird 7,792; human 6,028; calibration_reflector 3,280 |
+| Split roles | calibration 57,868; benchmark 9,000; holdout 9,000 |
+| Edge truncation | edge 67; non_edge 75,801 |
+
+Applicability is intentionally narrow:
+
+- `tune`: class-conditional micro-Doppler rank/overlap signals. The current
+  family-specific prior file writes only conservative bandwidth,
+  amplitude-shape, and dropout knobs; peak and edge signals stay available for
+  gap reporting until a bounded transfer passes leakage gates.
+- `compare_only`: short-range KTH `range_m`, `return_power_db`, calibration
+  reflector sanity checks, and human rows used for false-alarm or
+  ground-confuser reporting.
+- `exclude`: raw measured trace reuse, exact measured truth for named objects,
+  direct Iranian-platform equivalence, proprietary-equivalent behavior, and
+  classified fidelity.
+
+The simulator prior file remains backwards compatible with
+`simulator_priors`, but KTH writes conservative
+`simulator_priors_by_family` entries. The generator prefers those
+family-specific priors and falls back to global priors only when no family
+prior exists. KTH drone rows do not directly tune
+`public_proxy_fixed_wing`; they can inform drone-like hard negatives such as
+`rc_fixed_wing`. KTH bird rows tune `bird_flock` and `single_bird` hard
+negatives. KTH human rows are report-only unless a dedicated human
+hard-negative family is added later.
+
+This improves micro-Doppler energy and bandwidth overlap, bird/human confuser
+realism reporting, scan-gap/edge robustness reporting, and measured-anchor gap
+reporting. It does not improve exact Shahed signature truth, operational
+detection range, proprietary sensor behavior, or classified fidelity.

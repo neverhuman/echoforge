@@ -48,13 +48,16 @@ case "$lane" in
     security_lane
     ;;
   vendor-scrub)
+    require_node_at_least 26.1.0
     run node tools/banlist_audit.mjs
     run node tools/vendor_scrub.mjs
     ;;
   banlist-audit)
+    require_node_at_least 26.1.0
     run node tools/banlist_audit.mjs
     ;;
   receipts)
+    require_node_at_least 26.1.0
     run node tools/receipt_guard.mjs --all
     ;;
   contracts)
@@ -115,6 +118,7 @@ case "$lane" in
     require_command jankurai
     require_node_at_least 26.1.0
     mkdir -p target/jankurai
+    run bash ops/ci/node-toolchain-test.sh
     run node tools/boundary_evidence.mjs
     run jankurai audit . --full --mode standard --fail-under 85 --fail-on high --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
     ;;
@@ -130,6 +134,7 @@ case "$lane" in
     run cargo test -p echoforge-tests-science --locked --test micro_doppler_rotating_rod --test micro_doppler_propeller
     ;;
   sbom)
+    require_node_at_least 26.1.0
     run bash tools/sbom_emit.sh
     ;;
   *)

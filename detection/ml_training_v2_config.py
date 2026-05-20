@@ -13,6 +13,8 @@ DEFAULT_RECORDS = 50_000
 SPLIT_TARGETS = {"train": 0.70, "validation": 0.15, "test": 0.15}
 SINGLE_FEATURE_AUC_GATE = 0.85
 NEGATIVE_CONTROL_AUC_GATE = 0.60
+MICRO_DOPPLER_PEAK_PROXY_CLAMP_HZ = 320.0
+MICRO_DOPPLER_BANDWIDTH_PROXY_CLAMP_HZ = 420.0
 HELDOUT_STRATA = set(range(45, 50))
 HELDOUT_CONFUSER_FAMILIES = {"kite", "balloon", "wind_turbine", "multipath_ghost", "terrain_glint"}
 

@@ -24,6 +24,18 @@
 			"retrieval": {
 				"method": "manual_url",
 				"url": "https://zenodo.org/records/5896641",
+				"files": [
+					{
+						"name": "data_SAAB_SIRS_77GHz_FMCW.npy",
+						"url": "https://zenodo.org/records/5896641/files/data_SAAB_SIRS_77GHz_FMCW.npy",
+						"md5": "01d66ba7b1ccc04477a9e69b2813f251"
+					},
+					{
+						"name": "ReadMe.txt",
+						"url": "https://zenodo.org/records/5896641/files/ReadMe.txt",
+						"md5": "efd7164e5855d2a0016c7a85d9006bc8"
+					}
+				],
 				"network_default": "disabled"
 			},
 			"adapter_name": "kth_microdoppler_v1",

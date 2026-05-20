@@ -3,6 +3,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=ops/ci/node-toolchain.sh
+source "${REPO_ROOT}/ops/ci/node-toolchain.sh"
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || { echo "error: required command not found: $1" >&2; exit 1; }
@@ -10,6 +12,7 @@ require_command() {
 
 require_node_at_least() {
   local required_version="${1:?usage: require_node_at_least <semver>}"
+  echoforge_require_node_toolchain
   require_command node
 
   local current_version
