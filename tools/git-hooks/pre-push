@@ -62,6 +62,9 @@ call_lefthook()
     elif test -f "$dir/node_modules/lefthook/bin/index.js"
     then
       "$dir/node_modules/lefthook/bin/index.js" "$@"
+    elif npx lefthook -h >/dev/null 2>&1
+    then
+      npx lefthook "$@"
     else
       echo "Can't find lefthook in PATH" >&2
       exit 1
