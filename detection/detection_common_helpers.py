@@ -21,13 +21,13 @@ try:  # direct script entrypoints import from detection/ without a package root 
     from detection.detection_common_types import (
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,
-        TRUTH_LIKE_FRAME_COLUMNS,
+        MODEL_DENYLIST_FRAME_COLUMNS,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct execution from detection/
     from detection_common_types import (
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,
-        TRUTH_LIKE_FRAME_COLUMNS,
+        MODEL_DENYLIST_FRAME_COLUMNS,
     )
 
 
@@ -220,7 +220,6 @@ def _profile_columns(profile: str) -> list[str]:
             "range_time_energy",
             "doppler_time_energy",
             "range_doppler_time_energy",
-            "normalized_snr",
         ]
     return [
         "cpi_pulses",
@@ -238,8 +237,6 @@ def _profile_columns(profile: str) -> list[str]:
         "phase_impairment_rad",
         "amplitude_impairment",
         "micro_doppler_energy",
-        "micro_doppler_peak_hz_proxy",
-        "micro_doppler_bandwidth_hz_proxy",
         "stft_energy",
         "weighted_spectrum_peak",
         "cepstrum_peak",
@@ -247,7 +244,6 @@ def _profile_columns(profile: str) -> list[str]:
         "range_time_energy",
         "doppler_time_energy",
         "range_doppler_time_energy",
-        "normalized_snr",
     ]
 
 
@@ -260,7 +256,7 @@ def _augment_feature_bank(
     selected_numeric = [
         name
         for name in _profile_columns(profile)
-        if name in idx and name not in TRUTH_LIKE_FRAME_COLUMNS
+        if name in idx and name not in MODEL_DENYLIST_FRAME_COLUMNS
     ]
 
     derived = {
@@ -294,12 +290,11 @@ def _baseline_from_feature_frame(feature_frame: pd.DataFrame) -> np.ndarray:
         "cfar_margin_mean",
         "tbd_track_score_max",
         "snr_db_mean",
-        "normalized_snr_mean",
         "micro_doppler_energy_mean",
         "range_doppler_time_energy_mean",
         "track_evidence_max",
     ]
-    weights = [0.35, 0.22, 0.18, 0.10, 0.08, 0.04, 0.02, 0.01]
+    weights = [0.36, 0.24, 0.18, 0.10, 0.06, 0.04, 0.02]
     score = np.zeros(len(feature_frame), dtype=np.float32)
     scale = 0.0
     for weight, column in zip(weights, preferred):
@@ -393,7 +388,7 @@ def sequence_features(
     selected_idx = [
         columns.index(name)
         for name in selected_columns
-        if name in columns and name not in TRUTH_LIKE_FRAME_COLUMNS
+        if name in columns and name not in MODEL_DENYLIST_FRAME_COLUMNS
     ]
     sequence = prefix[:, :, selected_idx].astype(np.float32, copy=False)
     static_frame = _augment_feature_bank(frames, columns, horizon_s, "lightgbm")
@@ -496,33 +491,67 @@ def _subset_auc(labels: np.ndarray, scores: np.ndarray, mask: np.ndarray) -> flo
     return _safe_auc(np.asarray(labels)[mask], np.asarray(scores)[mask])
 
 
+def _mask_status(labels: np.ndarray, mask: np.ndarray, *, missing: bool = False) -> str:
+    if missing:
+        return "fail_missing_metadata"
+    count = int(mask.sum())
+    if count == 0:
+        return "fail_empty"
+    if np.unique(np.asarray(labels)[mask]).size < 2:
+        return "fail_single_class"
+    return "pass"
+
+
 def slice_metrics(
     records: pd.DataFrame, labels: np.ndarray, splits: np.ndarray, scores: np.ndarray
-) -> dict[str, float]:
+) -> dict[str, Any]:
     labels = np.asarray(labels, dtype=np.int64)
     scores = np.asarray(scores, dtype=np.float32)
     split_mask = np.asarray(splits, dtype=str) == "test"
     rows = records.reset_index(drop=True)
     buckets = {}
     for bucket in ["easy", "medium", "hard", "barely_visible"]:
-        buckets[f"{bucket}_holdout_auc"] = _subset_auc(
-            labels,
-            scores,
-            split_mask & (rows["difficulty_bucket"].astype(str).to_numpy() == bucket),
-        )
-    unseen_mask = split_mask & (rows["holdout_role"].astype(str).to_numpy() != "seen")
-    if not unseen_mask.any():
-        unseen_mask = split_mask
+        if "difficulty_bucket" in rows:
+            bucket_mask = split_mask & (rows["difficulty_bucket"].astype(str).to_numpy() == bucket)
+        else:
+            bucket_mask = np.zeros(len(rows), dtype=bool)
+        buckets[f"{bucket}_holdout_auc"] = _subset_auc(labels, scores, bucket_mask)
+    missing_holdout_role = "holdout_role" not in rows
+    holdout_role = (
+        rows["holdout_role"].astype(str).to_numpy()
+        if not missing_holdout_role
+        else np.full(len(rows), "missing")
+    )
+    unseen_mask = (
+        split_mask & (holdout_role != "seen")
+        if not missing_holdout_role
+        else np.zeros(len(rows), dtype=bool)
+    )
     unseen_strata = _subset_auc(labels, scores, unseen_mask)
-    heldout_strata = {f"wave_{idx:02d}" for idx in range(45, 50)}
-    confuser_mask = split_mask & rows["stratum_id"].astype(str).isin(heldout_strata).to_numpy()
-    if not confuser_mask.any():
-        confuser_mask = unseen_mask
+    heldout_confusers = {"kite", "balloon", "wind_turbine", "multipath_ghost", "terrain_glint"}
+    confuser_columns = [
+        column for column in ["hard_negative_family", "confuser_family"] if column in rows
+    ]
+    confuser_mask = np.zeros(len(rows), dtype=bool)
+    for column in confuser_columns:
+        confuser_mask |= rows[column].astype(str).isin(heldout_confusers).to_numpy()
+    role_confuser_mask = np.char.find(holdout_role.astype(str), "confuser") >= 0
+    confuser_mask = split_mask & (confuser_mask | role_confuser_mask)
+    unseen_status = _mask_status(labels, unseen_mask, missing=missing_holdout_role)
+    confuser_status = _mask_status(
+        labels, confuser_mask, missing=missing_holdout_role and not confuser_columns
+    )
+    domain_status = "pass" if unseen_status == "pass" and confuser_status == "pass" else "fail"
     unseen_confuser = _subset_auc(labels, scores, confuser_mask)
     return {
         **buckets,
         "unseen_strata_holdout_auc": unseen_strata,
         "unseen_confuser_holdout_auc": unseen_confuser,
+        "unseen_strata_holdout_count": int(unseen_mask.sum()),
+        "unseen_confuser_holdout_count": int(confuser_mask.sum()),
+        "unseen_strata_holdout_status": unseen_status,
+        "unseen_confuser_holdout_status": confuser_status,
+        "domain_holdout_status": domain_status,
     }
 
 
@@ -599,6 +628,11 @@ def write_reports(row: dict[str, Any], out_root: Path) -> None:
         "barely_visible_holdout_auc",
         "unseen_strata_holdout_auc",
         "unseen_confuser_holdout_auc",
+        "unseen_strata_holdout_count",
+        "unseen_confuser_holdout_count",
+        "unseen_strata_holdout_status",
+        "unseen_confuser_holdout_status",
+        "domain_holdout_status",
         "n_train",
         "n_validation",
         "n_holdout",

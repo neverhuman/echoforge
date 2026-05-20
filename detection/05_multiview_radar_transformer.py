@@ -27,8 +27,6 @@ TOKEN_COLUMNS = [
     "phase_impairment_rad",
     "amplitude_impairment",
     "micro_doppler_energy",
-    "micro_doppler_peak_hz_proxy",
-    "micro_doppler_bandwidth_hz_proxy",
     "stft_energy",
     "weighted_spectrum_peak",
     "cepstrum_peak",
@@ -36,7 +34,6 @@ TOKEN_COLUMNS = [
     "range_time_energy",
     "doppler_time_energy",
     "range_doppler_time_energy",
-    "normalized_snr",
 ]
 
 
@@ -56,9 +53,13 @@ class MultiViewTransformer(nn.Module):
         )
         self.encoder = nn.TransformerEncoder(layer, num_layers=1, enable_nested_tensor=False)
         self.static_proj = nn.Sequential(nn.Linear(static_dim, d_model), nn.ReLU())
-        self.head = nn.Sequential(nn.Linear(d_model * 2, 48), nn.ReLU(), nn.Dropout(0.12), nn.Linear(48, 1))
+        self.head = nn.Sequential(
+            nn.Linear(d_model * 2, 48), nn.ReLU(), nn.Dropout(0.12), nn.Linear(48, 1)
+        )
 
-    def forward(self, tokens: torch.Tensor, mask: torch.Tensor, static: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, tokens: torch.Tensor, mask: torch.Tensor, static: torch.Tensor
+    ) -> torch.Tensor:
         x = self.input_proj(tokens) + self.pos[:, : tokens.shape[1], :]
         encoded = self.encoder(x, src_key_padding_mask=~mask.bool())
         weights = mask.float().unsqueeze(-1)
@@ -96,7 +97,9 @@ def normalize_inputs(
     )
 
 
-def predict_scores(model: nn.Module, T: np.ndarray, M: np.ndarray, F: np.ndarray, batch_size: int = 384) -> np.ndarray:
+def predict_scores(
+    model: nn.Module, T: np.ndarray, M: np.ndarray, F: np.ndarray, batch_size: int = 384
+) -> np.ndarray:
     model.train(False)
     scores = []
     with torch.no_grad():
@@ -126,7 +129,9 @@ def train_and_score(
     train_idx = np.where(splits == "train")[0]
     pos = max(1, int(y[train_idx].sum()))
     neg = max(1, int(train_idx.size - pos))
-    model = MultiViewTransformer(token_dim=T.shape[-1], static_dim=F.shape[-1], max_frames=T.shape[1])
+    model = MultiViewTransformer(
+        token_dim=T.shape[-1], static_dim=F.shape[-1], max_frames=T.shape[1]
+    )
     optimizer = torch.optim.AdamW(model.parameters(), lr=7e-4, weight_decay=1e-3)
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(float(neg / pos), dtype=torch.float32))
     rng = np.random.default_rng(seed)
@@ -138,7 +143,11 @@ def train_and_score(
             idx = order[start : start + batch_size]
             optimizer.zero_grad(set_to_none=True)
             loss = loss_fn(
-                model(torch.from_numpy(T_norm[idx]), torch.from_numpy(M[idx]), torch.from_numpy(F_norm[idx])),
+                model(
+                    torch.from_numpy(T_norm[idx]),
+                    torch.from_numpy(M[idx]),
+                    torch.from_numpy(F_norm[idx]),
+                ),
                 torch.from_numpy(y[idx].astype(np.float32)),
             )
             loss.backward()
@@ -168,11 +177,15 @@ def run() -> None:
     frames, columns = dc.select_frames(data_root, records)
 
     for horizon_s in dc.parse_horizons(args.horizons):
-        T, M, F, B, y, splits, max_consumed = dc.transformer_features(frames, columns, records, horizon_s, TOKEN_COLUMNS)
+        T, M, F, B, y, splits, max_consumed = dc.transformer_features(
+            frames, columns, records, horizon_s, TOKEN_COLUMNS
+        )
         if max_consumed > float(horizon_s) + 1e-6:
             raise AssertionError(f"horizon leakage: consumed {max_consumed}s for {horizon_s}s")
         model_path = out_root / "models" / METHOD / f"{dc.horizon_label(horizon_s)}.pt"
-        aucs, scores = train_and_score(T, M, F, y, splits, args.seed + horizon_s, epochs, model_path)
+        aucs, scores = train_and_score(
+            T, M, F, y, splits, args.seed + horizon_s, epochs, model_path
+        )
         baseline = dc.evaluate_scores(y, splits, dc.baseline_scores(B, splits))
         sliced, _ = dc.horizon_slice(frames, columns, horizon_s)
         row: dict[str, Any] = {
@@ -187,7 +200,9 @@ def run() -> None:
             **dc.slice_metrics(records, y, splits, scores),
             **dc.counts(y, splits),
         }
-        dc.write_auxiliary_reports(out_root, METHOD, dc.horizon_label(horizon_s), records, y, splits, scores)
+        dc.write_auxiliary_reports(
+            out_root, METHOD, dc.horizon_label(horizon_s), records, y, splits, scores
+        )
         dc.write_reports(row, out_root)
         print(
             f"{METHOD} {dc.horizon_label(horizon_s)} "

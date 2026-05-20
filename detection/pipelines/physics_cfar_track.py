@@ -11,20 +11,20 @@ from pathlib import Path
 from typing import Iterable
 
 from detection.deciders.calibration import calibration_report
-from detection.detectors.heuristic import metrics_for_rows
-from detection.feature_banks.physics import PHYSICS_WEIGHTS, feature_vector, physics_score
+from detection.feature_banks.physics import PHYSICS_WEIGHTS, physics_score
 from detection.pipeline_contracts.core import (
     ArtifactRecord,
     PipelineContext,
     PipelineResult,
     PipelineSpec,
     ensure_within_root,
-    load_json,
     write_csv,
     write_json,
 )
-from detection.pipeline_contracts.metrics import calibration_bins, pr_auc, roc_auc
+from detection.pipeline_contracts.metrics import pr_auc, roc_auc
 from detection.pipeline_contracts.validation import validate_dataset_inputs
+from detection.real_data.feature_policy import observable_only_violations
+from detection.real_data.realism_gate import evaluate_realism_gate
 from detection.reports.builders import whitepaper_trace
 from detection.sources.dataset import load_features, load_records
 
@@ -64,7 +64,9 @@ REFERENCES = [
 ]
 
 
-def _join_rows(records: list[dict[str, str]], features: list[dict[str, str]]) -> list[dict[str, str]]:
+def _join_rows(
+    records: list[dict[str, str]], features: list[dict[str, str]]
+) -> list[dict[str, str]]:
     feature_by_record = {row["record_id"]: row for row in features}
     joined = []
     for record in records:
@@ -81,7 +83,9 @@ def _smoke_subset(rows: list[dict[str, str]], smoke: bool) -> list[dict[str, str
 
 
 def _labels(rows: Iterable[dict[str, str]]) -> list[float]:
-    return [1.0 if row.get("is_public_proxy_positive", "").lower() == "true" else 0.0 for row in rows]
+    return [
+        1.0 if row.get("is_public_proxy_positive", "").lower() == "true" else 0.0 for row in rows
+    ]
 
 
 def _scores(rows: Iterable[dict[str, str]]) -> list[float]:
@@ -166,9 +170,12 @@ def _leakage_report(rows: list[dict[str, str]]) -> dict[str, object]:
         "hard_negative_family",
     ]
     blocked = [column for column in suspect if any(column in row for row in rows)]
+    model_feature_violations = observable_only_violations(PHYSICS_WEIGHTS.keys())
     return {
-        "status": "pass",
+        "status": "pass" if not model_feature_violations else "fail",
         "blocked_columns": blocked,
+        "model_feature_columns": sorted(PHYSICS_WEIGHTS.keys()),
+        "model_feature_violations": model_feature_violations,
         "single_feature_auc": 0.5,
         "shuffled_label_auc": 0.5,
         "metadata_probe_auc": 0.5,
@@ -176,7 +183,9 @@ def _leakage_report(rows: list[dict[str, str]]) -> dict[str, object]:
     }
 
 
-def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_dir: Path) -> PipelineResult:
+def _build_result(
+    context: PipelineContext, rows: list[dict[str, str]], output_dir: Path
+) -> PipelineResult:
     labels = _labels(rows)
     scores = _scores(rows)
     calibration = calibration_report(labels, scores, bins=10)
@@ -191,6 +200,14 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
         "class_holdout": _class_metrics(rows),
         "calibration_report": calibration,
     }
+    realism_gate = evaluate_realism_gate(
+        {
+            "overall": metrics["overall"],
+            "calibration_anchor_status": "reference_only",
+            "domain_holdout_status": "unknown",
+        }
+    )
+    metrics["realism_gate"] = realism_gate
     leakage = _leakage_report(rows)
     feature_importance = _feature_importance()
 
@@ -211,7 +228,9 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
     write_json(output_dir / "leakage_report.json", leakage)
     write_json(output_dir / "feature_importance.json", feature_importance)
     (output_dir / "whitepaper_trace.md").write_text(
-        whitepaper_trace("Physics CFAR Track Fusion", PIPELINE_SPEC.id, REFERENCES, PIPELINE_SPEC.output_contract),
+        whitepaper_trace(
+            "Physics CFAR Track Fusion", PIPELINE_SPEC.id, REFERENCES, PIPELINE_SPEC.output_contract
+        ),
         encoding="utf-8",
     )
 
@@ -245,6 +264,11 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
                 "gate": "metadata_probe",
                 "status": "pass",
                 "detail": "metadata probe remains at chance by construction",
+            },
+            {
+                "gate": "radar_realism_operating_metrics",
+                "status": realism_gate["status"],
+                "detail": realism_gate["policy"],
             },
         ],
         notes=[

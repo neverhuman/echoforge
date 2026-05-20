@@ -7,6 +7,7 @@ try:  # direct script entrypoints import this module as a top-level file
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,
         FRAME_PERIOD_S,
+        MODEL_DENYLIST_FRAME_COLUMNS,
         SINGLE_FEATURE_AUC_GATE,
         TRUTH_LIKE_FRAME_COLUMNS,
     )
@@ -36,6 +37,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct execution from detectio
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,
         FRAME_PERIOD_S,
+        MODEL_DENYLIST_FRAME_COLUMNS,
         SINGLE_FEATURE_AUC_GATE,
         TRUTH_LIKE_FRAME_COLUMNS,
     )
@@ -66,6 +68,7 @@ __all__ = [
     "DEFAULT_DATA_ROOT",
     "DEFAULT_OUT_ROOT",
     "FRAME_PERIOD_S",
+    "MODEL_DENYLIST_FRAME_COLUMNS",
     "SINGLE_FEATURE_AUC_GATE",
     "TRUTH_LIKE_FRAME_COLUMNS",
     "baseline_scores",
