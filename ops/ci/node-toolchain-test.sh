@@ -19,7 +19,7 @@ if [[ "${clean_user_path}" != "${expected}" ]]; then
 fi
 
 bootstrap_path="$(
-  env -i HOME="${HOME}" PATH="/usr/bin:/bin" \
+  env -i HOME="${HOME}" ECHOFORGE_NODE_BIN="${node_bin_dir}" PATH="/usr/bin:/bin" \
     bash -c "cd '${repo_root}' && source ops/ci/node-toolchain.sh && node --version"
 )"
 if [[ "${bootstrap_path}" != "${expected}" ]]; then
