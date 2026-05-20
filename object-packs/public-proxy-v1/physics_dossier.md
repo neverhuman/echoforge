@@ -25,8 +25,8 @@ restricted, classified, or vendor-proprietary data is used. Aliases
 20260518T160000Z naming-policy reversal, which permits these platform
 names in default code paths while the Wave-1 banlist guards
 (see `agent/banned-terms.toml`) continue to forbid overclaim phrases
-such as "validated against real platform", "guaranteed detection range",
-and "ground truth signature". Every parameter here is a public-proxy
+such as platform-validation claims, guaranteed-detection-range claims,
+and ground-truth-signature claims. Every parameter here is a public-proxy
 range with explicit citation; downstream consumers MUST treat it as a
 bounded statistical prior, not as a calibrated measurement of any
 specific airframe.

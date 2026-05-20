@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: cargo deny check
       - name: Secret scan (trufflehog)
-        uses: trufflesecurity/trufflehog@b9b5cc9e36b5e1e3e23c37af51c6793a3af4a2fd
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab  # v3.95.3
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
