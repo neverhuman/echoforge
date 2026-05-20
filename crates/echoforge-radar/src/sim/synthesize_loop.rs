@@ -7,10 +7,8 @@ use crate::pulse_compression::{magnitude, pulse_compress_windowed, CompressionWi
 use crate::scene::SceneDescriptor;
 use crate::ComplexSample;
 
-use crate::sim::config::{
-    polarization_amplitude_scale, NoiseProfile, RadarSimConfig, TakeoffProfile,
-};
-use crate::sim::episode::{EpisodeSeed, SplitMix64, TargetState};
+use crate::sim::config::{NoiseProfile, RadarSimConfig, TakeoffProfile};
+use crate::sim::episode::{EpisodeSeed, PulseDiagnostics, SplitMix64, TargetState};
 use crate::sim::helpers::{micro_doppler_envelope, resolve_entity_state, C_M_PER_S};
 
 /// Run the per-pulse synthesis loop.
@@ -20,7 +18,7 @@ pub(super) fn run_synthesis_loop(
     noise: &NoiseProfile,
     seed: EpisodeSeed,
     scene: &SceneDescriptor,
-    per_entity_target_amp: &[f32],
+    rcs_catalog: &crate::rcs::Rcs,
     glints: &[(usize, f32)],
     first_profile: &TakeoffProfile,
 ) -> (
@@ -28,6 +26,7 @@ pub(super) fn run_synthesis_loop(
     Vec<Vec<f32>>,
     Vec<Vec<ComplexSample>>,
     Vec<TargetState>,
+    Vec<PulseDiagnostics>,
 ) {
     let waveform = config.waveform();
     let reference = waveform.samples();
@@ -45,26 +44,35 @@ pub(super) fn run_synthesis_loop(
     let mut profiles = Vec::with_capacity(config.pulse_count);
     let mut compressed_complex: Vec<Vec<ComplexSample>> = Vec::with_capacity(config.pulse_count);
     let mut states_first: Vec<TargetState> = Vec::with_capacity(config.pulse_count);
+    let mut pulse_diagnostics: Vec<PulseDiagnostics> = Vec::with_capacity(config.pulse_count);
 
     for pulse in 0..config.pulse_count {
         let t_s = pulse as f64 * config.pri_s;
         let mut received = vec![ComplexSample::new(0.0, 0.0); sample_count];
+        let mut source_diagnostics = Vec::with_capacity(scene.targets.len());
 
         for (entity_idx, entity) in scene.targets.iter().enumerate() {
-            let amp_full = per_entity_target_amp[entity_idx];
-            if amp_full == 0.0 {
-                let _ = rng.normal_f32();
-                continue;
-            }
-
-            let (state, range_offset_m) = resolve_entity_state(
+            let active = t_s >= entity.spawn_time_s;
+            let eval = super::evaluate_entity_link(
+                scene,
+                config,
+                noise,
+                first_profile,
+                rcs_catalog,
+                entity_idx,
+                t_s,
+                seed.0,
+                pulse,
+                active,
+            );
+            let state = resolve_entity_state(
                 scene.targets.as_slice(),
                 entity_idx,
                 t_s,
                 config.radar_altitude_agl_m,
-            );
-
-            let effective_range_m = (state.range_m + range_offset_m).max(0.0);
+            )
+            .0;
+            let effective_range_m = eval.diagnostics.range_m.max(0.0);
             let delay_samples =
                 ((2.0 * effective_range_m / C_M_PER_S) * config.sample_rate_hz).round() as isize;
             let doppler_hz = 2.0 * state.radial_velocity_mps * config.carrier_hz / C_M_PER_S;
@@ -75,13 +83,7 @@ pub(super) fn run_synthesis_loop(
                 .exp()
                 .clamp(0.4, 2.5);
 
-            let amp_base = amp_full * micro as f32 * scintillation;
-            let amp = if config.pol_tx_sequence.is_some() || config.pol_rx_sequence.is_some() {
-                let (pol_tx, pol_rx) = config.polarization_for_pulse(pulse);
-                amp_base * polarization_amplitude_scale(pol_tx, pol_rx)
-            } else {
-                amp_base
-            };
+            let amp = eval.amp * micro as f32 * scintillation;
 
             for (i, sample) in reference.iter().enumerate() {
                 let dst = i as isize + delay_samples;
@@ -96,6 +98,7 @@ pub(super) fn run_synthesis_loop(
             if entity_idx == 0 {
                 states_first.push(state);
             }
+            source_diagnostics.push(eval.diagnostics);
         }
 
         for (index, sample) in received.iter_mut().enumerate() {
@@ -130,7 +133,18 @@ pub(super) fn run_synthesis_loop(
         iq.push(received);
         profiles.push(mag);
         compressed_complex.push(compressed);
+        pulse_diagnostics.push(PulseDiagnostics {
+            pulse_index: pulse,
+            time_s: t_s,
+            source_diagnostics,
+        });
     }
 
-    (iq, profiles, compressed_complex, states_first)
+    (
+        iq,
+        profiles,
+        compressed_complex,
+        states_first,
+        pulse_diagnostics,
+    )
 }

@@ -43,6 +43,7 @@ pub(super) fn target_kinematics_state_at(
                 radial_velocity_mps,
                 pitch_deg: 0.0,
                 yaw_deg: 0.0,
+                course_deg: *heading_deg,
                 propulsor_phase_rad: 0.0,
             }
         }
@@ -58,6 +59,7 @@ pub(super) fn target_kinematics_state_at(
             radial_velocity_mps: 0.0,
             pitch_deg: 0.0,
             yaw_deg: 0.0,
+            course_deg: 0.0,
             propulsor_phase_rad: 0.0,
         },
 
@@ -82,6 +84,7 @@ pub(super) fn target_kinematics_state_at(
                     radial_velocity_mps: 0.0,
                     pitch_deg: 0.0,
                     yaw_deg: 0.0,
+                    course_deg: 0.0,
                     propulsor_phase_rad: 0.0,
                 }
             } else {
@@ -110,6 +113,7 @@ pub(super) fn target_kinematics_state_at(
                 radial_velocity_mps,
                 pitch_deg: 0.0,
                 yaw_deg: 0.0,
+                course_deg: 0.0,
                 propulsor_phase_rad: 0.0,
             }
         }
@@ -147,6 +151,7 @@ pub(super) fn straight_line_state(
         radial_velocity_mps,
         pitch_deg: 0.0,
         yaw_deg: 0.0,
+        course_deg: heading_deg,
         propulsor_phase_rad: 0.0,
     }
 }

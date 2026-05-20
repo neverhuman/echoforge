@@ -263,13 +263,13 @@ pub fn evaluate_link_budget(
 /// `noise_sigma` is the per-quadrature noise standard deviation in
 /// the simulator's matched-filter input units (see
 /// `NoiseProfile::awgn_sigma`). The function clamps the sigma to a
-/// small positive floor so a vanishing noise budget does not blow
-/// the amplitude up to infinity.
+/// small positive floor so zero-noise fixture paths stay numerically
+/// visible without blowing the amplitude up to infinity.
 pub fn snr_to_target_amplitude(snr_db: f64, noise_sigma: f32) -> f32 {
     if !snr_db.is_finite() {
         return 0.0;
     }
-    let sigma = (noise_sigma as f64).max(1e-9);
+    let sigma = (noise_sigma as f64).max(1e-3);
     let ratio = 10f64.powf(snr_db / 10.0).max(0.0);
     (sigma * ratio.sqrt()) as f32
 }

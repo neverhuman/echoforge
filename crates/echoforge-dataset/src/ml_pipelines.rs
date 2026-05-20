@@ -95,10 +95,7 @@ pub struct PipelineRunRequest {
 pub enum MlPipelineError {
     Io(std::io::Error),
     Json(serde_json::Error),
-    PythonFailed {
-        status: Option<i32>,
-        stderr: String,
-    },
+    PythonFailed { status: Option<i32>, stderr: String },
     InvalidRepoRoot(String),
     InvalidWorkers(String),
 }
@@ -347,8 +344,8 @@ mod tests {
 
     #[test]
     fn repo_root_search_finds_workspace() {
-        let root = repo_root_from(PathBuf::from(env!("CARGO_MANIFEST_DIR")))
-            .expect("workspace root");
+        let root =
+            repo_root_from(PathBuf::from(env!("CARGO_MANIFEST_DIR"))).expect("workspace root");
         assert!(root.join("Cargo.toml").exists());
         assert!(root.join("detection").exists());
     }

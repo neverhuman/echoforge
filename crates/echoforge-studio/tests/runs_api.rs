@@ -100,7 +100,10 @@ async fn jobs_endpoints_create_and_return_results() {
         .await
         .expect("results body");
     let results_json: serde_json::Value = serde_json::from_slice(&body).expect("results json");
-    assert_eq!(results_json["primary_pipeline_id"], "physics_cfar_track_fusion_v1");
+    assert_eq!(
+        results_json["primary_pipeline_id"],
+        "physics_cfar_track_fusion_v1"
+    );
 
     let artifacts = app
         .oneshot(

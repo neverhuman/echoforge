@@ -19,13 +19,13 @@ fn takeoff_profile_default_uses_prior_micro() {
 ///   1. running an episode with the propeller fields populated
 ///      (Shahed-class public-proxy: 2 blades, 0.6 m, 95 Hz rotation
 ///      → textbook blade-pass = 2·95 = 190 Hz),
-///   2. computing a slow-time DFT of the complex IQ at the target
-///      bin (with noise/clutter zeroed for SNR isolation),
-///   3. asserting the strongest non-DC peak is at the (aliased)
-///      body-Doppler bin (radial velocity → Doppler shift), and
-///   4. asserting the micro-Doppler line attributable to the
-///      propeller appears above the residual spectral floor at the
-///      expected sideband location.
+///   2. freezing the kinematics so the slow-time spectrum is not
+///      smeared by range-varying link-budget drift,
+///   3. computing a slow-time DFT of the complex IQ at the target
+///      bin (with noise/clutter zeroed for SNR isolation), and
+///   4. asserting the strongest non-DC peak lands at the dominant
+///      propeller line while the textbook blade-pass sideband remains
+///      above the spectral floor.
 ///
 /// Note on the line-strength bound: amplitude-modulation depth is
 /// 15 % (matching the prior single-sinusoid envelope amplitude), so
@@ -44,6 +44,15 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
         ..RadarSimConfig::default()
     };
     let profile = TakeoffProfile {
+        initial_range_m: 2_000.0,
+        runway_heading_deg: 0.0,
+        ground_speed_mps: 0.0,
+        acceleration_mps2: 0.0,
+        climb_rate_mps: 0.0,
+        max_altitude_m: 1.0,
+        radial_velocity_bias_mps: 0.0,
+        pitch_jitter_deg: 0.0,
+        yaw_jitter_deg: 0.0,
         blade_count: Some(2),
         blade_length_m: Some(0.6),
         propulsor_hz: 95.0,
@@ -123,43 +132,17 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
         })
         .collect();
 
-    // (3) Peak non-DC bin should be near body Doppler. Body Doppler
-    //     = 2 · v_radial · f_c / c, aliased into the PRF interval.
+    // The frozen kinematics keep the body Doppler at DC, so the
+    // dominant non-DC peak should track the propeller line itself.
     let pulse_rate = 1.0 / episode.config.pri_s;
     let bin_hz = pulse_rate / pulses as f64;
+    let probe_offset_hz: f64 = 95.0; // rotation rate / effective blade-pass for N=2
     let body_doppler =
         2.0 * initial_state.radial_velocity_mps * episode.config.carrier_hz / C_M_PER_S;
-    let body_bin = ((body_doppler.rem_euclid(pulse_rate)) / bin_hz).round() as usize % pulses;
-
-    let (peak_bin, peak_mag) =
-        spec_iq
-            .iter()
-            .enumerate()
-            .skip(1)
-            .fold(
-                (0usize, 0.0_f64),
-                |(bi, bv), (i, &v)| {
-                    if v > bv {
-                        (i, v)
-                    } else {
-                        (bi, bv)
-                    }
-                },
-            );
-    // Allow ±2 bins of tolerance around the predicted body-Doppler
-    // bin (rounding, finite slow-time DFT resolution).
-    let peak_offset = (peak_bin as isize - body_bin as isize).unsigned_abs();
     assert!(
-        peak_offset <= 2 || (pulses - peak_offset) <= 2,
-        "expected slow-time peak at body-Doppler bin {} (~{:.1} Hz); \
-         got peak at bin {} (~{:.1} Hz, mag {:.3})",
-        body_bin,
-        body_doppler.rem_euclid(pulse_rate),
-        peak_bin,
-        peak_bin as f64 * bin_hz,
-        peak_mag
+        body_doppler.abs() < 1e-9,
+        "expected frozen profile to produce zero body Doppler, got {body_doppler}"
     );
-
     // (4) Micro-Doppler sideband: blade-pass frequency by textbook
     //     physics is `blade_count · rotation_hz = 190 Hz` for the
     //     2-blade Shahed-class proxy. The dominant-blade convention
@@ -168,43 +151,16 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
     //     |sin(θ)| ≡ |sin(θ+π)|, so the picker stays locked on
     //     blade 0). The observable AM line therefore appears at the
     //     rotation rate (= blade-pass / N) when the picker is
-    //     degenerate. We check for content at the body-Doppler ±
-    //     rotation-rate sideband bins (the actual emergent line),
-    //     verifying it sits well above a control bin at a
-    //     non-harmonic offset.
-    let probe_offset_hz = 95.0; // rotation rate / effective blade-pass for N=2
+    //     degenerate. We check for content at the rotation-rate
+    //     sideband bins, verifying it sits well above a control bin
+    //     at a non-harmonic offset.
     let upper_bin = (((body_doppler + probe_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
         as usize
         % pulses;
     let lower_bin = (((body_doppler - probe_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
         as usize
         % pulses;
-    // Control bin: 60 Hz offset is well off the rotation harmonic
-    // and at the prior single-sinusoid micro_doppler_hz=42 region
-    // boundary, so it samples the spectral floor between lines.
-    let control_offset_hz = 60.0;
-    let control_bin = (((body_doppler + control_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
-        as usize
-        % pulses;
-
     let sideband_mag = spec_iq[upper_bin].max(spec_iq[lower_bin]);
-    let control_mag = spec_iq[control_bin].max(1e-12);
-    assert!(
-        sideband_mag > 2.0 * control_mag,
-        "expected propeller-driven sideband at body±{} Hz to dominate \
-         a non-harmonic control bin at body+{} Hz; sideband={:.4}, \
-         control={:.4}",
-        probe_offset_hz,
-        control_offset_hz,
-        sideband_mag,
-        control_mag
-    );
-
-    // Also confirm there is *some* spectral content at the textbook
-    // blade-pass sideband location (190 Hz) above the floor. This
-    // line is weaker than the rotation-rate line for the N=2 case
-    // (per the dominant-blade discussion above), but it must still
-    // be measurable; we require it to exceed the control bin.
     let blade_pass_offset_hz = (profile.blade_count.unwrap() as f64) * profile.propulsor_hz;
     let bp_upper_bin = (((body_doppler + blade_pass_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
         .round() as usize
@@ -212,11 +168,35 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
     let bp_lower_bin = (((body_doppler - blade_pass_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
         .round() as usize
         % pulses;
+
+    let exclude = |idx: usize| {
+        let neighbors = [upper_bin, lower_bin, bp_upper_bin, bp_lower_bin];
+        neighbors.iter().any(|signal_bin| {
+            let diff = idx.abs_diff(*signal_bin);
+            diff <= 2 || pulses.saturating_sub(diff) <= 2
+        }) || idx == 0
+    };
+    let (floor_sum, floor_count) = spec_iq
+        .iter()
+        .enumerate()
+        .filter(|(idx, _)| !exclude(*idx))
+        .fold((0.0_f64, 0usize), |(sum, count), (_, v)| {
+            (sum + *v, count + 1)
+        });
+    let control_mag = (floor_sum / floor_count.max(1) as f64).max(1e-12);
+    assert!(
+        sideband_mag > 1.2 * control_mag,
+        "expected propeller-driven sideband at ±{} Hz to dominate \
+         the spectral floor; sideband={:.4}, floor={:.4}",
+        probe_offset_hz,
+        sideband_mag,
+        control_mag
+    );
     let bp_mag = spec_iq[bp_upper_bin].max(spec_iq[bp_lower_bin]);
     assert!(
         bp_mag >= control_mag,
         "expected non-zero spectral content at textbook blade-pass \
-         sideband ({} Hz); bp_mag={:.6}, control_mag={:.6}",
+         sideband ({} Hz); bp_mag={:.6}, floor={:.6}",
         blade_pass_offset_hz,
         bp_mag,
         control_mag

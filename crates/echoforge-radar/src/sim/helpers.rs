@@ -1,5 +1,5 @@
 use crate::micro_doppler_gen::{MicroDopplerGenerator, PropellerGenerator};
-use crate::scene::{TargetEntity, TargetKinematics};
+use crate::scene::{TargetClass, TargetEntity, TargetKinematics};
 
 use super::config::{NoiseProfile, TakeoffProfile};
 use super::episode::{SplitMix64, TargetState};
@@ -173,6 +173,42 @@ pub(super) fn class_default_rcs_scalar(
         -30.0
     }; // MultipathGhost, TerrainGlint, ManRadarReturn
     10f64.powf(dbsm / 10.0)
+}
+
+/// Resolve the public-proxy RCS table name used by the seeded catalog
+/// for the subset of classes that already have a cited lookup table.
+/// Unsupported classes return `None` and fall back to the scalar proxy.
+pub(super) fn public_proxy_rcs_class_name(
+    entity: &TargetEntity,
+    targets: &[TargetEntity],
+) -> Option<&'static str> {
+    match &entity.class {
+        TargetClass::ShahedClassPiston | TargetClass::ShahedClassJet => {
+            Some("fixed-wing-uas-small")
+        }
+        TargetClass::Bird => Some("bird-large-single"),
+        TargetClass::MultipathGhost { parent_idx } => targets
+            .get(*parent_idx)
+            .and_then(|parent| public_proxy_rcs_class_name(parent, targets)),
+        _ => None,
+    }
+}
+
+/// Aspect proxy for the public RCS lookup. The scene path stores a
+/// course bearing on [`TargetState`] so the dynamic RCS lookup can vary
+/// with geometry without fabricating a new orientation field.
+pub(super) fn target_aspect_deg(state: &crate::sim::TargetState) -> f64 {
+    state.course_deg.rem_euclid(360.0)
+}
+
+/// Elevation proxy for the public RCS lookup, derived from the current
+/// geometry instead of a separate orientation field.
+pub(super) fn target_elevation_deg(state: &crate::sim::TargetState) -> f64 {
+    state
+        .altitude_m
+        .atan2(state.range_m.max(1.0))
+        .to_degrees()
+        .clamp(0.0, 90.0)
 }
 
 pub(super) fn build_ground_glints(

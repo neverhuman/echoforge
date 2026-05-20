@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use echoforge_dataset::{
     inspect_pipeline, list_pipelines, run_pipeline, run_suite, PipelineRunRequest,
-    PipelineRunResult, DEFAULT_DATA_ROOT,
-    DEFAULT_OUT_ROOT, DEFAULT_VALIDATION_TIER, MAX_PIPELINE_WORKERS, MAX_SUITE_CONCURRENCY,
+    PipelineRunResult, DEFAULT_DATA_ROOT, DEFAULT_OUT_ROOT, DEFAULT_VALIDATION_TIER,
+    MAX_PIPELINE_WORKERS, MAX_SUITE_CONCURRENCY,
 };
 
 #[derive(Debug, Args)]
@@ -112,7 +112,10 @@ fn run_inspect(args: MlInspectArgs, repo_root: Option<PathBuf>) -> Result<u8, St
         .pipeline
         .unwrap_or_else(|| "physics_cfar_track_fusion_v1".to_string());
     let spec = inspect_pipeline(&pipeline_id, repo_root).map_err(|err| err.to_string())?;
-    println!("{}", serde_json::to_string_pretty(&spec).map_err(|err| err.to_string())?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&spec).map_err(|err| err.to_string())?
+    );
     Ok(0)
 }
 
@@ -128,7 +131,10 @@ fn run_run(args: MlRunArgs, repo_root: Option<PathBuf>) -> Result<u8, String> {
         repo_root,
     };
     let result = run_pipeline(request).map_err(|err| err.to_string())?;
-    println!("{}", serde_json::to_string_pretty(&result).map_err(|err| err.to_string())?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|err| err.to_string())?
+    );
     Ok(exit_code_for_result(&result))
 }
 
@@ -145,16 +151,17 @@ fn run_suite_cmd(args: MlSuiteArgs, repo_root: Option<PathBuf>) -> Result<u8, St
         args.validation_tier,
     )
     .map_err(|err| err.to_string())?;
-    println!("{}", serde_json::to_string_pretty(&result).map_err(|err| err.to_string())?);
-    Ok(if result
-        .results
-        .iter()
-        .any(|item| item.status != "completed")
-    {
-        1
-    } else {
-        0
-    })
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&result).map_err(|err| err.to_string())?
+    );
+    Ok(
+        if result.results.iter().any(|item| item.status != "completed") {
+            1
+        } else {
+            0
+        },
+    )
 }
 
 fn exit_code_for_result(result: &PipelineRunResult) -> u8 {
