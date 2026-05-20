@@ -3,16 +3,26 @@
 use std::f32::consts::PI;
 
 use crate::clutter::generate_clutter_sequence;
+use crate::impairments::apply_receiver_impairments;
 use crate::pulse_compression::{magnitude, pulse_compress_windowed, CompressionWindow};
+use crate::rfi::sample_rfi_frame;
 use crate::scene::SceneDescriptor;
+use crate::sim::config::TransientEventKind;
 use crate::ComplexSample;
 
 use crate::sim::config::{NoiseProfile, RadarSimConfig, TakeoffProfile};
 use crate::sim::episode::{EpisodeSeed, PulseDiagnostics, SplitMix64, TargetState};
 use crate::sim::helpers::{micro_doppler_envelope, resolve_entity_state, C_M_PER_S};
 
+pub(super) struct SynthesisLoopOutput {
+    pub iq: Vec<Vec<ComplexSample>>,
+    pub iq_magnitudes: Vec<Vec<f32>>,
+    pub compressed_complex: Vec<Vec<ComplexSample>>,
+    pub states_first: Vec<TargetState>,
+    pub pulse_diagnostics: Vec<PulseDiagnostics>,
+}
+
 /// Run the per-pulse synthesis loop.
-/// Returns (iq, range_profiles_by_pulse, compressed_complex, target_states_first).
 pub(super) fn run_synthesis_loop(
     config: &RadarSimConfig,
     noise: &NoiseProfile,
@@ -21,13 +31,7 @@ pub(super) fn run_synthesis_loop(
     rcs_catalog: &crate::rcs::Rcs,
     glints: &[(usize, f32)],
     first_profile: &TakeoffProfile,
-) -> (
-    Vec<Vec<ComplexSample>>,
-    Vec<Vec<f32>>,
-    Vec<Vec<ComplexSample>>,
-    Vec<TargetState>,
-    Vec<PulseDiagnostics>,
-) {
+) -> SynthesisLoopOutput {
     let waveform = config.waveform();
     let reference = waveform.samples();
     let sample_count = reference.len();
@@ -52,8 +56,16 @@ pub(super) fn run_synthesis_loop(
         let mut source_diagnostics = Vec::with_capacity(scene.targets.len());
 
         for (entity_idx, entity) in scene.targets.iter().enumerate() {
+            let (state, range_offset_m) = resolve_entity_state(
+                scene.targets.as_slice(),
+                entity_idx,
+                t_s,
+                config.radar_altitude_agl_m,
+            );
+            let effective_range_m = (state.range_m + range_offset_m).max(0.0);
+            let masked_by_receive_window = !config.receive_window_contains(effective_range_m);
             let active = t_s >= entity.spawn_time_s;
-            let eval = super::evaluate_entity_link(
+            let eval = super::evaluate_entity_link(super::EntityLinkRequest {
                 scene,
                 config,
                 noise,
@@ -61,18 +73,11 @@ pub(super) fn run_synthesis_loop(
                 rcs_catalog,
                 entity_idx,
                 t_s,
-                seed.0,
-                pulse,
+                seed: seed.0,
+                pulse_index: pulse,
                 active,
-            );
-            let state = resolve_entity_state(
-                scene.targets.as_slice(),
-                entity_idx,
-                t_s,
-                config.radar_altitude_agl_m,
-            )
-            .0;
-            let effective_range_m = eval.diagnostics.range_m.max(0.0);
+                masked_by_receive_window,
+            });
             let delay_samples =
                 ((2.0 * effective_range_m / C_M_PER_S) * config.sample_rate_hz).round() as isize;
             let doppler_hz = 2.0 * state.radial_velocity_mps * config.carrier_hz / C_M_PER_S;
@@ -101,14 +106,19 @@ pub(super) fn run_synthesis_loop(
             source_diagnostics.push(eval.diagnostics);
         }
 
+        let clutter_surge = transient_strength(config, t_s, TransientEventKind::ClutterSurge);
         for (index, sample) in received.iter_mut().enumerate() {
             let clutter_raw = match clutter_cube.as_ref() {
-                Some(cube) => cube[pulse * sample_count + index] * noise.clutter_sigma_0_scale,
+                Some(cube) => {
+                    cube[pulse * sample_count + index]
+                        * noise.clutter_sigma_0_scale
+                        * (1.0 + clutter_surge)
+                }
                 None => {
                     clutter_state = noise.clutter_correlation * clutter_state
                         + (1.0 - noise.clutter_correlation)
                             * rng.normal_scaled(noise.clutter_sigma);
-                    clutter_state
+                    clutter_state * (1.0 + clutter_surge)
                 }
             };
             let glint = glints
@@ -126,6 +136,12 @@ pub(super) fn run_synthesis_loop(
             }
         }
 
+        apply_structured_rfi(config, seed.0, pulse, &mut received);
+        apply_transients(config, scene, seed.0, pulse, t_s, &mut received);
+        if let Some(profile) = config.receiver_impairment {
+            apply_receiver_impairments(&mut received, profile, seed.0 ^ 0x51a9_2b6d, pulse);
+        }
+
         phase_walk += rng.normal_scaled(noise.phase_noise_std_rad);
         let compressed =
             pulse_compress_windowed(&received, &reference, CompressionWindow::taylor_default());
@@ -140,11 +156,126 @@ pub(super) fn run_synthesis_loop(
         });
     }
 
-    (
+    SynthesisLoopOutput {
         iq,
-        profiles,
+        iq_magnitudes: profiles,
         compressed_complex,
         states_first,
         pulse_diagnostics,
-    )
+    }
+}
+
+fn transient_strength(config: &RadarSimConfig, t_s: f64, kind: TransientEventKind) -> f32 {
+    config
+        .transient_events
+        .iter()
+        .filter(|event| event.kind == kind && event.active_at(t_s))
+        .map(|event| event.bounded_strength())
+        .sum::<f32>()
+        .clamp(0.0, 16.0)
+}
+
+fn apply_structured_rfi(
+    config: &RadarSimConfig,
+    seed: u64,
+    pulse: usize,
+    received: &mut [ComplexSample],
+) {
+    let Some(profile) = config.interference_profile else {
+        return;
+    };
+    if received.is_empty() {
+        return;
+    }
+    let sample = sample_rfi_frame(profile, seed ^ 0x5246_495f, pulse, received.len());
+    let profile = profile.bounded();
+    let cw_amp = profile.narrowband_cw_power.sqrt();
+    let len = received.len() as f32;
+    for (idx, value) in received.iter_mut().enumerate() {
+        let phase = 2.0 * PI * (idx as f32 / len) * (sample.narrowband_bin.max(1) as f32);
+        *value += ComplexSample::new(phase.cos(), phase.sin())
+            * (cw_amp + profile.sidelobe_pressure * 0.05);
+        if sample.burst_active {
+            let burst_phase = 2.0 * PI * ((idx + pulse) as f32 * 0.173).fract();
+            *value +=
+                ComplexSample::new(burst_phase.cos(), burst_phase.sin()) * profile.burst_amplitude;
+        }
+    }
+}
+
+fn apply_transients(
+    config: &RadarSimConfig,
+    scene: &SceneDescriptor,
+    seed: u64,
+    pulse: usize,
+    t_s: f64,
+    received: &mut [ComplexSample],
+) {
+    if received.is_empty() {
+        return;
+    }
+    for event in config
+        .transient_events
+        .iter()
+        .filter(|event| event.active_at(t_s))
+    {
+        let strength = event.bounded_strength();
+        match event.kind {
+            TransientEventKind::RfiBurst => {
+                for (idx, value) in received.iter_mut().enumerate() {
+                    let phase =
+                        2.0 * PI * ((idx as u64 ^ seed ^ pulse as u64) as f32 * 0.001).fract();
+                    *value += ComplexSample::new(phase.cos(), phase.sin()) * strength;
+                }
+            }
+            TransientEventKind::Dropout => {
+                let scale = (1.0 - strength.clamp(0.0, 1.0)).max(0.0);
+                for value in received.iter_mut() {
+                    *value *= scale;
+                }
+            }
+            TransientEventKind::Glint
+            | TransientEventKind::MultipathGhost
+            | TransientEventKind::WeatherVolume => {
+                let bin = event_target_bin(config, scene, event.target_ref, t_s)
+                    .unwrap_or(received.len() / 2)
+                    .min(received.len() - 1);
+                let width = if event.kind == TransientEventKind::WeatherVolume {
+                    8usize
+                } else {
+                    1usize
+                };
+                for offset in 0..width {
+                    let idx = (bin + offset).min(received.len() - 1);
+                    let phase = 2.0 * PI * ((pulse + offset) as f32 * 0.137).fract();
+                    received[idx] += ComplexSample::new(phase.cos(), phase.sin()) * strength;
+                }
+            }
+            TransientEventKind::ClutterSurge => {}
+        }
+    }
+}
+
+fn event_target_bin(
+    config: &RadarSimConfig,
+    scene: &SceneDescriptor,
+    target_ref: Option<usize>,
+    t_s: f64,
+) -> Option<usize> {
+    let idx = target_ref?;
+    if idx >= scene.targets.len() {
+        return None;
+    }
+    let (state, offset) = resolve_entity_state(
+        scene.targets.as_slice(),
+        idx,
+        t_s,
+        config.radar_altitude_agl_m,
+    );
+    let range_m = state.range_m + offset;
+    if !config.receive_window_contains(range_m) {
+        return None;
+    }
+    let sample = ((2.0 * range_m.max(0.0) / C_M_PER_S) * config.sample_rate_hz).round();
+    Some(sample.max(0.0) as usize)
 }

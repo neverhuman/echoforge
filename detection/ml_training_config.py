@@ -122,6 +122,11 @@ RESTRICTED_FEATURE_NAMES = {
     "true_speed_mps",
     "ground_speed_mps",
     "estimated_ground_speed_mps",
+    "micro_doppler_bandwidth_hz_proxy",
+    "micro_doppler_peak_hz_proxy",
+    "normalized_snr",
+    "target_snr_db",
+    "holdout_role",
 }
 
 ROLES = [
