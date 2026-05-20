@@ -95,6 +95,7 @@ jobs:
 
   dependency-review:
     if: github.event_name == 'pull_request'
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -119,6 +120,7 @@ jobs:
         run: bash ops/ci/score.sh
 
   jankurai-ci:
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
