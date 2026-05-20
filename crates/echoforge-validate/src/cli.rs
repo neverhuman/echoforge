@@ -112,6 +112,26 @@ fn read_required_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, 
     Ok(v)
 }
 
+struct QaBundle {
+    canonical: Option<CanonicalValidation>,
+    polarization: Option<PolarizationDoc>,
+    determinism: Option<DeterminismDoc>,
+    units_frame: Option<UnitsFrameDoc>,
+    cross: Option<CrossSolverDoc>,
+    conv: Option<ConvergenceDoc>,
+}
+
+fn read_qa_bundle(qa: &Path) -> Result<QaBundle, ValidateError> {
+    Ok(QaBundle {
+        canonical:   read_optional_json(&qa.join("canonical_validation.json"))?,
+        polarization: read_optional_json(&qa.join("polarization.json"))?,
+        determinism:  read_optional_json(&qa.join("determinism_report.json"))?,
+        units_frame:  read_optional_json(&qa.join("units_frame_check.json"))?,
+        cross:        read_optional_json(&qa.join("cross_solver_delta.json"))?,
+        conv:         read_optional_json(&qa.join("convergence_report.json"))?,
+    })
+}
+
 /// Run the validate gate. Returns an exit code on success path.
 pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
     if args.bundle.as_os_str().is_empty() {
@@ -142,56 +162,43 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
         None => "auto".to_string(),
     };
     let primitive = if primitive_arg == "auto" {
-        match manifest
-            .object_card
-            .as_ref()
+        let inferred = manifest.object_card.as_ref()
             .and_then(|c| c.kind.clone())
-            .or(manifest.object_card_kind.clone())
-        {
-            Some(v) => v,
-            None => "unknown".to_string(),
-        }
+            .or(manifest.object_card_kind.clone());
+        if let Some(v) = inferred { v } else { "unknown".to_string() }
     } else {
         primitive_arg
     };
 
     let qa = args.bundle.join("qa");
-    let canonical: Option<CanonicalValidation> =
-        read_optional_json(&qa.join("canonical_validation.json"))?;
-    let polarization: Option<PolarizationDoc> = read_optional_json(&qa.join("polarization.json"))?;
-    let determinism: Option<DeterminismDoc> =
-        read_optional_json(&qa.join("determinism_report.json"))?;
-    let units_frame: Option<UnitsFrameDoc> =
-        read_optional_json(&qa.join("units_frame_check.json"))?;
-    let cross: Option<CrossSolverDoc> = read_optional_json(&qa.join("cross_solver_delta.json"))?;
-    let conv: Option<ConvergenceDoc> = read_optional_json(&qa.join("convergence_report.json"))?;
+    let qa_data = read_qa_bundle(&qa)?;
 
     let mut checks = ValidateChecks::default();
     let mut notes = Vec::new();
-    checks.canonical_validation_present = canonical.is_some();
-    checks.canonical_overall_pass = canonical
+    checks.canonical_validation_present = qa_data.canonical.is_some();
+    checks.canonical_overall_pass = qa_data.canonical
         .as_ref()
         .map(|c| c.overall_status == "pass")
         .unwrap_or(false);
-    checks.polarization_complete = polarization
+    checks.polarization_complete = qa_data.polarization
         .as_ref()
         .map(|p| p.status == "pass")
         .unwrap_or(false);
-    checks.determinism_pass = determinism
+    checks.determinism_pass = qa_data.determinism
         .as_ref()
         .map(|d| d.status == "pass")
         .unwrap_or(false);
-    checks.units_frame_pass = units_frame
+    checks.units_frame_pass = qa_data.units_frame
         .as_ref()
         .map(|u| u.status == "pass")
         .unwrap_or(false);
-    checks.cross_solver_present = cross.is_some();
-    checks.cross_solver_pass = cross
+    checks.cross_solver_present = qa_data.cross.is_some();
+    checks.cross_solver_pass = qa_data.cross
         .as_ref()
         .map(|c| c.overall_status == "pass")
         .unwrap_or(false);
-    checks.convergence_present = conv.is_some();
-    checks.convergence_pass = conv.as_ref().map(|c| c.pass).unwrap_or(false);
+    checks.convergence_present = qa_data.conv.is_some();
+    checks.convergence_pass = qa_data.conv.as_ref().map(|c| c.pass).unwrap_or(false);
 
     if !checks.canonical_validation_present {
         notes.push("qa/canonical_validation.json missing".to_string());
@@ -284,71 +291,46 @@ mod tests {
         fs::write(qa.join(name), body).unwrap();
     }
 
+    fn make_args(bundle: std::path::PathBuf, tier: &str) -> ValidateArgs {
+        ValidateArgs {
+            bundle,
+            primitive: Some("auto".to_string()),
+            target_tier: tier.to_string(),
+            write_report: None,
+            strict: false,
+        }
+    }
+
     #[test]
     fn v0_always_passes() {
         let td = tempdir().unwrap();
         write_manifest(td.path(), "sphere");
-        let args = ValidateArgs {
-            bundle: td.path().to_path_buf(),
-            primitive: Some("auto".to_string()),
-            target_tier: "v0".to_string(),
-            write_report: None,
-            strict: false,
-        };
-        let rc = run(args).unwrap();
-        assert_eq!(rc, 0);
+        assert_eq!(run(make_args(td.path().to_path_buf(), "v0")).unwrap(), 0);
     }
 
     #[test]
     fn v1_fails_when_qa_missing() {
         let td = tempdir().unwrap();
         write_manifest(td.path(), "sphere");
-        let args = ValidateArgs {
-            bundle: td.path().to_path_buf(),
-            primitive: Some("auto".to_string()),
-            target_tier: "v1".to_string(),
-            write_report: None,
-            strict: false,
-        };
-        let rc = run(args).unwrap();
-        assert_eq!(rc, 1);
+        assert_eq!(run(make_args(td.path().to_path_buf(), "v1")).unwrap(), 1);
     }
 
     #[test]
     fn v1_passes_with_full_qa() {
         let td = tempdir().unwrap();
         write_manifest(td.path(), "sphere");
-        write_qa(
-            td.path(),
-            "canonical_validation.json",
-            r#"{"overall_status":"pass"}"#,
-        );
+        write_qa(td.path(), "canonical_validation.json", r#"{"overall_status":"pass"}"#);
         write_qa(td.path(), "polarization.json", r#"{"status":"pass"}"#);
         write_qa(td.path(), "determinism_report.json", r#"{"status":"pass"}"#);
         write_qa(td.path(), "units_frame_check.json", r#"{"status":"pass"}"#);
-        let args = ValidateArgs {
-            bundle: td.path().to_path_buf(),
-            primitive: Some("auto".to_string()),
-            target_tier: "v1".to_string(),
-            write_report: None,
-            strict: false,
-        };
-        let rc = run(args).unwrap();
-        assert_eq!(rc, 0);
+        assert_eq!(run(make_args(td.path().to_path_buf(), "v1")).unwrap(), 0);
     }
 
     #[test]
     fn bad_tier_returns_bad_args() {
         let td = tempdir().unwrap();
         write_manifest(td.path(), "sphere");
-        let args = ValidateArgs {
-            bundle: td.path().to_path_buf(),
-            primitive: Some("auto".to_string()),
-            target_tier: "v9".to_string(),
-            write_report: None,
-            strict: false,
-        };
-        let err = run(args).err().unwrap();
+        let err = run(make_args(td.path().to_path_buf(), "v9")).err().unwrap();
         assert!(matches!(err, ValidateError::BadArgs(_)));
     }
 }

@@ -11,6 +11,9 @@
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+pub mod mesh;
+pub mod mesh_qa;
+
 pub mod schema {
     pub const OBJECT_CARD: &str = "schemas/object_card.schema.json";
     pub const MATERIAL_CARD: &str = "schemas/material_card.schema.json";

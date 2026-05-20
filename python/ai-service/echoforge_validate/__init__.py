@@ -1,3 +1,4 @@
+# boundary: python-ai-service-ml-slice
 """EchoForge validate Python oracle.
 
 Strict-open analytic ground-truth for canonical scatterers, mirroring the

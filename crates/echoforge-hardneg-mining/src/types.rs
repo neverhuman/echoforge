@@ -32,6 +32,10 @@ pub struct ModelEvalRollup {
     pub negative_records: usize,
     pub pd: f64,
     pub pfa: f64,
+    /// Optional latency stats — reserved by the current cluster store but kept
+    /// in the round-trip so downstream tools can correlate.
+    #[serde(default)]
+    pub mean_first_detection_latency_frames: Option<f64>,
     #[serde(default)]
     pub missed_positive_records: Vec<String>,
     /// Per-hard-negative-family false-alarm counts. The keys are the family
@@ -40,10 +44,6 @@ pub struct ModelEvalRollup {
     /// negative scene.
     #[serde(default)]
     pub false_alarm_by_hard_negative_family: BTreeMap<String, usize>,
-    /// Optional latency stats — reserved by the current cluster store but kept
-    /// in the round-trip so downstream tools can correlate.
-    #[serde(default)]
-    pub mean_first_detection_latency_frames: Option<f64>,
     /// Catch-all for ROC, PR, and calibration arrays we don't read. Storing
     /// as `Value` keeps the upstream JSON growable without bumping this crate.
     #[serde(flatten)]

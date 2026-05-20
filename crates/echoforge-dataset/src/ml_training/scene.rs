@@ -2,7 +2,7 @@
 //! physics path (Wave 5 Lane K_rust).
 
 use echoforge_radar::{
-    EnvironmentDescriptor, NoiseProfile, RadarSimConfig, SceneDescriptor, SiteGeometry,
+    NoiseProfile, RadarSimConfig, SceneDescriptor,
     TargetClass, TargetEntity, TargetKinematics, TakeoffProfile,
 };
 
@@ -100,23 +100,11 @@ pub(super) fn build_scene_descriptor(
         class.hard_negative_family.as_str(),
         class.is_public_proxy_positive,
     );
-    SceneDescriptor {
-        geometry: SiteGeometry {
-            antenna_altitude_agl_m: config.radar_altitude_agl_m,
-        },
-        environment: EnvironmentDescriptor {
-            clutter_regime: noise.clutter_regime,
-            atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
-            rain_rate_mm_per_h: config.rain_rate_mm_per_h,
-            ground_reflection_coefficient_magnitude: config
-                .ground_reflection_coefficient_magnitude,
-        },
-        targets: vec![TargetEntity {
-            class: target_class,
-            kinematics: TargetKinematics::FromTakeoffProfile(profile),
-            spawn_time_s: 0.0,
-        }],
-    }
+    SceneDescriptor::from_radar_config(config, noise, vec![TargetEntity {
+        class: target_class,
+        kinematics: TargetKinematics::FromTakeoffProfile(profile),
+        spawn_time_s: 0.0,
+    }])
 }
 
 /// Build the noise profile for an envelope — shared by the production worker

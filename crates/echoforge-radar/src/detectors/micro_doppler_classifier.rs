@@ -270,13 +270,9 @@ fn modulation_depth_db(spectrum: &[f64]) -> f64 {
 }
 
 /// Extract micro-Doppler features from a slow-time complex vector at a
-/// single range bin. Returns `None` if the input is too short to
-/// support the requested transforms (minimum 8 samples).
-///
-/// `grid` is the complex range-Doppler shape used by the rest of the
-/// detector graph: `grid[range_bin][doppler_bin] = ComplexSample`.
-/// `target_range_bin` selects the slow-time row. `doppler_bin_hz` is
-/// the Doppler axis resolution (Hz per bin).
+/// single range bin (`grid[range_bin][doppler_bin]`). Returns `None`
+/// if the input has fewer than 8 samples. `doppler_bin_hz` is the
+/// Doppler-axis resolution in Hz/bin.
 pub fn extract_features(
     grid: &[Vec<ComplexSample>],
     target_range_bin: usize,
@@ -344,141 +340,8 @@ pub fn extract_features(
     })
 }
 
-/// Gaussian log-likelihood of a single feature value under N(mu, sigma^2).
-/// Includes the `-0.5 * log(2*pi*sigma^2)` normalisation term so that
-/// summed log-likelihoods are valid for posterior softmax.
-#[inline]
-fn gaussian_log_lik(x: f64, mu: f64, sigma: f64) -> f64 {
-    // Floor sigma to avoid division by zero on a degenerate library.
-    let s = sigma.max(1e-6);
-    let z = (x - mu) / s;
-    -0.5 * (z * z + (std::f64::consts::TAU * s * s).ln())
-}
-
-/// Neyman-Pearson LRT classifier. Returns one `(class, log_likelihood)`
-/// entry per reference signature in the library. The log-likelihood is
-/// the sum of per-feature Gaussian log-likelihoods under independent
-/// priors per the public-proxy envelope; for equiprobable hypotheses
-/// the Neyman-Pearson optimal decision reduces to the argmax of these
-/// log-likelihoods (Skolnik §9.5).
-pub fn classify_lrt(
-    features: &MicroDopplerFeatures,
-    library: &[ReferenceSignature],
-) -> Vec<(TargetClass, f64)> {
-    library
-        .iter()
-        .map(|sig| {
-            let log_lik = gaussian_log_lik(
-                features.rotor_fundamental_hz,
-                sig.rotor_freq_mean_hz,
-                sig.rotor_freq_std_hz,
-            ) + gaussian_log_lik(
-                features.modulation_depth_db,
-                sig.modulation_depth_mean_db,
-                sig.modulation_depth_std_db,
-            ) + gaussian_log_lik(
-                features.harmonic_ratio,
-                sig.harmonic_ratio_mean,
-                sig.harmonic_ratio_std,
-            ) + gaussian_log_lik(
-                features.spectral_entropy,
-                sig.spectral_entropy_mean,
-                sig.spectral_entropy_std,
-            ) + gaussian_log_lik(
-                features.body_doppler_centroid_hz,
-                sig.body_doppler_centroid_mean_hz,
-                sig.body_doppler_centroid_std_hz,
-            );
-            (sig.class, log_lik)
-        })
-        .collect()
-}
-
-/// Highest-likelihood class with its posterior probability under equal
-/// priors (softmax over per-class log-likelihoods). Returns `None` if
-/// the library is empty.
-pub fn argmax_class(
-    features: &MicroDopplerFeatures,
-    library: &[ReferenceSignature],
-) -> Option<(TargetClass, f64)> {
-    let log_liks = classify_lrt(features, library);
-    if log_liks.is_empty() {
-        return None;
-    }
-    // Numerically stable softmax: subtract max log-likelihood before
-    // exponentiating so we don't overflow on small-sigma classes.
-    let max_ll = log_liks
-        .iter()
-        .map(|(_, ll)| *ll)
-        .fold(f64::NEG_INFINITY, f64::max);
-    let exps: Vec<f64> = log_liks.iter().map(|(_, ll)| (ll - max_ll).exp()).collect();
-    let total: f64 = exps.iter().sum();
-    if total <= 0.0 {
-        return None;
-    }
-    let mut best_idx = 0usize;
-    let mut best_p = 0.0f64;
-    for (i, &e) in exps.iter().enumerate() {
-        let p = e / total;
-        if p > best_p {
-            best_p = p;
-            best_idx = i;
-        }
-    }
-    Some((log_liks[best_idx].0, best_p))
-}
-
-/// Build a synthetic feature vector by sampling the per-feature
-/// Gaussian envelope of one reference signature using a deterministic
-/// xorshift64 generator. Public-proxy synthetic; never used outside
-/// test code (gated behind `cfg(test)` consumers).
-#[cfg(test)]
-fn synth_feature_from_signature(sig: &ReferenceSignature, rng_state: &mut u64) -> MicroDopplerFeatures {
-    let normal = |state: &mut u64, mu: f64, sigma: f64| -> f64 {
-        // Box-Muller pair on two uniforms in (0,1].
-        let u1 = uniform01(state).max(1e-12);
-        let u2 = uniform01(state);
-        let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
-        mu + sigma * z
-    };
-    MicroDopplerFeatures {
-        rotor_fundamental_hz: normal(rng_state, sig.rotor_freq_mean_hz, sig.rotor_freq_std_hz).max(0.0),
-        modulation_depth_db: normal(
-            rng_state,
-            sig.modulation_depth_mean_db,
-            sig.modulation_depth_std_db,
-        ),
-        harmonic_ratio: normal(rng_state, sig.harmonic_ratio_mean, sig.harmonic_ratio_std)
-            .clamp(0.0, 5.0),
-        spectral_entropy: normal(rng_state, sig.spectral_entropy_mean, sig.spectral_entropy_std)
-            .max(0.0),
-        body_doppler_centroid_hz: normal(
-            rng_state,
-            sig.body_doppler_centroid_mean_hz,
-            sig.body_doppler_centroid_std_hz,
-        )
-        .max(0.0),
-    }
-}
-
-#[cfg(test)]
-#[inline]
-fn xorshift64(state: &mut u64) -> u64 {
-    let mut x = *state;
-    x ^= x << 13;
-    x ^= x >> 7;
-    x ^= x << 17;
-    *state = x;
-    x
-}
-
-#[cfg(test)]
-#[inline]
-fn uniform01(state: &mut u64) -> f64 {
-    // Top 53 bits -> [0, 1) double.
-    let bits = xorshift64(state) >> 11;
-    (bits as f64) * (1.0_f64 / ((1u64 << 53) as f64))
-}
+// LRT classification and argmax logic extracted to sibling module for LOC compliance.
+pub use super::micro_doppler_lrt::{argmax_class, classify_lrt};
 
 #[cfg(test)]
 #[path = "micro_doppler_classifier_tests.rs"]

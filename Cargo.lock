@@ -503,12 +503,15 @@ name = "echoforge-studio"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "echoforge-core",
  "echoforge-validate",
+ "echoforge-world",
  "opentelemetry",
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "serde",
  "serde_json",
+ "serde_yaml",
  "tempfile",
  "thiserror",
  "tokio",

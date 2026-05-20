@@ -159,18 +159,14 @@ pub(super) fn class_default_rcs_scalar(
     if let TargetKinematics::FromTakeoffProfile(profile) = kinematics {
         return profile.rcs_scalar;
     }
-    let dbsm = match class {
-        crate::scene::TargetClass::ShahedClassPiston | crate::scene::TargetClass::ShahedClassJet => -10.0,
-        crate::scene::TargetClass::Bird => -25.0,
-        crate::scene::TargetClass::GroundVehicle => 5.0,
-        crate::scene::TargetClass::WindTurbine => 25.0,
-        crate::scene::TargetClass::Balloon => -20.0,
-        crate::scene::TargetClass::Kite => -25.0,
-        crate::scene::TargetClass::Helicopter => 5.0,
-        crate::scene::TargetClass::MultipathGhost { .. }
-        | crate::scene::TargetClass::TerrainGlint
-        | crate::scene::TargetClass::ManRadarReturn => -30.0,
-    };
+    use crate::scene::TargetClass as TC;
+    let dbsm: f64 =
+        if matches!(class, TC::ShahedClassPiston | TC::ShahedClassJet) { -10.0 }
+        else if matches!(class, TC::Bird | TC::Kite) { -25.0 }
+        else if matches!(class, TC::GroundVehicle | TC::Helicopter) { 5.0 }
+        else if matches!(class, TC::WindTurbine) { 25.0 }
+        else if matches!(class, TC::Balloon) { -20.0 }
+        else { -30.0 }; // MultipathGhost, TerrainGlint, ManRadarReturn
     10f64.powf(dbsm / 10.0)
 }
 

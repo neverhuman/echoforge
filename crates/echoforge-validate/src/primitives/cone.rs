@@ -36,15 +36,7 @@ impl CanonicalTruth for PecCone {
     }
 
     fn tolerance(&self, _conditions: &Conditions) -> ToleranceBand {
-        // Approximation documented as ±2 dB.
-        ToleranceBand {
-            analytic_db: 2.0,
-            numeric_db: 0.0,
-            method_db: 0.0,
-            total_db: 2.0,
-            floor_db: 0.1,
-            ceiling_db: 3.0,
-        }
+        ToleranceBand::analytic_only(2.0)
     }
 }
 

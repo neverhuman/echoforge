@@ -31,6 +31,7 @@ pub mod tier_arbiter;
 pub mod tier_boost;
 pub mod tier_climb;
 pub mod tier_cruise;
+mod tier_cruise_helpers;
 
 pub use kinematic_gate::{
     boost_kinematic_gate, climb_kinematic_gate, cruise_kinematic_gate_jet,

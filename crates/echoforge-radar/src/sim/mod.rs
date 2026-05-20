@@ -11,6 +11,9 @@ pub use helpers::range_bin_to_m;
 pub use synthesize::{synthesize_scene, synthesize_takeoff_episode};
 
 #[cfg(test)]
+mod tests_helpers;
+
+#[cfg(test)]
 mod tests_propeller;
 
 #[cfg(test)]
@@ -20,4 +23,7 @@ mod tests_synthesis;
 mod tests_dft;
 
 #[cfg(test)]
-mod tests_pol_clutter;
+mod tests_pol_clutter_a;
+
+#[cfg(test)]
+mod tests_pol_clutter_b;

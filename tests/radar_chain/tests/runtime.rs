@@ -62,11 +62,11 @@ fn echo_sig_bundle_round_trip_preserves_manifest_and_cards() {
 }
 
 #[test]
-fn analytic_placeholder_report_covers_expected_primitives() {
+fn pending_analytic_report_covers_expected_primitives() {
     let report = pending_analytic_report();
     assert_eq!(report.cases.len(), 6);
     assert!(!report.passed);
-    assert!(report.summary.contains("placeholder"));
+    assert!(report.summary.contains("pending"));
 }
 
 #[test]

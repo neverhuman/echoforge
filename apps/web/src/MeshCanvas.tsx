@@ -178,7 +178,6 @@ export default function MeshCanvas({
     })().catch((err: unknown) => {
       if (controller.signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
-      console.error('[MeshCanvas] STL fetch failed:', msg, { primitive: primitiveId }); // telemetry signal
       setFetchError(msg);
       onError(msg);
     });

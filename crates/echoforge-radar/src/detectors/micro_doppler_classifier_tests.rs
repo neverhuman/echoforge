@@ -1,5 +1,55 @@
 use super::*;
 
+// Test-only helpers (moved from micro_doppler_classifier.rs cfg(test) section).
+
+#[inline]
+fn xorshift64(state: &mut u64) -> u64 {
+    let mut x = *state;
+    x ^= x << 13;
+    x ^= x >> 7;
+    x ^= x << 17;
+    *state = x;
+    x
+}
+
+#[inline]
+fn uniform01(state: &mut u64) -> f64 {
+    // Top 53 bits -> [0, 1) double.
+    let bits = xorshift64(state) >> 11;
+    (bits as f64) * (1.0_f64 / ((1u64 << 53) as f64))
+}
+
+/// Build a synthetic feature vector by sampling the per-feature
+/// Gaussian envelope of one reference signature using a deterministic
+/// xorshift64 generator.
+fn synth_feature_from_signature(sig: &ReferenceSignature, rng_state: &mut u64) -> MicroDopplerFeatures {
+    let normal = |state: &mut u64, mu: f64, sigma: f64| -> f64 {
+        // Box-Muller pair on two uniforms in (0,1].
+        let u1 = uniform01(state).max(1e-12);
+        let u2 = uniform01(state);
+        let z = (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
+        mu + sigma * z
+    };
+    MicroDopplerFeatures {
+        rotor_fundamental_hz: normal(rng_state, sig.rotor_freq_mean_hz, sig.rotor_freq_std_hz).max(0.0),
+        modulation_depth_db: normal(
+            rng_state,
+            sig.modulation_depth_mean_db,
+            sig.modulation_depth_std_db,
+        ),
+        harmonic_ratio: normal(rng_state, sig.harmonic_ratio_mean, sig.harmonic_ratio_std)
+            .clamp(0.0, 5.0),
+        spectral_entropy: normal(rng_state, sig.spectral_entropy_mean, sig.spectral_entropy_std)
+            .max(0.0),
+        body_doppler_centroid_hz: normal(
+            rng_state,
+            sig.body_doppler_centroid_mean_hz,
+            sig.body_doppler_centroid_std_hz,
+        )
+        .max(0.0),
+    }
+}
+
 fn mean_features(sig: &ReferenceSignature) -> MicroDopplerFeatures {
     MicroDopplerFeatures {
         rotor_fundamental_hz: sig.rotor_freq_mean_hz,

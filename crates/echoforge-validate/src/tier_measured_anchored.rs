@@ -302,5 +302,9 @@ pub fn evaluate_v4_from_calibration_report(
 }
 
 #[cfg(test)]
-#[path = "tier_measured_anchored_tests.rs"]
-mod tests;
+#[path = "tier_measured_anchored_tests_a.rs"]
+mod tests_a;
+
+#[cfg(test)]
+#[path = "tier_measured_anchored_tests_b.rs"]
+mod tests_b;

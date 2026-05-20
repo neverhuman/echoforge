@@ -227,7 +227,7 @@ impl CruiseTierDetector {
 
         // (4) Micro-Doppler confirmation (optional).
         if let (Some(spec), Some(bin_hz)) = (mtd_power_spectrum, doppler_bin_hz) {
-            out.micro_doppler_confirmed = check_blade_pass_line(spec, bin_hz, class);
+            out.micro_doppler_confirmed = super::tier_cruise_helpers::check_blade_pass_line(spec, bin_hz, class);
         }
 
         // (5) M-of-N=5-of-7 over Kalman residuals.
@@ -314,143 +314,7 @@ fn noise_estimate_os_cfar(
     samples[idx]
 }
 
-/// Heuristic micro-Doppler check: for piston targets look for any bin
-/// in the blade-pass band [150, 220] Hz ± 15% whose power exceeds twice
-/// the spectrum median (a cheap signal-vs-floor proxy). For jet targets
-/// the dossier does not pin a specific blade-pass band, so the function
-/// looks for an above-floor line *anywhere outside the body-Doppler
-/// region*, which is what jet compressor signatures look like in the
-/// public literature.
-fn check_blade_pass_line(spec: &[f32], doppler_bin_hz: f64, class: PropulsionClass) -> bool {
-    if spec.is_empty() || doppler_bin_hz <= 0.0 {
-        return false;
-    }
-    let n = spec.len();
-    // Compute median as a stable floor estimator (the simple mean is
-    // contaminated by any bright body-Doppler peak).
-    let mut sorted: Vec<f32> = spec.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let median = sorted[n / 2].max(1e-12);
-
-    let (lo_hz, hi_hz) = match class {
-        PropulsionClass::Piston => {
-            // 150–220 Hz ± 15% => [127.5, 253.0] Hz.
-            (150.0 * 0.85, 220.0 * 1.15)
-        }
-        PropulsionClass::Jet => {
-            // Jet compressor lines typically sit at the high-end of the
-            // useful spectrum; the dossier does not bound them tightly,
-            // so use the upper half-band of the available spectrum as a
-            // proxy for "compressor-like high-frequency content".
-            let nyquist_hz = doppler_bin_hz * (n as f64) / 2.0;
-            (nyquist_hz * 0.5, nyquist_hz)
-        }
-        _ => return false,
-    };
-    let lo_bin = (lo_hz / doppler_bin_hz).max(0.0) as usize;
-    let hi_bin = ((hi_hz / doppler_bin_hz) as usize).min(n - 1);
-    if lo_bin >= hi_bin {
-        return false;
-    }
-    spec[lo_bin..=hi_bin].iter().any(|&v| v >= 2.0 * median)
-}
 
 #[cfg(test)]
-mod tests {
-    use super::super::kinematic_gate::KinematicSample;
-    use super::*;
-
-    fn cruise_window(samples: Vec<(f64, f64, f64)>) -> KinematicObservation {
-        KinematicObservation::new(
-            samples
-                .into_iter()
-                .map(|(t, v, h)| KinematicSample::new(t, v, h))
-                .collect(),
-            12_000.0,
-            20.0,
-        )
-    }
-
-    fn steady_cruise_window(speed: f64, alt: f64, n: usize) -> KinematicObservation {
-        let samples: Vec<(f64, f64, f64)> = (0..n)
-            .map(|k| (k as f64, speed, alt))
-            .collect();
-        cruise_window(samples)
-    }
-
-    #[test]
-    fn cruise_detector_accepts_piston_50mps_steady() {
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(50.0, 800.0, 8);
-        let dec = detector.evaluate(&obs, None, None);
-        assert_eq!(dec.propulsion_class, PropulsionClass::Piston);
-        assert!(dec.detected, "steady piston cruise must detect; {}", dec.note);
-    }
-
-    #[test]
-    fn cruise_detector_accepts_jet_120mps_steady() {
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(120.0, 800.0, 8);
-        let dec = detector.evaluate(&obs, None, None);
-        assert_eq!(dec.propulsion_class, PropulsionClass::Jet);
-        assert!(dec.detected, "steady jet cruise must detect; {}", dec.note);
-    }
-
-    #[test]
-    fn cruise_detector_rejects_ambiguous_75mps() {
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(75.0, 800.0, 8);
-        let dec = detector.evaluate(&obs, None, None);
-        assert_eq!(dec.propulsion_class, PropulsionClass::Ambiguous);
-        assert!(!dec.detected, "ambiguous cluster must NOT detect");
-    }
-
-    #[test]
-    fn cruise_detector_rejects_bird_15mps() {
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(15.0, 800.0, 8);
-        let dec = detector.evaluate(&obs, None, None);
-        assert_eq!(dec.propulsion_class, PropulsionClass::BirdLike);
-        assert!(!dec.detected);
-    }
-
-    #[test]
-    fn cruise_detector_os_cfar_threshold_check_blocks_noise_floor() {
-        // Provide a flat-noise spectrum; OS-CFAR threshold must reject
-        // (peak ~= noise estimate × ~1 << alpha).
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(50.0, 800.0, 8);
-        let spec = vec![1.0f32; 128];
-        let dec = detector.evaluate(&obs, Some(&spec), Some(5.0));
-        assert!(!dec.detected, "flat noise must not pass OS-CFAR");
-        assert!(!dec.cfar_passed);
-    }
-
-    #[test]
-    fn cruise_detector_os_cfar_threshold_passes_strong_peak() {
-        // Spike one bin to 1000 × the floor; CFAR must accept.
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(50.0, 800.0, 8);
-        let mut spec = vec![1.0f32; 128];
-        spec[64] = 1000.0;
-        let dec = detector.evaluate(&obs, Some(&spec), Some(5.0));
-        assert!(dec.cfar_passed, "strong peak must clear OS-CFAR");
-        assert_eq!(dec.dominant_doppler_bin, Some(64));
-    }
-
-    #[test]
-    fn cruise_detector_blade_pass_micro_doppler_piston() {
-        let detector = CruiseTierDetector::with_default();
-        let obs = steady_cruise_window(50.0, 800.0, 8);
-        // 256 bins × 1 Hz = 256 Hz Nyquist. Spike bin 180 (180 Hz)
-        // which is squarely in [127.5, 253] Hz blade-pass window.
-        let mut spec = vec![1.0f32; 256];
-        spec[64] = 1000.0; // body Doppler peak (CFAR target)
-        spec[180] = 50.0; // blade-pass line
-        let dec = detector.evaluate(&obs, Some(&spec), Some(1.0));
-        assert!(
-            dec.micro_doppler_confirmed,
-            "blade-pass at 180 Hz must be confirmed for piston cluster"
-        );
-    }
-}
+#[path = "tier_cruise_tests.rs"]
+mod tests;

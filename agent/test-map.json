@@ -4,6 +4,10 @@
       "command": "rtk just fast",
       "purpose": "verify agent governance files"
     },
+    ".agents/receipts/": {
+      "command": "node tools/receipt_guard.mjs --all",
+      "purpose": "verify all agent receipts meet structural requirements"
+    },
     ".cargo/": {
       "command": "rtk just fast",
       "purpose": "verify Cargo build configuration including sccache wrapper settings"
@@ -16,41 +20,37 @@
       "command": "rtk just fast",
       "purpose": "verify Cursor IDE rule files"
     },
-    ".agents/receipts/": {
-      "command": "node tools/receipt_guard.mjs --all",
-      "purpose": "verify all agent receipts meet structural requirements"
-    },
     ".dockerignore": {
       "command": "rtk just fast",
       "purpose": "verify Docker build exclusion rules"
-    },
-    ".github/": {
-      "command": "rtk just fast",
-      "purpose": "verify CI workflow definitions"
     },
     ".gitattributes": {
       "command": "rtk just fast",
       "purpose": "verify git attributes file for line-ending and binary-file policies"
     },
-    ".gitleaks.toml": {
-      "command": "bash tools/security-lane.sh",
-      "purpose": "verify gitleaks secret scan configuration"
+    ".github/": {
+      "command": "rtk just fast",
+      "purpose": "verify CI workflow definitions"
     },
     ".gitignore": {
       "command": "rtk just fast",
       "purpose": "verify git exclusion rules"
     },
+    ".gitleaks.toml": {
+      "command": "bash tools/security-lane.sh",
+      "purpose": "verify gitleaks secret scan configuration"
+    },
     "AGENTS.md": {
       "command": "rtk just fast",
       "purpose": "verify root governance remains visible to the audit"
     },
-    "CLAUDE.md": {
-      "command": "rtk just fast",
-      "purpose": "verify Claude Code project instructions"
-    },
     "CHANGELOG.md": {
       "command": "rtk just fast",
       "purpose": "verify changelog governance document"
+    },
+    "CLAUDE.md": {
+      "command": "rtk just fast",
+      "purpose": "verify Claude Code project instructions"
     },
     "CODE_OF_CONDUCT.md": {
       "command": "rtk just fast",
@@ -68,10 +68,6 @@
       "command": "rtk cargo test --workspace --locked",
       "purpose": "verify workspace manifest"
     },
-    "GEMINI.md": {
-      "command": "rtk just fast",
-      "purpose": "verify Gemini AI project instructions"
-    },
     "FUCKIT.md": {
       "command": "rtk just fast",
       "purpose": "verify project governance backlog document"
@@ -79,6 +75,10 @@
     "FUCKIT.md.done": {
       "command": "rtk just fast",
       "purpose": "verify completed governance backlog archive"
+    },
+    "GEMINI.md": {
+      "command": "rtk just fast",
+      "purpose": "verify Gemini AI project instructions"
     },
     "HI.md": {
       "command": "rtk just fast",
@@ -218,7 +218,7 @@
     },
     "examples/perfect-web-api-db/backend/src/background_job.rs": {
       "command": "just fast",
-      "purpose": "run proofs for background\u2011job cell"
+      "purpose": "run proofs for background‑job cell"
     },
     "lefthook.yml": {
       "command": "rtk just fast",
@@ -295,10 +295,6 @@
     "tools/": {
       "command": "rtk just fast",
       "purpose": "verify developer tooling scripts"
-    },
-    ".gitattributes": {
-      "command": "rtk just fast",
-      "purpose": "verify git attributes file for line-ending and binary-file policies"
     }
   },
   "workspace": "echoforge"

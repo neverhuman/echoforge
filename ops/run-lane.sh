@@ -33,7 +33,11 @@ fi
 
 case "$lane" in
   fast)
-    run cargo test --workspace --locked
+    if command -v cargo-nextest >/dev/null 2>&1; then
+      run cargo nextest run --workspace --locked --jobs "$(nproc 2>/dev/null || echo 4)"
+    else
+      run cargo test --workspace --locked
+    fi
     if command -v jankurai >/dev/null 2>&1; then
       run jankurai adapters verify .
     else
@@ -69,15 +73,18 @@ case "$lane" in
     run cargo test -p echoforge-studio --locked
     ;;
   web-smoke)
+    run npm ci --no-fund --no-audit
     run npm run web:smoke
     ;;
   web-e2e)
+    run npm ci --no-fund --no-audit
     cd apps/web
-    npx playwright test
+    run node_modules/.bin/playwright test
     ;;
   ux-qa)
+    run npm ci --no-fund --no-audit
     cd apps/web
-    npx playwright test --reporter=html
+    run node_modules/.bin/playwright test --reporter=html
     ;;
   science-smoke)
     run cargo test -p echoforge-sig --locked

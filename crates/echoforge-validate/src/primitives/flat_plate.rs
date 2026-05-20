@@ -12,7 +12,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::{CanonicalTruth, Conditions, Status, Truth};
+use super::{CanonicalTruth, Conditions, Truth};
 use crate::tolerance::ToleranceBand;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,16 +32,6 @@ impl PecFlatPlate {
     }
 }
 
-/// Unnormalized sinc: sin(x)/x.
-#[inline]
-fn sinc(x: f64) -> f64 {
-    if x.abs() < 1e-12 {
-        1.0
-    } else {
-        x.sin() / x
-    }
-}
-
 impl CanonicalTruth for PecFlatPlate {
     fn sigma_m2(&self, conditions: &Conditions) -> Truth {
         let lambda = conditions.wavelength_m();
@@ -52,8 +42,8 @@ impl CanonicalTruth for PecFlatPlate {
         let prefactor = 4.0 * std::f64::consts::PI * area * area / (lambda * lambda);
         let cos_t = theta.cos();
         let cos_p = phi.cos();
-        let sw = sinc(k * self.width_m * theta.sin());
-        let sh = sinc(k * self.height_m * phi.sin());
+        let sw = super::sinc(k * self.width_m * theta.sin());
+        let sh = super::sinc(k * self.height_m * phi.sin());
         let sigma = prefactor * cos_t.powi(2) * cos_p.powi(2) * sw.powi(2) * sh.powi(2);
         let regime = if theta.abs() < 1e-9 && phi.abs() < 1e-9 {
             "broadside"
@@ -62,11 +52,7 @@ impl CanonicalTruth for PecFlatPlate {
         } else {
             "main_lobe"
         };
-        Truth {
-            value: sigma,
-            regime: regime.to_string(),
-            status: Status::Pass,
-        }
+        Truth::ok(sigma, regime)
     }
 
     fn validity_mask(&self, conditions: &Conditions) -> bool {
@@ -77,14 +63,7 @@ impl CanonicalTruth for PecFlatPlate {
     }
 
     fn tolerance(&self, _conditions: &Conditions) -> ToleranceBand {
-        ToleranceBand {
-            analytic_db: 0.3,
-            numeric_db: 0.0,
-            method_db: 0.0,
-            total_db: 0.3,
-            floor_db: 0.1,
-            ceiling_db: 3.0,
-        }
+        ToleranceBand::analytic_only(0.3)
     }
 }
 

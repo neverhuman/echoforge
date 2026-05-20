@@ -26,7 +26,10 @@ allow = [
 [advisories]
 version = 2
 yanked = "deny"
-ignore = []
+ignore = [
+  # number_prefix unmaintained; no safe upgrade exists (pulled in by indicatif → echoforge-dataset)
+  "RUSTSEC-2025-0119",
+]
 
 [bans]
 multiple-versions = "warn"

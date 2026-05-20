@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use super::*;
+use super::tests_helpers::high_snr_episode;
 
 /// A pure complex tone `x[n] = exp(j 2π f₀ n / N)` injected into a
 /// single range bin must produce a DFT peak at Doppler bin `f₀` of
@@ -173,15 +174,7 @@ fn slow_time_complex_dft_handles_empty() {
 /// plane.
 #[test]
 fn range_doppler_complex_populated() {
-    let config = RadarSimConfig {
-        pulse_count: 16,
-        target_snr_db: 28.0,
-        ..RadarSimConfig::default()
-    };
-    let mut noise = NoiseProfile::real_world_proxy_v1();
-    noise.awgn_sigma = 0.025;
-    let episode =
-        synthesize_takeoff_episode(config, TakeoffProfile::default(), noise, EpisodeSeed(7));
+    let episode = high_snr_episode(16, 7);
 
     // Expected shape from the synthesis loop:
     //   reference len = sample_count = pulse_width_s * sample_rate_hz

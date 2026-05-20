@@ -15,6 +15,7 @@ pub mod cfar_closed_forms;
 pub mod go_cfar;
 pub mod micro_doppler_classifier;
 pub mod micro_doppler_feature;
+pub(super) mod micro_doppler_lrt;
 pub mod os_cfar;
 pub mod phase_tiered;
 pub mod so_cfar;

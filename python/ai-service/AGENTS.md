@@ -31,3 +31,5 @@ echoforge_core/      # Python mirror of core data types (schema-derived, not aut
 echoforge_validate/  # Validation utilities calling into Rust-defined rules
 echoforge_signatures/ # Signature loading (reads artifact bundles only)
 ```
+
+<!-- jankurai merge marker: review and merge canonical guidance for python/ai-service/AGENTS.md -->

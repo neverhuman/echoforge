@@ -1,4 +1,5 @@
 use super::*;
+use super::tests_helpers::high_snr_episode;
 
 #[test]
 fn deterministic_episode_repeats_for_seed() {
@@ -24,15 +25,7 @@ fn deterministic_episode_repeats_for_seed() {
 
 #[test]
 fn high_snr_takeoff_has_detection() {
-    let config = RadarSimConfig {
-        pulse_count: 12,
-        target_snr_db: 28.0,
-        ..RadarSimConfig::default()
-    };
-    let mut noise = NoiseProfile::real_world_proxy_v1();
-    noise.awgn_sigma = 0.025;
-    let episode =
-        synthesize_takeoff_episode(config, TakeoffProfile::default(), noise, EpisodeSeed(7));
+    let episode = high_snr_episode(12, 7);
     assert!(!episode.detections.is_empty());
 }
 
@@ -112,10 +105,7 @@ fn rfi_changes_products_but_stays_deterministic() {
 /// `tests/physics_correctness.rs::c_unified_takeoff_wrapper_matches_scene_direct`.
 #[test]
 fn synthesize_scene_single_target_matches_prior() {
-    use crate::scene::{
-        EnvironmentDescriptor, SceneDescriptor, SiteGeometry, TargetClass, TargetEntity,
-        TargetKinematics,
-    };
+    use crate::scene::{SceneDescriptor, TargetClass, TargetEntity, TargetKinematics};
 
     let config = RadarSimConfig {
         pulse_count: 6,
@@ -127,23 +117,11 @@ fn synthesize_scene_single_target_matches_prior() {
 
     let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise, seed);
 
-    let scene = SceneDescriptor {
-        geometry: SiteGeometry {
-            antenna_altitude_agl_m: config.radar_altitude_agl_m,
-        },
-        environment: EnvironmentDescriptor {
-            clutter_regime: noise.clutter_regime,
-            atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
-            rain_rate_mm_per_h: config.rain_rate_mm_per_h,
-            ground_reflection_coefficient_magnitude: config
-                .ground_reflection_coefficient_magnitude,
-        },
-        targets: vec![TargetEntity {
-            class: TargetClass::ShahedClassPiston,
-            kinematics: TargetKinematics::FromTakeoffProfile(profile),
-            spawn_time_s: 0.0,
-        }],
-    };
+    let scene = SceneDescriptor::from_radar_config(&config, &noise, vec![TargetEntity {
+        class: TargetClass::ShahedClassPiston,
+        kinematics: TargetKinematics::FromTakeoffProfile(profile),
+        spawn_time_s: 0.0,
+    }]);
     let via_scene = synthesize_scene(scene, config, noise, seed);
 
     assert_eq!(

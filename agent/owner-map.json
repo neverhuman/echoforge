@@ -5,20 +5,20 @@
     ".claude/": "governance",
     ".cursor/": "governance",
     ".dockerignore": "governance",
-    ".github/": "governance",
     ".gitattributes": "governance",
-    ".gitleaks.toml": "governance",
+    ".github/": "governance",
     ".gitignore": "governance",
+    ".gitleaks.toml": "governance",
     "AGENTS.md": "governance",
     "CHANGELOG.md": "governance",
     "CLAUDE.md": "governance",
-    "GEMINI.md": "governance",
     "CODE_OF_CONDUCT.md": "governance",
     "CONTRIBUTING.md": "governance",
     "Cargo.lock": "governance",
     "Cargo.toml": "governance",
     "FUCKIT.md": "governance",
     "FUCKIT.md.done": "governance",
+    "GEMINI.md": "governance",
     "HI.md": "governance",
     "HIchat.md": "governance",
     "Justfile": "governance",
@@ -65,8 +65,7 @@
     "tests/": "runtime_core",
     "tests/contracts/": "runtime_core",
     "tests/gpu/": "runtime_core",
-    "tools/": "governance",
-    ".gitattributes": "governance"
+    "tools/": "governance"
   },
   "workspace": "echoforge"
 }

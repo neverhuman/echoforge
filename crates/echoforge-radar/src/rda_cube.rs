@@ -36,13 +36,11 @@
 //! [`build_rda_cube`] twice with the same arguments yields byte-identical
 //! cubes.
 
-use num_complex::Complex;
-
 use crate::antenna::PhasedArrayManifold;
-use crate::beamforming::steering_vector;
 use crate::ComplexSample;
 
-const C_M_PER_S: f64 = 299_792_458.0;
+#[path = "rda_cube_impl.rs"]
+mod rda_cube_impl;
 
 /// Discrete steering grid the RDA cube is sampled on. Azimuth and elevation
 /// are in degrees from boresight; many radars use a single elevation slice,
@@ -182,111 +180,7 @@ pub fn build_rda_cube(
     pri_s: f64,
     carrier_hz: f64,
 ) -> RangeDopplerAngle {
-    let (n_range, n_doppler) = range_doppler_bins;
-    let angle_count = angle_grid.len();
-    let mut cube = vec![vec![vec![0.0f32; n_range]; n_doppler]; angle_count];
-
-    // Degenerate cases: return correctly-shaped zero cube.
-    if angle_count == 0 || n_range == 0 || n_doppler == 0 || channel_iq.is_empty() {
-        return RangeDopplerAngle {
-            range_bins: n_range,
-            doppler_bins: n_doppler,
-            angle_count,
-            angle_grid: angle_grid.clone(),
-            cube,
-        };
-    }
-
-    // Determine the canonical channel sample count (the longest channel).
-    let n_samples = channel_iq.iter().map(|ch| ch.len()).max().unwrap_or(0);
-    if n_samples == 0 {
-        return RangeDopplerAngle {
-            range_bins: n_range,
-            doppler_bins: n_doppler,
-            angle_count,
-            angle_grid: angle_grid.clone(),
-            cube,
-        };
-    }
-
-    let n_channels = channel_iq.len();
-    let channel_norm = (n_channels.max(1)) as f32;
-
-    // Hann window across the slow-time / Doppler axis. Built once per call.
-    let hann = hann_window(n_doppler);
-
-    // Pre-compute the (az, el) tuples in canonical order.
-    let mut angles: Vec<(f64, f64)> = Vec::with_capacity(angle_count);
-    for &el in &angle_grid.elevation_deg {
-        for &az in &angle_grid.azimuth_deg {
-            angles.push((az, el));
-        }
-    }
-
-    for (angle_idx, (az_deg, _el_deg)) in angles.iter().enumerate() {
-        // Steering vector for this (az). The current ULA helper steers in
-        // azimuth only; elevation enters via the angle grid but does not
-        // perturb the steering of a horizontal ULA. The cube still indexes
-        // elevation slices so a 2-D (planar) array can be plugged in later
-        // without breaking the API.
-        let steering = steering_vector(
-            manifold.n_elements.max(1),
-            manifold.element_spacing_m,
-            carrier_hz,
-            *az_deg,
-        );
-
-        // Beamform: weighted sum across channels with the conjugated
-        // steering vector, matching DelayAndSumBeamformer's convention.
-        let mut beamformed = vec![ComplexSample::new(0.0, 0.0); n_samples];
-        for (ch_idx, channel) in channel_iq.iter().enumerate() {
-            let weight = steering
-                .get(ch_idx)
-                .copied()
-                .unwrap_or(Complex::new(1.0, 0.0));
-            let w_conj = weight.conj();
-            let w_sample = ComplexSample::new(w_conj.re as f32, w_conj.im as f32);
-            let len = channel.len().min(n_samples);
-            for i in 0..len {
-                beamformed[i] += channel[i] * w_sample;
-            }
-        }
-        for sample in &mut beamformed {
-            sample.re /= channel_norm;
-            sample.im /= channel_norm;
-        }
-
-        // Reshape as [doppler][range] and run a per-range Doppler DFT.
-        // Out-of-range fast-time / slow-time samples are zero-padded.
-        for r in 0..n_range {
-            let mut column: Vec<Complex<f64>> = (0..n_doppler)
-                .map(|d| {
-                    let flat_idx = d * n_range + r;
-                    let s = if flat_idx < n_samples {
-                        beamformed[flat_idx]
-                    } else {
-                        ComplexSample::new(0.0, 0.0)
-                    };
-                    Complex::new(s.re as f64 * hann[d], s.im as f64 * hann[d])
-                })
-                .collect();
-            dft_in_place(&mut column);
-            for d in 0..n_doppler {
-                let power = column[d].norm_sqr() as f32;
-                cube[angle_idx][d][r] = power;
-            }
-        }
-    }
-
-    let _ = pri_s; // pri_s is consumed by `rda_peak` via the cube's carrier_hz/pri_s decode helpers below.
-
-    RangeDopplerAngle {
-        range_bins: n_range,
-        doppler_bins: n_doppler,
-        angle_count,
-        angle_grid: angle_grid.clone(),
-        cube,
-    }
+    rda_cube_impl::build_rda_cube_impl(channel_iq, manifold, angle_grid, range_doppler_bins, pri_s, carrier_hz)
 }
 
 /// Find the global maximum cell in the cube and decode its grid coordinates.
@@ -373,46 +267,11 @@ pub fn rda_to_rd_sum(cube: &RangeDopplerAngle) -> Vec<Vec<f32>> {
     out
 }
 
-// --- internal helpers -------------------------------------------------------
-
-fn hann_window(n: usize) -> Vec<f64> {
-    if n == 0 {
-        return Vec::new();
-    }
-    if n == 1 {
-        return vec![1.0];
-    }
-    (0..n)
-        .map(|i| {
-            let phase = 2.0 * std::f64::consts::PI * i as f64 / (n as f64 - 1.0);
-            0.5 - 0.5 * phase.cos()
-        })
-        .collect()
-}
-
-/// Naive DFT used to run the Doppler transform per range bin. The cube
-/// sizes used here are small (a few dozen Doppler bins at most), so the
-/// O(N²) cost is acceptable in exchange for working for *any* N and being
-/// trivially auditable. This routine matches the rustfft "forward"
-/// convention: `X[k] = Σ x[n] · exp(-j 2π n k / N)`.
-fn dft_in_place(buf: &mut [Complex<f64>]) {
-    let n = buf.len();
-    if n <= 1 {
-        return;
-    }
-    let input: Vec<Complex<f64>> = buf.to_vec();
-    let two_pi = 2.0 * std::f64::consts::PI;
-    for (k, slot) in buf.iter_mut().enumerate().take(n) {
-        let mut acc = Complex::<f64>::new(0.0, 0.0);
-        for (n_idx, x) in input.iter().enumerate() {
-            let angle = -two_pi * (n_idx as f64) * (k as f64) / n as f64;
-            let twiddle = Complex::<f64>::new(angle.cos(), angle.sin());
-            acc += x * twiddle;
-        }
-        *slot = acc;
-    }
-    let _ = C_M_PER_S; // c is reserved for a future wavelength conversion.
-}
+// Re-export implementation helpers needed by the test module via `use super::*`.
+#[cfg(test)]
+pub use rda_cube_impl::{dft_in_place, hann_window};
+#[cfg(test)]
+pub use num_complex::Complex;
 
 #[cfg(test)]
 #[path = "rda_cube_tests.rs"]

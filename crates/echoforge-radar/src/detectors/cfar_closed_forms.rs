@@ -63,21 +63,7 @@ pub fn go_cfar_scale_gaussian(training_cells_per_side: usize, pfa: f32) -> f32 {
         }
         2.0 * sum
     };
-    let mut lo = 1e-3_f64;
-    let mut hi = 1e6_f64;
-    for _ in 0..100 {
-        let mid = 0.5 * (lo + hi);
-        let p = pfa_at(mid);
-        if p > pfa_target {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-        if (hi - lo).abs() < 1e-6 * hi.max(1.0) {
-            break;
-        }
-    }
-    (0.5 * (lo + hi)) as f32
+    bisect_alpha(pfa_at, pfa_target)
 }
 
 /// SO-CFAR (Smallest-Of) closed-form alpha per Trunk 1978 /
@@ -105,21 +91,7 @@ pub fn so_cfar_scale_gaussian(training_cells_per_side: usize, pfa: f32) -> f32 {
         2.0 * sum
     };
     let pfa_at = |alpha: f64| -> f64 { 2.0 * ca_pfa_at(alpha) - go_pfa_at(alpha) };
-    let mut lo = 1e-3_f64;
-    let mut hi = 1e6_f64;
-    for _ in 0..100 {
-        let mid = 0.5 * (lo + hi);
-        let p = pfa_at(mid);
-        if p > pfa_target {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-        if (hi - lo).abs() < 1e-6 * hi.max(1.0) {
-            break;
-        }
-    }
-    (0.5 * (lo + hi)) as f32
+    bisect_alpha(pfa_at, pfa_target)
 }
 
 /// Weibull-CA CFAR closed-form alpha per Sekine-Mao 1990 power domain.
@@ -163,6 +135,24 @@ pub fn cfar_scale_log_normal(_training_cells: usize, pfa: f32, sigma: f32) -> f3
     }
     let z = erfc_inv(2.0 * pfa as f64);
     (sigma as f64 * (2.0_f64).sqrt() * z).exp() as f32 - 1.0
+}
+
+fn bisect_alpha(pfa_at: impl Fn(f64) -> f64, pfa_target: f64) -> f32 {
+    let mut lo = 1e-3_f64;
+    let mut hi = 1e6_f64;
+    for _ in 0..100 {
+        let mid = 0.5 * (lo + hi);
+        let p = pfa_at(mid);
+        if p > pfa_target {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+        if (hi - lo).abs() < 1e-6 * hi.max(1.0) {
+            break;
+        }
+    }
+    (0.5 * (lo + hi)) as f32
 }
 
 // ---------- math helpers ----------

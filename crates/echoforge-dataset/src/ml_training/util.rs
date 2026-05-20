@@ -8,10 +8,14 @@ use std::time::Instant;
 use ndarray::{ArrayD, IxDyn};
 
 use crate::monte_carlo::DatasetError;
+use crate::rng::{child_seed, deterministic_shuffle};
 use crate::split::SplitKind;
 
 use super::config::MlTrainingDataConfig;
-use super::types::{MlClass, MlRecordPlan, SplitMix64};
+use super::types::{MlClass, MlRecordPlan};
+
+#[path = "util_classes.rs"]
+mod util_classes;
 
 // ---------------------------------------------------------------------------
 // Record-plan construction
@@ -87,147 +91,7 @@ pub(super) fn assign_exact_splits(plans: &mut [MlRecordPlan], seed: u64) {
 // ---------------------------------------------------------------------------
 
 pub(super) fn ml_classes() -> Vec<MlClass> {
-    use super::config::NEUTRAL_OBJECT_ID;
-    vec![
-        ml_class(
-            NEUTRAL_OBJECT_ID,
-            "Delta Pusher Fixed-Wing OWA Public Proxy",
-            "owa_delta_pusher_public_proxy",
-            "positive_public_proxy",
-            true,
-            false,
-        ),
-        ml_class(
-            "hard-negative-single-bird-v1",
-            "Single Bird Public Proxy",
-            "single_bird",
-            "single_bird",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-bird-flock-v1",
-            "Bird Flock Public Proxy",
-            "bird_flock",
-            "bird_flock",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-bat-insect-cloud-v1",
-            "Bat and Insect Cloud Public Proxy",
-            "bat_or_insect_cloud",
-            "bat_insect_cloud",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-balloon-weather-v1",
-            "Weather Balloon Public Proxy",
-            "balloon_weather",
-            "balloon_weather",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-kite-v1",
-            "Kite Public Proxy",
-            "kite",
-            "kite",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-windborne-debris-v1",
-            "Windborne Debris Public Proxy",
-            "windborne_debris",
-            "windborne_debris",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-ground-vehicle-v1",
-            "Ground Vehicle Public Proxy",
-            "ground_vehicle",
-            "ground_vehicle",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-power-line-pylon-v1",
-            "Power Line and Pylon Public Proxy",
-            "power_line_pylon",
-            "power_line_pylon",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-wind-turbine-v1",
-            "Wind Turbine Public Proxy",
-            "wind_turbine",
-            "wind_turbine",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-rain-cell-v1",
-            "Rain Cell Public Proxy",
-            "rain_cell",
-            "rain_cell",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-dust-haze-v1",
-            "Dust and Haze Public Proxy",
-            "dust_haze",
-            "dust_haze",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-rfi-burst-v1",
-            "RFI Burst Public Proxy",
-            "rfi_burst",
-            "rfi_burst",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-terrain-only-v1",
-            "Terrain-Only Scene Public Proxy",
-            "terrain_only",
-            "terrain_only",
-            false,
-            true,
-        ),
-        ml_class(
-            "hard-negative-multipath-ghost-v1",
-            "Multipath Ghost Public Proxy",
-            "multipath_ghost",
-            "multipath_ghost",
-            false,
-            true,
-        ),
-    ]
-}
-
-fn ml_class(
-    class_id: &str,
-    display_name: &str,
-    target_family: &str,
-    hard_negative_family: &str,
-    is_public_proxy_positive: bool,
-    is_hard_negative: bool,
-) -> MlClass {
-    MlClass {
-        class_id: class_id.to_string(),
-        display_name: display_name.to_string(),
-        target_family: target_family.to_string(),
-        hard_negative_family: hard_negative_family.to_string(),
-        is_public_proxy_positive,
-        is_hard_negative,
-    }
+    util_classes::ml_classes()
 }
 
 // ---------------------------------------------------------------------------
@@ -385,23 +249,6 @@ pub(super) fn hann(index: usize, len: usize) -> f32 {
 
 pub(super) fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
-}
-
-pub(super) fn child_seed(root: u64, index: u64) -> u64 {
-    let mut value = root ^ index.wrapping_mul(0x9e37_79b9_7f4a_7c15);
-    value ^= value >> 30;
-    value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
-    value ^= value >> 27;
-    value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
-    value ^ (value >> 31)
-}
-
-pub(super) fn deterministic_shuffle<T>(items: &mut [T], seed: u64) {
-    let mut rng = SplitMix64::new(seed ^ 0x5368_7566_666c_65);
-    for index in (1..items.len()).rev() {
-        let swap = rng.range_usize(0, index);
-        items.swap(index, swap);
-    }
 }
 
 pub(super) fn stable_hash_str(input: &str) -> u64 {

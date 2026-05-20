@@ -7,6 +7,7 @@ use crate::monte_carlo::DatasetError;
 mod detectors;
 mod plan;
 mod reporting;
+mod reporting_models;
 mod rng;
 mod simulation;
 mod types;
@@ -158,7 +159,7 @@ mod tests {
     use super::*;
     use crate::campaign::plan::{build_campaign_plan, campaign_classes};
     use crate::guard::compute_worker_count;
-    use echoforge_radar::{BackendMode, BackendSignals};
+    use echoforge_radar::{BackendMode, BackendSignals, RuntimePlan};
 
     #[cfg(test)]
     #[derive(Debug, Clone, serde::Deserialize)]
