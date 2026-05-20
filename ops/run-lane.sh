@@ -81,6 +81,11 @@ case "$lane" in
   web-e2e)
     require_node_at_least 26.1.0
     run npm ci --no-fund --no-audit
+    if [[ "${CI:-}" == "true" ]]; then
+      run npx playwright install --with-deps chromium
+    else
+      run npx playwright install chromium
+    fi
     cd apps/web
     run ../../node_modules/.bin/playwright test
     ;;

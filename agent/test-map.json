@@ -240,6 +240,10 @@
 			"command": "rtk just fast",
 			"purpose": "verify CI operations scripts"
 		},
+		"outputs/": {
+			"command": "rtk bash ops/run-lane.sh score",
+			"purpose": "verify generated output zones remain declared without tracking generated data"
+		},
 		"package-lock.json": {
 			"command": "rtk just web-smoke",
 			"purpose": "verify npm lockfile is consistent with package.json"

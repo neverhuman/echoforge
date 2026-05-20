@@ -75,6 +75,9 @@ sbom/*
 !artifacts/.keep
 !build/.keep
 !dist/.keep
+!outputs/
+outputs/*
+!outputs/.keep
 
 # Benchmark zone fixture files (tracked as zone-existence evidence, not real ML artifacts)
 !benchmarks/fixtures/

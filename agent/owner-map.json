@@ -52,6 +52,7 @@
 		"lefthook.yml": "governance",
 		"object-packs/": "governance",
 		"ops/": "governance",
+		"outputs/": "governance",
 		"package-lock.json": "governance",
 		"package.json": "governance",
 		"packages/": "tools",
