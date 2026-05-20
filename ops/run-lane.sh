@@ -17,8 +17,6 @@ require_command() {
 }
 
 security_lane() {
-  require_command cargo-cyclonedx
-  require_command pip-licenses
   run cargo deny check
   run bash tools/sbom_emit.sh
 }
