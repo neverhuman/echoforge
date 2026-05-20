@@ -126,3 +126,6 @@ audit:
 
 security-lane:
     rtk bash ops/run-lane.sh security
+
+security:
+    rtk bash ops/run-lane.sh security

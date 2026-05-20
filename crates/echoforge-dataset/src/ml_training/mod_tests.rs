@@ -8,9 +8,7 @@ use super::config::MlTrainingDataConfig;
 use super::envelope::sample_envelope;
 use super::pipeline::{build_frame_products, evaluate_phase_tiered};
 use super::run_ml_training_data;
-use super::scene::{
-    adapt_envelope_to_takeoff_profile, build_noise_profile, build_scene_descriptor,
-};
+use super::scene::{build_noise_profile, build_scene_descriptor};
 use super::types::SplitMix64;
 use super::util::{build_record_plan, ml_classes};
 
@@ -37,8 +35,7 @@ fn synthesize_episode_for_test(
         target_snr_db: envelope.base_snr_db as f64,
         ..RadarSimConfig::default()
     };
-    let profile = adapt_envelope_to_takeoff_profile(envelope, &mut rng);
-    let scene = build_scene_descriptor(class, profile, &sim_config, &noise);
+    let scene = build_scene_descriptor(class, envelope, &mut rng, &sim_config, &noise);
     synthesize_scene(
         scene,
         sim_config,
@@ -129,10 +126,8 @@ fn frame_feature_generation_is_deterministic_and_finite() {
     assert_eq!(envelope_a.dimensions_m, envelope_b.dimensions_m);
     let episode_a = synthesize_episode_for_test(&envelope_a, &plan.class, plan.scenario_seed);
     let episode_b = synthesize_episode_for_test(&envelope_b, &plan.class, plan.scenario_seed);
-    let (features_a, _, _, _) =
-        build_frame_products(&config, plan, &envelope_a, &episode_a, 12, 32);
-    let (features_b, _, _, _) =
-        build_frame_products(&config, plan, &envelope_b, &episode_b, 12, 32);
+    let (features_a, _, _, _) = build_frame_products(&config, plan, &episode_a, 12, 32);
+    let (features_b, _, _, _) = build_frame_products(&config, plan, &episode_b, 12, 32);
     assert_eq!(
         serde_json::to_string(&features_a).expect("features serialize"),
         serde_json::to_string(&features_b).expect("features serialize")

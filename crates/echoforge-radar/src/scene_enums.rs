@@ -170,6 +170,17 @@ pub enum TargetKinematics {
         wind_gust_amplitude_mps: f64,
     },
 
+    /// Static terrain / infrastructure glint. The return is fixed in
+    /// geometry with zero radial velocity, which makes it useful for
+    /// pylon / corner / static-scatterer proxies without forcing the
+    /// scene through the takeoff wrapper.
+    TerrainGlint { range_m: f64, altitude_agl_m: f64 },
+
+    /// Stationary human / kit / ground-return proxy. Same kinematic
+    /// semantics as [`Self::TerrainGlint`], but kept separate so the
+    /// scene descriptor can preserve the source class.
+    ManRadarReturn { range_m: f64, altitude_agl_m: f64 },
+
     /// Helicopter — main rotor 4–6 blades at 200–400 RPM (3.3–6.7 Hz
     /// rotation), tail rotor 2–4 blades. Dual-rotor micro-Doppler
     /// signature is distinct from a fixed-wing UAS propeller line
