@@ -29,6 +29,10 @@ node_modules/
 .yarn/
 dist/
 coverage/
+playwright-report/
+test-results/
+apps/web/playwright-report/
+apps/web/test-results/
 
 # Rust and general build output
 target/

@@ -67,9 +67,10 @@ fn shift_and_crop(proxy: &[Vec<f32>], zero_delay_bin: usize) -> Vec<Vec<f32>> {
     (0..n)
         .map(|i| {
             let row = &proxy[(i + half) % n];
-            row.get(zero_delay_bin..)
-                .map(|s| s.to_vec())
-                .unwrap_or_default()
+            match row.get(zero_delay_bin..) {
+                Some(slice) => slice.to_vec(),
+                None => Vec::new(),
+            }
         })
         .collect()
 }

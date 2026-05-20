@@ -1,301 +1,309 @@
 {
-  "tests": {
-    ".agents/": {
-      "command": "rtk just fast",
-      "purpose": "verify agent governance files"
-    },
-    ".agents/receipts/": {
-      "command": "node tools/receipt_guard.mjs --all",
-      "purpose": "verify all agent receipts meet structural requirements"
-    },
-    ".cargo/": {
-      "command": "rtk just fast",
-      "purpose": "verify Cargo build configuration including sccache wrapper settings"
-    },
-    ".claude/": {
-      "command": "rtk just fast",
-      "purpose": "verify Claude Code local config files"
-    },
-    ".cursor/": {
-      "command": "rtk just fast",
-      "purpose": "verify Cursor IDE rule files"
-    },
-    ".dockerignore": {
-      "command": "rtk just fast",
-      "purpose": "verify Docker build exclusion rules"
-    },
-    ".gitattributes": {
-      "command": "rtk just fast",
-      "purpose": "verify git attributes file for line-ending and binary-file policies"
-    },
-    ".github/": {
-      "command": "rtk just fast",
-      "purpose": "verify CI workflow definitions"
-    },
-    ".gitignore": {
-      "command": "rtk just fast",
-      "purpose": "verify git exclusion rules"
-    },
-    ".gitleaks.toml": {
-      "command": "bash tools/security-lane.sh",
-      "purpose": "verify gitleaks secret scan configuration"
-    },
-    "AGENTS.md": {
-      "command": "rtk just fast",
-      "purpose": "verify root governance remains visible to the audit"
-    },
-    "CHANGELOG.md": {
-      "command": "rtk just fast",
-      "purpose": "verify changelog governance document"
-    },
-    "CLAUDE.md": {
-      "command": "rtk just fast",
-      "purpose": "verify Claude Code project instructions"
-    },
-    "CODE_OF_CONDUCT.md": {
-      "command": "rtk just fast",
-      "purpose": "verify code of conduct document"
-    },
-    "CONTRIBUTING.md": {
-      "command": "rtk just fast",
-      "purpose": "verify contributing guidelines document"
-    },
-    "Cargo.lock": {
-      "command": "rtk cargo test --workspace --locked",
-      "purpose": "verify locked dependency graph"
-    },
-    "Cargo.toml": {
-      "command": "rtk cargo test --workspace --locked",
-      "purpose": "verify workspace manifest"
-    },
-    "FUCKIT.md": {
-      "command": "rtk just fast",
-      "purpose": "verify project governance backlog document"
-    },
-    "FUCKIT.md.done": {
-      "command": "rtk just fast",
-      "purpose": "verify completed governance backlog archive"
-    },
-    "GEMINI.md": {
-      "command": "rtk just fast",
-      "purpose": "verify Gemini AI project instructions"
-    },
-    "HI.md": {
-      "command": "rtk just fast",
-      "purpose": "verify compliance plan document"
-    },
-    "HIchat.md": {
-      "command": "rtk just fast",
-      "purpose": "verify agent coordination log"
-    },
-    "Justfile": {
-      "command": "rtk just fast",
-      "purpose": "verify task runner recipes"
-    },
-    "LICENSE": {
-      "command": "rtk just fast",
-      "purpose": "verify root license file"
-    },
-    "LICENSE-APACHE": {
-      "command": "rtk just fast",
-      "purpose": "verify Apache license file"
-    },
-    "LICENSE-MIT": {
-      "command": "rtk just fast",
-      "purpose": "verify MIT license file"
-    },
-    "README-jankurai-scaffold.md": {
-      "command": "jankurai doctor --fail-on critical",
-      "purpose": "verify scaffold marker does not hide missing control-plane files"
-    },
-    "README.md": {
-      "command": "rtk just fast",
-      "purpose": "verify root readme document"
-    },
-    "SECURITY.md": {
-      "command": "rtk just fast",
-      "purpose": "verify security policy document"
-    },
-    "agent/": {
-      "command": "rtk jankurai doctor . --fail-on critical",
-      "purpose": "verify repository control files remain parseable"
-    },
-    "agent/coverage-sources.toml": {
-      "command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
-      "purpose": "verify coverage evidence source routing and score import"
-    },
-    "agent/zyal/": {
-      "command": "just score",
-      "purpose": "verify canonical ZYAL runbooks stay under agent/zyal and only use the .zyal extension"
-    },
-    "apps/": {
-      "command": "rtk just web-smoke",
-      "purpose": "verify web application"
-    },
-    "assets/": {
-      "command": "rtk just fast",
-      "purpose": "verify static assets"
-    },
-    "benchmarks/": {
-      "command": "rtk just fast",
-      "purpose": "verify benchmark fixtures"
-    },
-    "configs/": {
-      "command": "rtk just fast",
-      "purpose": "verify scenario and Monte Carlo configuration files"
-    },
-    "contracts/": {
-      "command": "rtk just contracts",
-      "purpose": "verify the shared contract layer"
-    },
-    "crates/": {
-      "command": "rtk just science-smoke",
-      "purpose": "verify Rust runtime crates"
-    },
-    "crates/echoforge-studio/": {
-      "command": "rtk cargo test -p echoforge-studio --locked",
-      "purpose": "verify the same-origin Rust studio service"
-    },
-    "crates/jankurai/src/audit/coverage.rs": {
-      "command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
-      "purpose": "verify coverage parsers and evidence normalization"
-    },
-    "crates/jankurai/src/commands/coverage.rs": {
-      "command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
-      "purpose": "verify coverage audit command behavior"
-    },
-    "crates/jankurai/tests/fixtures/coverage/": {
-      "command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md",
-      "purpose": "verify coverage parser fixture contracts"
-    },
-    "db/": {
-      "command": "jankurai doctor --fail-on critical",
-      "purpose": "advisory database boundary health check"
-    },
-    "db/constraints/": {
-      "command": "jankurai doctor --fail-on critical",
-      "purpose": "advisory constraint-lane health check until DB proof exists"
-    },
-    "db/migrations/": {
-      "command": "jankurai doctor --fail-on critical",
-      "purpose": "advisory control-plane health check until migration tests exist"
-    },
-    "deny.toml": {
-      "command": "rtk just fast",
-      "purpose": "verify cargo deny configuration"
-    },
-    "detection/": {
-      "command": "rtk just science-smoke",
-      "purpose": "verify detection science experiments"
-    },
-    "docker/": {
-      "command": "rtk just demo",
-      "purpose": "verify the Rust studio demo image and launch recipe"
-    },
-    "docs/": {
-      "command": "rtk just fast",
-      "purpose": "verify documentation files"
-    },
-    "docs/COVERAGE_*.md": {
-      "command": "just score",
-      "purpose": "verify coverage evidence docs remain routed"
-    },
-    "docs/architecture/": {
-      "command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
-      "purpose": "verify architecture docs remain visible to the audit"
-    },
-    "docs/decisions/": {
-      "command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
-      "purpose": "verify decision records remain visible to the audit"
-    },
-    "ecoforge.png": {
-      "command": "rtk just fast",
-      "purpose": "verify project logo asset"
-    },
-    "examples/": {
-      "command": "rtk just fast",
-      "purpose": "verify example scripts and usage guides"
-    },
-    "examples/perfect-web-api-db/backend/src/background_job.rs": {
-      "command": "just fast",
-      "purpose": "run proofs for background‑job cell"
-    },
-    "lefthook.yml": {
-      "command": "rtk just fast",
-      "purpose": "verify git hook configuration"
-    },
-    "object-packs/": {
-      "command": "rtk ef pack validate",
-      "purpose": "verify all object pack cards validate against their JSON schemas"
-    },
-    "ops/": {
-      "command": "rtk just fast",
-      "purpose": "verify CI operations scripts"
-    },
-    "package-lock.json": {
-      "command": "rtk just web-smoke",
-      "purpose": "verify npm lockfile is consistent with package.json"
-    },
-    "package.json": {
-      "command": "rtk just web-smoke",
-      "purpose": "verify npm package manifest and scripts"
-    },
-    "pyproject.toml": {
-      "command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
-      "purpose": "verify Python project manifest and tool configuration"
-    },
-    "python/ai-service/": {
-      "command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
-      "purpose": "verify the Python contract slice"
-    },
-    "rust-toolchain.toml": {
-      "command": "rtk cargo check --workspace",
-      "purpose": "verify Rust toolchain version is consistent"
-    },
-    "sbom/": {
-      "command": "rtk just fast",
-      "purpose": "verify SBOM artifacts"
-    },
-    "scenarios/": {
-      "command": "rtk just fast",
-      "purpose": "verify scenario YAML configuration files"
-    },
-    "schemas/": {
-      "command": "rtk just contracts",
-      "purpose": "verify JSON schema files validate and match generated contracts"
-    },
-    "schemas/coverage-*.schema.json": {
-      "command": "just score",
-      "purpose": "verify coverage evidence schemas and fixtures"
-    },
-    "scripts/": {
-      "command": "rtk just fast",
-      "purpose": "verify CI helper scripts"
-    },
-    "tests/": {
-      "command": "rtk cargo test --workspace --locked",
-      "purpose": "verify all workspace test suites"
-    },
-    "tests/contracts/": {
-      "command": "rtk just contracts",
-      "purpose": "verify the Rust contract smoke package"
-    },
-    "tests/datasets/": {
-      "command": "rtk just dataset-smoke",
-      "purpose": "verify dataset split and leakage fixtures"
-    },
-    "tests/gpu/": {
-      "command": "rtk just gpu-smoke",
-      "purpose": "verify the Rust GPU doctor smoke package"
-    },
-    "tests/web/": {
-      "command": "rtk just web-smoke",
-      "purpose": "verify the API/catalog/web smoke surface"
-    },
-    "tools/": {
-      "command": "rtk just fast",
-      "purpose": "verify developer tooling scripts"
-    }
-  },
-  "workspace": "echoforge"
+	"tests": {
+		".agents/": {
+			"command": "rtk just fast",
+			"purpose": "verify agent governance files"
+		},
+		".agents/receipts/": {
+			"command": "node tools/receipt_guard.mjs --all",
+			"purpose": "verify all agent receipts meet structural requirements"
+		},
+		".cargo/": {
+			"command": "rtk just fast",
+			"purpose": "verify Cargo build configuration including sccache wrapper settings"
+		},
+		".claude/": {
+			"command": "rtk just fast",
+			"purpose": "verify Claude Code local config files"
+		},
+		".cursor/": {
+			"command": "rtk just fast",
+			"purpose": "verify Cursor IDE rule files"
+		},
+		".dockerignore": {
+			"command": "rtk just fast",
+			"purpose": "verify Docker build exclusion rules"
+		},
+		".gitattributes": {
+			"command": "rtk just fast",
+			"purpose": "verify git attributes file for line-ending and binary-file policies"
+		},
+		".github/": {
+			"command": "rtk just fast",
+			"purpose": "verify CI workflow definitions"
+		},
+		".gitignore": {
+			"command": "rtk just fast",
+			"purpose": "verify git exclusion rules"
+		},
+		".gitleaks.toml": {
+			"command": "bash tools/security-lane.sh",
+			"purpose": "verify gitleaks secret scan configuration"
+		},
+		".lefthook/": {
+			"command": "rtk just fast",
+			"purpose": "verify git hook scripts and hook routing"
+		},
+		".nvmrc": {
+			"command": "rtk just web-smoke",
+			"purpose": "verify Node runtime pin remains compatible with the web lane"
+		},
+		"AGENTS.md": {
+			"command": "rtk just fast",
+			"purpose": "verify root governance remains visible to the audit"
+		},
+		"CHANGELOG.md": {
+			"command": "rtk just fast",
+			"purpose": "verify changelog governance document"
+		},
+		"CLAUDE.md": {
+			"command": "rtk just fast",
+			"purpose": "verify Claude Code project instructions"
+		},
+		"CODE_OF_CONDUCT.md": {
+			"command": "rtk just fast",
+			"purpose": "verify code of conduct document"
+		},
+		"CONTRIBUTING.md": {
+			"command": "rtk just fast",
+			"purpose": "verify contributing guidelines document"
+		},
+		"Cargo.lock": {
+			"command": "rtk cargo test --workspace --locked",
+			"purpose": "verify locked dependency graph"
+		},
+		"Cargo.toml": {
+			"command": "rtk cargo test --workspace --locked",
+			"purpose": "verify workspace manifest"
+		},
+		"FUCKIT.md": {
+			"command": "rtk just fast",
+			"purpose": "verify project governance backlog document"
+		},
+		"FUCKIT.md.done": {
+			"command": "rtk just fast",
+			"purpose": "verify completed governance backlog archive"
+		},
+		"GEMINI.md": {
+			"command": "rtk just fast",
+			"purpose": "verify Gemini AI project instructions"
+		},
+		"HI.md": {
+			"command": "rtk just fast",
+			"purpose": "verify compliance plan document"
+		},
+		"HIchat.md": {
+			"command": "rtk just fast",
+			"purpose": "verify agent coordination log"
+		},
+		"Justfile": {
+			"command": "rtk just fast",
+			"purpose": "verify task runner recipes"
+		},
+		"LICENSE": {
+			"command": "rtk just fast",
+			"purpose": "verify root license file"
+		},
+		"LICENSE-APACHE": {
+			"command": "rtk just fast",
+			"purpose": "verify Apache license file"
+		},
+		"LICENSE-MIT": {
+			"command": "rtk just fast",
+			"purpose": "verify MIT license file"
+		},
+		"README-jankurai-scaffold.md": {
+			"command": "jankurai doctor --fail-on critical",
+			"purpose": "verify scaffold marker does not hide missing control-plane files"
+		},
+		"README.md": {
+			"command": "rtk just fast",
+			"purpose": "verify root readme document"
+		},
+		"SECURITY.md": {
+			"command": "rtk just fast",
+			"purpose": "verify security policy document"
+		},
+		"agent/": {
+			"command": "rtk jankurai doctor . --fail-on critical",
+			"purpose": "verify repository control files remain parseable"
+		},
+		"agent/coverage-sources.toml": {
+			"command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
+			"purpose": "verify coverage evidence source routing and score import"
+		},
+		"agent/zyal/": {
+			"command": "just score",
+			"purpose": "verify canonical ZYAL runbooks stay under agent/zyal and only use the .zyal extension"
+		},
+		"apps/": {
+			"command": "rtk just web-smoke",
+			"purpose": "verify web application"
+		},
+		"assets/": {
+			"command": "rtk just fast",
+			"purpose": "verify static assets"
+		},
+		"benchmarks/": {
+			"command": "rtk just fast",
+			"purpose": "verify benchmark fixtures"
+		},
+		"configs/": {
+			"command": "rtk just fast",
+			"purpose": "verify scenario and Monte Carlo configuration files"
+		},
+		"contracts/": {
+			"command": "rtk just contracts",
+			"purpose": "verify the shared contract layer"
+		},
+		"crates/": {
+			"command": "rtk just science-smoke",
+			"purpose": "verify Rust runtime crates"
+		},
+		"crates/echoforge-studio/": {
+			"command": "rtk cargo test -p echoforge-studio --locked",
+			"purpose": "verify the same-origin Rust studio service"
+		},
+		"crates/jankurai/src/audit/coverage.rs": {
+			"command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
+			"purpose": "verify coverage parsers and evidence normalization"
+		},
+		"crates/jankurai/src/commands/coverage.rs": {
+			"command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
+			"purpose": "verify coverage audit command behavior"
+		},
+		"crates/jankurai/tests/fixtures/coverage/": {
+			"command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md",
+			"purpose": "verify coverage parser fixture contracts"
+		},
+		"db/": {
+			"command": "jankurai doctor --fail-on critical",
+			"purpose": "advisory database boundary health check"
+		},
+		"db/constraints/": {
+			"command": "jankurai doctor --fail-on critical",
+			"purpose": "advisory constraint-lane health check until DB proof exists"
+		},
+		"db/migrations/": {
+			"command": "jankurai doctor --fail-on critical",
+			"purpose": "advisory control-plane health check until migration tests exist"
+		},
+		"deny.toml": {
+			"command": "rtk just fast",
+			"purpose": "verify cargo deny configuration"
+		},
+		"detection/": {
+			"command": "rtk just science-smoke",
+			"purpose": "verify detection science experiments"
+		},
+		"docker/": {
+			"command": "rtk just demo",
+			"purpose": "verify the Rust studio demo image and launch recipe"
+		},
+		"docs/": {
+			"command": "rtk just fast",
+			"purpose": "verify documentation files"
+		},
+		"docs/COVERAGE_*.md": {
+			"command": "just score",
+			"purpose": "verify coverage evidence docs remain routed"
+		},
+		"docs/architecture/": {
+			"command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+			"purpose": "verify architecture docs remain visible to the audit"
+		},
+		"docs/decisions/": {
+			"command": "jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md",
+			"purpose": "verify decision records remain visible to the audit"
+		},
+		"ecoforge.png": {
+			"command": "rtk just fast",
+			"purpose": "verify project logo asset"
+		},
+		"examples/": {
+			"command": "rtk just fast",
+			"purpose": "verify example scripts and usage guides"
+		},
+		"examples/perfect-web-api-db/backend/src/background_job.rs": {
+			"command": "just fast",
+			"purpose": "run proofs for background‑job cell"
+		},
+		"lefthook.yml": {
+			"command": "rtk just fast",
+			"purpose": "verify git hook configuration"
+		},
+		"object-packs/": {
+			"command": "rtk ef pack validate",
+			"purpose": "verify all object pack cards validate against their JSON schemas"
+		},
+		"ops/": {
+			"command": "rtk just fast",
+			"purpose": "verify CI operations scripts"
+		},
+		"package-lock.json": {
+			"command": "rtk just web-smoke",
+			"purpose": "verify npm lockfile is consistent with package.json"
+		},
+		"package.json": {
+			"command": "rtk just web-smoke",
+			"purpose": "verify npm package manifest and scripts"
+		},
+		"pyproject.toml": {
+			"command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
+			"purpose": "verify Python project manifest and tool configuration"
+		},
+		"python/ai-service/": {
+			"command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
+			"purpose": "verify the Python contract slice"
+		},
+		"rust-toolchain.toml": {
+			"command": "rtk cargo check --workspace",
+			"purpose": "verify Rust toolchain version is consistent"
+		},
+		"sbom/": {
+			"command": "rtk just fast",
+			"purpose": "verify SBOM artifacts"
+		},
+		"scenarios/": {
+			"command": "rtk just fast",
+			"purpose": "verify scenario YAML configuration files"
+		},
+		"schemas/": {
+			"command": "rtk just contracts",
+			"purpose": "verify JSON schema files validate and match generated contracts"
+		},
+		"schemas/coverage-*.schema.json": {
+			"command": "just score",
+			"purpose": "verify coverage evidence schemas and fixtures"
+		},
+		"scripts/": {
+			"command": "rtk just fast",
+			"purpose": "verify CI helper scripts"
+		},
+		"tests/": {
+			"command": "rtk cargo test --workspace --locked",
+			"purpose": "verify all workspace test suites"
+		},
+		"tests/contracts/": {
+			"command": "rtk just contracts",
+			"purpose": "verify the Rust contract smoke package"
+		},
+		"tests/datasets/": {
+			"command": "rtk just dataset-smoke",
+			"purpose": "verify dataset split and leakage fixtures"
+		},
+		"tests/gpu/": {
+			"command": "rtk just gpu-smoke",
+			"purpose": "verify the Rust GPU doctor smoke package"
+		},
+		"tests/web/": {
+			"command": "rtk just web-smoke",
+			"purpose": "verify the API/catalog/web smoke surface"
+		},
+		"tools/": {
+			"command": "rtk just fast",
+			"purpose": "verify developer tooling scripts"
+		}
+	},
+	"workspace": "echoforge"
 }
