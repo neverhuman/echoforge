@@ -101,7 +101,7 @@ pub fn build_frame_products(
         let doppler_center = rd_row.len() / 2;
         let doppler_offset_bins = rd_peak_bin as isize - doppler_center as isize;
         let doppler_hz = if doppler_bin_hz > 0.0 {
-            doppler_offset_bins.unsigned_abs() as f64 * doppler_bin_hz
+            doppler_offset_bins as f64 * doppler_bin_hz
         } else {
             0.0
         };
@@ -147,7 +147,7 @@ pub fn build_frame_products(
             first_detectable = Some(frame_index);
         }
 
-        let radial_velocity = if doppler_hz > 0.0 {
+        let radial_velocity = if doppler_hz != 0.0 {
             doppler_hz * 299_792_458.0 / (2.0 * episode.config.carrier_hz.max(1.0))
         } else {
             0.0
@@ -160,11 +160,7 @@ pub fn build_frame_products(
                 .count() as f32
                 / pulse_profile.len().max(1) as f32))
             .clamp(0.0, 1.0);
-        let micro_peak = if doppler_hz > 0.0 {
-            doppler_hz as f32
-        } else {
-            0.0
-        };
+        let micro_peak = doppler_hz.abs() as f32;
         let micro_energy = (rd_peak_value / (rd_energy + lower_quartile)).clamp(0.0, 1.0);
         let stft_energy = (micro_energy * (1.0 - 0.3 * rfi_pressure)).clamp(0.0, 1.0);
         let weighted_spectrum_peak =

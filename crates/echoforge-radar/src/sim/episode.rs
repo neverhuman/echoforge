@@ -43,6 +43,8 @@ pub struct SourceDiagnostics {
     pub propagation_loss_db: f64,
     pub processing_loss_db: f64,
     pub sinr_db: f64,
+    #[serde(default)]
+    pub masked_by_receive_window: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

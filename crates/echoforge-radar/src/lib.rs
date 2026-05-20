@@ -111,8 +111,9 @@ pub use scene::{
 };
 pub use sim::{
     range_bin_to_m, slow_time_complex_dft, slow_time_dft_magnitude, synthesize_scene,
-    synthesize_takeoff_episode, DetectionRecord, EpisodeSeed, NoiseProfile, RadarSimConfig,
-    SyntheticEpisode, TakeoffProfile, TargetState,
+    synthesize_takeoff_episode, DetectionRecord, EpisodeSeed, NoiseProfile, PropagationAnomaly,
+    RadarSimConfig, SyntheticEpisode, TakeoffProfile, TargetState, TrackArtifactProfile,
+    TransientEvent, TransientEventKind,
 };
 pub use tracking_fusion::{TrackingFusionAdapter, TrackingFusionReport, TrackingTrack};
 pub use waveform::{lfm_chirp, LfmChirp};

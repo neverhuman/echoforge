@@ -1,8 +1,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::cfar::CfarParams;
+use crate::impairments::ReceiverImpairmentProfile;
 use crate::link_budget::{LinkBudget, PropagationContext, REFERENCE_NOISE_TEMPERATURE_K};
 use crate::rcs::Polarization;
+use crate::rfi::RfiProfile;
 use crate::waveform::LfmChirp;
 // NoiseProfile re-exported from config_noise submodule.
 
@@ -10,89 +12,17 @@ use crate::waveform::LfmChirp;
 mod config_noise;
 pub use config_noise::NoiseProfile;
 
+#[path = "config_realism.rs"]
+mod config_realism;
+pub use config_realism::{
+    PropagationAnomaly, TrackArtifactProfile, TransientEvent, TransientEventKind,
+};
+
+#[path = "config_takeoff.rs"]
+mod config_takeoff;
+pub use config_takeoff::TakeoffProfile;
+
 use super::episode::TargetState;
-
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct TakeoffProfile {
-    pub initial_range_m: f64,
-    pub runway_heading_deg: f64,
-    pub ground_speed_mps: f64,
-    pub acceleration_mps2: f64,
-    pub climb_rate_mps: f64,
-    pub max_altitude_m: f64,
-    pub radial_velocity_bias_mps: f64,
-    pub pitch_jitter_deg: f64,
-    pub yaw_jitter_deg: f64,
-    pub propulsor_hz: f64,
-    pub micro_doppler_hz: f64,
-    pub rcs_scalar: f64,
-    /// Number of rotor/propeller blades. Default `None` preserves the
-    /// prior single-sinusoid micro-Doppler used by existing reproduction
-    /// fixtures. When `Some(n)` (with `blade_length_m` also `Some(_)`),
-    /// the synthesis loop dispatches to
-    /// [`crate::micro_doppler_gen::PropellerGenerator`], which models a
-    /// multi-blade rotor with blade-flash convention. A `n = 2`
-    /// configuration matches the Shahed-class public-proxy pusher prop.
-    #[serde(default)]
-    pub blade_count: Option<usize>,
-    /// Blade length in metres (tip radius). Default `None` falls back
-    /// to the prior single-sinusoid micro-Doppler. Shahed-class
-    /// public-proxy proxy is roughly 0.6 m (see Wave-A
-    /// `shahed-public-proxy-flight-envelope-v2` dossier).
-    #[serde(default)]
-    pub blade_length_m: Option<f64>,
-}
-
-impl Default for TakeoffProfile {
-    fn default() -> Self {
-        Self {
-            initial_range_m: 1_450.0,
-            runway_heading_deg: 18.0,
-            ground_speed_mps: 31.0,
-            acceleration_mps2: 1.2,
-            climb_rate_mps: 4.5,
-            max_altitude_m: 380.0,
-            radial_velocity_bias_mps: -18.0,
-            pitch_jitter_deg: 1.2,
-            yaw_jitter_deg: 1.7,
-            propulsor_hz: 95.0,
-            micro_doppler_hz: 42.0,
-            rcs_scalar: 1.0,
-            blade_count: None,
-            blade_length_m: None,
-        }
-    }
-}
-
-impl TakeoffProfile {
-    pub fn state_at(&self, t_s: f64) -> TargetState {
-        let speed = self.ground_speed_mps + self.acceleration_mps2 * t_s;
-        let along_runway_m = self.ground_speed_mps * t_s + 0.5 * self.acceleration_mps2 * t_s * t_s;
-        let heading_rad = self.runway_heading_deg.to_radians();
-        let cross_range_m = along_runway_m * heading_rad.sin();
-        let down_range_m = self.initial_range_m + along_runway_m * heading_rad.cos();
-        let altitude_m = (self.climb_rate_mps * t_s).min(self.max_altitude_m);
-        let slant_range_m =
-            (down_range_m * down_range_m + cross_range_m * cross_range_m + altitude_m * altitude_m)
-                .sqrt();
-        let radial_velocity_mps = self.radial_velocity_bias_mps + speed * heading_rad.cos() * 0.35;
-        let pitch_deg = (altitude_m / self.max_altitude_m.max(1.0) * 7.0)
-            + self.pitch_jitter_deg * (2.0 * std::f64::consts::PI * 0.31 * t_s).sin();
-        let yaw_deg = self.yaw_jitter_deg * (2.0 * std::f64::consts::PI * 0.17 * t_s + 0.4).sin();
-        let propulsor_phase_rad = 2.0 * std::f64::consts::PI * self.propulsor_hz * t_s;
-
-        TargetState {
-            time_s: t_s,
-            range_m: slant_range_m,
-            altitude_m,
-            radial_velocity_mps,
-            pitch_deg,
-            yaw_deg,
-            course_deg: self.runway_heading_deg,
-            propulsor_phase_rad,
-        }
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RadarSimConfig {
@@ -164,6 +94,39 @@ pub struct RadarSimConfig {
     /// Sensing*, 2014, §10.2).
     #[serde(default)]
     pub pol_rx_sequence: Option<Vec<Polarization>>,
+    /// Optional explicit receive swath start. Defaults to the first
+    /// sampled range bin (0 m), preserving the legacy pulse window.
+    #[serde(default)]
+    pub receive_window_start_m: f64,
+    /// Optional explicit receive swath end. When `None`, the simulator
+    /// uses the range implied by `sample_rate_hz` and `pulse_width_s`.
+    /// Returns outside this swath are masked in diagnostics instead of
+    /// silently falling out of the sampled IQ vector.
+    #[serde(default)]
+    pub receive_window_end_m: Option<f64>,
+    /// Disabled-by-default receiver impairment hook. When set, the
+    /// existing deterministic impairment model is applied to each
+    /// received pulse before pulse compression.
+    #[serde(default)]
+    pub receiver_impairment: Option<ReceiverImpairmentProfile>,
+    /// Disabled-by-default structured RFI hook. When set, the existing
+    /// CW/burst/co-channel pressure model is projected into IQ before
+    /// compression and recorded in diagnostics through the interference
+    /// term.
+    #[serde(default)]
+    pub interference_profile: Option<RfiProfile>,
+    /// Disabled-by-default propagation anomaly model for low-elevation
+    /// ducting masks and additional public-proxy attenuation.
+    #[serde(default)]
+    pub propagation_anomaly: Option<PropagationAnomaly>,
+    /// Disabled-by-default deterministic transient overlays.
+    #[serde(default)]
+    pub transient_events: Vec<TransientEvent>,
+    /// Disabled-by-default track artifact profile. This crate keeps the
+    /// config visible; track/report consumers decide how to materialize
+    /// these artifacts.
+    #[serde(default)]
+    pub track_artifacts: Option<TrackArtifactProfile>,
 }
 
 impl Default for RadarSimConfig {
@@ -197,6 +160,13 @@ impl Default for RadarSimConfig {
             // `Polarization::Vv`, byte-stable with pre-Lane-H2 fixtures.
             pol_tx_sequence: None,
             pol_rx_sequence: None,
+            receive_window_start_m: 0.0,
+            receive_window_end_m: None,
+            receiver_impairment: None,
+            interference_profile: None,
+            propagation_anomaly: None,
+            transient_events: Vec::new(),
+            track_artifacts: None,
         }
     }
 }
@@ -246,14 +216,45 @@ impl RadarSimConfig {
     /// (antenna height, reflection coefficient) comes from this
     /// config.
     pub fn propagation_context(&self, target_state: &TargetState) -> PropagationContext {
+        let anomaly = self.propagation_anomaly.map(|p| p.bounded());
+        let elevation_deg = target_state
+            .altitude_m
+            .atan2(target_state.range_m.max(1.0))
+            .to_degrees();
+        let masked_by_min_elevation = anomaly
+            .map(|p| elevation_deg < p.min_elevation_deg)
+            .unwrap_or(false);
+        let anomaly_loss = anomaly
+            .map(|p| p.excess_loss_db - p.ducting_gain_db)
+            .unwrap_or(0.0)
+            .max(-40.0);
         PropagationContext {
             range_m: target_state.range_m,
             target_altitude_agl_m: target_state.altitude_m,
             radar_altitude_agl_m: self.radar_altitude_agl_m,
-            atmospheric_one_way_db_per_km: self.atmospheric_one_way_db_per_km,
+            atmospheric_one_way_db_per_km: self.atmospheric_one_way_db_per_km
+                + anomaly_loss / (2.0 * target_state.range_m.max(1.0) / 1_000.0),
             rain_rate_mm_per_h: self.rain_rate_mm_per_h,
-            ground_reflection_coefficient_magnitude: self.ground_reflection_coefficient_magnitude,
+            ground_reflection_coefficient_magnitude: if masked_by_min_elevation {
+                0.0
+            } else {
+                self.ground_reflection_coefficient_magnitude
+            },
         }
+    }
+
+    pub fn implicit_receive_window_end_m(&self) -> f64 {
+        let sample_count = (self.sample_rate_hz * self.pulse_width_s).round().max(1.0);
+        (sample_count - 1.0) * super::helpers::C_M_PER_S / (2.0 * self.sample_rate_hz.max(1.0))
+    }
+
+    pub fn receive_window_contains(&self, range_m: f64) -> bool {
+        let start = self.receive_window_start_m.max(0.0);
+        let end = self
+            .receive_window_end_m
+            .unwrap_or_else(|| self.implicit_receive_window_end_m())
+            .max(start);
+        range_m >= start && range_m <= end
     }
 
     /// **Wave 4.5 Lane H2 — polarization-agility primitive.**
