@@ -22,25 +22,48 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ml_training_v2_config import (
-    DEFAULT_OUT_ROOT,
-    DEFAULT_RECORDS,
-    FRAME_COLUMNS,
-    FRAME_COUNT,
-    FRAME_PERIOD_S,
-)
-from ml_training_v2_generators import (
-    assign_splits,
-    build_strata,
-    choose_label,
-    simulate_record,
-    stable_seed,
-)
-from ml_training_v2_diagnostics import (
-    aggregate_frame_features,
-    write_diagnostics,
-)
-from ml_training_v2_report import write_csv, write_metadata
+try:
+    from detection.ml_training_v2_config import (
+        DEFAULT_OUT_ROOT,
+        DEFAULT_RECORDS,
+        FRAME_COLUMNS,
+        FRAME_COUNT,
+        FRAME_PERIOD_S,
+    )
+    from detection.ml_training_v2_generators import (
+        assign_splits,
+        build_strata,
+        choose_label,
+        simulate_record,
+        stable_seed,
+    )
+    from detection.ml_training_v2_real_priors import load_real_anchor_priors
+    from detection.ml_training_v2_diagnostics import (
+        aggregate_frame_features,
+        write_diagnostics,
+    )
+    from detection.ml_training_v2_report import write_metadata
+except ModuleNotFoundError:  # pragma: no cover - direct script import path
+    from ml_training_v2_config import (
+        DEFAULT_OUT_ROOT,
+        DEFAULT_RECORDS,
+        FRAME_COLUMNS,
+        FRAME_COUNT,
+        FRAME_PERIOD_S,
+    )
+    from ml_training_v2_generators import (
+        assign_splits,
+        build_strata,
+        choose_label,
+        simulate_record,
+        stable_seed,
+    )
+    from ml_training_v2_real_priors import load_real_anchor_priors
+    from ml_training_v2_diagnostics import (
+        aggregate_frame_features,
+        write_diagnostics,
+    )
+    from ml_training_v2_report import write_metadata
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,6 +73,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=136)
     parser.add_argument("--scale-name", default="standard")
     parser.add_argument("--strata", type=int, default=50)
+    parser.add_argument(
+        "--real-anchor-priors",
+        type=Path,
+        help="Local calibration_coefficients.json from detection.real_data; opt-in only.",
+    )
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
@@ -65,16 +93,18 @@ def main() -> None:
         shutil.rmtree(out_root)
     out_root.mkdir(parents=True, exist_ok=True)
 
+    real_anchor_priors = load_real_anchor_priors(args.real_anchor_priors)
     strata = build_strata(args.strata)
     records: list[dict[str, Any]] = []
     frames = np.zeros((args.records, FRAME_COUNT, len(FRAME_COLUMNS)), dtype=np.float32)
-    rng = np.random.default_rng(args.seed)
     for idx in range(args.records):
         stratum = strata[idx % len(strata)]
         record_rng = np.random.default_rng(stable_seed(args.seed, idx, stratum.wave_index))
         positive = choose_label(record_rng, stratum)
         record_id = f"record_{idx:06d}"
-        record, frame = simulate_record(record_rng, record_id, idx, stratum, positive)
+        record, frame = simulate_record(
+            record_rng, record_id, idx, stratum, positive, real_anchor_priors
+        )
         records.append(record)
         frames[idx] = frame
         if (idx + 1) % 10_000 == 0:
@@ -97,7 +127,14 @@ def main() -> None:
         out_root, records_df, frames, feature_df.drop(columns=["record_id"])
     )
     write_metadata(
-        out_root, records_df, strata, feature_names, quality, args.scale_name, args.seed
+        out_root,
+        records_df,
+        strata,
+        feature_names,
+        quality,
+        args.scale_name,
+        args.seed,
+        real_anchor_priors,
     )
     print(
         f"wrote {out_root} records={len(records_df)} strata={len(strata)} "

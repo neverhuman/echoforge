@@ -10,12 +10,22 @@ from typing import Any
 
 import pandas as pd
 
-from ml_training_v2_config import (
-    FRAME_COUNT,
-    FRAME_COLUMNS,
-    FRAME_PERIOD_S,
-    ScenarioStratum,
-)
+try:
+    from detection.ml_training_v2_config import (
+        FRAME_COUNT,
+        FRAME_COLUMNS,
+        FRAME_PERIOD_S,
+        ScenarioStratum,
+    )
+    from detection.ml_training_v2_real_priors import prior_manifest
+except ModuleNotFoundError:  # pragma: no cover - direct script import path
+    from ml_training_v2_config import (
+        FRAME_COUNT,
+        FRAME_COLUMNS,
+        FRAME_PERIOD_S,
+        ScenarioStratum,
+    )
+    from ml_training_v2_real_priors import prior_manifest
 
 
 def write_csv(path: Path, rows: list[dict[str, Any]], fieldnames: list[str]) -> None:
@@ -34,6 +44,7 @@ def write_metadata(
     quality: dict[str, Any],
     scale_name: str,
     seed: int,
+    real_anchor_priors: dict[str, Any] | None = None,
 ) -> None:
     strata_df = pd.DataFrame([asdict(stratum) for stratum in strata])
     strata_df.to_csv(out_root / "scenario_strata.csv", index=False)
@@ -56,7 +67,11 @@ def write_metadata(
     split_manifest.insert(
         3,
         "split_key",
-        records["stratum_id"].astype(str) + ":" + records["target_family"].astype(str) + ":" + records["holdout_role"].astype(str),
+        records["stratum_id"].astype(str)
+        + ":"
+        + records["target_family"].astype(str)
+        + ":"
+        + records["holdout_role"].astype(str),
     )
     split_manifest.to_csv(out_root / "split_manifest.csv", index=False)
 
@@ -74,11 +89,17 @@ def write_metadata(
             "not_allowed_to_models": [
                 "records.csv generator metadata",
                 "split_manifest.csv split keys",
+                "anchor_observations.csv",
+                "calibration_coefficients.json",
+                "real_anchor_priors_manifest.json",
                 "nominal_snr_db",
                 "link_budget_snr_db",
                 "propagation_loss_db",
                 "clutter_loss_db",
                 "altitude_m",
+                "micro_doppler_peak_hz_proxy",
+                "micro_doppler_bandwidth_hz_proxy",
+                "normalized_snr",
                 "class_id",
                 "target_family",
                 "confuser_family",
@@ -104,13 +125,17 @@ def write_metadata(
         ],
         "notes": "Frame products are synthetic public-proxy observables with overlapping target/confuser envelopes; metadata columns are for audit and slicing only.",
     }
-    (out_root / "feature_schema.json").write_text(json.dumps(feature_schema, indent=2, sort_keys=True) + "\n")
+    (out_root / "feature_schema.json").write_text(
+        json.dumps(feature_schema, indent=2, sort_keys=True) + "\n"
+    )
     label_schema = {
         "positive_label": "public_proxy_fixed_wing",
         "negative_label": "scenario_confuser_or_sensor_artifact",
         "claim_boundary": "Labels describe synthetic public-proxy benchmark roles, not measured-object truth or proprietary-equivalent sensor behavior.",
     }
-    (out_root / "label_schema.json").write_text(json.dumps(label_schema, indent=2, sort_keys=True) + "\n")
+    (out_root / "label_schema.json").write_text(
+        json.dumps(label_schema, indent=2, sort_keys=True) + "\n"
+    )
     calibration_sources = [
         {
             "id": "scientific-data-2026-drone-radar-rf",
@@ -148,6 +173,10 @@ def write_metadata(
     (out_root / "external_calibration_sources.json").write_text(
         json.dumps(calibration_sources, indent=2, sort_keys=True) + "\n"
     )
+    real_anchor_manifest = prior_manifest(real_anchor_priors)
+    (out_root / "real_anchor_priors_manifest.json").write_text(
+        json.dumps(real_anchor_manifest, indent=2, sort_keys=True) + "\n"
+    )
     calibration_targets = {
         "validation_tier": {
             "target": "V0/V1 public-proxy simulation with explicit assumptions; not measured-truth validation.",
@@ -170,7 +199,9 @@ def write_metadata(
             "check_file": "scenario_strata.csv",
         },
     }
-    (out_root / "calibration_targets.json").write_text(json.dumps(calibration_targets, indent=2, sort_keys=True) + "\n")
+    (out_root / "calibration_targets.json").write_text(
+        json.dumps(calibration_targets, indent=2, sort_keys=True) + "\n"
+    )
     science_assumptions = {
         "validation_tier": "V0/V1 synthetic public-proxy benchmark",
         "claim_boundary": "No measured-target truth, classified fidelity, or proprietary-equivalent sensor behavior is claimed.",
@@ -202,11 +233,18 @@ def write_metadata(
             "Complex IQ radar cube",
             "Aspect/frequency/polarization RCS tables",
             "Terrain mesh and two-ray/multipath propagation",
-            "Measured-data calibration and V5 holdout",
+            "Full measured-data V5 holdout",
             "Multi-scan tracker with association and false-track lifecycle",
         ],
+        "measured_anchor_hardening": {
+            "status": real_anchor_manifest["status"],
+            "manifest": "real_anchor_priors_manifest.json",
+            "policy": real_anchor_manifest["policy"],
+        },
     }
-    (out_root / "science_assumptions.json").write_text(json.dumps(science_assumptions, indent=2, sort_keys=True) + "\n")
+    (out_root / "science_assumptions.json").write_text(
+        json.dumps(science_assumptions, indent=2, sort_keys=True) + "\n"
+    )
     dataset_card = {
         "dataset_id": f"shahed136-public-proxy-ml-training-v2-{scale_name}",
         "benchmark_version": "ml-training-v2",
@@ -217,15 +255,19 @@ def write_metadata(
         "strict_open_boundary": "Synthetic public-proxy benchmark; no measured traces, classified fidelity, or proprietary-equivalent behavior claims.",
         "difficulty_policy": "Fifty scenario strata cover sensor band, range, grazing angle, clutter, aspect, motion, interference, confuser family, and visibility bucket combinations.",
         "quality_report": "quality_report.json",
+        "real_anchor_priors": "real_anchor_priors_manifest.json",
         "diagnostics": [
             "single_feature_auc_audit.csv",
             "label_leakage_audit.json",
             "negative_control_audit.json",
+            "micro_doppler_saturation_guard.json",
             "per_stratum_split_balance.csv",
             "distribution_overlap.csv",
         ],
     }
-    (out_root / "dataset_card.json").write_text(json.dumps(dataset_card, indent=2, sort_keys=True) + "\n")
+    (out_root / "dataset_card.json").write_text(
+        json.dumps(dataset_card, indent=2, sort_keys=True) + "\n"
+    )
     manifest = {
         "dataset_id": dataset_card["dataset_id"],
         "benchmark_version": "ml-training-v2",
@@ -239,6 +281,7 @@ def write_metadata(
             "single_feature_auc_audit.csv",
             "label_leakage_audit.json",
             "negative_control_audit.json",
+            "micro_doppler_saturation_guard.json",
             "per_stratum_split_balance.csv",
             "distribution_overlap.csv",
             "feature_schema.json",
@@ -248,14 +291,21 @@ def write_metadata(
             "calibration_targets.json",
             "science_assumptions.json",
             "runtime_report.json",
+            "real_anchor_priors_manifest.json",
         ],
     }
-    (out_root / "dataset_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    (out_root / "dataset_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
     runtime_report = {
         "generator": "detection/generate_ml_training_v2.py",
         "seed": seed,
         "scale_name": scale_name,
         "quality_status": quality["status"],
+        "real_anchor_priors_status": real_anchor_manifest["status"],
+        "real_anchor_priors_sha256": real_anchor_manifest["source_sha256"],
         "generated_artifact_policy": "outputs/ is gitignored; do not stage generated records, tensors, or model outputs.",
     }
-    (out_root / "runtime_report.json").write_text(json.dumps(runtime_report, indent=2, sort_keys=True) + "\n")
+    (out_root / "runtime_report.json").write_text(
+        json.dumps(runtime_report, indent=2, sort_keys=True) + "\n"
+    )

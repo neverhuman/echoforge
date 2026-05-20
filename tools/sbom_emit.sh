@@ -11,6 +11,12 @@
 
 set -euo pipefail
 
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -f "${REPO_ROOT}/ops/ci/node-toolchain.sh" ]; then
+  # shellcheck source=ops/ci/node-toolchain.sh
+  source "${REPO_ROOT}/ops/ci/node-toolchain.sh"
+fi
+
 OUT="sbom"
 mkdir -p "${OUT}"
 

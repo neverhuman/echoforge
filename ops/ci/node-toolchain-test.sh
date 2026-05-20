@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Node toolchain smoke tests for clean noninteractive shells.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+expected="v$(tr -d '[:space:]' <"${repo_root}/.nvmrc" | sed 's/^v//')"
+# shellcheck source=ops/ci/node-toolchain.sh
+source "${repo_root}/ops/ci/node-toolchain.sh"
+node_bin_dir="${ECHOFORGE_NODE_BIN:?node bootstrap did not resolve ECHOFORGE_NODE_BIN}"
+printf 'node-toolchain-test: node_bin_dir=%s\n' "${node_bin_dir}"
+
+clean_user_path="$(
+  env -i HOME="${HOME}" \
+    "${node_bin_dir}/node" --version
+)"
+if [[ "${clean_user_path}" != "${expected}" ]]; then
+  echo "error: direct node invocation in clean env got ${clean_user_path}, want ${expected}" >&2
+  exit 1
+fi
+
+bootstrap_path="$(
+  env -i HOME="${HOME}" ECHOFORGE_NODE_BIN="${node_bin_dir}" PATH="/usr/bin:/bin" \
+    bash -c "cd '${repo_root}' && source ops/ci/node-toolchain.sh && node --version"
+)"
+if [[ "${bootstrap_path}" != "${expected}" ]]; then
+  echo "error: repo Node bootstrap got ${bootstrap_path}, want ${expected}" >&2
+  exit 1
+fi
+
+setup_node_bin="$(mktemp -d)"
+setup_node_home="$(mktemp -d)"
+trap 'rm -rf "${setup_node_bin}" "${setup_node_home}"' EXIT
+for tool in node npm npx; do
+  tool_path="$(command -v "$tool")"
+  ln -s "$tool_path" "${setup_node_bin}/${tool}"
+done
+
+setup_node_path="$(
+  env -i HOME="${setup_node_home}" PATH="${setup_node_bin}:/usr/bin:/bin" \
+    bash -c "cd '${repo_root}' && source ops/ci/node-toolchain.sh && printf '%s %s\n' \"\$(node --version)\" \"\${ECHOFORGE_NODE_BIN}\""
+)"
+expected_setup_node="${expected} ${setup_node_bin}"
+if [[ "${setup_node_path}" != "${expected_setup_node}" ]]; then
+  echo "error: setup-node-style PATH bootstrap got ${setup_node_path}, want ${expected_setup_node}" >&2
+  exit 1
+fi
+
+echo "node-toolchain-test: ${expected}"

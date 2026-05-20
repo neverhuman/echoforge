@@ -11,17 +11,30 @@ import math
 
 import numpy as np
 
-from ml_training_v2_config import (
-    BAND_CENTER_HZ,
-    CLUTTER,
-    DIFFICULTY,
-    FAMILY_TRAITS,
-    FRAME_COUNT,
-    HELDOUT_CONFUSER_FAMILIES,
-    HELDOUT_STRATA,
-    INTERFERENCE,
-    ScenarioStratum,
-)
+try:
+    from detection.ml_training_v2_config import (
+        BAND_CENTER_HZ,
+        CLUTTER,
+        DIFFICULTY,
+        FAMILY_TRAITS,
+        FRAME_COUNT,
+        HELDOUT_CONFUSER_FAMILIES,
+        HELDOUT_STRATA,
+        INTERFERENCE,
+        ScenarioStratum,
+    )
+except ModuleNotFoundError:  # pragma: no cover - direct script import path
+    from ml_training_v2_config import (
+        BAND_CENTER_HZ,
+        CLUTTER,
+        DIFFICULTY,
+        FAMILY_TRAITS,
+        FRAME_COUNT,
+        HELDOUT_CONFUSER_FAMILIES,
+        HELDOUT_STRATA,
+        INTERFERENCE,
+        ScenarioStratum,
+    )
 
 CONFUSER_FAMILIES = [name for name in FAMILY_TRAITS if name != "public_proxy_fixed_wing"]
 
@@ -29,7 +42,7 @@ CONFUSER_FAMILIES = [name for name in FAMILY_TRAITS if name != "public_proxy_fix
 def stable_seed(seed: int, *parts: int) -> int:
     value = int(seed) & 0xFFFFFFFFFFFFFFFF
     for part in parts:
-        mix = (int(part) + 0x9E3779B97F4A7C15 + ((value << 6) & 0xFFFFFFFFFFFFFFFF) + (value >> 2))
+        mix = int(part) + 0x9E3779B97F4A7C15 + ((value << 6) & 0xFFFFFFFFFFFFFFFF) + (value >> 2)
         value ^= mix & 0xFFFFFFFFFFFFFFFF
         value &= 0xFFFFFFFFFFFFFFFF
     return int(value % (2**63 - 1))
@@ -39,7 +52,9 @@ def uniform(rng: np.random.Generator, bounds: tuple[float, float]) -> float:
     return float(rng.uniform(float(bounds[0]), float(bounds[1])))
 
 
-def correlated_noise(rng: np.random.Generator, n: int, sigma: float, alpha: float = 0.82) -> np.ndarray:
+def correlated_noise(
+    rng: np.random.Generator, n: int, sigma: float, alpha: float = 0.82
+) -> np.ndarray:
     out = np.zeros(n, dtype=np.float32)
     innovation = rng.normal(0.0, sigma, n).astype(np.float32)
     for idx in range(1, n):
@@ -57,7 +72,14 @@ def build_strata(count: int = 50) -> list[ScenarioStratum]:
     bands = ["L", "S", "C", "X", "Ku", "Ka"]
     clutter = list(CLUTTER)
     aspects = ["nose", "tail", "broadside", "oblique", "rolling_scintillation"]
-    motions = ["straight", "gentle_turn", "descent", "terrain_following", "crossing", "intermittent"]
+    motions = [
+        "straight",
+        "gentle_turn",
+        "descent",
+        "terrain_following",
+        "crossing",
+        "intermittent",
+    ]
     interference = list(INTERFERENCE)
     confusers = CONFUSER_FAMILIES
     difficulties = ["easy", "medium", "hard", "barely_visible"]
@@ -69,7 +91,9 @@ def build_strata(count: int = 50) -> list[ScenarioStratum]:
         if idx in HELDOUT_STRATA:
             confuser = sorted(HELDOUT_CONFUSER_FAMILIES)[idx - min(HELDOUT_STRATA)]
         else:
-            visible_confusers = [family for family in confusers if family not in HELDOUT_CONFUSER_FAMILIES]
+            visible_confusers = [
+                family for family in confusers if family not in HELDOUT_CONFUSER_FAMILIES
+            ]
             confuser = visible_confusers[(idx * 7 + idx // 3) % len(visible_confusers)]
         strata.append(
             ScenarioStratum(
@@ -110,10 +134,14 @@ def radar_equation_snr_db(
     noise_figure_db = 5.5
     system_temperature_k = 290.0
     boltzmann = 1.380649e-23
-    noise_power_dbw = 10.0 * math.log10(boltzmann * system_temperature_k * bandwidth_hz) + noise_figure_db
+    noise_power_dbw = (
+        10.0 * math.log10(boltzmann * system_temperature_k * bandwidth_hz) + noise_figure_db
+    )
     processing_gain_db = 10.0 * math.log10(max(1, cpi_pulses))
     unmodeled_system_loss_db = 45.0
-    geometric_loss_db = 30.0 * math.log10(4.0 * math.pi) + 40.0 * np.log10(np.maximum(range_m, 100.0))
+    geometric_loss_db = 30.0 * math.log10(4.0 * math.pi) + 40.0 * np.log10(
+        np.maximum(range_m, 100.0)
+    )
     received_power_dbw = (
         peak_power_dbw
         + tx_gain_dbi
@@ -159,8 +187,12 @@ def aspect_gain_db(aspect: str, rng: np.random.Generator) -> float:
     return uniform(rng, gains[aspect])
 
 
-def impairment_masks(rng: np.random.Generator, interference: str, base_dropout: float) -> tuple[np.ndarray, np.ndarray]:
-    dropout = np.clip(rng.beta(1.4, 12.0, FRAME_COUNT) * 0.55 + base_dropout, 0.0, 0.92).astype(np.float32)
+def impairment_masks(
+    rng: np.random.Generator, interference: str, base_dropout: float
+) -> tuple[np.ndarray, np.ndarray]:
+    dropout = np.clip(rng.beta(1.4, 12.0, FRAME_COUNT) * 0.55 + base_dropout, 0.0, 0.92).astype(
+        np.float32
+    )
     burst = np.zeros(FRAME_COUNT, dtype=np.float32)
     if interference in {"dropped_cpi", "rfi_burst", "multipath_masking", "agc_compression"}:
         for _ in range(int(rng.integers(1, 4))):

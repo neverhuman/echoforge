@@ -80,6 +80,14 @@ distribution distances and citations enter the calibration report.
 
 V4 does NOT claim measured-truth equivalence; that is V5, reserved.
 
+KTH drone/bird/human 77 GHz FMCW evidence can support V4
+measured-anchor candidate claims for class-conditional distribution distance,
+micro-Doppler overlap, hard-negative realism, and scan-gap/edge robustness.
+For Shahed, Geran, or other Iranian-platform public proxies, KTH cannot
+support V5 measured validation because it is not measured data for those
+platforms and does not establish exact platform signatures, operational
+detection range, proprietary sensor behavior, or classified fidelity.
+
 Implementation: `crates/echoforge-validate/src/tier_v4.rs::evaluate_v4_gate`
 and `evaluate_v4_from_calibration_report`.
 

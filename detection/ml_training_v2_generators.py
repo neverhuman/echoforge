@@ -11,33 +11,66 @@ from typing import Any
 
 import numpy as np
 
-from ml_training_v2_config import (
-    BAND_ADJUST_DB,
-    CLUTTER,
-    DIFFICULTY,
-    FAMILY_TRAITS,
-    FRAME_COLUMNS,
-    FRAME_COUNT,
-    FRAME_INDEX,
-    FRAME_PERIOD_S,
-    HELDOUT_CONFUSER_FAMILIES,
-    HELDOUT_STRATA,
-    INTERFERENCE,
-    SPLIT_TARGETS,
-    ScenarioStratum,
-)
-from ml_training_v2_generators_helpers import (
-    aspect_gain_db,
-    build_strata,
-    choose_family,
-    choose_label,
-    correlated_noise,
-    impairment_masks,
-    radar_equation_snr_db,
-    sigmoid,
-    stable_seed,
-    uniform,
-)
+try:
+    from detection.ml_training_v2_config import (
+        BAND_ADJUST_DB,
+        CLUTTER,
+        DIFFICULTY,
+        FAMILY_TRAITS,
+        FRAME_COLUMNS,
+        FRAME_COUNT,
+        FRAME_INDEX,
+        FRAME_PERIOD_S,
+        HELDOUT_STRATA,
+        INTERFERENCE,
+        MICRO_DOPPLER_BANDWIDTH_PROXY_CLAMP_HZ,
+        MICRO_DOPPLER_PEAK_PROXY_CLAMP_HZ,
+        SPLIT_TARGETS,
+        ScenarioStratum,
+    )
+    from detection.ml_training_v2_generators_helpers import (
+        aspect_gain_db,
+        build_strata,
+        choose_family,
+        choose_label,
+        correlated_noise,
+        impairment_masks,
+        radar_equation_snr_db,
+        sigmoid,
+        stable_seed,
+        uniform,
+    )
+    from detection.ml_training_v2_real_priors import adjust_range, adjust_scalar, prior_offset
+except ModuleNotFoundError:  # pragma: no cover - direct script import path
+    from ml_training_v2_config import (
+        BAND_ADJUST_DB,
+        CLUTTER,
+        DIFFICULTY,
+        FAMILY_TRAITS,
+        FRAME_COLUMNS,
+        FRAME_COUNT,
+        FRAME_INDEX,
+        FRAME_PERIOD_S,
+        HELDOUT_STRATA,
+        INTERFERENCE,
+        MICRO_DOPPLER_BANDWIDTH_PROXY_CLAMP_HZ,
+        MICRO_DOPPLER_PEAK_PROXY_CLAMP_HZ,
+        SPLIT_TARGETS,
+        ScenarioStratum,
+    )
+    from ml_training_v2_generators_helpers import (
+        aspect_gain_db,
+        build_strata,
+        choose_family,
+        choose_label,
+        correlated_noise,
+        impairment_masks,
+        radar_equation_snr_db,
+        sigmoid,
+        stable_seed,
+        uniform,
+    )
+    from ml_training_v2_real_priors import adjust_range, adjust_scalar, prior_offset
 
 CONFUSER_FAMILIES = [name for name in FAMILY_TRAITS if name != "public_proxy_fixed_wing"]
 
@@ -64,12 +97,71 @@ def simulate_record(
     record_index: int,
     stratum: ScenarioStratum,
     positive: bool,
+    real_anchor_priors: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], np.ndarray]:
     family = choose_family(rng, stratum, positive)
-    traits = FAMILY_TRAITS[family]
-    clutter = CLUTTER[stratum.clutter_regime]
-    interference = INTERFERENCE[stratum.interference]
-    difficulty = DIFFICULTY[stratum.difficulty_bucket]
+    traits = dict(FAMILY_TRAITS[family])
+    clutter = dict(CLUTTER[stratum.clutter_regime])
+    interference = dict(INTERFERENCE[stratum.interference])
+    difficulty = dict(DIFFICULTY[stratum.difficulty_bucket])
+    traits["micro_peak"] = adjust_range(
+        traits["micro_peak"],
+        real_anchor_priors,
+        "micro_peak",
+        low=0.0,
+        high=MICRO_DOPPLER_PEAK_PROXY_CLAMP_HZ,
+        family=family,
+    )
+    traits["micro_bw"] = adjust_range(
+        traits["micro_bw"],
+        real_anchor_priors,
+        "micro_bw",
+        low=1.0,
+        high=MICRO_DOPPLER_BANDWIDTH_PROXY_CLAMP_HZ,
+        family=family,
+    )
+    traits["micro_amp"] = adjust_range(
+        traits["micro_amp"],
+        real_anchor_priors,
+        "micro_amp",
+        low=0.0,
+        high=1.8,
+        family=family,
+    )
+    traits["coherence"] = adjust_range(
+        traits["coherence"],
+        real_anchor_priors,
+        "coherence",
+        low=0.0,
+        high=0.99,
+        family=family,
+    )
+    difficulty["snr_center"] = adjust_scalar(
+        float(difficulty["snr_center"]),
+        real_anchor_priors,
+        "snr_center",
+        low=-18.0,
+        high=24.0,
+        family=family,
+    )
+    difficulty["dropout"] = adjust_scalar(
+        float(difficulty["dropout"]),
+        real_anchor_priors,
+        "dropout",
+        low=0.0,
+        high=0.90,
+        family=family,
+    )
+    clutter["glint"] = adjust_scalar(
+        float(clutter["glint"]),
+        real_anchor_priors,
+        "glint",
+        low=0.0,
+        high=1.20,
+        family=family,
+    )
+    noise_floor_offset = prior_offset(real_anchor_priors, "local_noise_floor_db", family=family)
+    cfar_threshold_offset = prior_offset(real_anchor_priors, "cfar_threshold", family=family)
     t = np.arange(FRAME_COUNT, dtype=np.float32) * FRAME_PERIOD_S
     cpi_pulses = int(rng.choice([16, 24, 32, 40, 48, 64]))
 
@@ -110,15 +202,30 @@ def simulate_record(
     nominal_snr = link_budget_snr + scene_visibility_margin + rng.normal(0.0, 2.6)
     scintillation_sigma = 1.1 + (1.9 if stratum.target_aspect == "rolling_scintillation" else 0.0)
     scintillation = correlated_noise(rng, FRAME_COUNT, sigma=scintillation_sigma, alpha=0.78)
-    clutter_glints = rng.weibull(max(0.45, clutter["shape"]), FRAME_COUNT).astype(np.float32) * clutter["glint"] * 4.5
-    dropout, occlusion = impairment_masks(rng, stratum.interference, difficulty["dropout"] + interference["dropout"])
+    clutter_glints = (
+        rng.weibull(max(0.45, clutter["shape"]), FRAME_COUNT).astype(np.float32)
+        * clutter["glint"]
+        * 4.5
+    )
+    dropout, occlusion = impairment_masks(
+        rng, stratum.interference, difficulty["dropout"] + interference["dropout"]
+    )
     signal_mask = 1.0 - np.clip(dropout * 0.65 + occlusion * 0.55, 0.0, 0.96)
-    snr_db = nominal_snr + scintillation + clutter_glints - dropout * rng.uniform(3.0, 7.0) - occlusion * rng.uniform(2.0, 8.0)
+    snr_db = (
+        nominal_snr
+        + scintillation
+        + clutter_glints
+        - dropout * rng.uniform(3.0, 7.0)
+        - occlusion * rng.uniform(2.0, 8.0)
+    )
     if stratum.interference == "agc_compression":
         snr_db = np.tanh(snr_db / 12.0) * 12.0
     if stratum.interference == "calibration_offset":
         snr_db += rng.normal(-0.5, 1.5)
-    if stratum.sensor_band in {"Ku", "Ka"} and stratum.clutter_regime in {"rain_cell", "dust_weather"}:
+    if stratum.sensor_band in {"Ku", "Ka"} and stratum.clutter_regime in {
+        "rain_cell",
+        "dust_weather",
+    }:
         snr_db -= rng.uniform(0.6, 2.2)
     if rng.random() < 0.28:
         quant = rng.choice([0.1, 0.2, 0.5])
@@ -128,10 +235,13 @@ def simulate_record(
         -42.0
         + clutter["loss"] * 3.2
         + interference["rfi"] * 8.0
+        + noise_floor_offset
         + correlated_noise(rng, FRAME_COUNT, sigma=0.65, alpha=0.86)
     )
     rfi_base = interference["rfi"] + (0.30 if family == "rfi_burst" else 0.0)
-    rfi_pressure = np.clip(rfi_base + rng.beta(1.2, 6.0, FRAME_COUNT) * 0.55 + dropout * 0.18, 0.0, 1.0)
+    rfi_pressure = np.clip(
+        rfi_base + rng.beta(1.2, 6.0, FRAME_COUNT) * 0.55 + dropout * 0.18, 0.0, 1.0
+    )
     if stratum.interference == "rfi_burst" or family == "rfi_burst":
         for _ in range(int(rng.integers(1, 4))):
             start = int(rng.integers(0, FRAME_COUNT - 4))
@@ -147,6 +257,7 @@ def simulate_record(
         + clutter["threshold"] * 1.8
         + rfi_pressure * 2.4
         + dropout * 1.3
+        + cfar_threshold_offset
         + correlated_noise(rng, FRAME_COUNT, sigma=0.35, alpha=0.84)
     )
     doppler_scr = np.clip(
@@ -158,7 +269,9 @@ def simulate_record(
         -12.0,
         22.0,
     )
-    cfar_statistic = snr_db + 0.32 * doppler_scr + clutter_glints * 0.35 + rng.normal(0.0, 1.1, FRAME_COUNT)
+    cfar_statistic = (
+        snr_db + 0.32 * doppler_scr + clutter_glints * 0.35 + rng.normal(0.0, 1.1, FRAME_COUNT)
+    )
     cfar_detected = (cfar_statistic - cfar_threshold + rng.normal(0.0, 0.65, FRAME_COUNT)) > 0.0
 
     margin = cfar_statistic - cfar_threshold
@@ -169,7 +282,12 @@ def simulate_record(
         evidence = max(0.0, float(value)) * (0.030 + coherence * 0.020)
         evidence += max(0.0, 1.0 - dropout[idx]) * coherence * 0.010
         evidence += max(0.0, doppler_scr[idx]) * 0.002
-        state = state * (0.84 + 0.08 * coherence) + evidence - dropout[idx] * 0.025 - rfi_pressure[idx] * 0.010
+        state = (
+            state * (0.84 + 0.08 * coherence)
+            + evidence
+            - dropout[idx] * 0.025
+            - rfi_pressure[idx] * 0.010
+        )
         tbd_track_score[idx] = max(0.0, state)
 
     micro_peak = uniform(rng, traits["micro_peak"])
@@ -179,34 +297,69 @@ def simulate_record(
         micro_bw += rng.uniform(20.0, 85.0)
     micro_variation = 1.0 + 0.22 * np.sin(t / rng.uniform(3.5, 9.0) + rng.uniform(0.0, 6.28))
     micro_doppler_energy = np.clip(
-        micro_amp * micro_variation * (0.42 + 0.58 * signal_mask) + rfi_pressure * 0.16 + rng.normal(0.0, 0.07, FRAME_COUNT),
+        micro_amp * micro_variation * (0.42 + 0.58 * signal_mask)
+        + rfi_pressure * 0.16
+        + rng.normal(0.0, 0.07, FRAME_COUNT),
         0.0,
         1.6,
     )
     if family in {"rain_cell", "dust_weather", "terrain_glint"}:
         micro_doppler_energy *= rng.uniform(0.65, 1.12)
-    micro_peak_series = np.clip(micro_peak + correlated_noise(rng, FRAME_COUNT, sigma=max(1.0, micro_peak * 0.035)), 0.0, 260.0)
-    micro_bw_series = np.clip(micro_bw + correlated_noise(rng, FRAME_COUNT, sigma=max(2.0, micro_bw * 0.045)), 1.0, 380.0)
+    micro_peak_series = np.clip(
+        micro_peak + correlated_noise(rng, FRAME_COUNT, sigma=max(1.0, micro_peak * 0.035)),
+        0.0,
+        260.0,
+    )
+    micro_bw_series = np.clip(
+        micro_bw + correlated_noise(rng, FRAME_COUNT, sigma=max(2.0, micro_bw * 0.045)), 1.0, 380.0
+    )
 
-    normalized_snr = np.clip(sigmoid((snr_db - 0.5) / 5.5) + rng.normal(0.0, 0.035, FRAME_COUNT), 0.0, 1.0)
-    range_time_energy = np.clip(0.18 + normalized_snr * 0.55 + clutter_glints * 0.045 + rfi_pressure * 0.06, 0.0, 1.6)
-    doppler_time_energy = np.clip(0.16 + sigmoid(doppler_scr / 6.5) * 0.52 + micro_doppler_energy * 0.16, 0.0, 1.7)
+    normalized_snr = np.clip(
+        sigmoid((snr_db - 0.5) / 5.5) + rng.normal(0.0, 0.035, FRAME_COUNT), 0.0, 1.0
+    )
+    range_time_energy = np.clip(
+        0.18 + normalized_snr * 0.55 + clutter_glints * 0.045 + rfi_pressure * 0.06, 0.0, 1.6
+    )
+    doppler_time_energy = np.clip(
+        0.16 + sigmoid(doppler_scr / 6.5) * 0.52 + micro_doppler_energy * 0.16, 0.0, 1.7
+    )
     range_doppler_time_energy = np.clip(
-        0.12 + range_time_energy * 0.46 + doppler_time_energy * 0.38 + cfar_detected.astype(np.float32) * 0.08,
+        0.12
+        + range_time_energy * 0.46
+        + doppler_time_energy * 0.38
+        + cfar_detected.astype(np.float32) * 0.08,
         0.0,
         1.8,
     )
-    stft_energy = np.clip(micro_doppler_energy * 0.58 + doppler_time_energy * 0.24 + rng.normal(0.0, 0.035, FRAME_COUNT), 0.0, 1.6)
-    weighted_spectrum_peak = np.clip(stft_energy * 0.62 + normalized_snr * 0.24 + rng.normal(0.0, 0.025, FRAME_COUNT), 0.0, 1.6)
-    cepstrum_peak = np.clip(micro_doppler_energy * 0.42 + rng.normal(0.0, 0.035, FRAME_COUNT), 0.0, 1.4)
-    cadence_velocity_peak = np.clip(np.abs(radial_velocity) * 0.0009 + micro_peak_series / 3_000.0 + rng.normal(0.0, 0.004, FRAME_COUNT), 0.0, 0.24)
+    stft_energy = np.clip(
+        micro_doppler_energy * 0.58
+        + doppler_time_energy * 0.24
+        + rng.normal(0.0, 0.035, FRAME_COUNT),
+        0.0,
+        1.6,
+    )
+    weighted_spectrum_peak = np.clip(
+        stft_energy * 0.62 + normalized_snr * 0.24 + rng.normal(0.0, 0.025, FRAME_COUNT), 0.0, 1.6
+    )
+    cepstrum_peak = np.clip(
+        micro_doppler_energy * 0.42 + rng.normal(0.0, 0.035, FRAME_COUNT), 0.0, 1.4
+    )
+    cadence_velocity_peak = np.clip(
+        np.abs(radial_velocity) * 0.0009
+        + micro_peak_series / 3_000.0
+        + rng.normal(0.0, 0.004, FRAME_COUNT),
+        0.0,
+        0.24,
+    )
     phase_impairment_rad = (
         interference["phase"]
         + rng.normal(0.0, 0.012, FRAME_COUNT)
         + (0.0008 * t if stratum.interference == "clock_drift" else 0.0)
     )
     amplitude_impairment = np.clip(
-        1.0 + interference["agc"] * rng.normal(0.0, 0.9, FRAME_COUNT) + rng.normal(0.0, 0.025, FRAME_COUNT),
+        1.0
+        + interference["agc"] * rng.normal(0.0, 0.9, FRAME_COUNT)
+        + rng.normal(0.0, 0.025, FRAME_COUNT),
         0.70,
         1.35,
     )
@@ -215,7 +368,9 @@ def simulate_record(
     frame[:, FRAME_INDEX["time_s"]] = t
     frame[:, FRAME_INDEX["cpi_pulses"]] = float(cpi_pulses)
     frame[:, FRAME_INDEX["range_m"]] = range_m
-    frame[:, FRAME_INDEX["radial_velocity_mps"]] = radial_velocity + correlated_noise(rng, FRAME_COUNT, sigma=0.65, alpha=0.70)
+    frame[:, FRAME_INDEX["radial_velocity_mps"]] = radial_velocity + correlated_noise(
+        rng, FRAME_COUNT, sigma=0.65, alpha=0.70
+    )
     frame[:, FRAME_INDEX["altitude_m"]] = altitude
     frame[:, FRAME_INDEX["snr_db"]] = snr_db
     frame[:, FRAME_INDEX["cfar_statistic"]] = cfar_statistic
@@ -293,8 +448,13 @@ def simulate_record(
         "propagation_loss_db": float(propagation_loss),
         "clutter_loss_db": float(clutter_loss),
         "mean_range_m": float(np.mean(range_m)),
-        "mean_abs_radial_velocity_mps": float(np.mean(np.abs(frame[:, FRAME_INDEX["radial_velocity_mps"]]))),
-        "calibration_anchor_ids": "scientific-data-2026-drone-radar-rf;rahman-robertson-drone-bird-micro-doppler;low-grazing-uav-detection-cfar-micro-doppler",
+        "mean_abs_radial_velocity_mps": float(
+            np.mean(np.abs(frame[:, FRAME_INDEX["radial_velocity_mps"]]))
+        ),
+        "calibration_anchor_ids": "kth-drone-bird-human-77ghz;open-radar-initiative-outdoor-moving-object;rahman-robertson-drone-bird-micro-doppler",
+        "real_anchor_prior_status": str(real_anchor_priors.get("status", "reference_only"))
+        if real_anchor_priors
+        else "reference_only",
     }
     return record, frame
 
