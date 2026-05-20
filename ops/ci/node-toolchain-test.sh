@@ -4,13 +4,14 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 expected="v$(tr -d '[:space:]' <"${repo_root}/.nvmrc" | sed 's/^v//')"
+node_bin_dir="$(CDPATH= cd -- "$(dirname "$(command -v node)")" && pwd)"
 
 clean_user_path="$(
-  env -i HOME="${HOME}" PATH="${HOME}/.local/bin:/usr/bin:/bin" \
-    bash -lc "cd '${repo_root}' && rtk node --version"
+  env -i HOME="${HOME}" PATH="${node_bin_dir}:/usr/bin:/bin" \
+    bash -lc "cd '${repo_root}' && node --version"
 )"
 if [[ "${clean_user_path}" != "${expected}" ]]; then
-  echo "error: rtk node --version in clean shell got ${clean_user_path}, want ${expected}" >&2
+  echo "error: node --version in clean shell got ${clean_user_path}, want ${expected}" >&2
   exit 1
 fi
 
