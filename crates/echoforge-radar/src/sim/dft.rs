@@ -44,8 +44,7 @@ pub fn slow_time_complex_dft(
         return Vec::new();
     }
 
-    let mut output =
-        vec![vec![ComplexSample::new(0.0, 0.0); n_doppler]; range_len];
+    let mut output = vec![vec![ComplexSample::new(0.0, 0.0); n_doppler]; range_len];
 
     let n_pulses_f = n_pulses as f32;
     for range in 0..range_len {

@@ -1,56 +1,52 @@
 // jankurai:ux-qa rendered-state-evidence accessibility-scan screenshot-per-state
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test('app loads without errors', async ({ page }) => {
+// In the static `vite preview` used by CI there is no Rust backend, so
+// the WebSocket and `/api` fetches fail by design. Those network errors
+// are expected; an unfiltered failure here means a real regression.
+const EXPECTED_ERROR_FRAGMENTS = [
+  'favicon',
+  'websocket',
+  'ws://',
+  'wss://',
+  'failed to fetch',
+  'fetch failed',
+  '/api/',
+  'load failed',
+  'networkerror',
+  'err_connection',
+];
+
+function isExpectedError(text: string): boolean {
+  const lower = text.toLowerCase();
+  return EXPECTED_ERROR_FRAGMENTS.some((fragment) => lower.includes(fragment));
+}
+
+test('app shell loads without unexpected console errors', async ({ page }) => {
   const errors: string[] = [];
-  page.on('console', msg => {
+  page.on('console', (msg) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
+  page.on('pageerror', (err) => errors.push(err.message));
   await page.goto('/');
   await page.waitForLoadState('networkidle');
-  expect(errors.filter(e => !e.includes('favicon'))).toHaveLength(0);
+  expect(errors.filter((e) => !isExpectedError(e))).toHaveLength(0);
 });
 
-test('mesh viewer renders with correct ARIA structure', async ({ page }) => {
+test('app shell renders an accessible main region', async ({ page }) => {
   await page.goto('/');
-  const main = page.locator('main, #root, [data-testid="mesh-viewer"], .mesh-viewer').first();
+  const main = page.locator('main').first();
   await expect(main).toBeVisible({ timeout: 10000 });
-
-  // Accessibility: heading hierarchy
-  const h2 = page.locator('h2').first();
-  await expect(h2).toBeVisible();
-
-  // Accessibility: form controls are labelled
-  const select = page.locator('select');
-  if (await select.count() > 0) {
-    await expect(select.first()).toBeEnabled();
-  }
-
-  // Accessibility snapshot for agent-readable state evidence
-  const snapshot = await page.accessibility.snapshot();
-  expect(snapshot).not.toBeNull();
-  expect(snapshot!.role).toBeTruthy();
+  const ariaTree = await main.ariaSnapshot();
+  expect(ariaTree.length).toBeGreaterThan(0);
 });
 
-test('visual qa screenshot — loading state', async ({ page }) => {
+test('visual qa screenshot — radar console', async ({ page }) => {
   await page.goto('/');
-  await page.screenshot({ path: 'playwright-report/ux-qa-loading.png', fullPage: true });
-});
-
-test('visual qa screenshot — settled state', async ({ page }) => {
-  await page.goto('/');
-  await page.waitForLoadState('networkidle');
-  await page.screenshot({ path: 'playwright-report/ux-qa-state.png', fullPage: true });
-  const root = page.locator('#root, [data-testid="mesh-viewer"]').first();
-  await expect(root).toBeVisible();
-});
-
-test('colour contrast — status badge is readable', async ({ page }) => {
-  await page.goto('/');
-  await page.waitForLoadState('networkidle');
-  // Verify status badges exist and are visible (design token check)
-  const badge = page.locator('.badge, .status-card').first();
-  if (await badge.count() > 0) {
-    await expect(badge).toBeVisible();
-  }
+  await expect(page.getByTestId('radar-console')).toBeVisible({ timeout: 10000 });
+  await page.waitForTimeout(600);
+  await page.screenshot({
+    path: 'playwright-report/ux-qa-radar-console.png',
+    fullPage: true,
+  });
 });

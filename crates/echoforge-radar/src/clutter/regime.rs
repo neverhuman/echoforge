@@ -115,7 +115,13 @@ pub struct ClutterRegime {
     pub mean_power_dbsm_per_m2: f64,
 }
 
-fn rayleigh_regime(terrain: TerrainClass, angle: f64, sc: f64, tc: f64, power: f64) -> ClutterRegime {
+fn rayleigh_regime(
+    terrain: TerrainClass,
+    angle: f64,
+    sc: f64,
+    tc: f64,
+    power: f64,
+) -> ClutterRegime {
     ClutterRegime {
         terrain,
         grazing_angle_deg: angle,
@@ -126,7 +132,15 @@ fn rayleigh_regime(terrain: TerrainClass, angle: f64, sc: f64, tc: f64, power: f
     }
 }
 
-fn weibull_regime(terrain: TerrainClass, angle: f64, shape: f64, scale: f64, sc: f64, tc: f64, power: f64) -> ClutterRegime {
+fn weibull_regime(
+    terrain: TerrainClass,
+    angle: f64,
+    shape: f64,
+    scale: f64,
+    sc: f64,
+    tc: f64,
+    power: f64,
+) -> ClutterRegime {
     ClutterRegime {
         terrain,
         grazing_angle_deg: angle,
@@ -137,7 +151,15 @@ fn weibull_regime(terrain: TerrainClass, angle: f64, shape: f64, scale: f64, sc:
     }
 }
 
-fn k_regime(terrain: TerrainClass, angle: f64, shape: f64, scale: f64, sc: f64, tc: f64, power: f64) -> ClutterRegime {
+fn k_regime(
+    terrain: TerrainClass,
+    angle: f64,
+    shape: f64,
+    scale: f64,
+    sc: f64,
+    tc: f64,
+    power: f64,
+) -> ClutterRegime {
     ClutterRegime {
         terrain,
         grazing_angle_deg: angle,
@@ -148,7 +170,15 @@ fn k_regime(terrain: TerrainClass, angle: f64, shape: f64, scale: f64, sc: f64, 
     }
 }
 
-fn lognormal_regime(terrain: TerrainClass, angle: f64, mean_log: f64, std_log: f64, sc: f64, tc: f64, power: f64) -> ClutterRegime {
+fn lognormal_regime(
+    terrain: TerrainClass,
+    angle: f64,
+    mean_log: f64,
+    std_log: f64,
+    sc: f64,
+    tc: f64,
+    power: f64,
+) -> ClutterRegime {
     ClutterRegime {
         terrain,
         grazing_angle_deg: angle,

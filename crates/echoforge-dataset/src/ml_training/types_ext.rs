@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 use echoforge_radar::BackendMode;
 use serde::{Deserialize, Serialize};
 
+use super::types::MlRecordSummary;
 use crate::monte_carlo::StageTiming;
 use crate::split::SplitKind;
-use super::types::MlRecordSummary;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(super) struct DatasetManifest {
@@ -22,6 +22,9 @@ pub(super) struct DatasetManifest {
     pub frame_rate_hz: f64,
     pub time_window_s: f64,
     pub positive_fraction: f64,
+    pub sensor_ids: Vec<String>,
+    pub positive_class_ids: Vec<String>,
+    pub phase_targets: Vec<String>,
     pub split_policy: String,
     pub feature_families: Vec<FeatureFamily>,
     pub artifacts: BTreeMap<String, String>,
@@ -118,6 +121,9 @@ pub(super) struct QualityReport {
     pub records: usize,
     pub positive_records: usize,
     pub positive_fraction_actual: f64,
+    pub sensor_counts: BTreeMap<String, usize>,
+    pub positive_class_counts: BTreeMap<String, usize>,
+    pub phase_target_counts: BTreeMap<String, usize>,
     pub hard_negative_family_counts: BTreeMap<String, usize>,
     pub hard_negative_family_coverage: usize,
     pub minimum_hard_negative_families: usize,

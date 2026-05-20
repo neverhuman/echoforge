@@ -88,7 +88,6 @@ pub fn apply_rfi_to_profile(power: &mut [f32], profile: RfiProfile, seed: u64) {
     });
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

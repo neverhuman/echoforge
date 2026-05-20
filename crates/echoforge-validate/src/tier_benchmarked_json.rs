@@ -9,7 +9,9 @@ use std::path::Path;
 use serde_json::{Map, Value};
 
 use crate::error::ValidateError;
-use crate::tier_benchmarked::{evaluate_v3_gate, V3GateReport, V3MetricObservation, V3MetricThresholds};
+use crate::tier_benchmarked::{
+    evaluate_v3_gate, V3GateReport, V3MetricObservation, V3MetricThresholds,
+};
 
 /// Read a `benchmark_report.json`, extract the metrics block, and run
 /// the V3 gate against the supplied thresholds.
@@ -66,10 +68,15 @@ mod tests {
     #[test]
     fn json_error_no_metrics_block() {
         // let-else to assert the specific error variant
-        let ValidateError::Schema(msg) = run(r#"{"benchmark_id":"x","status":"draft"}"#).unwrap_err() else {
+        let ValidateError::Schema(msg) =
+            run(r#"{"benchmark_id":"x","status":"draft"}"#).unwrap_err()
+        else {
             panic!("expected ValidateError::Schema");
         };
-        assert!(msg.contains("missing required `metrics` block"), "msg={msg}");
+        assert!(
+            msg.contains("missing required `metrics` block"),
+            "msg={msg}"
+        );
     }
 
     #[test]
@@ -85,7 +92,8 @@ mod tests {
     #[test]
     fn json_io_error() {
         let path = Path::new("/nonexistent/echoforge/__no_such_benchmark_report__.json");
-        let err = evaluate_v3_from_benchmark_json(&V3MetricThresholds::default_roadmap(), path).unwrap_err();
+        let err = evaluate_v3_from_benchmark_json(&V3MetricThresholds::default_roadmap(), path)
+            .unwrap_err();
         assert!(matches!(err, ValidateError::Io(_)), "got {err:?}");
     }
 }

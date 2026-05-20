@@ -3,9 +3,9 @@
 //! Gates: dihedral angle, watertight, bounded volume vs bbox,
 //! maximum electrical size.
 
-use crate::mesh::ParametricMesh;
-use super::{QaGateResult, QaStatus};
 use super::math::{build_edge_map, cross3, dot3, vector_is_zero};
+use super::{QaGateResult, QaStatus};
+use crate::mesh::ParametricMesh;
 
 /// Minimum dihedral angle (degrees) below which the WARN threshold trips.
 pub const DIHEDRAL_MIN_DEG: f64 = 10.0;
@@ -133,7 +133,11 @@ pub fn gate_watertight(mesh: &ParametricMesh) -> QaGateResult {
             value: 0.0,
         }
     } else {
-        let suffix = if expected_open { " (expected for open primitive)" } else { "" };
+        let suffix = if expected_open {
+            " (expected for open primitive)"
+        } else {
+            ""
+        };
         QaGateResult {
             name: "gate_watertight".to_string(),
             status: QaStatus::Warn,

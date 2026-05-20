@@ -49,17 +49,12 @@ fn run_empirical_pfa(args: EmpiricalPfaArgs) -> Result<u8, String> {
     if let Some(parent) = args.out.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).map_err(|err| {
-                format!(
-                    "failed to create output parent {}: {err}",
-                    parent.display()
-                )
+                format!("failed to create output parent {}: {err}", parent.display())
             })?;
         }
     }
-    let observations = echoforge_radar::empirical_pfa::calibrate_standard_table(
-        args.trials,
-        args.seed,
-    );
+    let observations =
+        echoforge_radar::empirical_pfa::calibrate_standard_table(args.trials, args.seed);
     let jsonl = echoforge_radar::empirical_pfa::render_jsonl(&observations);
     let mut file = fs::File::create(&args.out)
         .map_err(|err| format!("failed to create {}: {err}", args.out.display()))?;

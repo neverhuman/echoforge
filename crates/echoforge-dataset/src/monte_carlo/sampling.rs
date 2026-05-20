@@ -38,28 +38,50 @@ impl<'a> ResolvedPreset<'a> {
     ) -> Result<Self, DatasetError> {
         let preset = match library.presets.iter().find(|p| p.id == preset_id) {
             Some(p) => p,
-            None => return Err(DatasetError::InvalidConfig(format!("unknown preset {preset_id}"))),
+            None => {
+                return Err(DatasetError::InvalidConfig(format!(
+                    "unknown preset {preset_id}"
+                )))
+            }
         };
-        let object = match library.object_classes.iter().find(|o| o.id == preset.object_class_id) {
+        let object = match library
+            .object_classes
+            .iter()
+            .find(|o| o.id == preset.object_class_id)
+        {
             Some(o) => o,
-            None => return Err(DatasetError::InvalidConfig(format!(
-                "preset {} references missing object {}",
-                preset.id, preset.object_class_id
-            ))),
+            None => {
+                return Err(DatasetError::InvalidConfig(format!(
+                    "preset {} references missing object {}",
+                    preset.id, preset.object_class_id
+                )))
+            }
         };
-        let environment = match library.environment_profiles.iter().find(|e| e.id == preset.environment_profile_id) {
+        let environment = match library
+            .environment_profiles
+            .iter()
+            .find(|e| e.id == preset.environment_profile_id)
+        {
             Some(e) => e,
-            None => return Err(DatasetError::InvalidConfig(format!(
-                "preset {} references missing environment {}",
-                preset.id, preset.environment_profile_id
-            ))),
+            None => {
+                return Err(DatasetError::InvalidConfig(format!(
+                    "preset {} references missing environment {}",
+                    preset.id, preset.environment_profile_id
+                )))
+            }
         };
-        let sensor = match library.sensor_archetypes.iter().find(|s| s.id == preset.sensor_archetype_id) {
+        let sensor = match library
+            .sensor_archetypes
+            .iter()
+            .find(|s| s.id == preset.sensor_archetype_id)
+        {
             Some(s) => s,
-            None => return Err(DatasetError::InvalidConfig(format!(
-                "preset {} references missing sensor {}",
-                preset.id, preset.sensor_archetype_id
-            ))),
+            None => {
+                return Err(DatasetError::InvalidConfig(format!(
+                    "preset {} references missing sensor {}",
+                    preset.id, preset.sensor_archetype_id
+                )))
+            }
         };
         Ok(Self {
             preset,
@@ -201,7 +223,10 @@ pub(super) fn sample_episode(
 
 /// Synthesize one takeoff episode from sampled parameters.
 /// `sim_config` is cloned before moving because `RadarSimConfig` is not `Copy`.
-pub(super) fn synthesize_episode(sampled: &SampledEpisodeMeta, episode_seed: u64) -> SyntheticEpisode {
+pub(super) fn synthesize_episode(
+    sampled: &SampledEpisodeMeta,
+    episode_seed: u64,
+) -> SyntheticEpisode {
     synthesize_takeoff_episode(
         sampled.sim_config.clone(),
         sampled.profile,
@@ -304,4 +329,3 @@ pub(super) fn radar_episode_model(
     .finalize()
     .map_err(DatasetError::Core)
 }
-

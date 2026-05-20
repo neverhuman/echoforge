@@ -124,9 +124,7 @@ fn coefficients_taylor35_length() {
 fn pulse_compress_no_window_peak() {
     // Single-tone reference at zero IF (real-valued unit phasor).
     let n = 32usize;
-    let reference: Vec<ComplexSample> = (0..n)
-        .map(|_| ComplexSample::new(1.0, 0.0))
-        .collect();
+    let reference: Vec<ComplexSample> = (0..n).map(|_| ComplexSample::new(1.0, 0.0)).collect();
     // Self-correlation: peak at lag (N-1) with magnitude N.
     let compressed = pulse_compress(&reference, &reference);
     let mags = magnitude(&compressed);
@@ -196,11 +194,8 @@ fn pulse_compress_taylor_peak_loss() {
 fn pulse_compress_taylor_sidelobe_floor() {
     let length = 64usize;
     let chirp = lfm_chirp_samples(length, 64.0);
-    let compressed = pulse_compress_windowed(
-        &chirp,
-        &chirp,
-        CompressionWindow::TaylorN35 { nbar: 4 },
-    );
+    let compressed =
+        pulse_compress_windowed(&chirp, &chirp, CompressionWindow::TaylorN35 { nbar: 4 });
     let mags = magnitude(&compressed);
     let psl = peak_sidelobe_db(&mags, 2);
     assert!(
@@ -234,4 +229,3 @@ fn pulse_compress_dolph_chebyshev_sidelobe() {
          (expected <= -45 dB after 5 dB finite-BT margin)"
     );
 }
-

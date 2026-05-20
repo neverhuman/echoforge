@@ -26,14 +26,24 @@ fn min_target_altitude_canonical_geometry() {
 /// for a 20 m antenna (required altitude is ~392 m).
 #[test]
 fn target_below_horizon_returns_false() {
-    assert!(!target_above_horizon(20.0, 100_000.0, 50.0, STANDARD_K_FACTOR));
+    assert!(!target_above_horizon(
+        20.0,
+        100_000.0,
+        50.0,
+        STANDARD_K_FACTOR
+    ));
 }
 
 /// Test 3 — A 1000 m target at 100 km is comfortably above the
 /// 4/3-Earth horizon for a 20 m antenna.
 #[test]
 fn target_above_horizon_returns_true() {
-    assert!(target_above_horizon(20.0, 100_000.0, 1000.0, STANDARD_K_FACTOR));
+    assert!(target_above_horizon(
+        20.0,
+        100_000.0,
+        1000.0,
+        STANDARD_K_FACTOR
+    ));
 }
 
 /// Test 4 — Required target altitude is monotonically non-decreasing
@@ -129,12 +139,7 @@ fn p676_monotonic_in_range() {
 /// well above the 0.5 dB floor required by the packet.
 #[test]
 fn p838_x_band_moderate_rain_horizontal() {
-    let att = itu_r_p838_rain_attenuation_db(
-        10.0,
-        10.0,
-        100.0,
-        RainPolarization::Horizontal,
-    );
+    let att = itu_r_p838_rain_attenuation_db(10.0, 10.0, 100.0, RainPolarization::Horizontal);
     assert!(
         att > 0.5,
         "expected > 0.5 dB rain attenuation, got {att:.3} dB"
@@ -157,7 +162,10 @@ fn p838_zero_rain_zero_attenuation() {
         RainPolarization::Circular,
     ] {
         let att = itu_r_p838_rain_attenuation_db(10.0, 0.0, 100.0, pol);
-        assert_eq!(att, 0.0, "expected zero attenuation for zero rain ({pol:?})");
+        assert_eq!(
+            att, 0.0,
+            "expected zero attenuation for zero rain ({pol:?})"
+        );
     }
 }
 

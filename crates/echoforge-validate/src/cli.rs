@@ -123,12 +123,12 @@ struct QaBundle {
 
 fn read_qa_bundle(qa: &Path) -> Result<QaBundle, ValidateError> {
     Ok(QaBundle {
-        canonical:   read_optional_json(&qa.join("canonical_validation.json"))?,
+        canonical: read_optional_json(&qa.join("canonical_validation.json"))?,
         polarization: read_optional_json(&qa.join("polarization.json"))?,
-        determinism:  read_optional_json(&qa.join("determinism_report.json"))?,
-        units_frame:  read_optional_json(&qa.join("units_frame_check.json"))?,
-        cross:        read_optional_json(&qa.join("cross_solver_delta.json"))?,
-        conv:         read_optional_json(&qa.join("convergence_report.json"))?,
+        determinism: read_optional_json(&qa.join("determinism_report.json"))?,
+        units_frame: read_optional_json(&qa.join("units_frame_check.json"))?,
+        cross: read_optional_json(&qa.join("cross_solver_delta.json"))?,
+        conv: read_optional_json(&qa.join("convergence_report.json"))?,
     })
 }
 
@@ -145,7 +145,12 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
     }
     let target = match TierAchieved::parse(&args.target_tier) {
         Some(v) => v,
-        None => return Err(ValidateError::BadArgs(format!("unknown tier: {}", args.target_tier))),
+        None => {
+            return Err(ValidateError::BadArgs(format!(
+                "unknown tier: {}",
+                args.target_tier
+            )))
+        }
     };
 
     let manifest_path = args.bundle.join("manifest.json");
@@ -162,10 +167,16 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
         None => "auto".to_string(),
     };
     let primitive = if primitive_arg == "auto" {
-        let inferred = manifest.object_card.as_ref()
+        let inferred = manifest
+            .object_card
+            .as_ref()
             .and_then(|c| c.kind.clone())
             .or(manifest.object_card_kind.clone());
-        if let Some(v) = inferred { v } else { "unknown".to_string() }
+        if let Some(v) = inferred {
+            v
+        } else {
+            "unknown".to_string()
+        }
     } else {
         primitive_arg
     };
@@ -176,24 +187,29 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
     let mut checks = ValidateChecks::default();
     let mut notes = Vec::new();
     checks.canonical_validation_present = qa_data.canonical.is_some();
-    checks.canonical_overall_pass = qa_data.canonical
+    checks.canonical_overall_pass = qa_data
+        .canonical
         .as_ref()
         .map(|c| c.overall_status == "pass")
         .unwrap_or(false);
-    checks.polarization_complete = qa_data.polarization
+    checks.polarization_complete = qa_data
+        .polarization
         .as_ref()
         .map(|p| p.status == "pass")
         .unwrap_or(false);
-    checks.determinism_pass = qa_data.determinism
+    checks.determinism_pass = qa_data
+        .determinism
         .as_ref()
         .map(|d| d.status == "pass")
         .unwrap_or(false);
-    checks.units_frame_pass = qa_data.units_frame
+    checks.units_frame_pass = qa_data
+        .units_frame
         .as_ref()
         .map(|u| u.status == "pass")
         .unwrap_or(false);
     checks.cross_solver_present = qa_data.cross.is_some();
-    checks.cross_solver_pass = qa_data.cross
+    checks.cross_solver_pass = qa_data
+        .cross
         .as_ref()
         .map(|c| c.overall_status == "pass")
         .unwrap_or(false);
@@ -319,7 +335,11 @@ mod tests {
     fn v1_passes_with_full_qa() {
         let td = tempdir().unwrap();
         write_manifest(td.path(), "sphere");
-        write_qa(td.path(), "canonical_validation.json", r#"{"overall_status":"pass"}"#);
+        write_qa(
+            td.path(),
+            "canonical_validation.json",
+            r#"{"overall_status":"pass"}"#,
+        );
         write_qa(td.path(), "polarization.json", r#"{"status":"pass"}"#);
         write_qa(td.path(), "determinism_report.json", r#"{"status":"pass"}"#);
         write_qa(td.path(), "units_frame_check.json", r#"{"status":"pass"}"#);

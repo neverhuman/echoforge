@@ -2,13 +2,11 @@
 
 use std::collections::BTreeMap;
 
+use crate::leakage::LeakageReport;
 use crate::monte_carlo::config::{MonteCarloBenchmarkReport, MonteCarloDemoConfig};
-use crate::monte_carlo::helpers::{
-    validation_info, EpisodeManifestEntry, RunManifest,
-};
+use crate::monte_carlo::helpers::{validation_info, EpisodeManifestEntry, RunManifest};
 use crate::monte_carlo::sampling::ResolvedPreset;
 use crate::monte_carlo::scene_config::AirspaceMonteCarloConfig;
-use crate::leakage::LeakageReport;
 use crate::split::{SplitKind, SplitPolicy, SplitRatios};
 
 pub(super) fn monte_carlo_split_policy() -> SplitPolicy {

@@ -1,0 +1,238 @@
+Absolutely — for EchoForge, the **best real-data datasets are the ones closest to the radar signal chain**: raw ADC/IQ first, range-Doppler/range-azimuth tensors second, 4D radar point clouds third, and scanning-radar images or sparse detections after that.
+
+EchoForge is already shaped for this: its repo describes a “radar-first” synthetic sensing foundry, and its schemas expect sensor archetypes, scenario provenance, radar episodes, and product paths such as **IQ, range-Doppler maps, detections, and tracks**. It also distinguishes measured validation from weaker proxy tiers, with measured validation requiring lawful measured data and provenance. ([GitHub][1])
+
+## The best datasets to start with
+
+My strongest recommendation is to build EchoForge benchmarking around these **five “Tier A” datasets first**:
+
+| Priority | Dataset                                                           | Why it is excellent for EchoForge                                                                                                                                                                                                                                                                                                  | Data level               | Caveat                                                                                          |
+| -------: | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------- |
+|        1 | **Raw ADC 77 GHz Automotive Object Detection / RAMP-CNN dataset** | This is probably the easiest “true replay” starting point: about **19,800 raw ADC radar frames**, synchronized camera images, labels, six object classes, 77 GHz TI AWR1843, 2 TX × 4 RX, and explicit ADC dimensions: samples × chirps × receivers × transmitters. ([GitHub][2])                                                  | **Raw ADC**              | Smaller and more controlled than large driving datasets, but that is good for 1-to-1 emulation. |
+|        2 | **RaDICaL**                                                       | Raw ADC from a **77 GHz FMCW radar** with 3 TX × 4 RX, synchronized RGB-D/depth/IMU, multiple radar configurations, and a CC BY license. It is ideal for indoor humans/objects and controlled scenes. ([Illinois Data Bank][3])                                                                                                    | **Raw ADC**              | Large downloads; SDK is useful but not fully polished.                                          |
+|        3 | **RADIal**                                                        | Real automotive driving with **2 hours**, **91 sequences**, about **25k synchronized frames**, **8,252 labeled frames**, HD radar with **16 RX × 12 TX = 192 virtual antennas**, raw ADC binaries, GPS/CAN, LiDAR/camera, and signal-processing code to generate power spectra, point clouds, or range-azimuth maps. ([GitHub][4]) | **Raw ADC**              | License terms should be checked before commercial use.                                          |
+|        4 | **RADDet**                                                        | TI AWR1843 roadside/traffic dataset with ADC/RAD representations, stereo camera, annotations, **10,158 frames**, CC BY 4.0, and published radar grid/config parameters. ([site.uottawa.ca][5])                                                                                                                                     | **Raw ADC / RAD tensor** | ADC download has historically had mirror friction.                                              |
+|        5 | **CARRADA**                                                       | Synchronized camera and radar recordings with **range-angle-Doppler annotations**; downloadable base dataset and a much larger RAD tensor release. Great for product-level tensor comparisons. ([Arthur Ouaknine's Personal Page][6])                                                                                              | **RAD tensor**           | Less waveform-true than raw ADC.                                                                |
+
+Those five give you the best early path to “real scenario → EchoForge recreation → product-level and/or waveform-level comparison.”
+
+---
+
+## Best full ranked list by EchoForge value
+
+### A. Raw ADC / IQ / low-level radar — highest value for real 1-to-1 comparison
+
+These should become your **gold validation set**.
+
+| Rank | Dataset                                        | What you get                                                                                                                                                                                                                                                       | Why it matters for EchoForge                                                                                         |
+| ---: | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+|    1 | **Raw ADC 77 GHz Automotive Object Detection** | About **19,800 raw ADC frames**, synchronized camera/labels, 77 GHz TI AWR1843, 2TX/4RX, six classes: pedestrian, cyclist, car, motorbike, bus, truck. Raw frame shape is documented as **128 samples × 255 chirps × 4 receivers × 2 transmitters**. ([GitHub][2]) | Best “starter V5-style” dataset: simple, documented, raw, and object-centric.                                        |
+|    2 | **RaDICaL**                                    | Raw ADC from a 77 GHz FMCW radar, RGB-D/depth, IMU, four radar configurations, CC BY. ([Illinois Data Bank][3])                                                                                                                                                    | Excellent controlled indoor/human/object benchmark. Recreate geometry, generate ADC/RD/RA, compare all the way down. |
+|    3 | **RADIal**                                     | 2 hours of synchronized camera/LiDAR/HD radar/GPS/CAN, raw ADC files, 91 driving sequences, 25k synced frames, 8,252 labeled. ([GitHub][4])                                                                                                                        | Best public automotive raw-radar benchmark for real traffic scenes.                                                  |
+|    4 | **RADDet**                                     | TI AWR1843-BOOST, stereo cameras, ADC/RAD, 10,158 annotated frames, 3D FFT RAD products, CC BY 4.0. ([site.uottawa.ca][5])                                                                                                                                         | Great for matching EchoForge’s generated radar tensors to published RAD labels.                                      |
+|    5 | **GOTCHA Volumetric SAR**                      | X-band SAR **phase history** data, 640 MHz bandwidth, full azimuth coverage at 8 elevation angles, full polarization, MATLAB files with k-space/frequency/antenna-position metadata. ([SDMS][7])                                                                   | Superb for EchoForge object/signature/SAR-style validation, not automotive scenes.                                   |
+|    6 | **MSTAR**                                      | Public X-band SAR imagery of military target types; immediate download from AFRL SDMS. ([SDMS][8])                                                                                                                                                                 | Classic measured SAR target-signature validation.                                                                    |
+|    7 | **SAMPLE**                                     | Paired measured MSTAR SAR imagery and synthetic SAR imagery; public release/unlimited distribution. ([GitHub][9])                                                                                                                                                  | Very valuable because it is already a synthetic-vs-measured pairing. Great template for EchoForge dataset cards.     |
+|    8 | **RAD-DAR / Real Doppler RAD-DAR**             | More than **17,000** real Doppler/micro-Doppler samples of drones, cars, and people. ([Kaggle][10])                                                                                                                                                                | Excellent compact benchmark for micro-Doppler signatures and drone/person/vehicle classification.                    |
+
+### B. Dense radar tensors / 4D radar cubes — excellent product-level comparison
+
+These are not always raw ADC, but they are still very useful because EchoForge can generate comparable RD/RA/RAD/RAED products.
+
+| Rank | Dataset         | What you get                                                                                                                                                                                                 | Why it matters                                                                        |
+| ---: | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- |
+|    9 | **K-Radar**     | Large adverse-weather autonomous-driving dataset with 4D radar tensor data, LiDAR/cameras/RTK-GPS, fog/rain/snow, and RAED/DRAE-style radar tensors. Dataset is very large, around **15 TB**. ([GitHub][11]) | One of the strongest real-world 4D radar tensor datasets for weather robustness.      |
+|   10 | **RaDelft**     | Real-life multi-sensor automotive dataset with imaging radar board, LiDAR, camera, odometry, calibrated sensors, and non-commercial research access. ([GitHub][12])                                          | Great for imaging-radar tensor/point-cloud validation in urban scenes.                |
+|   11 | **CARRADA**     | Camera/radar recordings with range-angle-Doppler annotations; RAD tensor download is about **176 GB**. ([Arthur Ouaknine's Personal Page][6])                                                                | Strong product-level radar tensor target.                                             |
+|   12 | **ColoRadar**   | **52 sequences**, over **145 minutes** of 3D FMCW radar, 3D LiDAR, IMU, calibration sequences, and evaluation scripts across mines, buildings, and outdoor creek paths. ([ARPG][13])                         | Fantastic for robotics, underground, indoor, and localization-style radar simulation. |
+|   13 | **MSC-RAD4R**   | ROS-based 4D radar dataset with **90,864 4D radar frames**, stereo images, LiDAR, RTK-GPS/GPS/IMU/wheel data, about **51.6 km** and **100 minutes** across day/night/snow/smoke. ([MSC RAD4R dataset][14])   | Huge practical 4D radar SLAM/odometry benchmark.                                      |
+|   14 | **NTU4DRadLM**  | 4D radar-centric SLAM dataset: 4D radar, thermal camera, IMU, 3D LiDAR, RGB camera, RTK GPS; around **17.6 km**, **85 min**, **50 GB**. ([GitHub][15])                                                       | Great for EchoForge navigation/SLAM validation, especially adverse conditions.        |
+|   15 | **Snail-Radar** | Large 4D-radar SLAM dataset collected with handheld, e-bike, and SUV platforms under clear, night, and heavy-rain conditions; 44 sequences repeatedly collected at 8 places. ([GitHub][16])                  | Excellent diversity across platforms, speeds, and weather.                            |
+|   16 | **HeRCULES**    | Heterogeneous radar dataset combining 4D radar, spinning radar, FMCW LiDAR, IMU, GPS, and cameras for multi-session radar SLAM. ([arXiv][17])                                                                | Very interesting for validating different radar archetypes in the same framework.     |
+|   17 | **NavINST**     | ROS-based autonomous navigation dataset with four Smartmicro 4D electronically scanning radars, LiDARs, cameras, GNSS/IMU, odometer, and trajectory metadata. ([Home][18])                                   | Good for multi-radar navigation and sensor-fusion scenario replay.                    |
+
+### C. Huge real driving / scanning radar / radar-image datasets
+
+These are less waveform-true, but they give you a huge number of real scenarios and environmental diversity.
+
+| Rank | Dataset                   | What you get                                                                                                                                                                                                                  | EchoForge use                                                                    |
+| ---: | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+|   18 | **Boreas**                | 128-beam LiDAR, 5 MP camera, 360° Navtech radar, postprocessed GNSS ground truth, sun/rain/snow over a year; CC BY 4.0 and AWS access. ([Registry of Open Data][19])                                                          | Excellent all-weather scanning radar scene validation.                           |
+|   19 | **Oxford Radar RobotCar** | Navtech CTS350-X scanning radar with LiDAR/cameras/GPS/INS over **280 km** and **32 traversals** around Oxford; paper reports **4.7 TB** and over **240k radar scans**. ([Oxford Robotics Institute][20])                     | Best classic urban scanning-radar odometry/localization dataset.                 |
+|   20 | **Boreas-RT**             | Newer Boreas extension with 60 sequences, 9 routes, 643 km, Navtech Doppler-enabled spinning radar, LiDAR/FMCW LiDAR/camera/IMU/wheel encoder/ground truth. ([arXiv][21])                                                     | Promising if you want more modern Doppler spinning radar; verify current access. |
+|   21 | **RADIATE**               | About **3 hours** of annotated radar images, over **200k labeled instances**, radar/camera/LiDAR/GPS-IMU, dense fog, heavy snowfall, rain, night, motorway, suburban, urban. ([Heriot-Watt University][22])                   | Great for adverse-weather radar-image benchmarks.                                |
+|   22 | **OORD**                  | Off-road radar with GPS/INS, four Scottish Highland areas, 11 forays, about **154 km** of rugged driving. ([Oxford Robotics Institute][23])                                                                                   | Excellent for non-urban/off-road radar clutter and place recognition.            |
+|   23 | **MulRan**                | Radar/LiDAR/IMU/GPS dataset for multi-city place recognition and localization. ([Google Sites][24])                                                                                                                           | Useful for scan-level place recognition, less useful for waveform validation.    |
+|   24 | **MAN TruckScenes**       | Large autonomous-trucking dataset with a heavy truck, **6 radars**, 6 LiDARs, 4 cameras, high-precision GNSS, over **740 scenes** of 20 s each, 27 object classes, CC BY-NC-SA 4.0, AWS access. ([Registry of Open Data][25]) | Very high-value for truck-specific scenarios and long-range radar perception.    |
+
+### D. 4D radar point-cloud / detection datasets
+
+These are great for perception metrics, but they do **not** let EchoForge prove ADC-level or phase-level fidelity.
+
+| Rank | Dataset                               | What you get                                                                                                                                                                                   | EchoForge use                                                                             |
+| ---: | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+|   25 | **RadarScenes**                       | Real-world radar point clouds from four radar sensors, over **4 hours** of driving, more than **7,500 unique objects**, point-wise labels and track IDs, CC BY-NC-SA 4.0. ([RadarScenes][26])  | Excellent detection/tracking benchmark; not waveform-level.                               |
+|   26 | **View-of-Delft / VoD**               | **8,600 frames** with synchronized 64-layer LiDAR, stereo camera, 3+1D radar, odometry, and over **123k 3D boxes**. ([TU Delft IV][27])                                                        | Strong urban VRU/pedestrian/cyclist detection benchmark.                                  |
+|   27 | **TJ4DRadSet**                        | **7,757 frames**, 44 sequences, synchronized camera/LiDAR/4D radar, 3D boxes and track IDs. ([GitHub][28])                                                                                     | Good compact 4D radar point-cloud benchmark.                                              |
+|   28 | **Dual Radar**                        | Two simultaneous 4D radar types — Arbe Phoenix and ARS548 — plus camera/LiDAR; **10,007 synchronized frames**, weather/time diversity, request-based free research access. ([GitHub][29])      | Especially valuable for testing EchoForge across two radar archetypes in the same scenes. |
+|   29 | **L-RadSet**                          | Long-range 4D radar dataset with 280 scenes, **11.2k keyframes**, 133k annotated 3D boxes, radar detection up to 300 m, annotation up to 220 m, researcher access by agreement. ([GitHub][30]) | Great for long-range automotive radar validation.                                         |
+|   30 | **V2X-Radar**                         | Cooperative vehicle/roadside 4D radar, LiDAR, and multi-view cameras; **20k 4D radar frames**, 350k boxes, sunny/rainy, day/dusk/night. ([arXiv][31])                                          | Best real V2X/cooperative 4D radar target I found.                                        |
+|   31 | **OmniHD-Scenes**                     | 128-beam LiDAR, six cameras, **six 4D imaging radars**, dataset v1.0 around **1.3 TB**, annotated 200 clips with over **514k 3D boxes**. ([GitHub][32])                                        | Huge surround 4D radar perception benchmark; request access.                              |
+|   32 | **Zenseact Open Dataset radar / ZOD** | Radar added in 2025, Continental ARS513 permission, sensors collected over two years in 14 European countries, access request and permissive license terms. ([Zenseact][33])                   | Interesting because licensing may be friendlier than many noncommercial-only datasets.    |
+|   33 | **nuScenes**                          | 1,000 20-second driving scenes, 6 cameras, 5 radars, 1 LiDAR, GPS/IMU, 3D boxes for 23 classes. ([arXiv][34])                                                                                  | Huge standard benchmark, but radar is processed sparse detections, not raw waveform.      |
+|   34 | **Astyx HiRes2019**                   | Small high-resolution automotive radar/camera/LiDAR dataset, around **546 frames**. ([GitHub][35])                                                                                             | Useful sanity check; lower priority because access/official hosting is less clean now.    |
+|   35 | **CRUW / ROD2021**                    | Stereo cameras plus two 77 GHz FMCW radars, multiple road scenarios, preprocessed range-azimuth heatmaps, 50 sequences, academic noncommercial license. ([CRUW Dataset][36])                   | Very good for RA heatmap emulation and camera-radar object detection.                     |
+|   36 | **WaterScenes**                       | Water-surface 4D radar-camera dataset: **54,120** RGB/radar/GPS/IMU sets, over **200k objects**, radar point clouds with range, Doppler, azimuth, elevation, power, XYZ. ([GitHub][37])        | Excellent non-road domain: rivers, lakes, canals, boats, buoys, waterline/free-space.     |
+|   37 | **mmBody**                            | Synchronized calibrated mmWave radar point clouds and RGB-D images with skeleton/mesh annotations for human body reconstruction. ([Anjun Chen][38])                                            | Strong human/body point-cloud benchmark.                                                  |
+|   38 | **RadHAR**                            | TI mmWave radar point-cloud dataset for human activity recognition; raw dataset and processed train/test folders available; BSD-3-Clause code license. ([GitHub][39])                          | Great controlled indoor human-motion benchmark.                                           |
+|   39 | **MiliPoint**                         | mmWave radar point-cloud dataset for human activity recognition, keypoints, identification, and action classification; MIT license repo. ([GitHub][40])                                        | Useful if EchoForge wants human micro-motion / indoor person scenarios.                   |
+|   40 | **mmDoppler**                         | Range-Doppler heatmaps and point-cloud data for macro/micro human activities with one or multiple subjects. ([arXiv][41])                                                                      | Good controlled human micro-Doppler testing.                                              |
+
+---
+
+## My recommended EchoForge benchmark stack
+
+For a serious EchoForge validation pipeline, I would split datasets into **four benchmark tracks**:
+
+### 1. Waveform / ADC fidelity track
+
+Use **Raw ADC Automotive**, **RaDICaL**, **RADIal**, and **RADDet**. These let you compare:
+
+* raw ADC tensor shape and sample/chirp/channel axes;
+* range FFT peaks;
+* Doppler FFT peaks;
+* range-Doppler maps;
+* range-azimuth maps;
+* CFAR detections;
+* phase/amplitude statistics after calibration.
+
+This is the only track that can credibly approach a **true measured 1-to-1** comparison.
+
+### 2. Radar-product fidelity track
+
+Use **CARRADA**, **K-Radar**, **RaDelft**, **MSC-RAD4R**, **NTU4DRadLM**, and **ColoRadar**. These are best for:
+
+* RAD / RAED / DRAE tensor matching;
+* 4D cube occupancy;
+* Doppler distribution;
+* peak density;
+* range/elevation/azimuth error;
+* weather robustness;
+* scene clutter statistics.
+
+### 3. Scenario-scale driving/perception track
+
+Use **Boreas**, **Oxford Radar RobotCar**, **RADIATE**, **MAN TruckScenes**, **RadarScenes**, **VoD**, **TJ4DRadSet**, **Dual Radar**, **L-RadSet**, **V2X-Radar**, **OmniHD-Scenes**, **nuScenes**, and **ZOD**. These are best for:
+
+* detection AP / tracking MOTA/HOTA;
+* point-cloud density matching;
+* Doppler error;
+* false-positive/false-negative distributions;
+* object-range/azimuth histograms;
+* scan-to-scan localization error;
+* scene-level realism.
+
+### 4. Signature / SAR / RCS-style track
+
+Use **SAMPLE**, **MSTAR**, **GOTCHA**, and **RAD-DAR**. These are especially valuable for EchoForge’s object-signature side, because EchoForge already has an `echosig`-style concept around frequency, azimuth/elevation, polarization, geometry, material, attitude, motion, and solver regime. ([GitHub][42])
+
+---
+
+## Best immediate download order
+
+I would start in this exact order:
+
+1. **Raw ADC 77 GHz Automotive Object Detection** — fastest path to raw ADC 1-to-1.
+2. **RaDICaL small/sample sequences** — controlled scenes, CC BY, raw ADC.
+3. **RADIal** — real automotive raw ADC, labels, GPS/CAN.
+4. **RADDet** — more raw/RAD data and annotations.
+5. **CARRADA** — product-level RAD tensors and annotations.
+6. **ColoRadar** — robotics/indoor/subterranean 3D FMCW radar.
+7. **Boreas** — clean AWS access, CC BY, all-weather scanning radar.
+8. **Oxford Radar RobotCar** — classic 280 km urban scanning radar.
+9. **K-Radar / RaDelft / MSC-RAD4R** — large 4D radar tensor/point-cloud validation.
+10. **SAMPLE + GOTCHA + MSTAR** — signature/SAR fidelity sidecar benchmark.
+
+That stack gives you both **small controlled raw tests** and **large messy real-world scenario tests**.
+
+---
+
+## How to make the comparison fair inside EchoForge
+
+For each dataset sequence, create an EchoForge `scenario` with:
+
+* **sensor_archetype**: frequency band, FMCW/chirp family, center frequency, sample rate, bandwidth, chirp count, RX/TX layout, frame rate;
+* **environment**: indoor/urban/highway/rain/fog/snow/night/tunnel/off-road/water;
+* **actors**: labeled cars, buses, pedestrians, cyclists, boats, drones, people, calibration reflectors;
+* **ego trajectory**: GPS/INS/odometry/SLAM pose when available;
+* **product_paths**: measured ADC/IQ, RD, RA, RAD, point clouds, detections, tracks, camera/LiDAR references;
+* **validation tier**: measured only when license/provenance supports it.
+
+Then evaluate at the deepest level the dataset allows:
+
+| Dataset data level    | Best EchoForge metric                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Raw ADC/IQ            | ADC correlation after alignment, range FFT peak error, Doppler FFT peak error, phase/amplitude distribution, RD/RAD SSIM or normalized MSE |
+| RD/RA/RAD tensor      | Peak range/azimuth/Doppler error, tensor KL/JS divergence, CFAR ROC, clutter/noise-floor match                                             |
+| 4D point cloud        | Chamfer distance, occupancy IoU, point-density histograms, Doppler error, power/SNR distribution                                           |
+| Detections/tracks     | AP, mAP, range error, azimuth/elevation error, velocity error, HOTA/MOTA/ID switches                                                       |
+| Scanning radar image  | polar-image similarity, scan matching error, odometry drift, place-recognition recall                                                      |
+| SAR/target signatures | image similarity, scatterer persistence, aspect-angle response, classifier transfer from synthetic to measured                             |
+
+The key is to **never compare EchoForge ADC to a dataset that only published point clouds**. Compare at the same product level.
+
+---
+
+## Bottom line
+
+The best EchoForge real-data benchmark core is:
+
+**Raw ADC Automotive + RaDICaL + RADIal + RADDet + CARRADA + K-Radar + ColoRadar + Boreas + Oxford Radar RobotCar + SAMPLE/GOTCHA/MSTAR.**
+
+That gives you real measured data across raw FMCW ADC, RAD tensors, 4D radar cubes, point clouds, scanning radar, adverse weather, human motion, driving, robotics, off-road, water, and SAR target signatures.
+
+[1]: https://github.com/neverhuman/echoforge "GitHub - neverhuman/echoforge: EM simulator · GitHub"
+[2]: https://github.com/Xiangyu-Gao/Raw_ADC_radar_dataset_for_automotive_object_detection "GitHub - Xiangyu-Gao/Raw_ADC_radar_dataset_for_automotive_object_detection: A dataset for the raw ADC data of 2TX-4RX MMWave Radar for automotive object detection. · GitHub"
+[3]: https://databank.illinois.edu/datasets/IDB-3289560 "
+RaDICaL: A Synchronized FMCW Radar, Depth, IMU and RGB Camera Data Dataset with Low-Level FMCW Radar Signals (ROS bag format) | Illinois Data Bank | Illinois
+"
+[4]: https://github.com/valeoai/RADIal "GitHub - valeoai/RADIal: [CVPR 2022] RADIAl: Raw High-Definition Radar for Multi-Task Learning · GitHub"
+[5]: https://www.site.uottawa.ca/school/research/viva/projects/raddet/index.html "RADDet: Range-Azimuth-Doppler based Radar Object Detection for Dynamic Road Users"
+[6]: https://arthurouaknine.github.io/codeanddata/carrada "CARRADA Dataset: Camera and Automotive Radar with Range-Angle-Doppler Annotations - Arthur Ouaknine’s Personal Page"
+[7]: https://www.sdms.afrl.af.mil/index.php?collection=gotcha&utm_source=chatgpt.com "Gotcha Volumetric SAR Data Set Overview"
+[8]: https://www.sdms.afrl.af.mil/index.php?collection=mstar "MSTAR Overview
+"
+[9]: https://github.com/benjaminlewis-afrl/SAMPLE_dataset_public "GitHub - benjaminlewis-afrl/SAMPLE_dataset_public: The Synthetic and Measured Paired Labeled Experiment. · GitHub"
+[10]: https://www.kaggle.com/datasets/iroldan/real-doppler-raddar-database?utm_source=chatgpt.com "Real Doppler RAD-DAR database"
+[11]: https://github.com/kaist-avelab/K-Radar "GitHub - kaist-avelab/K-Radar: 4D Radar Object Detection for Autonomous Driving in Various Weather Conditions · GitHub"
+[12]: https://github.com/RaDelft/RaDelft-Dataset "GitHub - RaDelft/RaDelft-Dataset: Code for the RaDelft Dataset · GitHub"
+[13]: https://arpg.github.io/coloradar/ "ColoRadar Dataset"
+[14]: https://mscrad4r.github.io/home/?utm_source=chatgpt.com "Home | MSC RAD4R dataset"
+[15]: https://github.com/junzhang2016/NTU4DRadLM "GitHub - junzhang2016/NTU4DRadLM: NTU 4D Radar-centric Multi-Modal Dataset for Localization and Mapping (NTU4DRadLM) · GitHub"
+[16]: https://github.com/snail-radar/snail-radar.github.io "GitHub - snail-radar/snail-radar.github.io: Source of the 4D radar dataset website. · GitHub"
+[17]: https://arxiv.org/abs/2502.01946?utm_source=chatgpt.com "HeRCULES: Heterogeneous Radar Dataset in Complex Urban Environment for Multi-session Radar SLAM"
+[18]: https://navinst.github.io/ "NavINST Dataset | Home"
+[19]: https://registry.opendata.aws/boreas/ "Boreas Autonomous Driving Dataset - Registry of Open Data on AWS"
+[20]: https://oxford-robotics-institute.github.io/radar-robotcar-dataset/?utm_source=chatgpt.com "The Oxford Radar RobotCar Dataset"
+[21]: https://arxiv.org/abs/2602.16870?utm_source=chatgpt.com "Boreas Road Trip: A Multi-Sensor Autonomous Driving Dataset on Challenging Roads"
+[22]: https://pro.hw.ac.uk/radiate/?utm_source=chatgpt.com "Welcome to Heriot-Watt RADIATE Dataset Website"
+[23]: https://oxford-robotics-institute.github.io/oord-dataset/ "Home | The Oxford Offroad Radar (OORD) Dataset"
+[24]: https://sites.google.com/view/mulran-pr?utm_source=chatgpt.com "MulRan"
+[25]: https://registry.opendata.aws/man-truckscenes/ "MAN TruckScenes - Registry of Open Data on AWS"
+[26]: https://radar-scenes.com/ "RadarScenes - RadarScenes"
+[27]: https://tudelft-iv.github.io/view-of-delft-dataset/ "The View of Delft dataset | Documentation and development kit"
+[28]: https://github.com/TJRadarLab/TJ4DRadSet?utm_source=chatgpt.com "TJ4DRadSet: A 4D Radar Dataset for Autonomous Driving"
+[29]: https://github.com/adept-thu/Dual-Radar "GitHub - adept-thu/Dual-Radar · GitHub"
+[30]: https://github.com/crrasjtu/L-RadSet "GitHub - crrasjtu/L-RadSet · GitHub"
+[31]: https://arxiv.org/html/2411.10962v1?utm_source=chatgpt.com "A Multi-modal Dataset with 4D Radar for Cooperative ..."
+[32]: https://github.com/TJRadarLab/OmniHD-Scenes "GitHub - TJRadarLab/OmniHD-Scenes: [TPAMI 2026] OmniHD-Scenes: A Next-Generation Multimodal Dataset for Autonomous Driving · GitHub"
+[33]: https://zenseact.com/news/zenseact-open-dataset-updated-with-radar-data-creating-opportunities-for-advanced-research-to-make-self-driving-technology-safer/ "Zenseact Open Dataset updated with radar data"
+[34]: https://arxiv.org/abs/1903.11027?utm_source=chatgpt.com "nuScenes: A multimodal dataset for autonomous driving"
+[35]: https://github.com/azinke/astyx?utm_source=chatgpt.com "An API to access the Astyx Hires dataset"
+[36]: https://www.cruwdataset.org/introduction "CRUW Dataset - Introduction"
+[37]: https://github.com/WaterScenes/WaterScenes "GitHub - WaterScenes/WaterScenes: Official repository for WaterScenes dataset · GitHub"
+[38]: https://chen3110.github.io/mmbody/ "mmBody Benchmark: 3D Body Reconstruction Dataset and Analysis for Millimeter Wave Radar"
+[39]: https://github.com/nesl/RadHAR "GitHub - nesl/RadHAR: Human Activity Recognition from Point Clouds Generated through a Millimeter-wave Radar · GitHub"
+[40]: https://github.com/yizzfz/MiliPoint "GitHub - yizzfz/MiliPoint: A point cloud dataset for mmWave radar human activity recognition. · GitHub"
+[41]: https://arxiv.org/html/2407.21125v1 "A Dataset for Multi-intensity Continuous Human Activity Recognition through Passive Sensing"
+[42]: https://raw.githubusercontent.com/neverhuman/echoforge/main/schemas/echosig_manifest.schema.json "raw.githubusercontent.com"

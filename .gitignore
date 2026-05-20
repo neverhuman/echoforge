@@ -47,6 +47,7 @@ outputs/
 *.pt
 *.pth
 *.onnx
+*.joblib
 *.ckpt
 *.log
 *.sqlite

@@ -2,7 +2,9 @@ use super::*;
 
 fn shahed_scene(antenna_alt: f64, atm_db_per_km: f64) -> SceneDescriptor {
     SceneDescriptor {
-        geometry: SiteGeometry { antenna_altitude_agl_m: antenna_alt },
+        geometry: SiteGeometry {
+            antenna_altitude_agl_m: antenna_alt,
+        },
         environment: EnvironmentDescriptor {
             clutter_regime: None,
             atmospheric_one_way_db_per_km: atm_db_per_km,
@@ -26,8 +28,7 @@ fn scene_descriptor_roundtrip_serde() {
     let scene = shahed_scene(20.0, 0.012);
 
     let json = serde_json::to_string(&scene).expect("serialise scene");
-    let parsed: SceneDescriptor =
-        serde_json::from_str(&json).expect("deserialise scene");
+    let parsed: SceneDescriptor = serde_json::from_str(&json).expect("deserialise scene");
     assert_eq!(scene, parsed);
 }
 
@@ -153,7 +154,7 @@ fn target_kinematics_turbine_radial_velocity_zero() {
         hub_range_m: 5_000.0,
         hub_altitude_agl_m: 80.0,
         blade_count: 3,
-        rotation_hz: 0.3,    // ~18 RPM
+        rotation_hz: 0.3, // ~18 RPM
         blade_length_m: 45.0,
     };
     for t in [0.0, 1.0, 5.0, 30.0] {

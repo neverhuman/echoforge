@@ -24,20 +24,19 @@
 use std::f64::consts::PI;
 
 use echoforge_radar::{
-    apply_mti, build_rda_cube, ca_cfar_scale, coefficients, evaluate_link_budget,
-    hough_tbd_detect, magnitude, mtd_chain, mti_improvement_factor_db, pulse_compress,
-    pulse_compress_windowed, sample_clutter_amplitude, sample_k_distribution, sample_log_normal,
-    itu_r_p676_gas_attenuation_db, itu_r_p838_rain_attenuation_db, sample_weibull,
-    slow_time_complex_dft, synthesize_scene, synthesize_takeoff_episode,
-    two_ray_propagation_factor_magnitude,
-    AngleGrid, AspectGrid, BoostThrustProfile, BoostTierDetector, CfarParams, ClimbDecision, ClimbOutTierDetector,
-    ClimbTierConfig, ClutterDistribution, ClutterRegime, ComplexSample, CompressionWindow,
-    EnvironmentDescriptor, EpisodeSeed, KinematicGate, KinematicObservation, KinematicSample,
-    LinkBudget, MtiOrder, NoiseProfile, Polarization, PropagationContext, PropulsionClass,
-    RainPolarization,
-    RadarSimConfig, Rcs, RcsLookup, SceneDescriptor, SiteGeometry, SpeedClassifier, SwerlingModel,
-    TakeoffProfile, TargetClass, TargetEntity, TargetKinematics, TbdConfig, TerrainClass,
-    MTI_NOTCH_BODY_DOPPLER_HZ, REFERENCE_NOISE_TEMPERATURE_K,
+    apply_mti, build_rda_cube, ca_cfar_scale, coefficients, evaluate_link_budget, hough_tbd_detect,
+    itu_r_p676_gas_attenuation_db, itu_r_p838_rain_attenuation_db, magnitude, mtd_chain,
+    mti_improvement_factor_db, pulse_compress, pulse_compress_windowed, sample_clutter_amplitude,
+    sample_k_distribution, sample_log_normal, sample_weibull, slow_time_complex_dft,
+    synthesize_scene, synthesize_takeoff_episode, two_ray_propagation_factor_magnitude, AngleGrid,
+    AspectGrid, BoostThrustProfile, BoostTierDetector, CfarParams, ClimbDecision,
+    ClimbOutTierDetector, ClimbTierConfig, ClutterDistribution, ClutterRegime, ComplexSample,
+    CompressionWindow, EnvironmentDescriptor, EpisodeSeed, KinematicGate, KinematicObservation,
+    KinematicSample, LinkBudget, MtiOrder, NoiseProfile, Polarization, PropagationContext,
+    PropulsionClass, RadarSimConfig, RainPolarization, Rcs, RcsLookup, SceneDescriptor,
+    SiteGeometry, SpeedClassifier, SwerlingModel, TakeoffProfile, TargetClass, TargetEntity,
+    TargetKinematics, TbdConfig, TerrainClass, MTI_NOTCH_BODY_DOPPLER_HZ,
+    REFERENCE_NOISE_TEMPERATURE_K,
 };
 
 // ===========================================================================
@@ -60,7 +59,11 @@ fn std_dev(xs: &[f64]) -> f64 {
 /// to add a dependency.
 fn collect_many(seed_base: u64, n: usize, mut f: impl FnMut(u64) -> f64) -> Vec<f64> {
     (0..n)
-        .map(|i| f(seed_base.wrapping_add(i as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)))
+        .map(|i| {
+            f(seed_base
+                .wrapping_add(i as u64)
+                .wrapping_mul(0x9e37_79b9_7f4a_7c15))
+        })
         .collect()
 }
 
@@ -125,8 +128,24 @@ fn rcs_swerling_0_is_deterministic() {
     let mut rcs = Rcs::empty();
     rcs.add_table(table);
 
-    let a = rcs.evaluate("deterministic-test", 45.0, 5.0, 10.0, Polarization::Vv, 12345, 0);
-    let b = rcs.evaluate("deterministic-test", 45.0, 5.0, 10.0, Polarization::Vv, 12345, 0);
+    let a = rcs.evaluate(
+        "deterministic-test",
+        45.0,
+        5.0,
+        10.0,
+        Polarization::Vv,
+        12345,
+        0,
+    );
+    let b = rcs.evaluate(
+        "deterministic-test",
+        45.0,
+        5.0,
+        10.0,
+        Polarization::Vv,
+        12345,
+        0,
+    );
     assert_eq!(
         a.to_bits(),
         b.to_bits(),
@@ -235,7 +254,11 @@ fn clutter_sample_determinism() {
 
     let w_a = sample_weibull(1.5, 1.0, s);
     let w_b = sample_weibull(1.5, 1.0, s);
-    assert_eq!(w_a.to_bits(), w_b.to_bits(), "sample_weibull not deterministic");
+    assert_eq!(
+        w_a.to_bits(),
+        w_b.to_bits(),
+        "sample_weibull not deterministic"
+    );
 
     let k_a = sample_k_distribution(3.0, 1.0, s);
     let k_b = sample_k_distribution(3.0, 1.0, s);
@@ -371,7 +394,10 @@ fn clutter_library_returns_8_regimes() {
 #[test]
 fn ca_cfar_threshold_scale_is_finite_and_positive() {
     let alpha = ca_cfar_scale(10, 1e-3);
-    assert!(alpha.is_finite(), "ca_cfar_scale returned non-finite ({alpha})");
+    assert!(
+        alpha.is_finite(),
+        "ca_cfar_scale returned non-finite ({alpha})"
+    );
     assert!(alpha > 0.0, "ca_cfar_scale returned non-positive ({alpha})");
 
     // Sanity: with more training cells the scale must drop monotonically
@@ -419,13 +445,8 @@ fn rda_cube_shape_consistent() {
                 .collect()
         })
         .collect();
-    let manifold = echoforge_radar::PhasedArrayManifold::new(
-        n_channels,
-        spacing_m,
-        carrier_hz,
-        0.0,
-        0.0,
-    );
+    let manifold =
+        echoforge_radar::PhasedArrayManifold::new(n_channels, spacing_m, carrier_hz, 0.0, 0.0);
     let grid = AngleGrid::azimuth_only(vec![-10.0, 0.0, 10.0]);
 
     let cube_a = build_rda_cube(
@@ -795,8 +816,7 @@ fn c9_range_sidelobe_floor_after_taylor35() {
     );
 
     // Gate: Taylor-35 default must hit -33 dB or better.
-    let compressed =
-        pulse_compress_windowed(&chirp, &chirp, CompressionWindow::taylor_default());
+    let compressed = pulse_compress_windowed(&chirp, &chirp, CompressionWindow::taylor_default());
     let mags = magnitude(&compressed);
     let psl = peak_sidelobe_db_for(&mags, 2);
     assert!(
@@ -986,12 +1006,8 @@ fn c2_complex_iq_preserved_through_doppler() {
     };
     let mut noise = NoiseProfile::real_world_proxy_v1();
     noise.awgn_sigma = 0.025;
-    let episode = synthesize_takeoff_episode(
-        config,
-        TakeoffProfile::default(),
-        noise,
-        EpisodeSeed(2026),
-    );
+    let episode =
+        synthesize_takeoff_episode(config, TakeoffProfile::default(), noise, EpisodeSeed(2026));
     let waveform = episode.config.waveform();
     let sample_count = waveform.samples().len();
     let compressed_len = sample_count.saturating_mul(2).saturating_sub(1);
@@ -1069,12 +1085,7 @@ fn c6_synthesis_loop_uses_k_regime_when_configured() {
     // Flatten the IQ real parts. The target return touches only a
     // handful of range bins, so the histogram is dominated by the
     // per-bin clutter draws.
-    let samples: Vec<f64> = episode
-        .iq
-        .iter()
-        .flatten()
-        .map(|c| c.re as f64)
-        .collect();
+    let samples: Vec<f64> = episode.iq.iter().flatten().map(|c| c.re as f64).collect();
     assert!(!samples.is_empty(), "C6: no IQ samples produced");
     let n = samples.len() as f64;
     let m = samples.iter().sum::<f64>() / n;
@@ -1155,9 +1166,9 @@ fn c4_propulsion_blade_pass_line_observable() {
     // target state to predict the raw delay sample.
     const C_M_PER_S: f64 = 299_792_458.0;
     let initial_state = profile.state_at(0.0);
-    let raw_delay_samples =
-        ((2.0 * initial_state.range_m / C_M_PER_S) * episode.config.sample_rate_hz).round()
-            as usize;
+    let raw_delay_samples = ((2.0 * initial_state.range_m / C_M_PER_S)
+        * episode.config.sample_rate_hz)
+        .round() as usize;
     let iq_bin = raw_delay_samples + episode.iq[0].len() / 4;
     assert!(
         iq_bin < episode.iq[0].len(),
@@ -1192,18 +1203,16 @@ fn c4_propulsion_blade_pass_line_observable() {
     // offset and on the textbook blade-pass offset (= N · rotation_hz).
     let rot_offset_hz = profile.propulsor_hz;
     let blade_pass_offset_hz = (profile.blade_count.unwrap() as f64) * profile.propulsor_hz;
-    let upper_rot_bin =
-        (((body_doppler + rot_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round() as usize
-            % pulses;
-    let lower_rot_bin =
-        (((body_doppler - rot_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round() as usize
-            % pulses;
-    let upper_bp_bin = (((body_doppler + blade_pass_offset_hz).rem_euclid(pulse_rate))
-        / bin_hz)
+    let upper_rot_bin = (((body_doppler + rot_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
+        as usize
+        % pulses;
+    let lower_rot_bin = (((body_doppler - rot_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
+        as usize
+        % pulses;
+    let upper_bp_bin = (((body_doppler + blade_pass_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
         .round() as usize
         % pulses;
-    let lower_bp_bin = (((body_doppler - blade_pass_offset_hz).rem_euclid(pulse_rate))
-        / bin_hz)
+    let lower_bp_bin = (((body_doppler - blade_pass_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
         .round() as usize
         % pulses;
 
@@ -1213,8 +1222,8 @@ fn c4_propulsion_blade_pass_line_observable() {
     // Control bin: pick a non-harmonic offset (60 Hz) to sample the
     // residual spectral floor between micro lines.
     let control_offset_hz = 60.0;
-    let control_bin = (((body_doppler + control_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
-        .round() as usize
+    let control_bin = (((body_doppler + control_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
+        as usize
         % pulses;
     let control_mag = spec_iq[control_bin].max(1e-12);
 
@@ -1257,9 +1266,15 @@ fn c4_propulsion_blade_pass_line_observable() {
 #[test]
 fn c10_mti_improvement_factor_canonical() {
     let i2 = mti_improvement_factor_db(MtiOrder::Two, 2.0, 900e-6);
-    assert!(i2 >= 25.0, "2-pulse MTI improvement = {i2} dB (gate: >= 25)");
+    assert!(
+        i2 >= 25.0,
+        "2-pulse MTI improvement = {i2} dB (gate: >= 25)"
+    );
     let i3 = mti_improvement_factor_db(MtiOrder::Three, 2.0, 900e-6);
-    assert!(i3 >= 40.0, "3-pulse MTI improvement = {i3} dB (gate: >= 40)");
+    assert!(
+        i3 >= 40.0,
+        "3-pulse MTI improvement = {i3} dB (gate: >= 40)"
+    );
 }
 
 /// **C10 (companion) — `apply_mti` cancels a DC-clutter slow-time
@@ -1308,8 +1323,7 @@ fn c10_mtd_chain_rejects_dc_and_passes_tone() {
         let phase = 2.0 * PI as f32 * (K_D as f32) * (n as f32) / N_PULSES as f32;
         let mut profile = vec![ComplexSample::new(0.0, 0.0); RANGE_LEN];
         // DC clutter + Doppler tone, both at the target range.
-        profile[TARGET_RANGE] =
-            ComplexSample::new(5.0 + phase.cos(), phase.sin());
+        profile[TARGET_RANGE] = ComplexSample::new(5.0 + phase.cos(), phase.sin());
         pulses.push(profile);
     }
 
@@ -1500,8 +1514,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
             clutter_regime: noise.clutter_regime.clone(),
             atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
             rain_rate_mm_per_h: config.rain_rate_mm_per_h,
-            ground_reflection_coefficient_magnitude: config
-                .ground_reflection_coefficient_magnitude,
+            ground_reflection_coefficient_magnitude: config.ground_reflection_coefficient_magnitude,
         },
         targets: vec![TargetEntity {
             class: TargetClass::ShahedClassPiston,
@@ -1535,13 +1548,13 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
     // Raw IQ — strictest pre-compression identity. Byte-equal float
     // bits across both paths confirms the synthesis loop is the
     // identical sequence of writes.
-    assert_eq!(via_wrapper.iq.len(), via_scene.iq.len(), "iq pulse count mismatch");
+    assert_eq!(
+        via_wrapper.iq.len(),
+        via_scene.iq.len(),
+        "iq pulse count mismatch"
+    );
     for (pulse_idx, (a, b)) in via_wrapper.iq.iter().zip(via_scene.iq.iter()).enumerate() {
-        assert_eq!(
-            a.len(),
-            b.len(),
-            "iq pulse {pulse_idx} length mismatch"
-        );
+        assert_eq!(a.len(), b.len(), "iq pulse {pulse_idx} length mismatch");
         for (sample_idx, (sa, sb)) in a.iter().zip(b.iter()).enumerate() {
             assert_eq!(
                 sa.re.to_bits(),
@@ -1658,7 +1671,8 @@ fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
     ];
 
     for (i, (config, profile, noise, seed)) in scenarios.iter().enumerate() {
-        let via_wrapper = synthesize_takeoff_episode(config.clone(), *profile, noise.clone(), *seed);
+        let via_wrapper =
+            synthesize_takeoff_episode(config.clone(), *profile, noise.clone(), *seed);
         let scene = SceneDescriptor {
             geometry: SiteGeometry {
                 antenna_altitude_agl_m: config.radar_altitude_agl_m,

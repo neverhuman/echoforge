@@ -2,10 +2,10 @@
 
 use num_complex::Complex;
 
+use super::{AngleGrid, RangeDopplerAngle};
 use crate::antenna::PhasedArrayManifold;
 use crate::beamforming::steering_vector;
 use crate::ComplexSample;
-use super::{AngleGrid, RangeDopplerAngle};
 
 pub fn hann_window(n: usize) -> Vec<f64> {
     if n == 0 {

@@ -11,9 +11,7 @@ use echoforge_radar::{BackendMode, RuntimePlan};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use super::types::{
-    CampaignConfig, ClassBalanceReport, ModelEvaluationReport,
-};
+use super::types::{CampaignConfig, ClassBalanceReport, ModelEvaluationReport};
 use super::{NEUTRAL_CAMPAIGN_ID, OWA_DELTA_OBJECT_ID};
 use crate::monte_carlo::{DatasetError, StageTiming};
 

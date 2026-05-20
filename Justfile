@@ -3,8 +3,7 @@ set shell := ["sh", "-eu", "-c"]
 default: fast
 
 demo:
-    rtk npm run web:build
-    HOST=127.0.0.1 PORT=8080 rtk cargo run -p echoforge-studio --locked
+    rtk bash ops/run-lane.sh demo
 
 bootstrap:
     rtk jankurai version
@@ -48,12 +47,18 @@ drift:
     rtk cargo test -p echoforge-contracts-smoke --locked
 
 web-smoke:
-    rtk npm run web:smoke
+    rtk bash ops/run-lane.sh web-smoke
 
 science-smoke:
     rtk cargo test -p echoforge-sig --locked
     rtk cargo test -p echoforge-radar --locked
     rtk cargo test -p echoforge-dataset --locked
+
+ml-pipelines-smoke:
+    rtk cargo test -p echoforge-dataset --locked
+    rtk cargo test -p echoforge-cli --locked
+    rtk cargo test -p echoforge-studio --locked
+    rtk python3 -m detection.pipeline_contracts.runner run-suite --suite evidence-ladder-v1 --repo-root . --data-root outputs/training-data/best-final-scenario-v1 --out-root outputs/ml-pipelines --workers-per-pipeline 20 --max-concurrent 3 --seed 20260520390001 --validation-tier evidence_ladder_v1 --smoke
 
 gpu-smoke:
     rtk cargo test -p echoforge-gpu-doctor --locked
@@ -72,6 +77,13 @@ score:
 score-fast:
     mkdir -p target/jankurai
     jankurai audit . --changed-fast --changed-from origin/main --json target/jankurai/fast-score.json --md target/jankurai/fast-score.md
+
+release-check:
+    rtk just web-smoke
+    rtk cargo test -p echoforge-studio --locked
+    rtk just science-smoke
+    rtk jankurai adapters verify .
+    rtk just fast
 
 # Targeted single-package test (no rtk wrapper — for direct narrow-scope proof runs)
 test-pkg pkg:
@@ -107,22 +119,11 @@ validate-schemas:
 
 gpu-receipt-doctor:
     @if [ -d .agents/receipts/gpu-xbabe2 ]; then ls -1t .agents/receipts/gpu-xbabe2 | head -1 | xargs -I {} node tools/receipt_guard.mjs .agents/receipts/gpu-xbabe2/{}; else echo "no gpu receipts yet"; fi
-# jankurai scaffold
+
 audit:
     cargo audit
     npm audit --audit-level=high
     actionlint .github/workflows/*.yml
 
-security:
-    jankurai security run . --out target/jankurai/security/evidence.json
 security-lane:
-    bash tools/security-lane.sh
-rust-map:
-    jankurai rust map .
-rust-witness:
-    jankurai rust witness build .
-rust-diagnose:
-    jankurai rust diagnose .
-jankurai-check: fast score security rust-map rust-witness rust-diagnose
-# jankurai scaffold Justfile
-check: fast score security rust-map rust-witness rust-diagnose
+    bash ops/run-lane.sh security

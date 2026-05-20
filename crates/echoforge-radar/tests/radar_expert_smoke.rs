@@ -123,10 +123,8 @@ fn smoke_2_rcs_10db_swap_range_177x() {
     // larger RCS reproduces the SNR of the smaller RCS at 50 km. By
     // R^-4 inversion, R_match = 50_000 · 10^(10/40) = 50_000 · 1.7783.
     let expected_match_range = 50_000.0 * 10f64.powf(10.0 / 40.0);
-    let prop_extended =
-        canonical_clear_air_prop(expected_match_range, 10_000.0);
-    let snr_big_at_extended =
-        evaluate_link_budget(&budget, &prop_extended, 1.0).snr_db;
+    let prop_extended = canonical_clear_air_prop(expected_match_range, 10_000.0);
+    let snr_big_at_extended = evaluate_link_budget(&budget, &prop_extended, 1.0).snr_db;
     let residual_db = snr_big_at_extended - snr_small;
     assert!(
         residual_db.abs() < 0.05,

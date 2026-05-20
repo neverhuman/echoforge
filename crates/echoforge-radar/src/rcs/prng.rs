@@ -1,7 +1,7 @@
 //! Deterministic PRNG and Swerling fluctuation helpers.
 
-use std::f64::consts::PI;
 use super::{SwerlingModel, SWERLING_DEFAULT_SCAN_SIZE};
+use std::f64::consts::PI;
 
 /// Mirrors the `SplitMix64` used elsewhere in the crate for determinism.
 #[derive(Debug, Clone)]
@@ -12,7 +12,10 @@ pub(super) struct SplitMix64 {
 
 impl SplitMix64 {
     pub(super) fn new(seed: u64) -> Self {
-        Self { state: seed, cached_normal: None }
+        Self {
+            state: seed,
+            cached_normal: None,
+        }
     }
 
     pub(super) fn next_u64(&mut self) -> u64 {
@@ -65,27 +68,45 @@ impl SplitMix64 {
 
 pub(super) fn wrap_deg_360(deg: f64) -> f64 {
     let mut v = deg % 360.0;
-    if v < 0.0 { v += 360.0; }
-    if v >= 360.0 { v -= 360.0; }
+    if v < 0.0 {
+        v += 360.0;
+    }
+    if v >= 360.0 {
+        v -= 360.0;
+    }
     v
 }
 
 pub(super) fn log10_safe(freq_ghz: f64) -> f64 {
-    if freq_ghz > 0.0 { freq_ghz.log10() } else { f64::NEG_INFINITY }
+    if freq_ghz > 0.0 {
+        freq_ghz.log10()
+    } else {
+        f64::NEG_INFINITY
+    }
 }
 
 /// Bracket `value` on a strictly-ascending grid. Returns `(lo_idx, hi_idx, frac)`.
 /// Out-of-range values clamp to the nearest edge.
 pub(super) fn clamping_bracket(grid: &[f64], value: f64) -> (usize, usize, f64) {
     debug_assert!(!grid.is_empty());
-    if grid.len() == 1 { return (0, 0, 0.0); }
-    if value <= grid[0] { return (0, 0, 0.0); }
+    if grid.len() == 1 {
+        return (0, 0, 0.0);
+    }
+    if value <= grid[0] {
+        return (0, 0, 0.0);
+    }
     let last = grid.len() - 1;
-    if value >= grid[last] { return (last, last, 0.0); }
+    if value >= grid[last] {
+        return (last, last, 0.0);
+    }
     for i in 0..last {
         if value >= grid[i] && value <= grid[i + 1] {
             let span = grid[i + 1] - grid[i];
-            let frac = if span > 0.0 { (value - grid[i]) / span } else { 0.0 };
+            let frac = if span > 0.0 {
+                (value - grid[i]) / span
+            } else {
+                0.0
+            };
             return (i, i + 1, frac);
         }
     }
@@ -97,14 +118,20 @@ pub(super) fn clamping_bracket(grid: &[f64], value: f64) -> (usize, usize, f64) 
 pub(super) fn wrapping_bracket(grid: &[f64], value: f64) -> (usize, usize, f64) {
     debug_assert!(!grid.is_empty());
     let n = grid.len();
-    if n == 1 { return (0, 0, 0.0); }
+    if n == 1 {
+        return (0, 0, 0.0);
+    }
     let first = grid[0];
     let last = grid[n - 1];
     if value >= first && value <= last {
         for i in 0..(n - 1) {
             if value >= grid[i] && value <= grid[i + 1] {
                 let span = grid[i + 1] - grid[i];
-                let frac = if span > 0.0 { (value - grid[i]) / span } else { 0.0 };
+                let frac = if span > 0.0 {
+                    (value - grid[i]) / span
+                } else {
+                    0.0
+                };
                 return (i, i + 1, frac);
             }
         }

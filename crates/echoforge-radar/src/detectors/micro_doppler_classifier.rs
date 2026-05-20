@@ -128,11 +128,16 @@ pub struct ReferenceSignature {
 
 fn sig(
     class: TargetClass,
-    rf_mean: f64, rf_std: f64,
-    md_mean: f64, md_std: f64,
-    hr_mean: f64, hr_std: f64,
-    se_mean: f64, se_std: f64,
-    bd_mean: f64, bd_std: f64,
+    rf_mean: f64,
+    rf_std: f64,
+    md_mean: f64,
+    md_std: f64,
+    hr_mean: f64,
+    hr_std: f64,
+    se_mean: f64,
+    se_std: f64,
+    bd_mean: f64,
+    bd_std: f64,
 ) -> ReferenceSignature {
     ReferenceSignature {
         class,
@@ -173,10 +178,58 @@ impl ReferenceSignature {
         // Bird (wingbeat 2-8 Hz, low harmonic content) — Rahman-Robertson 2018
         // Helicopter (main rotor ~12-35 Hz + tail ~15-60 Hz, dual-line)
         vec![
-            sig(TargetClass::QuadcopterFourRotor, 400.0, 150.0, -3.0, 1.5, 0.25, 0.10, 4.5, 0.5, 50.0, 30.0),
-            sig(TargetClass::FixedWingUav, 185.0, 35.0, -8.0, 2.0, 0.10, 0.05, 3.2, 0.4, 970.0, 200.0),
-            sig(TargetClass::BirdFlapping, 5.0, 2.0, -15.0, 3.0, 0.05, 0.03, 5.5, 0.6, 200.0, 100.0),
-            sig(TargetClass::Helicopter, 25.0, 8.0, -2.0, 1.0, 0.35, 0.10, 5.8, 0.4, 400.0, 150.0),
+            sig(
+                TargetClass::QuadcopterFourRotor,
+                400.0,
+                150.0,
+                -3.0,
+                1.5,
+                0.25,
+                0.10,
+                4.5,
+                0.5,
+                50.0,
+                30.0,
+            ),
+            sig(
+                TargetClass::FixedWingUav,
+                185.0,
+                35.0,
+                -8.0,
+                2.0,
+                0.10,
+                0.05,
+                3.2,
+                0.4,
+                970.0,
+                200.0,
+            ),
+            sig(
+                TargetClass::BirdFlapping,
+                5.0,
+                2.0,
+                -15.0,
+                3.0,
+                0.05,
+                0.03,
+                5.5,
+                0.6,
+                200.0,
+                100.0,
+            ),
+            sig(
+                TargetClass::Helicopter,
+                25.0,
+                8.0,
+                -2.0,
+                1.0,
+                0.35,
+                0.10,
+                5.8,
+                0.4,
+                400.0,
+                150.0,
+            ),
         ]
     }
 }
@@ -189,7 +242,10 @@ fn slow_time_magnitude(row: &[ComplexSample]) -> Vec<f64> {
     if row.is_empty() {
         return Vec::new();
     }
-    let mags: Vec<f64> = row.iter().map(|c| (c.re as f64).hypot(c.im as f64)).collect();
+    let mags: Vec<f64> = row
+        .iter()
+        .map(|c| (c.re as f64).hypot(c.im as f64))
+        .collect();
     let mean = mags.iter().sum::<f64>() / mags.len() as f64;
     mags.iter().map(|m| m - mean).collect()
 }

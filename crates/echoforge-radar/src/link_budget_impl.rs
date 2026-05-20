@@ -1,11 +1,11 @@
 //! Implementation helpers for `link_budget.rs` — extracted for LOC compliance.
 
+use super::{LinkBudget, LinkBudgetResult, PropagationContext, BOLTZMANN_J_PER_K};
 use crate::propagation::{
     itu_r_p838_rain_attenuation_db, min_target_altitude_for_los_m,
     two_ray_propagation_factor_magnitude, RainPolarization, SPEED_OF_LIGHT_M_PER_S,
     STANDARD_K_FACTOR,
 };
-use super::{LinkBudget, LinkBudgetResult, PropagationContext, BOLTZMANN_J_PER_K};
 
 #[inline]
 pub(super) fn db_to_linear(db: f64) -> f64 {
@@ -99,12 +99,8 @@ pub(super) fn evaluate_link_budget_impl(
     let four_pi_cubed = (4.0 * std::f64::consts::PI).powi(3);
     let r = prop.range_m.max(0.0);
     let r4 = r.powi(4);
-    let numerator = budget.transmit_power_w
-        * g_t
-        * g_r
-        * lambda_m * lambda_m
-        * target_rcs_m2.max(0.0)
-        * f_sq;
+    let numerator =
+        budget.transmit_power_w * g_t * g_r * lambda_m * lambda_m * target_rcs_m2.max(0.0) * f_sq;
     let denominator = four_pi_cubed * r4 * l_atmos * l_rain * l_sys;
 
     let received_power_w = if denominator > 0.0 && r4 > 0.0 {

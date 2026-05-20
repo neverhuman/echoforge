@@ -7,16 +7,16 @@ mod run;
 mod sampling;
 
 pub use config::{
-    MonteCarloBenchmarkReport, MonteCarloDemoConfig, MonteCarloDemoReport,
-    MonteCarloRuntimePolicy, StageTiming, DEFAULT_PRESET, DEFAULT_TARGET_LABEL,
+    MonteCarloBenchmarkReport, MonteCarloDemoConfig, MonteCarloDemoReport, MonteCarloRuntimePolicy,
+    StageTiming, DEFAULT_PRESET, DEFAULT_TARGET_LABEL,
 };
 pub use error::DatasetError;
 pub use run::run_monte_carlo_demo;
 pub use scene_config::{
-    AirspaceMonteCarloConfig, BehaviorConfig, ContestedAirspaceConfig, DimensionsConfig,
-    EnvironmentProfileConfig, KinematicsConfig, MicroMotionConfig, ObjectClassConfig,
-    PresetConfig, RfiConfig, SensorArchetypeConfig, SensorObservableConfig, WeatherConfig,
-    embedded_airspace_config, known_presets,
+    embedded_airspace_config, known_presets, AirspaceMonteCarloConfig, BehaviorConfig,
+    ContestedAirspaceConfig, DimensionsConfig, EnvironmentProfileConfig, KinematicsConfig,
+    MicroMotionConfig, ObjectClassConfig, PresetConfig, RfiConfig, SensorArchetypeConfig,
+    SensorObservableConfig, WeatherConfig,
 };
 
 #[cfg(test)]
@@ -167,13 +167,13 @@ mod tests {
             "infrastructure-glint-clutter-only-v1",
         ] {
             let tmp_dir = tempfile::tempdir().expect("tempdir");
-            let mut cfg =
-                MonteCarloDemoConfig::low_altitude_fixed_wing_default(tmp_dir.path().join(preset_id));
+            let mut cfg = MonteCarloDemoConfig::low_altitude_fixed_wing_default(
+                tmp_dir.path().join(preset_id),
+            );
             cfg.preset = preset_id.to_string();
             cfg.episodes = 2;
             cfg.pulse_count = 6;
-            let report = run_monte_carlo_demo(cfg)
-                .expect("preset should resolve and run");
+            let report = run_monte_carlo_demo(cfg).expect("preset should resolve and run");
             assert_eq!(report.episode_count, 2, "{preset_id}");
             assert!(report.leakage_clean, "{preset_id}");
         }

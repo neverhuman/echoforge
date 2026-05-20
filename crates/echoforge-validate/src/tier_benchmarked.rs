@@ -135,14 +135,19 @@ pub fn evaluate_v3_gate(
         (!(observation.pd >= thresholds.pd_min)).then_some("pd"),
         (!(observation.pfa <= thresholds.pfa_max)).then_some("pfa"),
         (!(observation.range_error_m <= thresholds.range_error_max_m)).then_some("range_error"),
-        (!(observation.doppler_error_mps <= thresholds.doppler_error_max_mps)).then_some("doppler_error"),
+        (!(observation.doppler_error_mps <= thresholds.doppler_error_max_mps))
+            .then_some("doppler_error"),
         (!(observation.ospa_distance <= thresholds.ospa_max)).then_some("ospa"),
     ]
     .into_iter()
     .flatten()
     .map(str::to_owned)
     .collect();
-    let status = if failures.is_empty() { GateStatus::Pass } else { GateStatus::Fail };
+    let status = if failures.is_empty() {
+        GateStatus::Pass
+    } else {
+        GateStatus::Fail
+    };
     V3GateReport {
         tier: "V3",
         status,

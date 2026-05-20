@@ -6,6 +6,7 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Json;
 use axum::Router;
+use echoforge_dataset::discover_repo_root;
 use echoforge_validate::{run_validate, ValidateArgs, ValidateReport};
 use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
@@ -13,7 +14,10 @@ use thiserror::Error;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
+pub mod jobs;
 mod mesh_serve;
+pub mod runs;
+pub mod stream;
 mod traceability;
 
 pub const DEFAULT_SERVICE_NAME: &str = "echoforge-studio";
@@ -80,6 +84,27 @@ pub struct StudioConfig {
     pub catalog_path: PathBuf,
     pub bundle_path: PathBuf,
     pub web_dist: PathBuf,
+    pub sim: stream::control::SimSettings,
+}
+
+fn env_parse<T: std::str::FromStr>(key: &str, default: T) -> T {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+fn sim_settings_from_env() -> stream::control::SimSettings {
+    let d = stream::control::SimSettings::default();
+    stream::control::SimSettings {
+        default_frame_rate_hz: env_parse("ECHOFORGE_SIM_FRAME_RATE_HZ", d.default_frame_rate_hz),
+        broadcast_capacity: env_parse("ECHOFORGE_SIM_BROADCAST_CAPACITY", d.broadcast_capacity),
+        rd_range_bins: env_parse("ECHOFORGE_SIM_RD_RANGE_BINS", d.rd_range_bins),
+        spectrogram_bins: env_parse("ECHOFORGE_SIM_SPECTROGRAM_BINS", d.spectrogram_bins),
+        default_scenario: std::env::var("ECHOFORGE_SIM_DEFAULT_SCENARIO")
+            .unwrap_or(d.default_scenario),
+        autostart: env_parse("ECHOFORGE_SIM_AUTOSTART", d.autostart),
+    }
 }
 
 impl StudioConfig {
@@ -123,6 +148,7 @@ impl StudioConfig {
             catalog_path,
             bundle_path,
             web_dist,
+            sim: sim_settings_from_env(),
         })
     }
 }
@@ -141,15 +167,19 @@ pub enum StudioError {
     MissingAsset(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StudioState {
     pub service_name: String,
     pub public_base_url: String,
     pub catalog_source: String,
     pub bundle_path: String,
+    pub repo_root: PathBuf,
     pub mode: String,
     pub catalog: CatalogResponse,
     pub validation: ValidateReport,
+    pub sim_engine: Arc<stream::engine::SimEngine>,
+    pub run_store: runs::RunStore,
+    pub job_store: jobs::JobStore,
 }
 
 impl StudioState {
@@ -174,15 +204,20 @@ impl StudioState {
             schema_count: catalog_entries.len(),
             schemas: catalog_entries,
         };
+        let repo_root = discover_repo_root().map_err(|err| StudioError::Config(err.to_string()))?;
 
         Ok(Self {
             service_name: config.service_name.clone(),
             public_base_url: config.public_base_url.clone(),
             catalog_source,
             bundle_path: config.bundle_path.display().to_string(),
+            repo_root: repo_root.clone(),
             mode: "rust-studio".to_string(),
             catalog,
             validation,
+            sim_engine: stream::engine::SimEngine::new(config.sim.clone()),
+            run_store: runs::RunStore::seeded(),
+            job_store: jobs::JobStore::seeded(&repo_root),
         })
     }
 
@@ -239,6 +274,9 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
     let health_state = state.clone();
     let catalog_state = state.clone();
     let validation_state = state.clone();
+    let stream_router = stream::stream_router(state.sim_engine.clone());
+    let runs_state = state.clone();
+    let jobs_state = state.clone();
     let contracts_state = state;
     let index = web_dist.join("index.html");
     let static_files = ServeDir::new(&web_dist).not_found_service(ServeFile::new(index));
@@ -284,6 +322,9 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
         )
         .merge(mesh_serve::mesh_router())
         .merge(traceability_router)
+        .merge(runs::runs_router().with_state(runs_state))
+        .merge(jobs::jobs_router().with_state(jobs_state))
+        .merge(stream_router)
         .fallback_service(static_files)
 }
 
@@ -296,6 +337,7 @@ pub async fn serve_from_env() -> Result<(), StudioError> {
 #[tracing::instrument(name = "studio.serve", fields(host = %config.host, port = %config.port))]
 pub async fn serve(config: StudioConfig) -> Result<(), StudioError> {
     let state = Arc::new(StudioState::load(&config)?);
+    state.sim_engine.autostart_if_configured().await;
     let router = build_router(state, config.web_dist.clone());
     let listener = TcpListener::bind((config.host.as_str(), config.port)).await?;
     axum::serve(listener, router.into_make_service()).await?;
@@ -313,7 +355,6 @@ impl IntoResponse for StudioError {
         (status, body).into_response()
     }
 }
-
 
 #[cfg(test)]
 #[path = "lib_tests.rs"]

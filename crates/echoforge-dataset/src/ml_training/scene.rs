@@ -2,8 +2,8 @@
 //! physics path (Wave 5 Lane K_rust).
 
 use echoforge_radar::{
-    NoiseProfile, RadarSimConfig, SceneDescriptor,
-    TargetClass, TargetEntity, TargetKinematics, TakeoffProfile,
+    NoiseProfile, RadarSimConfig, SceneDescriptor, TakeoffProfile, TargetClass, TargetEntity,
+    TargetKinematics,
 };
 
 use super::types::{MlClass, MlEnvelope, SplitMix64};
@@ -100,11 +100,15 @@ pub(super) fn build_scene_descriptor(
         class.hard_negative_family.as_str(),
         class.is_public_proxy_positive,
     );
-    SceneDescriptor::from_radar_config(config, noise, vec![TargetEntity {
-        class: target_class,
-        kinematics: TargetKinematics::FromTakeoffProfile(profile),
-        spawn_time_s: 0.0,
-    }])
+    SceneDescriptor::from_radar_config(
+        config,
+        noise,
+        vec![TargetEntity {
+            class: target_class,
+            kinematics: TargetKinematics::FromTakeoffProfile(profile),
+            spawn_time_s: 0.0,
+        }],
+    )
 }
 
 /// Build the noise profile for an envelope — shared by the production worker

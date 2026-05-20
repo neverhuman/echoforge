@@ -126,10 +126,9 @@ pub(super) fn distribution_matches(a: NoiseDistribution, b: NoiseDistribution) -
             NoiseDistribution::KDistribution { shape: a },
             NoiseDistribution::KDistribution { shape: b },
         ) => (a - b).abs() < 1e-3,
-        (
-            NoiseDistribution::LogNormal { sigma: a },
-            NoiseDistribution::LogNormal { sigma: b },
-        ) => (a - b).abs() < 1e-3,
+        (NoiseDistribution::LogNormal { sigma: a }, NoiseDistribution::LogNormal { sigma: b }) => {
+            (a - b).abs() < 1e-3
+        }
         _ => false,
     }
 }

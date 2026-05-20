@@ -85,7 +85,11 @@ pub fn generate_clutter_sequence(
             // Fresh innovation drawn from the regime's amplitude distribution.
             let w = sample_amplitude_from_rng(&mut rng, &regime.distribution);
             // Spatial AR(1) across range bins (within this pulse).
-            let spatial = if r == 0 { w } else { rho_s * prev_bin + beta_s * w };
+            let spatial = if r == 0 {
+                w
+            } else {
+                rho_s * prev_bin + beta_s * w
+            };
             // Temporal AR(1) across pulses (within this range bin).
             let mixed = if let Some(ref prev) = prev_pulse {
                 rho_t * prev[r] + beta_t * spatial

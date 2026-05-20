@@ -8,9 +8,7 @@ use serde::Serialize;
 
 use crate::split::{DatasetRecord, SplitKind, SplitPolicy};
 
-use super::config::{
-    MonteCarloBenchmarkReport, MonteCarloDemoConfig, StageTiming,
-};
+use super::config::{MonteCarloBenchmarkReport, MonteCarloDemoConfig, StageTiming};
 use super::error::DatasetError;
 use super::scene_config::{
     AirspaceMonteCarloConfig, EnvironmentProfileConfig, ObjectClassConfig, SensorArchetypeConfig,

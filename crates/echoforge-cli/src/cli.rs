@@ -1,6 +1,7 @@
 use crate::calibrate::{run_calibrate, CalibrateArgs};
 use crate::core::{Health, StatusCheck, StatusSummary};
 use crate::demo::{run_demo, DemoArgs};
+use crate::ml::{run_ml, MlArgs};
 use crate::manifest::EchoSigManifest;
 use crate::schema::{validate_inputs, SchemaValidationReport};
 use clap::{Args, Parser, Subcommand};
@@ -25,6 +26,8 @@ pub enum Command {
     Validate(ValidateArgs),
     /// Run generated data demos.
     Demo(DemoArgs),
+    /// Run ML pipeline discovery and evidence ladder jobs.
+    Ml(MlArgs),
     /// Run calibration / credibility sweeps (e.g. empirical Pfa for C12).
     Calibrate(CalibrateArgs),
 }
@@ -97,6 +100,7 @@ pub fn run(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<u8, Str
             };
         }
         Command::Demo(args) => return run_demo(args),
+        Command::Ml(args) => return run_ml(args),
         Command::Calibrate(args) => {
             return run_calibrate(args).map(|code| code.clamp(0, 255) as u8);
         }

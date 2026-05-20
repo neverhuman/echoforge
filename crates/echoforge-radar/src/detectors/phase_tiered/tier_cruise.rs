@@ -227,7 +227,8 @@ impl CruiseTierDetector {
 
         // (4) Micro-Doppler confirmation (optional).
         if let (Some(spec), Some(bin_hz)) = (mtd_power_spectrum, doppler_bin_hz) {
-            out.micro_doppler_confirmed = super::tier_cruise_helpers::check_blade_pass_line(spec, bin_hz, class);
+            out.micro_doppler_confirmed =
+                super::tier_cruise_helpers::check_blade_pass_line(spec, bin_hz, class);
         }
 
         // (5) M-of-N=5-of-7 over Kalman residuals.
@@ -313,7 +314,6 @@ fn noise_estimate_os_cfar(
     let idx = (rank_1_indexed.saturating_sub(1)).min(total - 1);
     samples[idx]
 }
-
 
 #[cfg(test)]
 #[path = "tier_cruise_tests.rs"]

@@ -58,12 +58,7 @@ fn noise_profile_default_uses_gaussian_clutter() {
         noise,
         EpisodeSeed(101),
     );
-    let b = synthesize_takeoff_episode(
-        config,
-        TakeoffProfile::default(),
-        noise,
-        EpisodeSeed(101),
-    );
+    let b = synthesize_takeoff_episode(config, TakeoffProfile::default(), noise, EpisodeSeed(101));
     assert_eq!(a.integrated_range_profile, b.integrated_range_profile);
 }
 
@@ -103,21 +98,12 @@ fn noise_profile_with_k_regime_uses_k_distribution() {
     });
     noise.clutter_sigma_0_scale = 1.0;
 
-    let episode = synthesize_takeoff_episode(
-        config,
-        TakeoffProfile::default(),
-        noise,
-        EpisodeSeed(2026),
-    );
+    let episode =
+        synthesize_takeoff_episode(config, TakeoffProfile::default(), noise, EpisodeSeed(2026));
     // Flatten the IQ real parts. The target return is concentrated
     // in a tiny range of bins (small support), so the IQ histogram
     // is dominated by the per-bin clutter draws.
-    let samples: Vec<f64> = episode
-        .iq
-        .iter()
-        .flatten()
-        .map(|c| c.re as f64)
-        .collect();
+    let samples: Vec<f64> = episode.iq.iter().flatten().map(|c| c.re as f64).collect();
     assert!(!samples.is_empty());
     let kurtosis = empirical_kurtosis(&samples);
     assert!(
@@ -145,12 +131,8 @@ fn noise_profile_with_weibull_regime_reproducible() {
         noise,
         EpisodeSeed(31337),
     );
-    let b = synthesize_takeoff_episode(
-        config,
-        TakeoffProfile::default(),
-        noise,
-        EpisodeSeed(31337),
-    );
+    let b =
+        synthesize_takeoff_episode(config, TakeoffProfile::default(), noise, EpisodeSeed(31337));
     assert_eq!(a.integrated_range_profile, b.integrated_range_profile);
     assert_eq!(a.detections, b.detections);
     // IQ byte-equality is the strictest form of determinism.

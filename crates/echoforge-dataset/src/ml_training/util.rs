@@ -25,15 +25,23 @@ pub(super) fn build_record_plan(
     config: &MlTrainingDataConfig,
     _frame_count: usize,
 ) -> Result<Vec<MlRecordPlan>, DatasetError> {
+    let classes = ml_classes();
+    if let (Some(pos_per_class), Some(neg_per_sensor)) = (
+        config.positives_per_class_per_sensor,
+        config.negatives_per_sensor,
+    ) {
+        return build_exact_sensor_class_plan(config, &classes, pos_per_class, neg_per_sensor);
+    }
+
     let positive_count = ((config.records as f64 * config.positive_fraction).round() as usize)
         .max(1)
         .min(config.records);
-    let classes = ml_classes();
-    let positive = classes
-        .iter()
-        .find(|class| class.is_public_proxy_positive)
-        .expect("positive class exists")
-        .clone();
+    let positives = positive_classes(config, &classes)?;
+    let sensors = nonempty_sensor_ids(config);
+    let phases = nonempty_phase_targets(config);
+    let positive_assignments = (0..positive_count)
+        .map(|index| positives[index % positives.len()].clone())
+        .collect::<Vec<_>>();
     let negative_classes = classes
         .iter()
         .filter(|class| class.is_hard_negative)
@@ -41,7 +49,7 @@ pub(super) fn build_record_plan(
         .collect::<Vec<_>>();
 
     let mut assignments = Vec::with_capacity(config.records);
-    assignments.extend(std::iter::repeat(positive).take(positive_count));
+    assignments.extend(positive_assignments);
     for index in 0..(config.records - positive_count) {
         assignments.push(negative_classes[index % negative_classes.len()].clone());
     }
@@ -50,21 +58,124 @@ pub(super) fn build_record_plan(
     let mut plans = assignments
         .into_iter()
         .enumerate()
-        .map(|(index, class)| {
-            let scenario_seed = child_seed(config.seed, index as u64);
-            let object_seed = child_seed(stable_hash_str(&class.class_id), scenario_seed);
-            MlRecordPlan {
-                record_index: index,
-                record_id: format!("record_{:06}", index + 1),
-                scenario_seed,
-                object_seed,
-                split: SplitKind::Train,
-                class,
+        .map(|(index, class)| plan_for_assignment(config, index, class, &sensors, &phases))
+        .collect::<Vec<_>>();
+    assign_exact_splits(&mut plans, config.seed ^ 0x7370_6c69_74);
+    Ok(plans)
+}
+
+fn build_exact_sensor_class_plan(
+    config: &MlTrainingDataConfig,
+    classes: &[MlClass],
+    pos_per_class: usize,
+    neg_per_sensor: usize,
+) -> Result<Vec<MlRecordPlan>, DatasetError> {
+    let positives = positive_classes(config, classes)?;
+    let sensors = nonempty_sensor_ids(config);
+    let phases = nonempty_phase_targets(config);
+    let negative_classes = classes
+        .iter()
+        .filter(|class| class.is_hard_negative)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let mut assignments = Vec::<(MlClass, String)>::with_capacity(config.records);
+    for sensor in &sensors {
+        for class in &positives {
+            for _ in 0..pos_per_class {
+                assignments.push((class.clone(), sensor.clone()));
             }
+        }
+        for index in 0..neg_per_sensor {
+            assignments.push((
+                negative_classes[index % negative_classes.len()].clone(),
+                sensor.clone(),
+            ));
+        }
+    }
+    deterministic_shuffle(&mut assignments, config.seed ^ 0x4d4c_7472_6169_6e);
+
+    let mut plans = assignments
+        .into_iter()
+        .enumerate()
+        .map(|(index, (class, sensor))| {
+            plan_for_exact_assignment(config, index, class, sensor, &phases)
         })
         .collect::<Vec<_>>();
     assign_exact_splits(&mut plans, config.seed ^ 0x7370_6c69_74);
     Ok(plans)
+}
+
+fn positive_classes(
+    config: &MlTrainingDataConfig,
+    classes: &[MlClass],
+) -> Result<Vec<MlClass>, DatasetError> {
+    config
+        .positive_class_ids
+        .iter()
+        .map(|class_id| {
+            classes
+                .iter()
+                .find(|class| class.class_id == *class_id && class.is_public_proxy_positive)
+                .cloned()
+                .ok_or_else(|| {
+                    DatasetError::InvalidConfig(format!(
+                        "unknown positive public-proxy class id {class_id}"
+                    ))
+                })
+        })
+        .collect()
+}
+
+fn nonempty_sensor_ids(config: &MlTrainingDataConfig) -> Vec<String> {
+    if config.sensor_ids.is_empty() {
+        vec!["generic-x-band-public-proxy".to_string()]
+    } else {
+        config.sensor_ids.clone()
+    }
+}
+
+fn nonempty_phase_targets(config: &MlTrainingDataConfig) -> Vec<String> {
+    if config.phase_targets.is_empty() {
+        vec!["cruise_altitude".to_string()]
+    } else {
+        config.phase_targets.clone()
+    }
+}
+
+fn plan_for_assignment(
+    config: &MlTrainingDataConfig,
+    index: usize,
+    class: MlClass,
+    sensors: &[String],
+    phases: &[String],
+) -> MlRecordPlan {
+    let sensor = sensors[index % sensors.len()].clone();
+    plan_for_exact_assignment(config, index, class, sensor, phases)
+}
+
+fn plan_for_exact_assignment(
+    config: &MlTrainingDataConfig,
+    index: usize,
+    class: MlClass,
+    sensor_id: String,
+    phases: &[String],
+) -> MlRecordPlan {
+    let scenario_seed = child_seed(config.seed, index as u64);
+    let object_seed = child_seed(
+        stable_hash_str(&format!("{}:{sensor_id}", class.class_id)),
+        scenario_seed,
+    );
+    MlRecordPlan {
+        record_index: index,
+        record_id: format!("record_{:06}", index + 1),
+        sensor_id,
+        phase_target: phases[index % phases.len()].clone(),
+        scenario_seed,
+        object_seed,
+        split: SplitKind::Train,
+        class,
+    }
 }
 
 pub(super) fn assign_exact_splits(plans: &mut [MlRecordPlan], seed: u64) {
@@ -207,8 +318,7 @@ pub(super) fn dft_magnitude(signal: &[f32], bins: usize) -> Vec<f32> {
             let mut re = 0.0f32;
             let mut im = 0.0f32;
             for (n, value) in signal.iter().enumerate() {
-                let angle =
-                    -2.0 * std::f32::consts::PI * k as f32 * n as f32 / signal.len() as f32;
+                let angle = -2.0 * std::f32::consts::PI * k as f32 * n as f32 / signal.len() as f32;
                 re += *value * angle.cos();
                 im += *value * angle.sin();
             }

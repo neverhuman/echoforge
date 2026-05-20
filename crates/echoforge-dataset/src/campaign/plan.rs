@@ -136,22 +136,98 @@ pub(super) fn campaign_classes() -> Vec<CampaignClass> {
 
 fn hard_negative_classes() -> Vec<CampaignClass> {
     [
-        ("low-altitude-fixed-wing-takeoff-v1", "Low-Altitude Fixed-Wing UAV Proxy", "fixed_wing_uav", CampaignBucket::SmallUav, "small_fixed_wing_uav"),
-        ("commercial-quadrotor-low-altitude-v1", "Commercial Quadrotor Low-Altitude Proxy", "quadrotor_uav", CampaignBucket::SmallUav, "quadrotor"),
-        ("hexarotor-heavy-lift-low-altitude-v1", "Hexarotor Heavy-Lift Low-Altitude Proxy", "hexarotor_uav", CampaignBucket::SmallUav, "hexarotor"),
-        ("rc-plane-hobby-glider-v1", "RC Plane and Hobby Glider Proxy", "rc_fixed_wing_or_hobby_glider", CampaignBucket::SmallUav, "rc_plane_hobby_glider"),
-        ("bird-large-and-flock-v1", "Large Bird and Flock Proxy", "bird_or_flock", CampaignBucket::Biological, "bird_or_flock"),
-        ("bat-and-insect-cloud-v1", "Bat and Insect Cloud Biological Proxy", "bat_or_insect_cloud", CampaignBucket::Biological, "bat_or_insect_cloud"),
-        ("balloon-kite-debris-v1", "Balloon, Kite, and Windborne Debris Proxy", "windborne_slow_object", CampaignBucket::WindborneDebris, "balloon_kite_windborne_debris"),
-        ("wind-turbine-industrial-glint-v1", "Wind Turbine and Industrial Glint Proxy", "static_or_rotating_infrastructure", CampaignBucket::InfrastructureTerrain, "infrastructure_glint"),
-        ("commercial-aircraft-corridor-clutter-v1", "Commercial Aircraft Corridor Clutter Proxy", "commercial_aircraft_corridor", CampaignBucket::InfrastructureTerrain, "commercial_aircraft_corridor"),
-        ("ground-vehicle-roadside-v1", "Ground Vehicle and Roadside Multipath Proxy", "ground_vehicle", CampaignBucket::GroundMoversMultipath, "ground_movers_multipath"),
-        ("weather-terrain-only-scene-v1", "Weather and Terrain-Only Scene Proxy", "weather_terrain_only", CampaignBucket::WeatherRfiSensorArtifacts, "weather_rfi_sensor_artifacts"),
+        (
+            "low-altitude-fixed-wing-takeoff-v1",
+            "Low-Altitude Fixed-Wing UAV Proxy",
+            "fixed_wing_uav",
+            CampaignBucket::SmallUav,
+            "small_fixed_wing_uav",
+        ),
+        (
+            "commercial-quadrotor-low-altitude-v1",
+            "Commercial Quadrotor Low-Altitude Proxy",
+            "quadrotor_uav",
+            CampaignBucket::SmallUav,
+            "quadrotor",
+        ),
+        (
+            "hexarotor-heavy-lift-low-altitude-v1",
+            "Hexarotor Heavy-Lift Low-Altitude Proxy",
+            "hexarotor_uav",
+            CampaignBucket::SmallUav,
+            "hexarotor",
+        ),
+        (
+            "rc-plane-hobby-glider-v1",
+            "RC Plane and Hobby Glider Proxy",
+            "rc_fixed_wing_or_hobby_glider",
+            CampaignBucket::SmallUav,
+            "rc_plane_hobby_glider",
+        ),
+        (
+            "bird-large-and-flock-v1",
+            "Large Bird and Flock Proxy",
+            "bird_or_flock",
+            CampaignBucket::Biological,
+            "bird_or_flock",
+        ),
+        (
+            "bat-and-insect-cloud-v1",
+            "Bat and Insect Cloud Biological Proxy",
+            "bat_or_insect_cloud",
+            CampaignBucket::Biological,
+            "bat_or_insect_cloud",
+        ),
+        (
+            "balloon-kite-debris-v1",
+            "Balloon, Kite, and Windborne Debris Proxy",
+            "windborne_slow_object",
+            CampaignBucket::WindborneDebris,
+            "balloon_kite_windborne_debris",
+        ),
+        (
+            "wind-turbine-industrial-glint-v1",
+            "Wind Turbine and Industrial Glint Proxy",
+            "static_or_rotating_infrastructure",
+            CampaignBucket::InfrastructureTerrain,
+            "infrastructure_glint",
+        ),
+        (
+            "commercial-aircraft-corridor-clutter-v1",
+            "Commercial Aircraft Corridor Clutter Proxy",
+            "commercial_aircraft_corridor",
+            CampaignBucket::InfrastructureTerrain,
+            "commercial_aircraft_corridor",
+        ),
+        (
+            "ground-vehicle-roadside-v1",
+            "Ground Vehicle and Roadside Multipath Proxy",
+            "ground_vehicle",
+            CampaignBucket::GroundMoversMultipath,
+            "ground_movers_multipath",
+        ),
+        (
+            "weather-terrain-only-scene-v1",
+            "Weather and Terrain-Only Scene Proxy",
+            "weather_terrain_only",
+            CampaignBucket::WeatherRfiSensorArtifacts,
+            "weather_rfi_sensor_artifacts",
+        ),
     ]
     .into_iter()
-    .map(|(id, display_name, target_family, bucket, hard_negative_family)| {
-        campaign_class(id, display_name, target_family, bucket, hard_negative_family, false, true)
-    })
+    .map(
+        |(id, display_name, target_family, bucket, hard_negative_family)| {
+            campaign_class(
+                id,
+                display_name,
+                target_family,
+                bucket,
+                hard_negative_family,
+                false,
+                true,
+            )
+        },
+    )
     .collect()
 }
 
@@ -174,4 +250,3 @@ fn campaign_class(
         is_hard_negative,
     }
 }
-

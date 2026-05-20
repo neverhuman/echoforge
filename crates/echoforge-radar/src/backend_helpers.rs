@@ -132,7 +132,9 @@ pub(super) fn detect_backend_signals() -> BackendSignals {
     let logical_cores = if let Some(n) = env_override_usize("ECHOFORGE_RUNTIME_LOGICAL_CORES") {
         n
     } else {
-        thread::available_parallelism().map(usize::from).unwrap_or(1)
+        thread::available_parallelism()
+            .map(usize::from)
+            .unwrap_or(1)
     }
     .max(1);
     let device_nodes = device_nodes();
@@ -160,7 +162,10 @@ pub(super) fn detect_backend_signals() -> BackendSignals {
     let gpu_unusable_reason = if !gpu_available {
         Some("no NVIDIA GPU device node or nvidia-smi device was detected".to_string())
     } else if masked {
-        Some("GPU visibility is masked by NVIDIA_VISIBLE_DEVICES or CUDA_VISIBLE_DEVICES".to_string())
+        Some(
+            "GPU visibility is masked by NVIDIA_VISIBLE_DEVICES or CUDA_VISIBLE_DEVICES"
+                .to_string(),
+        )
     } else if !memory_ready {
         Some(format!(
             "GPU detected but free memory is {best_free_mb} MiB; need at least {gpu_min_free_memory_mb} MiB for this runtime"
@@ -180,7 +185,9 @@ pub(super) fn detect_backend_signals() -> BackendSignals {
                     || is_device_restricted(nvidia_visible_devices.as_deref())
                     || is_device_restricted(cuda_visible_devices.as_deref())
                     || best_free_mb < gpu_min_free_memory_mb.saturating_mul(2)
-                    || gpu_devices.iter().any(|device| device.utilization_gpu_percent >= 85))
+                    || gpu_devices
+                        .iter()
+                        .any(|device| device.utilization_gpu_percent >= 85))
         }
     };
 

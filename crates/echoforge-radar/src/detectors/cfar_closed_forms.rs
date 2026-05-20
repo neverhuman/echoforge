@@ -201,18 +201,18 @@ pub fn erfc_inv(y: f64) -> f64 {
             + 133.14166789178437745)
             * r
             + 3.387132872796366608
-            / (((((((5226.495278852854561 * r + 28729.085735721942674) * r
-                + 39307.89580009271061)
-                * r
-                + 21213.794301586595867)
-                * r
-                + 5394.1960214247511077)
-                * r
-                + 687.1870074920579083)
-                * r
-                + 42.313330701600911252)
-                * r
-                + 1.0)
+                / (((((((5226.495278852854561 * r + 28729.085735721942674) * r
+                    + 39307.89580009271061)
+                    * r
+                    + 21213.794301586595867)
+                    * r
+                    + 5394.1960214247511077)
+                    * r
+                    + 687.1870074920579083)
+                    * r
+                    + 42.313330701600911252)
+                    * r
+                    + 1.0)
     } else {
         // Tail region — use Beasley-Springer
         let r = if q < 0.0 { p } else { 1.0 - p };
@@ -276,19 +276,28 @@ mod tests {
     #[test]
     fn go_cfar_alpha_finite_positive() {
         let a = go_cfar_scale_gaussian(12, 1e-3);
-        assert!(a > 0.0 && a.is_finite(), "GO alpha must be positive finite, got {a}");
+        assert!(
+            a > 0.0 && a.is_finite(),
+            "GO alpha must be positive finite, got {a}"
+        );
     }
 
     #[test]
     fn so_cfar_alpha_finite_positive() {
         let a = so_cfar_scale_gaussian(12, 1e-3);
-        assert!(a > 0.0 && a.is_finite(), "SO alpha must be positive finite, got {a}");
+        assert!(
+            a > 0.0 && a.is_finite(),
+            "SO alpha must be positive finite, got {a}"
+        );
     }
 
     #[test]
     fn log_normal_cfar_finite_for_sigma_1() {
         let a = cfar_scale_log_normal(24, 1e-3, 1.0);
-        assert!(a > 0.0 && a.is_finite(), "log-normal alpha must be positive finite, got {a}");
+        assert!(
+            a > 0.0 && a.is_finite(),
+            "log-normal alpha must be positive finite, got {a}"
+        );
     }
 
     #[test]

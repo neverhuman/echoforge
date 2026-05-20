@@ -2,11 +2,13 @@ use serde_json::json;
 
 use crate::error::CoreError;
 use crate::id::deterministic_id;
-use crate::validation::{ensure_non_empty, ensure_non_empty_vec, ensure_probability, ensure_slug, SCHEMA_VERSION};
+use crate::validation::{
+    ensure_non_empty, ensure_non_empty_vec, ensure_probability, ensure_slug, SCHEMA_VERSION,
+};
 
 use super::{
     DatasetCard, DetectorGraph, EchosigManifest, MaterialCard, MeshManifest, ObjectCard,
-    RcsCampaign, RadarEpisode, Scenario, SensorArchetype, SolverCard, ValidationReport,
+    RadarEpisode, RcsCampaign, Scenario, SensorArchetype, SolverCard, ValidationReport,
 };
 
 macro_rules! impl_document {

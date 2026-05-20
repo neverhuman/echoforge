@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run all five detection consumers in sequence.
+# Run the top-three runnable detection consumers in sequence.
 # Usage: bash detection/run_all.sh [--smoke] [--data-root PATH] [--out-root PATH]
 set -euo pipefail
 
@@ -35,7 +35,7 @@ DETECTION_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [[ $SMOKE -eq 1 && "$DATA_ROOT" == "outputs/training-data/shahed136-public-proxy-ml-training-v2-standard" ]] && DATA_ROOT="$SMOKE_ROOT"
 
 if [[ $SKIP_GENERATE -eq 0 ]]; then
-    if [[ ! -f "$DATA_ROOT/frame_features.npz" || $FORCE_REGENERATE -eq 1 ]]; then
+    if [[ ! -f "$DATA_ROOT/frame_features.npz" || ! -f "$DATA_ROOT/records.csv" || ! -f "$DATA_ROOT/split_manifest.csv" || $FORCE_REGENERATE -eq 1 ]]; then
         [[ -z "$RECORDS" ]] && RECORDS=$([[ $SMOKE -eq 1 ]] && echo 1000 || echo 50000)
         SCALE=$([[ $SMOKE -eq 1 ]] && echo smoke || echo standard)
         python3 "$DETECTION_DIR/generate_ml_training_v2.py" \
@@ -48,8 +48,6 @@ SCRIPTS=(
     "01_cfar_tbd_fusion.py"
     "02_lightgbm_window_gbdt.py"
     "03_catboost_ordered_boosting.py"
-    "04_tcn_inception_time.py"
-    "05_multiview_radar_transformer.py"
 )
 
 for SCRIPT in "${SCRIPTS[@]}"; do
@@ -61,5 +59,5 @@ for SCRIPT in "${SCRIPTS[@]}"; do
     "${ARGS[@]}"
 done
 
-REPORT="detection/reports/auc_table.md"
+REPORT="$OUT_ROOT/reports/auc_table.md"
 [[ -f "$REPORT" ]] && echo "wrote $REPORT"

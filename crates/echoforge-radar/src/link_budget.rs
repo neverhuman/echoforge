@@ -143,7 +143,9 @@ impl LinkBudget {
 }
 
 impl Default for LinkBudget {
-    fn default() -> Self { Self::uae_coastal_proxy() }
+    fn default() -> Self {
+        Self::uae_coastal_proxy()
+    }
 }
 
 /// Propagation geometry and atmosphere needed to compute the
@@ -189,7 +191,9 @@ impl PropagationContext {
 }
 
 impl Default for PropagationContext {
-    fn default() -> Self { Self::medium_range_clear_air() }
+    fn default() -> Self {
+        Self::medium_range_clear_air()
+    }
 }
 
 /// Result of a single-pulse + coherent-integration link-budget

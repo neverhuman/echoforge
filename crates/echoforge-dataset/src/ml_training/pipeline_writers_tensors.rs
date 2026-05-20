@@ -5,9 +5,9 @@ use std::fs;
 use std::path::Path;
 
 use crate::export::write_json_pretty as write_json;
-use crate::monte_carlo::DatasetError;
 use crate::ml_training::types::{LearnedWindowEntry, LearnedWindowManifest, MlFrameFeatureRow};
 use crate::ml_training::util::write_f32_tensor;
+use crate::monte_carlo::DatasetError;
 
 pub fn write_multi_view_products(
     record_dir: &Path,
@@ -31,7 +31,11 @@ pub fn write_multi_view_products(
             (energy * (-dist * dist / 18.0).exp() + 0.02 * noise).max(0.0)
         }
     });
-    write_f32_tensor(&dir.join("range_time.zarr"), &[frames, range_bins], range_time)?;
+    write_f32_tensor(
+        &dir.join("range_time.zarr"),
+        &[frames, range_bins],
+        range_time,
+    )?;
 
     let doppler_time = build_1d_projection(frames, doppler_bins, features, |f| {
         let center = (((f.radial_velocity_mps + 160.0) / 320.0) * (doppler_bins as f64 - 1.0))

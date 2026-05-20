@@ -169,9 +169,7 @@ impl SurveillanceScenario {
                 "target_launch_sites must list at least one site".to_string(),
             ));
         }
-        if self.environment.terrain_class_at_target_sites.len()
-            != self.target_launch_sites.len()
-        {
+        if self.environment.terrain_class_at_target_sites.len() != self.target_launch_sites.len() {
             return Err(ScenarioLoadError::Schema(format!(
                 "environment.terrain_class_at_target_sites length ({}) must equal target_launch_sites length ({})",
                 self.environment.terrain_class_at_target_sites.len(),
@@ -245,7 +243,6 @@ impl From<serde_json::Error> for ScenarioLoadError {
         Self::Json(value)
     }
 }
-
 
 #[cfg(test)]
 #[path = "scenarios_tests.rs"]

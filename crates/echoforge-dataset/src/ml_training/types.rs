@@ -74,6 +74,8 @@ pub(super) struct MlClass {
 pub(super) struct MlRecordPlan {
     pub record_index: usize,
     pub record_id: String,
+    pub sensor_id: String,
+    pub phase_target: String,
     pub scenario_seed: u64,
     pub object_seed: u64,
     pub split: SplitKind,
@@ -84,6 +86,8 @@ pub(super) struct MlRecordPlan {
 pub(super) struct MlRecordSummary {
     pub record_id: String,
     pub record_index: usize,
+    pub sensor_id: String,
+    pub phase_target: String,
     pub split: SplitKind,
     pub class_id: String,
     pub target_family: String,
@@ -109,6 +113,8 @@ pub(super) struct MlRecordSummary {
 pub(super) struct MlFeatureSummaryRow {
     pub record_id: String,
     pub split: SplitKind,
+    pub sensor_id: String,
+    pub phase_target: String,
     pub target_family: String,
     pub hard_negative_family: String,
     pub is_public_proxy_positive: bool,
@@ -191,6 +197,8 @@ pub(super) struct MlTruthMetadata {
     pub neutral_object_id: String,
     pub dataset_id: String,
     pub split: SplitKind,
+    pub sensor_id: String,
+    pub phase_target: String,
     pub class_id: String,
     pub hard_negative_family: String,
     pub target_family: String,
@@ -301,6 +309,8 @@ pub(super) struct SplitManifestRow {
     pub scenario_seed: u64,
     pub object_seed: u64,
     pub class_id: String,
+    pub sensor_id: String,
+    pub phase_target: String,
     pub target_family: String,
     pub hard_negative_family: String,
 }

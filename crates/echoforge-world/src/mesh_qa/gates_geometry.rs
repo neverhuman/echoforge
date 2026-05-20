@@ -3,9 +3,9 @@
 //! Gates: finite vertices, degenerate triangles, consistent winding,
 //! bounded aspect ratio.
 
-use crate::mesh::ParametricMesh;
-use super::{QaGateResult, QaStatus};
 use super::math::{dot3, edge_len, sub3, tri_centroid};
+use super::{QaGateResult, QaStatus};
+use crate::mesh::ParametricMesh;
 
 /// Gate 1 — every vertex coordinate is finite (no NaN, no +/-Inf).
 ///

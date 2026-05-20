@@ -1,8 +1,8 @@
 //! CFAR alpha library: Monte-Carlo calibrator and precomputed lookup table.
 //! Extracted from cfar_alpha.rs for LOC compliance.
 
+use super::cfar_alpha_helpers::{distribution_matches, pfa_close, sample_distribution, AlphaRng};
 use super::{CfarVariant, NoiseDistribution};
-use super::cfar_alpha_helpers::{AlphaRng, distribution_matches, pfa_close, sample_distribution};
 
 /// Monte-Carlo calibration: draws `trials` windows, computes the noise
 /// estimator per-variant, collects the (CUT / noise) ratios, and returns
@@ -71,8 +71,8 @@ pub fn calibrate_alpha_monte_carlo(
     }
     ratios.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let q = (1.0 - pfa as f64).clamp(0.0, 1.0);
-    let idx = ((q * ratios.len() as f64).round() as isize - 1)
-        .clamp(0, ratios.len() as isize - 1) as usize;
+    let idx = ((q * ratios.len() as f64).round() as isize - 1).clamp(0, ratios.len() as isize - 1)
+        as usize;
     ratios[idx] as f32
 }
 
@@ -89,7 +89,11 @@ pub(super) struct AlphaEntry {
     pub alpha: f32,
 }
 
-const fn ca_entry(distribution: NoiseDistribution, training_cells: usize, alpha: f32) -> AlphaEntry {
+const fn ca_entry(
+    distribution: NoiseDistribution,
+    training_cells: usize,
+    alpha: f32,
+) -> AlphaEntry {
     AlphaEntry {
         variant: CfarVariant::CellAveraging,
         distribution,
@@ -99,7 +103,12 @@ const fn ca_entry(distribution: NoiseDistribution, training_cells: usize, alpha:
     }
 }
 
-const fn os_entry(rank: usize, distribution: NoiseDistribution, training_cells: usize, alpha: f32) -> AlphaEntry {
+const fn os_entry(
+    rank: usize,
+    distribution: NoiseDistribution,
+    training_cells: usize,
+    alpha: f32,
+) -> AlphaEntry {
     AlphaEntry {
         variant: CfarVariant::OrderedStatistic { rank },
         distribution,
@@ -120,8 +129,18 @@ pub(super) const ALPHA_LIBRARY: &[AlphaEntry] = &[
     ca_entry(NoiseDistribution::KDistribution { shape: 2.0 }, 24, 14.02),
     os_entry(12, NoiseDistribution::Weibull { shape: 1.2 }, 16, 147.0),
     os_entry(18, NoiseDistribution::Weibull { shape: 1.2 }, 24, 122.2),
-    os_entry(12, NoiseDistribution::KDistribution { shape: 0.8 }, 16, 152.25),
-    os_entry(18, NoiseDistribution::KDistribution { shape: 0.8 }, 24, 134.47),
+    os_entry(
+        12,
+        NoiseDistribution::KDistribution { shape: 0.8 },
+        16,
+        152.25,
+    ),
+    os_entry(
+        18,
+        NoiseDistribution::KDistribution { shape: 0.8 },
+        24,
+        134.47,
+    ),
 ];
 
 pub fn alpha_library_lookup(

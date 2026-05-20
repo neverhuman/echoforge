@@ -1,7 +1,11 @@
 use super::super::kinematic_gate::KinematicSample;
 use super::*;
 
-fn boost_window(samples: Vec<(f64, f64, f64)>, range_m: f64, antenna_h: f64) -> KinematicObservation {
+fn boost_window(
+    samples: Vec<(f64, f64, f64)>,
+    range_m: f64,
+    antenna_h: f64,
+) -> KinematicObservation {
     KinematicObservation::new(
         samples
             .into_iter()
@@ -21,11 +25,7 @@ fn boost_los_horizon_blocked_at_100km_50m_altitude() {
     // than the 50 m sub-horizon depth threshold → horizon_blocked.
     let detector = BoostTierDetector::with_default();
     let obs = boost_window(
-        vec![
-            (0.0, 15.0, 50.0),
-            (1.0, 20.0, 50.0),
-            (2.0, 25.0, 50.0),
-        ],
+        vec![(0.0, 15.0, 50.0), (1.0, 20.0, 50.0), (2.0, 25.0, 50.0)],
         100_000.0,
         20.0,
     );
@@ -46,8 +46,7 @@ fn boost_los_marginal_at_horizon() {
     // propagation factor and either publish horizon_blocked
     // (first-null residual) or fall through to the kinematic checks.
     let detector = BoostTierDetector::with_default();
-    let min_los =
-        min_target_altitude_for_los_m(20.0, 50_000.0, STANDARD_K_FACTOR);
+    let min_los = min_target_altitude_for_los_m(20.0, 50_000.0, STANDARD_K_FACTOR);
     // The min_los at 50 km is ~58.65 m, well within the 0–200 m
     // boost altitude band — perfect for the marginal escape test.
     let marginal_alt = (min_los + 25.0).max(0.0);
@@ -73,8 +72,7 @@ fn boost_above_horizon_passes_gate_with_m_of_n() {
     // Place the target well above the horizon and supply 5 CPIs
     // where each consecutive pair has |dv/dt| ∈ [5, 20] m/s².
     let detector = BoostTierDetector::with_default();
-    let min_los =
-        min_target_altitude_for_los_m(20.0, 5_000.0, STANDARD_K_FACTOR);
+    let min_los = min_target_altitude_for_los_m(20.0, 5_000.0, STANDARD_K_FACTOR);
     let alt = (min_los + 200.0).max(150.0);
     let obs = boost_window(
         vec![
@@ -92,7 +90,10 @@ fn boost_above_horizon_passes_gate_with_m_of_n() {
     // 5 consecutive 5-second deltas: dv values are 10, 10, 10, 0, 0.
     // Three deltas in band → not detected at 4-of-5 threshold but
     // gate accepted, so horizon_blocked stays false.
-    assert!(!dec.horizon_blocked, "above-horizon geometry must not block");
+    assert!(
+        !dec.horizon_blocked,
+        "above-horizon geometry must not block"
+    );
 }
 
 #[test]
@@ -101,14 +102,7 @@ fn boost_rejects_when_kinematic_gate_fails_above_horizon() {
     // way above the boost cap of 35 m/s).
     let detector = BoostTierDetector::with_default();
     let alt = 250.0;
-    let obs = boost_window(
-        vec![
-            (0.0, 60.0, alt),
-            (1.0, 65.0, alt),
-        ],
-        2_000.0,
-        20.0,
-    );
+    let obs = boost_window(vec![(0.0, 60.0, alt), (1.0, 65.0, alt)], 2_000.0, 20.0);
     let dec = detector.evaluate(&obs);
     assert!(!dec.detected, "boost gate must reject cruise-speed");
     assert!(!dec.horizon_blocked, "above-horizon means no block");
@@ -239,11 +233,7 @@ fn boost_sub_state_classification() {
     let alt = 250.0;
 
     // 20 m/s² → BoostBurn (dv = 20, dt = 1).
-    let obs_burn = boost_window(
-        vec![(0.0, 0.0, alt), (1.0, 20.0, alt)],
-        2_000.0,
-        20.0,
-    );
+    let obs_burn = boost_window(vec![(0.0, 0.0, alt), (1.0, 20.0, alt)], 2_000.0, 20.0);
     let dec_burn = detector.evaluate(&obs_burn);
     assert!(
         (dec_burn.instantaneous_acceleration_mps2 - 20.0).abs() < 1e-9,
@@ -257,11 +247,7 @@ fn boost_sub_state_classification() {
     );
 
     // -1 m/s² → SeparationTransient (dv = -1, dt = 1).
-    let obs_sep = boost_window(
-        vec![(0.0, 30.0, alt), (1.0, 29.0, alt)],
-        2_000.0,
-        20.0,
-    );
+    let obs_sep = boost_window(vec![(0.0, 30.0, alt), (1.0, 29.0, alt)], 2_000.0, 20.0);
     let dec_sep = detector.evaluate(&obs_sep);
     assert!(
         (dec_sep.instantaneous_acceleration_mps2 - (-1.0)).abs() < 1e-9,
@@ -275,11 +261,7 @@ fn boost_sub_state_classification() {
     );
 
     // 0.5 m/s² → PostSeparationSustain (dv = 0.5, dt = 1).
-    let obs_sus = boost_window(
-        vec![(0.0, 30.0, alt), (1.0, 30.5, alt)],
-        2_000.0,
-        20.0,
-    );
+    let obs_sus = boost_window(vec![(0.0, 30.0, alt), (1.0, 30.5, alt)], 2_000.0, 20.0);
     let dec_sus = detector.evaluate(&obs_sus);
     assert!(
         (dec_sus.instantaneous_acceleration_mps2 - 0.5).abs() < 1e-9,

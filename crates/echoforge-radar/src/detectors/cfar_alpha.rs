@@ -33,7 +33,9 @@ mod cfar_alpha_helpers;
 
 #[path = "cfar_alpha_library.rs"]
 mod cfar_alpha_library;
-pub use cfar_alpha_library::{calibrate_alpha_monte_carlo, alpha_library_lookup, alpha_library_len};
+pub use cfar_alpha_library::{
+    alpha_library_len, alpha_library_lookup, calibrate_alpha_monte_carlo,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CfarVariant {
@@ -156,10 +158,9 @@ pub fn resolve_alpha(
 ) -> f32 {
     // 1. Closed-form fast path: Gaussian / Rayleigh + (CA or OS).
     match (variant, distribution) {
-        (
-            CfarVariant::CellAveraging,
-            NoiseDistribution::Gaussian | NoiseDistribution::Rayleigh,
-        ) => return ca_cfar_scale_gaussian(training_cells, pfa),
+        (CfarVariant::CellAveraging, NoiseDistribution::Gaussian | NoiseDistribution::Rayleigh) => {
+            return ca_cfar_scale_gaussian(training_cells, pfa)
+        }
         (
             CfarVariant::OrderedStatistic { rank },
             NoiseDistribution::Gaussian | NoiseDistribution::Rayleigh,

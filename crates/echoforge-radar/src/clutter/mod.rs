@@ -2,11 +2,13 @@ mod profile;
 mod regime;
 mod samplers;
 
-pub use profile::{apply_clutter_to_profile, sample_clutter_frame, ClutterFrameSample, ClutterProfile};
+pub use profile::{
+    apply_clutter_to_profile, sample_clutter_frame, ClutterFrameSample, ClutterProfile,
+};
 pub use regime::{ClutterDistribution, ClutterRegime, TerrainClass};
 pub use samplers::{
-    generate_clutter_sequence, sample_clutter_amplitude, sample_k_distribution,
-    sample_log_normal, sample_weibull,
+    generate_clutter_sequence, sample_clutter_amplitude, sample_k_distribution, sample_log_normal,
+    sample_weibull,
 };
 
 #[derive(Debug, Clone)]

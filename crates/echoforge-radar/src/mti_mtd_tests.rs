@@ -16,11 +16,7 @@ fn make_constant_pulses(
 fn mti_two_pulse_cancels_constant_dc() {
     let n_pulses = 16usize;
     let range_len = 4usize;
-    let pulses = make_constant_pulses(
-        n_pulses,
-        range_len,
-        ComplexSample::new(1.0, 0.0),
-    );
+    let pulses = make_constant_pulses(n_pulses, range_len, ComplexSample::new(1.0, 0.0));
     let out = apply_mti(&pulses, MtiOrder::Two);
     assert_eq!(out.len(), n_pulses);
     // Pulse 0 is the warm-up slot, always zero by construction.
@@ -67,11 +63,7 @@ fn mti_two_pulse_passes_high_doppler() {
 fn mti_three_pulse_cancels_dc() {
     let n_pulses = 12usize;
     let range_len = 3usize;
-    let pulses = make_constant_pulses(
-        n_pulses,
-        range_len,
-        ComplexSample::new(-0.5, 0.75),
-    );
+    let pulses = make_constant_pulses(n_pulses, range_len, ComplexSample::new(-0.5, 0.75));
     let out = apply_mti(&pulses, MtiOrder::Three);
     assert_eq!(out.len(), n_pulses);
     // First two pulses are warm-up; output starts at index 2.
@@ -97,7 +89,10 @@ fn improvement_factor_2_pulse_zero_sigma() {
         i2 > 100.0,
         "expected improvement factor > 100 dB on σ_f=0 clutter; got {i2}"
     );
-    assert!(i2.is_finite(), "improvement factor must saturate to finite ceiling, got {i2}");
+    assert!(
+        i2.is_finite(),
+        "improvement factor must saturate to finite ceiling, got {i2}"
+    );
     // Same check for 3-pulse.
     let i3 = mti_improvement_factor_db(MtiOrder::Three, 0.0, 900e-6);
     assert!(
@@ -150,8 +145,7 @@ fn mtd_chain_pure_tone_lands_in_correct_bin() {
 
     let mut pulses: Vec<Vec<ComplexSample>> = Vec::with_capacity(N_PULSES);
     for n in 0..N_PULSES {
-        let phase =
-            2.0 * std::f32::consts::PI * (K_D as f32) * (n as f32) / N_PULSES as f32;
+        let phase = 2.0 * std::f32::consts::PI * (K_D as f32) * (n as f32) / N_PULSES as f32;
         let mut profile = vec![ComplexSample::new(0.0, 0.0); RANGE_LEN];
         profile[TARGET_RANGE] = ComplexSample::new(phase.cos(), phase.sin());
         pulses.push(profile);
@@ -237,21 +231,22 @@ fn doppler_filter_bank_window_preserves_peak_location() {
     const K_D: usize = 5;
     let mut pulses: Vec<Vec<ComplexSample>> = Vec::with_capacity(N_PULSES);
     for n in 0..N_PULSES {
-        let phase =
-            2.0 * std::f32::consts::PI * (K_D as f32) * (n as f32) / N_PULSES as f32;
+        let phase = 2.0 * std::f32::consts::PI * (K_D as f32) * (n as f32) / N_PULSES as f32;
         pulses.push(vec![ComplexSample::new(phase.cos(), phase.sin())]);
     }
     let grid = doppler_filter_bank(&pulses, N_PULSES, CompressionWindow::taylor_default());
-    let (peak_bin, _) = grid[0]
-        .iter()
-        .enumerate()
-        .map(|(k, c)| (k, c.norm()))
-        .fold((0usize, 0.0f32), |(best_k, best_m), (k, m)| {
+    let (peak_bin, _) = grid[0].iter().enumerate().map(|(k, c)| (k, c.norm())).fold(
+        (0usize, 0.0f32),
+        |(best_k, best_m), (k, m)| {
             if m > best_m {
                 (k, m)
             } else {
                 (best_k, best_m)
             }
-        });
-    assert_eq!(peak_bin, K_D, "window moved the main lobe (now at {peak_bin})");
+        },
+    );
+    assert_eq!(
+        peak_bin, K_D,
+        "window moved the main lobe (now at {peak_bin})"
+    );
 }

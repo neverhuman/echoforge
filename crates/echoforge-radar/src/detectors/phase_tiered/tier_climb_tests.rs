@@ -5,13 +5,21 @@ fn cross_flight_climb_detector() -> ClimbOutTierDetector {
     use super::super::kinematic_gate::climb_kinematic_gate;
     ClimbOutTierDetector {
         config: ClimbTierConfig::default(),
-        gate: KinematicGate { radial_speed_mps_min: 0.0, accel_mps2_min: 0.0, ..climb_kinematic_gate() },
+        gate: KinematicGate {
+            radial_speed_mps_min: 0.0,
+            accel_mps2_min: 0.0,
+            ..climb_kinematic_gate()
+        },
     }
 }
 
 fn cross_flight_obs() -> KinematicObservation {
     // v_radial steady ~1 m/s (cross-flight), rising 0.1 m/s/CPI — within 3 m/s Kalman gate
-    climb_window((0..6).map(|k| (k as f64, 0.8 + k as f64 * 0.1, 250.0 + k as f64 * 2.0)).collect())
+    climb_window(
+        (0..6)
+            .map(|k| (k as f64, 0.8 + k as f64 * 0.1, 250.0 + k as f64 * 2.0))
+            .collect(),
+    )
 }
 
 fn climb_window(samples: Vec<(f64, f64, f64)>) -> KinematicObservation {
@@ -31,12 +39,27 @@ fn climb_detector_accepts_canonical_3_of_5() {
     // 250 m altitude. All 5 deltas should fall within the 5 m/s
     // Kalman gate, satisfying 3-of-5.
     let detector = ClimbOutTierDetector::with_default();
-    let obs = climb_window((0..6).map(|k| (k as f64, 30.0 + k as f64, 250.0 + k as f64 * 2.0)).collect());
+    let obs = climb_window(
+        (0..6)
+            .map(|k| (k as f64, 30.0 + k as f64, 250.0 + k as f64 * 2.0))
+            .collect(),
+    );
     let dec = detector.evaluate(&obs);
-    assert!(dec.detected, "canonical climb-out must detect; {}", dec.note);
+    assert!(
+        dec.detected,
+        "canonical climb-out must detect; {}",
+        dec.note
+    );
     assert!(!dec.mti_notch_rejected, "30+ m/s must clear MTI notch");
-    assert!(!dec.cross_flight, "30 m/s radial must take the radial branch");
-    assert!(dec.kalman_consistency > 0.5, "consistency = {}", dec.kalman_consistency);
+    assert!(
+        !dec.cross_flight,
+        "30 m/s radial must take the radial branch"
+    );
+    assert!(
+        dec.kalman_consistency > 0.5,
+        "consistency = {}",
+        dec.kalman_consistency
+    );
 }
 
 #[test]
@@ -61,23 +84,23 @@ fn climb_detector_rejects_in_mti_notch() {
         ..ClimbTierConfig::default()
     };
     let detector = ClimbOutTierDetector::new(config);
-    let obs = climb_window(vec![
-        (0.0, 29.0, 250.0),
-        (1.0, 30.0, 252.0),
-    ]);
+    let obs = climb_window(vec![(0.0, 29.0, 250.0), (1.0, 30.0, 252.0)]);
     let dec = detector.evaluate(&obs);
-    assert!(dec.mti_notch_rejected, "target inside notch must be rejected");
-    assert!(!dec.cross_flight, "29-30 m/s at X-band must stay on radial branch");
+    assert!(
+        dec.mti_notch_rejected,
+        "target inside notch must be rejected"
+    );
+    assert!(
+        !dec.cross_flight,
+        "29-30 m/s at X-band must stay on radial branch"
+    );
 }
 
 #[test]
 fn climb_detector_rejects_outside_gate() {
     // Speed 80 m/s is in the cruise-gap; climb gate must reject.
     let detector = ClimbOutTierDetector::with_default();
-    let obs = climb_window(vec![
-        (0.0, 79.0, 250.0),
-        (1.0, 80.0, 250.0),
-    ]);
+    let obs = climb_window(vec![(0.0, 79.0, 250.0), (1.0, 80.0, 250.0)]);
     let dec = detector.evaluate(&obs);
     assert!(!dec.detected, "climb gate must reject 80 m/s");
 }
@@ -173,7 +196,10 @@ fn cross_flight_target_without_micro_doppler_rejected() {
     // Flat noise floor: no blade-pass spike at all.
     let spec = synthetic_slow_time_spectrum(256, 1.0, None, 0.0, 1.0);
     let dec = detector.evaluate_with_spectrum(&obs, Some(&spec), Some(1.0));
-    assert!(dec.cross_flight, "low |v_radial| must enter cross-flight branch");
+    assert!(
+        dec.cross_flight,
+        "low |v_radial| must enter cross-flight branch"
+    );
     assert!(
         !dec.micro_doppler_confirmed,
         "flat noise floor has no blade-pass line",
@@ -208,11 +234,22 @@ fn cross_flight_target_without_spectrum_rejected() {
 #[test]
 fn standard_climb_target_detected_normally() {
     let detector = ClimbOutTierDetector::with_default();
-    let obs = climb_window((0..6).map(|k| (k as f64, 40.0 + k as f64, 250.0 + k as f64 * 2.0)).collect());
+    let obs = climb_window(
+        (0..6)
+            .map(|k| (k as f64, 40.0 + k as f64, 250.0 + k as f64 * 2.0))
+            .collect(),
+    );
     let dec = detector.evaluate(&obs);
-    assert!(!dec.cross_flight, "40 m/s radial must take the radial branch");
+    assert!(
+        !dec.cross_flight,
+        "40 m/s radial must take the radial branch"
+    );
     assert!(!dec.mti_notch_rejected, "40 m/s clears the notch");
-    assert!(dec.detected, "standard 3-of-5 must detect; note = {}", dec.note);
+    assert!(
+        dec.detected,
+        "standard 3-of-5 must detect; note = {}",
+        dec.note
+    );
     // The cross-flight micro_doppler_confirmed flag must never be
     // set by the radial-velocity branch.
     assert!(
@@ -232,7 +269,17 @@ fn cross_flight_erratic_kinematic_rejected_even_with_micro_doppler() {
     detector.gate.accel_mps2_max = 20.0;
     // 6 samples, alternating ±5 m/s residuals — far outside the
     // 3 m/s cross-flight Kalman gate.
-    let obs = climb_window((0..6).map(|k| (k as f64, if k % 2 == 0 { 0.5 } else { 7.0 }, 250.0 + k as f64 * 2.0)).collect());
+    let obs = climb_window(
+        (0..6)
+            .map(|k| {
+                (
+                    k as f64,
+                    if k % 2 == 0 { 0.5 } else { 7.0 },
+                    250.0 + k as f64 * 2.0,
+                )
+            })
+            .collect(),
+    );
     let spec = synthetic_slow_time_spectrum(256, 1.0, Some(190.0), 50.0, 1.0);
     let dec = detector.evaluate_with_spectrum(&obs, Some(&spec), Some(1.0));
     // Last sample is 7 m/s → f_d = 2*7*3e9 / 3e8 = 140 Hz, ABOVE
@@ -265,13 +312,9 @@ fn cross_flight_cutoff_boundary_takes_radial_branch() {
     // v = 30 * c / (2 * 3e9) = 1.499 m/s. The cutoff comparison
     // is `<`, so f_d == cutoff is the radial branch.
     let detector = cross_flight_climb_detector();
-    let v_at_cutoff = MTI_NOTCH_BODY_DOPPLER_HZ
-        * crate::propagation::SPEED_OF_LIGHT_M_PER_S
-        / (2.0 * 3.0e9);
-    let obs = climb_window(vec![
-        (0.0, v_at_cutoff, 250.0),
-        (1.0, v_at_cutoff, 252.0),
-    ]);
+    let v_at_cutoff =
+        MTI_NOTCH_BODY_DOPPLER_HZ * crate::propagation::SPEED_OF_LIGHT_M_PER_S / (2.0 * 3.0e9);
+    let obs = climb_window(vec![(0.0, v_at_cutoff, 250.0), (1.0, v_at_cutoff, 252.0)]);
     let dec = detector.evaluate(&obs);
     // f_d exactly == cutoff → radial branch.
     assert!(

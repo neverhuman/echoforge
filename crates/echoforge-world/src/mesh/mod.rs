@@ -29,9 +29,7 @@ mod math;
 #[cfg(test)]
 mod tests;
 
-pub use generators::{
-    cylinder_mesh, dihedral_mesh, plate_mesh, sphere_mesh, trihedral_mesh,
-};
+pub use generators::{cylinder_mesh, dihedral_mesh, plate_mesh, sphere_mesh, trihedral_mesh};
 
 /// Name of this generator, embedded in mesh manifests for provenance.
 pub const GENERATOR_NAME: &str = "echoforge-world::mesh";
@@ -106,8 +104,12 @@ impl ParametricMesh {
         for t in &self.triangles {
             for v in [t.v0, t.v1, t.v2] {
                 for i in 0..3 {
-                    if v[i] < lo[i] { lo[i] = v[i]; }
-                    if v[i] > hi[i] { hi[i] = v[i]; }
+                    if v[i] < lo[i] {
+                        lo[i] = v[i];
+                    }
+                    if v[i] > hi[i] {
+                        hi[i] = v[i];
+                    }
                 }
             }
         }

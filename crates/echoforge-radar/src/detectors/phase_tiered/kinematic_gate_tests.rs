@@ -1,11 +1,7 @@
 use super::*;
 
 fn obs_single(speed: f64, alt: f64) -> KinematicObservation {
-    KinematicObservation::new(
-        vec![KinematicSample::new(0.0, speed, alt)],
-        10_000.0,
-        20.0,
-    )
+    KinematicObservation::new(vec![KinematicSample::new(0.0, speed, alt)], 10_000.0, 20.0)
 }
 
 fn obs_pair(speed0: f64, alt0: f64, speed1: f64, alt1: f64, dt: f64) -> KinematicObservation {
@@ -30,7 +26,10 @@ fn boost_gate_accepts_canonical() {
 fn boost_gate_rejects_too_high() {
     let gate = boost_kinematic_gate();
     let obs = obs_pair(3.0, 5000.0, 15.0, 5000.0, 1.0);
-    assert!(!gate.accepts(&obs), "boost gate must reject 5000 m altitude");
+    assert!(
+        !gate.accepts(&obs),
+        "boost gate must reject 5000 m altitude"
+    );
 }
 
 #[test]

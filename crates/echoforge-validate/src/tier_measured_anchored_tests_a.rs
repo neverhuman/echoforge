@@ -103,10 +103,7 @@ fn evaluate_passes_when_all_distances_within_tolerance() {
     ];
     let observations = vec![
         observation("snr_db", vec![5.5, 6.5, 7.5, 8.5, 9.5]),
-        observation(
-            "micro_doppler_peak_hz",
-            vec![62.0, 72.0, 82.0, 92.0, 102.0],
-        ),
+        observation("micro_doppler_peak_hz", vec![62.0, 72.0, 82.0, 92.0, 102.0]),
         observation("altitude_m", vec![110.0, 210.0, 310.0, 410.0, 510.0]),
     ];
     let report = evaluate_v4_gate(&baseline_thresholds(), &anchors, &observations);

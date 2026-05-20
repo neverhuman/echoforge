@@ -9,11 +9,11 @@
 
 pub mod bessel;
 pub mod cli;
-pub mod distribution_metrics;
 pub mod compare;
 pub mod convergence;
 pub mod cross_solver;
 pub mod determinism;
+pub mod distribution_metrics;
 pub mod error;
 pub mod fidelity_rollup;
 pub mod micro_doppler;
@@ -32,6 +32,7 @@ pub use compare::check;
 pub use convergence::{richardson, ConvergenceReport};
 pub use cross_solver::{CrossSolverDelta, DeltaPair, DeltaSummary};
 pub use determinism::{bit_identical_f64, fp_tolerant_f32, DeterminismReport};
+pub use distribution_metrics::{ks_distance_1d_sorted, wasserstein_1d_sorted};
 pub use fidelity_rollup::{
     assert_fidelity_floor, parse_fidelity_class, rollup_validation_envelopes, FidelityFloor,
     FidelityFloorError, FidelityRollup,
@@ -48,11 +49,10 @@ pub use primitives::{
 };
 pub use report::{ErrorBudget, TierAchieved, ValidateChecks, ValidateReport};
 pub use tier_benchmarked::{
-    evaluate_v3_gate, tier_alias_benchmarked, GateStatus,
-    V3GateReport, V3MetricObservation, V3MetricThresholds,
+    evaluate_v3_gate, tier_alias_benchmarked, GateStatus, V3GateReport, V3MetricObservation,
+    V3MetricThresholds,
 };
 pub use tier_benchmarked_json::evaluate_v3_from_benchmark_json;
-pub use distribution_metrics::{ks_distance_1d_sorted, wasserstein_1d_sorted};
 pub use tier_measured_anchored::{
     evaluate_v4_from_calibration_report, evaluate_v4_gate, tier_alias_measured_anchored,
     AnchorMetric, CalibrationReportFile, V4AnchorOutcome, V4DistributionAnchor,

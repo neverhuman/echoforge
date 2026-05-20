@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import App from './App';
+import AppShell from './AppShell';
 import './styles.css';
 
 const root = document.querySelector('#app');
@@ -8,4 +8,4 @@ if (!root) {
   throw new Error('EchoForge web root element #app was not found.');
 }
 
-createRoot(root).render(<App />);
+createRoot(root).render(<AppShell />);

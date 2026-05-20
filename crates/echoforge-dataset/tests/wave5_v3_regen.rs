@@ -65,11 +65,8 @@ fn binary_auc(scores: &[f32], labels: &[bool]) -> f64 {
         return 0.5;
     }
     let mut sum_ranks_pos = 0.0f64;
-    let mut indexed: Vec<(f32, bool)> = scores
-        .iter()
-        .copied()
-        .zip(labels.iter().copied())
-        .collect();
+    let mut indexed: Vec<(f32, bool)> =
+        scores.iter().copied().zip(labels.iter().copied()).collect();
     indexed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
     let mut i = 0usize;
     while i < indexed.len() {
@@ -116,7 +113,10 @@ fn wave5_v3_unified_path_smoke() {
 
     let report = run_ml_training_data(config).expect("v3 dataset generation");
     assert_eq!(report.records, 32);
-    assert!(report.positive_records > 0, "smoke test must have positives");
+    assert!(
+        report.positive_records > 0,
+        "smoke test must have positives"
+    );
     assert!(
         report.records > report.positive_records,
         "smoke test must have confusers"
@@ -199,7 +199,10 @@ fn wave5_v3_unified_path_smoke() {
     // (2) Gate 2: CFAR-derived baseline AUC inside [0.5, 0.95]. The
     // CFAR statistic should be informative (above chance) without
     // being a perfect oracle.
-    let cfar_auc = auc_map.get("cfar_detection_fraction").copied().unwrap_or(0.5);
+    let cfar_auc = auc_map
+        .get("cfar_detection_fraction")
+        .copied()
+        .unwrap_or(0.5);
     assert!(
         (0.5..=0.95).contains(&cfar_auc),
         "Gate 2 violation: cfar_detection_fraction AUC {:.3} outside [0.5, 0.95]",

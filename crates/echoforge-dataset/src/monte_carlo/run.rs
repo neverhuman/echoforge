@@ -137,7 +137,13 @@ pub fn run_monte_carlo_demo(
     };
     write_text(
         &config.output_dir.join("benchmark_report.md"),
-        &benchmark_report_markdown(&config, &resolved, &split_counts, &leakage_report, &benchmark),
+        &benchmark_report_markdown(
+            &config,
+            &resolved,
+            &split_counts,
+            &leakage_report,
+            &benchmark,
+        ),
     )?;
 
     Ok(MonteCarloDemoReport {

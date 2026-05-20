@@ -21,9 +21,8 @@ use crate::split::SplitKind;
 
 use super::config::{MlTrainingDataConfig, NEUTRAL_OBJECT_ID};
 use super::types::{
-    ColumnStats, DatasetManifest, ExternalCalibrationSource, FeatureFamily,
-    MlFeatureSummaryRow, MlRecordSummary, NormalizationStats,
-    QualityReport, RuntimeReport,
+    ColumnStats, DatasetManifest, ExternalCalibrationSource, FeatureFamily, MlFeatureSummaryRow,
+    MlRecordSummary, NormalizationStats, QualityReport, RuntimeReport,
 };
 
 pub(super) fn quality_report(
@@ -42,6 +41,26 @@ pub(super) fn quality_report(
             *acc.entry(record.hard_negative_family.clone()).or_insert(0) += 1;
             acc
         });
+    let sensor_counts = records
+        .iter()
+        .fold(BTreeMap::<String, usize>::new(), |mut acc, record| {
+            *acc.entry(record.sensor_id.clone()).or_insert(0) += 1;
+            acc
+        });
+    let positive_class_counts = records
+        .iter()
+        .filter(|record| record.is_public_proxy_positive)
+        .fold(BTreeMap::<String, usize>::new(), |mut acc, record| {
+            *acc.entry(record.class_id.clone()).or_insert(0) += 1;
+            acc
+        });
+    let phase_target_counts =
+        records
+            .iter()
+            .fold(BTreeMap::<String, usize>::new(), |mut acc, record| {
+                *acc.entry(record.phase_target.clone()).or_insert(0) += 1;
+                acc
+            });
     QualityReport {
         dataset_id: config.dataset.clone(),
         records: records.len(),
@@ -51,6 +70,9 @@ pub(super) fn quality_report(
         } else {
             positive_records as f64 / records.len() as f64
         },
+        sensor_counts,
+        positive_class_counts,
+        phase_target_counts,
         hard_negative_family_coverage: hard_negative_family_counts.len(),
         hard_negative_family_counts,
         minimum_hard_negative_families: 10.min(records.len().saturating_sub(positive_records)),
@@ -251,6 +273,9 @@ pub(super) fn dataset_manifest(
         frame_rate_hz: config.frame_rate_hz,
         time_window_s: config.time_window_s,
         positive_fraction: config.positive_fraction,
+        sensor_ids: config.sensor_ids.clone(),
+        positive_class_ids: config.positive_class_ids.clone(),
+        phase_targets: config.phase_targets.clone(),
         split_policy: "scenario/object seed grouped; 70% train, 15% validation, 15% test"
             .to_string(),
         feature_families: feature_families(),
@@ -320,4 +345,3 @@ pub(super) fn local_external_data_config(
             .collect::<Vec<_>>()
     })
 }
-

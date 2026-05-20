@@ -8,7 +8,13 @@ use crate::cfar::ca_cfar_scale;
 /// no numeric drift from this lane.
 #[test]
 fn ca_gaussian_matches_prior() {
-    for &(n, pfa) in &[(8usize, 1e-3f32), (16, 1e-3), (24, 1e-4), (32, 1e-2), (64, 1e-5)] {
+    for &(n, pfa) in &[
+        (8usize, 1e-3f32),
+        (16, 1e-3),
+        (24, 1e-4),
+        (32, 1e-2),
+        (64, 1e-5),
+    ] {
         let new_alpha = ca_cfar_scale_gaussian(n, pfa);
         let old_alpha = ca_cfar_scale(n, pfa);
         assert!(
@@ -218,7 +224,11 @@ fn alpha_library_returns_some_for_known_keys() {
         "ALPHA_LIBRARY should contain CA / Weibull(1.2) / N=16 / Pfa=1e-3"
     );
     let v = got.unwrap();
-    assert!(v.is_finite() && v > 0.0, "library alpha must be finite > 0, got {}", v);
+    assert!(
+        v.is_finite() && v > 0.0,
+        "library alpha must be finite > 0, got {}",
+        v
+    );
     // Missing entry returns None.
     let missing = alpha_library_lookup(
         CfarVariant::SmallestOf,

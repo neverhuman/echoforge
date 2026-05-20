@@ -7,7 +7,9 @@ use crate::pulse_compression::{magnitude, pulse_compress_windowed, CompressionWi
 use crate::scene::SceneDescriptor;
 use crate::ComplexSample;
 
-use crate::sim::config::{NoiseProfile, RadarSimConfig, TakeoffProfile, polarization_amplitude_scale};
+use crate::sim::config::{
+    polarization_amplitude_scale, NoiseProfile, RadarSimConfig, TakeoffProfile,
+};
 use crate::sim::episode::{EpisodeSeed, SplitMix64, TargetState};
 use crate::sim::helpers::{micro_doppler_envelope, resolve_entity_state, C_M_PER_S};
 
@@ -64,10 +66,8 @@ pub(super) fn run_synthesis_loop(
 
             let effective_range_m = (state.range_m + range_offset_m).max(0.0);
             let delay_samples =
-                ((2.0 * effective_range_m / C_M_PER_S) * config.sample_rate_hz).round()
-                    as isize;
-            let doppler_hz =
-                2.0 * state.radial_velocity_mps * config.carrier_hz / C_M_PER_S;
+                ((2.0 * effective_range_m / C_M_PER_S) * config.sample_rate_hz).round() as isize;
+            let doppler_hz = 2.0 * state.radial_velocity_mps * config.carrier_hz / C_M_PER_S;
             let pulse_phase = 2.0 * std::f64::consts::PI * doppler_hz * t_s;
 
             let micro = micro_doppler_envelope(entity, t_s, &state, first_profile);

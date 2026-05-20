@@ -88,8 +88,7 @@ pub fn apply_mti(
 
     let taps = order.taps();
     let coeffs = order.coefficients();
-    let mut output =
-        vec![vec![ComplexSample::new(0.0, 0.0); range_len]; n_pulses];
+    let mut output = vec![vec![ComplexSample::new(0.0, 0.0); range_len]; n_pulses];
 
     if n_pulses < taps {
         // Delay line never fills: all outputs are zero (already
@@ -143,11 +142,7 @@ pub fn apply_mti(
 /// the denominator collapses to zero. We saturate to a finite ceiling
 /// of 200 dB (well beyond any physical detection floor) so the function
 /// is total.
-pub fn mti_improvement_factor_db(
-    order: MtiOrder,
-    sigma_f_hz: f64,
-    pri_s: f64,
-) -> f64 {
+pub fn mti_improvement_factor_db(order: MtiOrder, sigma_f_hz: f64, pri_s: f64) -> f64 {
     // Ceiling for the saturating return when ρ -> 1.
     const SATURATION_DB: f64 = 200.0;
 

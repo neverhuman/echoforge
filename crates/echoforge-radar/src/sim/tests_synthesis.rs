@@ -1,5 +1,5 @@
-use super::*;
 use super::tests_helpers::high_snr_episode;
+use super::*;
 
 #[test]
 fn deterministic_episode_repeats_for_seed() {
@@ -117,11 +117,15 @@ fn synthesize_scene_single_target_matches_prior() {
 
     let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise, seed);
 
-    let scene = SceneDescriptor::from_radar_config(&config, &noise, vec![TargetEntity {
-        class: TargetClass::ShahedClassPiston,
-        kinematics: TargetKinematics::FromTakeoffProfile(profile),
-        spawn_time_s: 0.0,
-    }]);
+    let scene = SceneDescriptor::from_radar_config(
+        &config,
+        &noise,
+        vec![TargetEntity {
+            class: TargetClass::ShahedClassPiston,
+            kinematics: TargetKinematics::FromTakeoffProfile(profile),
+            spawn_time_s: 0.0,
+        }],
+    );
     let via_scene = synthesize_scene(scene, config, noise, seed);
 
     assert_eq!(
