@@ -55,8 +55,7 @@ outputs/
 # Claude Code agent worktrees (exact copies of source — exclude from tooling scans)
 .claude/worktrees/
 
-# Jankurai/bootstrap scratch
-target/jankurai/
+# Generated governance artifacts (gitignore only; committed roll-up lives in agent/baselines/)
 FUCKIT.md
 agent/repo-score.json
 agent/repo-score.md
@@ -84,6 +83,5 @@ sbom/*
 !benchmarks/fixtures/*.ckpt
 !benchmarks/fixtures/*.sqlite
 !benchmarks/fixtures/*.db
-# jankurai scaffold .gitignore
-# Keep Jankurai receipts local without hiding the rest of target/.
+# Local jankurai state (receipts/hooks state — not committed)
 .jankurai/

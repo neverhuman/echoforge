@@ -1,4 +1,4 @@
-name: jankurai-bootstrap
+name: ci
 
 on:
   workflow_dispatch:
