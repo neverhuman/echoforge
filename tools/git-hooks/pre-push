@@ -1,0 +1,72 @@
+#!/bin/sh
+# EchoForge pre-push hook — branch protection + lefthook delegation.
+#
+# Source of truth for .git/hooks/pre-push.
+# Re-install after `lefthook install` overwrites it:
+#   bash ops/setup-git-hooks.sh
+#
+# Layer 1 (this file): reads pre-push stdin refs, blocks any push that
+#   targets refs/heads/main regardless of the source branch.
+# Layer 2 (lefthook `no-push-to-main` command): blocks pushes when the
+#   current branch IS main (catches `lefthook run pre-push` dry-runs).
+# Layer 3 (GitHub branch protection): server-side enforcement even when
+#   local hooks are skipped via LEFTHOOK=0.
+
+if [ "$LEFTHOOK_VERBOSE" = "1" ] || [ "$LEFTHOOK_VERBOSE" = "true" ]; then
+  set -x
+fi
+
+if [ "$LEFTHOOK" = "0" ]; then
+  exit 0
+fi
+
+# --- Branch protection: block direct pushes to refs/heads/main ----------
+# Git passes pushed refs on stdin: local_ref local_sha remote_ref remote_sha
+# We must read stdin before calling lefthook (lefthook consumes stdin for its
+# own file-change detection and does not re-pipe raw refs to scripts).
+_push_data="$(cat)"
+
+_IFS_save="$IFS"
+IFS='
+'
+for _line in $_push_data; do
+  [ -z "$_line" ] && continue
+  _remote_ref="$(printf '%s' "$_line" | awk '{print $3}')"
+  if [ "$_remote_ref" = "refs/heads/main" ]; then
+    printf '\n[protect-main] BLOCKED: direct push to main is not allowed.\n' >&2
+    printf 'Open a pull request: gh pr create --fill\n\n' >&2
+    exit 1
+  fi
+done
+IFS="$_IFS_save"
+
+# --- Delegate to lefthook (pipe saved stdin back so it sees push refs) --
+call_lefthook()
+{
+  if test -n "$LEFTHOOK_BIN"
+  then
+    "$LEFTHOOK_BIN" "$@"
+  elif lefthook -h >/dev/null 2>&1
+  then
+    lefthook "$@"
+  else
+    dir="$(git rev-parse --show-toplevel)"
+    osArch=$(uname | tr '[:upper:]' '[:lower:]')
+    cpuArch=$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')
+    if test -f "$dir/node_modules/lefthook-${osArch}-${cpuArch}/bin/lefthook"
+    then
+      "$dir/node_modules/lefthook-${osArch}-${cpuArch}/bin/lefthook" "$@"
+    elif test -f "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-${osArch}-${cpuArch}/lefthook"
+    then
+      "$dir/node_modules/@evilmartians/lefthook/bin/lefthook-${osArch}-${cpuArch}/lefthook" "$@"
+    elif test -f "$dir/node_modules/lefthook/bin/index.js"
+    then
+      "$dir/node_modules/lefthook/bin/index.js" "$@"
+    else
+      echo "Can't find lefthook in PATH" >&2
+      exit 1
+    fi
+  fi
+}
+
+printf '%s\n' "$_push_data" | call_lefthook run "pre-push" "$@"
