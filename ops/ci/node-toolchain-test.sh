@@ -10,11 +10,11 @@ node_bin_dir="${ECHOFORGE_NODE_BIN:?node bootstrap did not resolve ECHOFORGE_NOD
 printf 'node-toolchain-test: node_bin_dir=%s\n' "${node_bin_dir}"
 
 clean_user_path="$(
-  env -i HOME="${HOME}" PATH="${node_bin_dir}:/usr/bin:/bin" \
-    bash -c "cd '${repo_root}' && node --version"
+  env -i HOME="${HOME}" \
+    "${node_bin_dir}/node" --version
 )"
 if [[ "${clean_user_path}" != "${expected}" ]]; then
-  echo "error: node --version in clean shell got ${clean_user_path}, want ${expected}" >&2
+  echo "error: direct node invocation in clean env got ${clean_user_path}, want ${expected}" >&2
   exit 1
 fi
 
