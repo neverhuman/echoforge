@@ -1,8 +1,8 @@
-"""Physics-based signal generators for the v1 benchmark.
+"""Per-frame product builder for the ML training generator.
 
-Covers waveform/signal synthesis: frame product assembly, frame padding,
-and aggregate feature extraction. Low-level helpers live in
-ml_training_generators_helpers.
+Contains build_frame_products, which synthesises a single
+(truth dict, frame array) pair from scene-role and group conditions.
+Imports from types, tables, and physics modules — no circular imports.
 """
 
 from __future__ import annotations
@@ -11,8 +11,7 @@ from typing import Any
 
 import numpy as np
 
-from ml_training_config import (
-    FAMILY_TRAITS,
+from generate_ml_training_types import (
     FRAME_COLUMNS,
     FRAME_INDEX,
     FRAME_PERIOD_S,
@@ -20,7 +19,8 @@ from ml_training_config import (
     SensorArchetype,
     SiteArchetype,
 )
-from ml_training_generators_helpers import (
+from generate_ml_training_tables import FAMILY_TRAITS
+from generate_ml_training_physics import (
     correlated_noise,
     kinematics,
     phase_profile,
@@ -31,22 +31,6 @@ from ml_training_generators_helpers import (
     two_ray_loss_db,
     uniform,
 )
-from generate_ml_training_aggregation import aggregate_features, pad_frames
-
-__all__ = [
-    "stable_seed",
-    "sigmoid",
-    "uniform",
-    "correlated_noise",
-    "rcs_lookup_dbsm",
-    "phase_profile",
-    "kinematics",
-    "radar_equation_snr_db",
-    "two_ray_loss_db",
-    "build_frame_products",
-    "pad_frames",
-    "aggregate_features",
-]
 
 
 def build_frame_products(
@@ -92,12 +76,7 @@ def build_frame_products(
     if scene_role == "target_masked_counterfactual":
         target_rng = np.random.default_rng(stable_seed(int(group["scenario_seed"]), int(phase.start_s), 101))
         _, truth_radial_velocity, truth_altitude_m, truth_speed_mps = kinematics(
-            target_rng,
-            family,
-            FAMILY_TRAITS[family],
-            t_abs,
-            float(group["base_range_m"]),
-            float(group["radial_fraction"]),
+            target_rng, family, FAMILY_TRAITS[family], t_abs, float(group["base_range_m"]), float(group["radial_fraction"]),
         )
 
     aspect = str(group["target_aspect"])
@@ -115,18 +94,10 @@ def build_frame_products(
     )
     weather_loss = site.weather_loss_db + float(group["weather_loss_db"])
     clutter_base = {
-        "desert_ground": 2.1,
-        "urban_edge": 3.4,
-        "sea_glint": 3.8,
-        "rain_cell": 3.2,
-        "dust_weather": 2.8,
+        "desert_ground": 2.1, "urban_edge": 3.4, "sea_glint": 3.8, "rain_cell": 3.2, "dust_weather": 2.8,
     }[str(group["clutter_regime"])]
     rfi_base = {
-        "none": 0.04,
-        "rfi_burst": 0.38,
-        "dropped_cpi": 0.10,
-        "agc_compression": 0.12,
-        "multipath_masking": 0.14,
+        "none": 0.04, "rfi_burst": 0.38, "dropped_cpi": 0.10, "agc_compression": 0.12, "multipath_masking": 0.14,
     }[str(group["interference"])]
     clutter_loss = site.land_clutter_loss_db + clutter_base * float(profile["clutter"]) + rfi_base * 3.8
     propagation_loss = low_grazing_loss + occlusion_loss + two_ray + weather_loss
@@ -139,8 +110,7 @@ def build_frame_products(
         + scan_gap.astype(np.float32) * site.scan_gap_probability
         + horizon_mask.astype(np.float32) * 0.34
         + (0.12 if str(group["interference"]) == "dropped_cpi" else 0.0),
-        0.0,
-        0.98,
+        0.0, 0.98,
     )
     clutter_glints = rng.weibull(1.0 if str(group["clutter_regime"]) != "sea_glint" else 0.62, frame_count).astype(np.float32)
     clutter_glints *= (1.7 + clutter_base * 0.30)
@@ -149,9 +119,7 @@ def build_frame_products(
     snr_db = suppressed_snr + correlated_noise(rng, frame_count, sigma=1.8, alpha=0.75) + clutter_glints * 0.25
     if not signal_enabled:
         snr_db = (
-            -10.5
-            + clutter_glints * 1.1
-            + correlated_noise(rng, frame_count, sigma=2.0, alpha=0.80)
+            -10.5 + clutter_glints * 1.1 + correlated_noise(rng, frame_count, sigma=2.0, alpha=0.80)
             - dropout * rng.uniform(1.2, 4.2)
         ).astype(np.float32)
     if str(group["interference"]) == "agc_compression":
@@ -160,29 +128,18 @@ def build_frame_products(
         rfi_base += 0.22
     rfi_pressure = np.clip(rfi_base + rng.beta(1.2, 6.5, frame_count) * 0.55 + dropout * 0.16, 0.0, 1.0)
     local_noise_floor_db = (
-        -43.0
-        + site.land_clutter_loss_db
-        + clutter_base * 2.4
-        + rfi_pressure * 7.4
+        -43.0 + site.land_clutter_loss_db + clutter_base * 2.4 + rfi_pressure * 7.4
         + correlated_noise(rng, frame_count, sigma=0.60, alpha=0.86)
     )
     cfar_threshold = (
-        8.9
-        + clutter_base * 0.55
-        + rfi_pressure * 2.4
-        + dropout * 1.6
-        + horizon_mask.astype(np.float32) * 1.4
-        + float(profile["threshold"])
+        8.9 + clutter_base * 0.55 + rfi_pressure * 2.4 + dropout * 1.6
+        + horizon_mask.astype(np.float32) * 1.4 + float(profile["threshold"])
         + correlated_noise(rng, frame_count, sigma=0.34, alpha=0.84)
     )
     doppler_scr = np.clip(
-        snr_db
-        - clutter_base * 0.6
-        + np.abs(radial_velocity) * 0.052
-        - rfi_pressure * 1.8
-        + rng.normal(0.0, 1.15, frame_count),
-        -18.0,
-        26.0,
+        snr_db - clutter_base * 0.6 + np.abs(radial_velocity) * 0.052
+        - rfi_pressure * 1.8 + rng.normal(0.0, 1.15, frame_count),
+        -18.0, 26.0,
     )
     cfar_statistic = snr_db + 0.30 * doppler_scr + clutter_glints * 0.28 + rng.normal(0.0, 1.0, frame_count)
     cfar_detected = (cfar_statistic - cfar_threshold + rng.normal(0.0, 0.65, frame_count)) > 0.0
@@ -207,11 +164,8 @@ def build_frame_products(
     signal_mask = 1.0 - np.clip(dropout * 0.70 + horizon_mask.astype(np.float32) * 0.25, 0.0, 0.98)
     micro_doppler_energy = np.clip(
         micro_amp * micro_variation * (0.34 + 0.66 * signal_mask)
-        + rfi_pressure * 0.14
-        + clutter_glints * 0.009
-        + rng.normal(0.0, 0.065, frame_count),
-        0.0,
-        1.6,
+        + rfi_pressure * 0.14 + clutter_glints * 0.009 + rng.normal(0.0, 0.065, frame_count),
+        0.0, 1.6,
     )
     micro_peak_series = np.clip(micro_peak + correlated_noise(rng, frame_count, sigma=max(1.0, micro_peak * 0.040)), 0.0, 280.0)
     micro_bw_series = np.clip(micro_bw + correlated_noise(rng, frame_count, sigma=max(2.0, micro_bw * 0.050)), 1.0, 400.0)
@@ -219,20 +173,16 @@ def build_frame_products(
     range_time_energy = np.clip(0.18 + normalized_snr * 0.55 + clutter_glints * 0.045 + rfi_pressure * 0.06, 0.0, 1.6)
     doppler_time_energy = np.clip(0.16 + sigmoid(doppler_scr / 6.5) * 0.52 + micro_doppler_energy * 0.16, 0.0, 1.7)
     range_doppler_time_energy = np.clip(
-        0.12 + range_time_energy * 0.46 + doppler_time_energy * 0.38 + cfar_detected.astype(np.float32) * 0.08,
-        0.0,
-        1.8,
+        0.12 + range_time_energy * 0.46 + doppler_time_energy * 0.38 + cfar_detected.astype(np.float32) * 0.08, 0.0, 1.8,
     )
     stft_energy = np.clip(micro_doppler_energy * 0.58 + doppler_time_energy * 0.24 + rng.normal(0.0, 0.035, frame_count), 0.0, 1.6)
     weighted_spectrum_peak = np.clip(stft_energy * 0.62 + normalized_snr * 0.24 + rng.normal(0.0, 0.025, frame_count), 0.0, 1.6)
     cepstrum_peak = np.clip(micro_doppler_energy * 0.42 + rng.normal(0.0, 0.035, frame_count), 0.0, 1.4)
-    cadence_velocity_peak = np.clip(np.abs(radial_velocity) * 0.0009 + micro_peak_series / 3_000.0 + rng.normal(0.0, 0.004, frame_count), 0.0, 0.24)
+    cadence_velocity_peak = np.clip(
+        np.abs(radial_velocity) * 0.0009 + micro_peak_series / 3_000.0 + rng.normal(0.0, 0.004, frame_count), 0.0, 0.24,
+    )
     phase_impairment_rad = {
-        "none": 0.01,
-        "rfi_burst": 0.04,
-        "dropped_cpi": 0.02,
-        "agc_compression": 0.02,
-        "multipath_masking": 0.06,
+        "none": 0.01, "rfi_burst": 0.04, "dropped_cpi": 0.02, "agc_compression": 0.02, "multipath_masking": 0.06,
     }[str(group["interference"])] + rng.normal(0.0, 0.012, frame_count)
     amplitude_impairment = np.clip(1.0 + rfi_pressure * rng.normal(0.0, 0.12, frame_count), 0.70, 1.35)
 
@@ -299,5 +249,3 @@ def build_frame_products(
         },
     }
     return truth, frame
-
-

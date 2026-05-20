@@ -1,4 +1,9 @@
-"""Calibration artifacts and kinematics audit for the v1 benchmark."""
+"""Calibration anchor artifacts for the ML training generator.
+
+Builds reference-distribution calibration reports using Wasserstein-1
+and Kolmogorov-Smirnov distances.  Imports from generate_ml_training_types
+only — no circular imports.
+"""
 
 from __future__ import annotations
 
@@ -8,13 +13,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ml_training_config import (
+from generate_ml_training_types import (
     CALIBRATION_SAMPLE_COUNT,
     FRAME_INDEX,
-    SPEED_PRIORS,
 )
-from generate_ml_training_calibration import calibration_anchor_specs
-from generate_ml_training_report import build_kinematics_audit
 
 
 def finite_values(values: np.ndarray) -> np.ndarray:
@@ -105,6 +107,71 @@ def record_observation_samples(records: pd.DataFrame, selector: pd.Series, colum
     return quantile_samples(values)
 
 
+def calibration_anchor_specs() -> list[dict[str, Any]]:
+    return [
+        {
+            "feature_name": "snr_db_detector_public_proxy",
+            "feature_family": "range_doppler_observable",
+            "unit": "dB",
+            "metric": "wasserstein_1",
+            "tolerance": 22.0,
+            "target_samples": target_distribution((-18.0, 24.0)),
+            "citation_id": "public_proxy_link_budget_reference_envelope",
+            "citation": "Strict-open current public-proxy link-budget envelope; target samples are broad reference priors, not measured radar traces.",
+            "url": None,
+            "source_boundary": "synthetic_public_proxy_reference_distribution",
+        },
+        {
+            "feature_name": "abs_radial_velocity_mps_detector_public_proxy",
+            "feature_family": "doppler_observable",
+            "unit": "m/s",
+            "metric": "wasserstein_1",
+            "tolerance": 28.0,
+            "target_samples": target_distribution((0.0, 60.0)),
+            "citation_id": "public_proxy_radial_velocity_reference_envelope",
+            "citation": "Strict-open current radial-velocity reference envelope derived from broad public speed priors and random line-of-sight geometry; not true-speed truth.",
+            "url": None,
+            "source_boundary": "synthetic_public_proxy_reference_distribution",
+        },
+        {
+            "feature_name": "doppler_scr_detector_public_proxy",
+            "feature_family": "doppler_clutter_observable",
+            "unit": "dB",
+            "metric": "wasserstein_1",
+            "tolerance": 20.0,
+            "target_samples": target_distribution((-14.0, 24.0)),
+            "citation_id": "public_proxy_doppler_scr_reference_envelope",
+            "citation": "Strict-open current Doppler signal-to-clutter reference envelope for simulator consistency checks; no measured target samples are vendored.",
+            "url": None,
+            "source_boundary": "synthetic_public_proxy_reference_distribution",
+        },
+        {
+            "feature_name": "rfi_pressure_all_scenes",
+            "feature_family": "interference_observable",
+            "unit": "unitless",
+            "metric": "kolmogorov_smirnov",
+            "tolerance": 0.75,
+            "target_samples": target_beta_distribution((0.0, 1.0), alpha=1.3, beta=5.5),
+            "citation_id": "public_proxy_interference_pressure_reference",
+            "citation": "Strict-open current interference-pressure reference distribution for smoke artifact integrity; not deployment metadata or measured spectrum capture.",
+            "url": None,
+            "source_boundary": "synthetic_public_proxy_reference_distribution",
+        },
+        {
+            "feature_name": "horizon_masked_fraction_initial_take_up",
+            "feature_family": "operational_los_metric",
+            "unit": "fraction",
+            "metric": "kolmogorov_smirnov",
+            "tolerance": 0.80,
+            "target_samples": target_distribution((0.35, 1.0)),
+            "citation_id": "public_proxy_low_grazing_los_reference",
+            "citation": "Strict-open current low-grazing line-of-sight reference envelope for initial-take-up reporting; not measured radar performance.",
+            "url": None,
+            "source_boundary": "synthetic_public_proxy_reference_distribution",
+        },
+    ]
+
+
 def build_calibration_artifacts(
     records: pd.DataFrame,
     frames: np.ndarray,
@@ -116,20 +183,11 @@ def build_calibration_artifacts(
     observation_by_feature = {
         "snr_db_detector_public_proxy": frame_observation_samples(records, frames, valid_mask, positive, "snr_db"),
         "abs_radial_velocity_mps_detector_public_proxy": frame_observation_samples(
-            records,
-            frames,
-            valid_mask,
-            positive,
-            "radial_velocity_mps",
-            transform="abs",
+            records, frames, valid_mask, positive, "radial_velocity_mps", transform="abs",
         ),
         "doppler_scr_detector_public_proxy": frame_observation_samples(records, frames, valid_mask, positive, "doppler_scr"),
         "rfi_pressure_all_scenes": frame_observation_samples(records, frames, valid_mask, all_records, "rfi_pressure"),
-        "horizon_masked_fraction_initial_take_up": record_observation_samples(
-            records,
-            initial,
-            "horizon_masked_fraction",
-        ),
+        "horizon_masked_fraction_initial_take_up": record_observation_samples(records, initial, "horizon_masked_fraction"),
     }
 
     anchors = []
@@ -144,57 +202,46 @@ def build_calibration_artifacts(
         sample_counts_ok = len(target_samples) >= 32 and len(observed_samples) >= 32
         distance_ok = math.isfinite(distance) and distance <= float(spec["tolerance"])
         status = "pass" if sample_counts_ok and distance_ok else "fail"
-        anchors.append(
-            {
-                "feature_name": feature_name,
-                "citation": spec["citation"],
-                "url": spec["url"],
-                "target_samples": target_samples,
-                "metric": spec["metric"],
-                "tolerance": float(spec["tolerance"]),
-            }
-        )
-        observations.append(
-            {
-                "feature_name": feature_name,
-                "observed_samples": observed_samples,
-            }
-        )
-        distance_rows.append(
-            {
-                "feature_name": feature_name,
-                "feature_family": spec["feature_family"],
-                "unit": spec["unit"],
-                "citation_id": spec["citation_id"],
-                "citation": spec["citation"],
-                "url": spec["url"] or "",
-                "metric": spec["metric"],
-                "tolerance": float(spec["tolerance"]),
-                "distance": distance,
-                "target_sample_count": len(target_samples),
-                "observed_sample_count": len(observed_samples),
-                "status": status,
-                "claim_boundary": "reference-only synthetic public-proxy distribution audit; not measured-anchor promotion",
-            }
-        )
-        manifest_anchors.append(
-            {
-                "feature_name": feature_name,
-                "feature_family": spec["feature_family"],
-                "unit": spec["unit"],
-                "citation_id": spec["citation_id"],
-                "metric": spec["metric"],
-                "tolerance": float(spec["tolerance"]),
-                "target_sample_count": len(target_samples),
-                "observed_sample_count": len(observed_samples),
-                "target_min": float(min(target_samples)),
-                "target_max": float(max(target_samples)),
-                "observed_min": float(min(observed_samples)) if observed_samples else None,
-                "observed_max": float(max(observed_samples)) if observed_samples else None,
-                "source_boundary": spec["source_boundary"],
-                "status": status,
-            }
-        )
+        anchors.append({
+            "feature_name": feature_name,
+            "citation": spec["citation"],
+            "url": spec["url"],
+            "target_samples": target_samples,
+            "metric": spec["metric"],
+            "tolerance": float(spec["tolerance"]),
+        })
+        observations.append({"feature_name": feature_name, "observed_samples": observed_samples})
+        distance_rows.append({
+            "feature_name": feature_name,
+            "feature_family": spec["feature_family"],
+            "unit": spec["unit"],
+            "citation_id": spec["citation_id"],
+            "citation": spec["citation"],
+            "url": spec["url"] or "",
+            "metric": spec["metric"],
+            "tolerance": float(spec["tolerance"]),
+            "distance": distance,
+            "target_sample_count": len(target_samples),
+            "observed_sample_count": len(observed_samples),
+            "status": status,
+            "claim_boundary": "reference-only synthetic public-proxy distribution audit; not measured-anchor promotion",
+        })
+        manifest_anchors.append({
+            "feature_name": feature_name,
+            "feature_family": spec["feature_family"],
+            "unit": spec["unit"],
+            "citation_id": spec["citation_id"],
+            "metric": spec["metric"],
+            "tolerance": float(spec["tolerance"]),
+            "target_sample_count": len(target_samples),
+            "observed_sample_count": len(observed_samples),
+            "target_min": float(min(target_samples)),
+            "target_max": float(max(target_samples)),
+            "observed_min": float(min(observed_samples)) if observed_samples else None,
+            "observed_max": float(max(observed_samples)) if observed_samples else None,
+            "source_boundary": spec["source_boundary"],
+            "status": status,
+        })
 
     artifact_status = "pass" if len(anchors) >= 3 and all(row["status"] == "pass" for row in distance_rows) else "fail"
     summary = {
@@ -207,10 +254,7 @@ def build_calibration_artifacts(
         "distance_failures": [row["feature_name"] for row in distance_rows if row["status"] != "pass"],
         "claim_boundary": "Calibration artifacts use strict-open reference target distributions and synthetic observations only; they do not promote the smoke benchmark to measured-anchored current.",
     }
-    report = {
-        "anchors": anchors,
-        "observations": observations,
-    }
+    report = {"anchors": anchors, "observations": observations}
     manifest = {
         "artifact": "calibration_anchor_manifest",
         "benchmark_profile": "ml-training-three-tier",
@@ -234,5 +278,3 @@ def build_calibration_artifacts(
         "anchors": manifest_anchors,
     }
     return report, manifest, pd.DataFrame(distance_rows), summary
-
-

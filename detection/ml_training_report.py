@@ -12,15 +12,16 @@ from typing import Any
 import pandas as pd
 
 from ml_training_config import (
-    FAMILY_SPEED_PRIOR,
     FRAME_COLUMNS,
     FRAME_PERIOD_S,
     RESTRICTED_FEATURE_NAMES,
     SPEED_PRIORS,
+    FAMILY_SPEED_PRIOR,
     PhaseSpec,
     SpeedPrior,
 )
 from ml_training_scenarios import denylist_violations
+from generate_ml_training_report import speed_prior_manifest_payload
 
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
@@ -48,27 +49,6 @@ def range_bin(mean_range_m: float) -> str:
 
 def speed_prior_for_family(family: str) -> SpeedPrior:
     return SPEED_PRIORS[FAMILY_SPEED_PRIOR.get(family, "stationary_or_ground_artifact")]
-
-
-def speed_prior_manifest_payload() -> dict[str, Any]:
-    return {
-        "benchmark_profile": "ml-training-three-tier",
-        "claim_boundary": "Public-source speed priors and stress-class boundaries only; no measured target truth or proprietary-equivalent behavior is claimed.",
-        "policy": [
-            "Baseline piston pusher-prop public-proxy positives use the 45-60 m/s cruise working band, with 50-55 m/s as the main estimate.",
-            "Fast prop or modified variants remain separate stress classes.",
-            "Jet-powered variants remain fast_jet_owa_public_proxy stress data around 110+ m/s and are not blended into baseline positives.",
-            "radial_velocity_mps is radar-observable line-of-sight velocity, not true speed.",
-            "estimated_ground_speed_mps remains denylisted until a track-history or multi-view estimator is implemented.",
-        ],
-        "family_to_prior": FAMILY_SPEED_PRIOR,
-        "priors": {prior_id: asdict(prior) for prior_id, prior in SPEED_PRIORS.items()},
-        "source_context": [
-            "OSMP visual guide: delta/pusher fixed-wing public proxy family context.",
-            "Army Recognition public technical profile: broad piston pusher-prop speed prior context.",
-            "Reuters-syndicated reporting: faster prop and jet variants treated as stress classes, not baseline positives.",
-        ],
-    }
 
 
 def write_metadata(

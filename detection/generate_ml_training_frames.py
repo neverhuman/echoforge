@@ -1,8 +1,6 @@
-"""Physics-based signal generators for the v1 benchmark.
+"""Frame-product builder: per-frame radar observables from scene parameters.
 
-Covers waveform/signal synthesis: frame product assembly, frame padding,
-and aggregate feature extraction. Low-level helpers live in
-ml_training_generators_helpers.
+Aggregation, denylist, and audit helpers live in generate_ml_training_aggregation.
 """
 
 from __future__ import annotations
@@ -10,9 +8,13 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
-from ml_training_config import (
-    FAMILY_TRAITS,
+from generate_ml_training_types import (
     FRAME_COLUMNS,
     FRAME_INDEX,
     FRAME_PERIOD_S,
@@ -20,7 +22,8 @@ from ml_training_config import (
     SensorArchetype,
     SiteArchetype,
 )
-from ml_training_generators_helpers import (
+from generate_ml_training_tables import FAMILY_TRAITS
+from generate_ml_training_physics import (
     correlated_noise,
     kinematics,
     phase_profile,
@@ -31,22 +34,30 @@ from ml_training_generators_helpers import (
     two_ray_loss_db,
     uniform,
 )
-from generate_ml_training_aggregation import aggregate_features, pad_frames
 
-__all__ = [
-    "stable_seed",
-    "sigmoid",
-    "uniform",
-    "correlated_noise",
-    "rcs_lookup_dbsm",
-    "phase_profile",
-    "kinematics",
-    "radar_equation_snr_db",
-    "two_ray_loss_db",
-    "build_frame_products",
-    "pad_frames",
-    "aggregate_features",
-]
+
+def probe_auc(X: np.ndarray, y: np.ndarray, split: np.ndarray) -> float:
+    train = split == "train"
+    test = split == "test"
+    if np.unique(y[train]).size < 2 or np.unique(y[test]).size < 2:
+        return float("nan")
+    model = make_pipeline(
+        StandardScaler(),
+        LogisticRegression(max_iter=500, class_weight="balanced", random_state=136),
+    )
+    model.fit(X[train], y[train])
+    return float(roc_auc_score(y[test], model.predict_proba(X[test])[:, 1]))
+
+
+def one_hot_frame(records: pd.DataFrame, categorical: list[str], numeric: list[str]) -> np.ndarray:
+    parts = []
+    if categorical:
+        parts.append(pd.get_dummies(records[categorical].astype(str), dtype=np.float32).to_numpy(np.float32))
+    if numeric:
+        parts.append(records[numeric].astype(np.float32).to_numpy(np.float32))
+    if not parts:
+        return np.zeros((len(records), 1), dtype=np.float32)
+    return np.concatenate(parts, axis=1).astype(np.float32)
 
 
 def build_frame_products(
@@ -299,5 +310,4 @@ def build_frame_products(
         },
     }
     return truth, frame
-
 

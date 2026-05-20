@@ -243,6 +243,7 @@ pub fn parse_detection_id(raw: &str) -> Result<ParsedDetectionId, TraceabilityEr
 // Lookup core (implementation in traceability_lookup.rs)
 // ---------------------------------------------------------------------------
 
+#[path = "traceability_lookup.rs"]
 mod traceability_lookup;
 pub use traceability_lookup::lookup_detection;
 
