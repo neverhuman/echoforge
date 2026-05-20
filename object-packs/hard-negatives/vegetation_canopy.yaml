@@ -1,0 +1,39 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Represents distributed vegetation-canopy clutter (wind-rustled leaves),
+# treated as an object-card-like entity for the hard-negative dataset.
+id: "ef:object_card:vegetation-canopy:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: vegetation-canopy
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Vegetation Canopy Clutter"
+object_family: vegetation_clutter
+geometry_variant: dense-canopy
+material_variant: leaf-biomass-mixed
+dimensions_m:
+  x: 30.0
+  y: 30.0
+  z: 15.0
+tags:
+  - hard_negative
+  - environment
+  - vegetation
+  - canopy
+  - distributed_scatterer
+  - low_doppler

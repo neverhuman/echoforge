@@ -1,0 +1,84 @@
+{
+  "id": "ef:eo_ir_sensor_card:mwir-cooled-typical:0123456789abcdef:1",
+  "kind": "eo_ir_sensor_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "mwir-cooled-typical",
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "Holst — Electro-Optical Imaging System Performance",
+      "Johnson criteria (1958/1985) — detect/recognize/identify pixel-on-target requirements",
+      "MODTRAN band-integrated atmospheric transmission tables"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T21:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": { "spdx_id": "MIT" },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.25,
+    "checks": [{ "name": "shape", "status": "pass", "message": "ok" }],
+    "fidelity_class": "primitive_decomposed"
+  },
+  "sensor_name": "Typical 3-5μm Cooled MWIR Counter-UAS Camera",
+  "band": "mwir_cooled",
+  "detector": {
+    "detector_type": "mct_hgcdte",
+    "array_format_h_v": [640, 512],
+    "pitch_um": 15.0,
+    "netd_mk": 18.0,
+    "integration_time_ms_range": { "min": 0.5, "max": 5.0 }
+  },
+  "optics": {
+    "focal_length_mm": 200,
+    "focal_length_mm_range": { "min": 100, "max": 600 },
+    "aperture_diameter_mm": 100,
+    "f_number": 2.0,
+    "transmission": 0.85
+  },
+  "fov_deg": {
+    "h_deg": 2.7,
+    "v_deg": 2.2,
+    "ifov_mrad": 0.075
+  },
+  "frame_rate_hz": 50,
+  "scan_pattern": "step_stare",
+  "stabilization": "three_axis_active",
+  "declared_target_range_envelope": [
+    {
+      "target_class_slug": "shahed-class-piston",
+      "task": "detect",
+      "range_m": 8000,
+      "conditions": "clear air, 23 km vis, 60% humidity, daytime tail-aspect",
+      "citation_id": "johnson-criteria-detect-1pixel-on-target-2.5m-cross-range"
+    },
+    {
+      "target_class_slug": "shahed-class-piston",
+      "task": "recognize",
+      "range_m": 4000,
+      "conditions": "as above; Johnson 4-pixel detect requirement",
+      "citation_id": "johnson-criteria-recognize-4pixel"
+    },
+    {
+      "target_class_slug": "shahed-class-piston",
+      "task": "identify",
+      "range_m": 2000,
+      "conditions": "as above; Johnson 8-pixel identify requirement",
+      "citation_id": "johnson-criteria-identify-8pixel"
+    }
+  ],
+  "weather_dependence": {
+    "blocked_by_cloud_oktas_above": 7,
+    "degraded_by_fog_below_visibility_m": 1000,
+    "rain_attenuation_db_per_km": 0.5
+  },
+  "source_refs": [
+    {
+      "citation_id": "holst-eo-system-performance",
+      "title": "Holst — Electro-Optical Imaging System Performance",
+      "retrieved_utc": "2026-05-18T20:00:00Z"
+    }
+  ]
+}

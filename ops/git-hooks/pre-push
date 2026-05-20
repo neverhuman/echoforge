@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Pre-push hook: runs the fast lane before pushing.
+set -euo pipefail
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+bash "${REPO_ROOT}/ops/run-lane.sh" fast

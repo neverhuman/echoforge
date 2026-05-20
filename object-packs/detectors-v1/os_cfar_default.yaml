@@ -1,0 +1,85 @@
+# EchoForge detector_card — OS-CFAR (Rohling 1983) default
+# Schema: schemas/detector_card.schema.json
+#
+# Ordered-statistic CFAR with Rohling 1983 implicit-equation alpha for
+# Gaussian / Rayleigh noise. Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/os_cfar.rs (OsCfarDetector).
+# Empirically calibrated: 32/32 PASS at 1M trials per
+# .agents/receipts/lane-g-c-multidist-cfar/20260518T203256Z.md
+# (empirical_pfa range 8.31e-4 to 1.251e-3 within ±50% of target 1e-3).
+id: "ef:detector_card:os-cfar-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: os-cfar-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Rohling, Radar CFAR thresholding in clutter and multiple target situations, IEEE Trans. AES 1983"
+    - "Ward, Tough, Watts, Sea Clutter ch. 8 (K-distribution OS-CFAR)"
+    - "crates/echoforge-radar/src/detectors/os_cfar.rs (OsCfarDetector)"
+    - "crates/echoforge-radar/src/detectors/cfar_alpha.rs (Rohling alpha resolver)"
+    - ".agents/receipts/lane-g-c-multidist-cfar/20260518T203256Z.md (32/32 PASS at 1M trials)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: benchmarked
+  status: pass
+  uncertainty_score: 0.10
+  checks:
+    - name: empirical_pfa_32_of_32_pass_1m_trials
+      status: pass
+      message: "32/32 PASS at 1M trials per .agents/receipts/lane-g-c-multidist-cfar/20260518T203256Z.md; empirical Pfa range 8.31e-4 to 1.251e-3 within ±50% of target 1e-3"
+    - name: rohling_1983_implicit_equation
+      status: pass
+      message: "alpha resolved via cfar_alpha::resolve_alpha for CfarVariant::OrderedStatistic{rank=12} under NoiseDistribution::Gaussian"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built OsCfarDetector::new() byte-for-byte on pinned RD fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "OS-CFAR (Rohling 1983 default)"
+algorithm_family: os_cfar
+parameters:
+  training_cells: 16
+  guard_cells: 4
+  pfa: 1.0e-3
+  k_quantile_index: 12
+  quantile: 0.75
+  clutter_assumption: "rayleigh_fallback_with_alpha_library_override"
+default_thresholds:
+  pfa: 1.0e-3
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - rcs-0p01-m2
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.78
+      pd_max: 0.92
+    snr_db_required_range:
+      min: 13.0
+      max: 16.0
+    citation_id: skolnik-3rd-ch9-pd-pfa-table-13.7
+citations:
+  - citation_id: rohling-1983
+    title: "Radar CFAR thresholding in clutter and multiple target situations"
+    authors: "Rohling"
+    publisher: "IEEE Trans. AES 1983"
+  - citation_id: skolnik-3rd-ch9-pd-pfa-table-13.7
+    title: "Skolnik 3rd ed. ch. 9 PD/PFA table"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: ward-tough-watts-sea-clutter-ch8
+    title: "Sea Clutter ch. 8 (K-distribution OS-CFAR)"
+    authors: "Ward, Tough, Watts"
+    publisher: "IET Radar Sonar Navig. series, 2013"

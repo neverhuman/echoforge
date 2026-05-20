@@ -1,0 +1,75 @@
+# EchoForge detector_card — Micro-Doppler feature (autocorrelation) default
+# Schema: schemas/detector_card.schema.json
+#
+# Per-row autocorrelation along the doppler axis of a magnitude R-D
+# grid, with dominant non-zero lag picked above a detection-ratio
+# fraction of zero-lag energy. Dominant lag is converted to a
+# modulation frequency in Hz via the configured doppler bin spacing.
+# Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/micro_doppler_feature.rs
+# (MicroDopplerDetector).
+id: "ef:detector_card:micro-doppler-feature-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: micro-doppler-feature-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Chen, V. C., The Micro-Doppler Effect in Radar, Artech House 2011 (ch. 3 rotating-blade kinematics)"
+    - "Tahmoush, Review of micro-Doppler signatures, IET Radar Sonar Navig. 9(9) 2015"
+    - "crates/echoforge-radar/src/detectors/micro_doppler_feature.rs (MicroDopplerDetector)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: autocorrelation_dominant_lag_extraction
+      status: pass
+      message: "Per-row autocorrelation with dominant-lag picking implemented in micro_doppler_feature module"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built MicroDopplerDetector::new(MicroDopplerParams::new(...)) byte-for-byte on pinned RD fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "Micro-Doppler feature (autocorrelation, Chen 2011)"
+algorithm_family: micro_doppler_feature_autocorrelation
+parameters:
+  doppler_bin_hz: 5.0
+  min_lag_bins: 2
+  max_lag_bins: 0
+  detection_ratio: 0.30
+default_thresholds:
+  detection_ratio: 0.30
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - mohajer-6
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.65
+      pd_max: 0.85
+    snr_db_required_range:
+      min: 15.0
+      max: 20.0
+    citation_id: chen-2011-micro-doppler-ch3
+citations:
+  - citation_id: chen-2011-micro-doppler-ch3
+    title: "The Micro-Doppler Effect in Radar, ch. 3 rotating-blade kinematics"
+    authors: "Chen, V. C."
+    publisher: "Artech House 2011"
+  - citation_id: tahmoush-2015-micro-doppler-review
+    title: "Review of micro-Doppler signatures"
+    authors: "Tahmoush"
+    publisher: "IET Radar Sonar Navig. 9(9), 1140-1146 (2015)"

@@ -1,0 +1,142 @@
+# EchoForge radar_platform_card — RTX AN/MPQ-64 Sentinel A4
+# (X-band 3D phased array, US Army short-range air-defense)
+# Schema: schemas/radar_platform_card.schema.json
+#
+# Strict-open: parameters derived from USAASC acquisition material
+# (tips/detectors/tip1.txt §5.2) plus DOT&E Sentinel A4 commentary.
+# No measured-truth claim. Vendor name allowed per the 20260518T160000Z
+# naming-policy reversal; cited to USAASC public acquisition material.
+#
+# Antenna gain derived via G = 4*pi*eta*A_phys/lambda^2 with eta=0.65
+# for AESA panel at lambda = c/10e9 = 0.030 m. A ~0.6 m^2 panel
+# yields G ~= 35 dBi, consistent with documented Sentinel A4 design.
+id: "ef:radar_platform_card:rtx-an-mpq-64-sentinel-a4:0000000000000000:1"
+kind: radar_platform_card
+schema_version: "1.0.0"
+public_proxy_id: rtx-an-mpq-64-sentinel-a4
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "USAASC: AN/MPQ-64 A3 Enhanced Sentinel — 360° X-band 3D phased-array, 75 km instrumented range"
+    - "tips/detectors/tip1.txt:206-210 (Sentinel attribute summary, USAASC primary citation)"
+    - "DOT&E FY21 / FY22 commentary on Sentinel A4 multi-mission upgrade (RAM, CM, UAS)"
+    - "Skolnik 3rd ed. ch. 2 (radar equation, antenna gain G = 4*pi*eta*A_phys/lambda^2)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:30:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public datasheets and OSINT. No measured-truth claim. No classified parameters."
+validation:
+  tier: basic
+  status: warn
+  uncertainty_score: 0.4
+  checks:
+    - name: vendor_datasheet_citation_present
+      status: pass
+      message: "USAASC public acquisition material cited as primary source"
+    - name: radar_equation_inputs_self_consistent
+      status: pass
+      message: "Antenna gain (35 dBi) consistent with 0.6 m^2 aperture at 10 GHz (eta = 0.65)"
+    - name: detection_range_reproduction_within_20pct
+      status: warn
+      message: "75 km @ 0 dBsm fighter declared by USAASC (confidence A); Shahed-class 40 km is OSINT-scaled (confidence C); RAM and small-UAS figures depend on mode"
+  fidelity_class: primitive_decomposed
+sensor_name: "RTX AN/MPQ-64 Sentinel A4"
+vendor: "RTX"
+model: "AN/MPQ-64 Sentinel A4"
+country_of_origin: "USA"
+role: ground_based_air_defense
+band_name: "X"
+waveform_family: pulse_doppler
+center_frequency_hz: 10.0e9
+frequency_range_hz:
+  min: 9.5e9
+  max: 10.5e9
+sample_rate_hz: 40.0e6
+antenna:
+  pattern_type: phased_array_aesa
+  gain_dbi: 35.0
+  beamwidth_az_deg: 2.5
+  beamwidth_el_deg: 4.0
+  aperture_area_m2: 0.6
+  aperture_efficiency: 0.65
+  polarization_default: vv
+  polarization_options: [vv, hh]
+  sidelobe_max_db: -28.0
+  panel_count: 1
+transmit:
+  peak_power_w: 7500.0
+  average_power_w: 750.0
+  duty_cycle: 0.10
+  prf_hz: 2500.0
+  pri_s: 0.0004
+  pulse_width_s: 0.00004
+  waveform_parameters:
+    lfm_bandwidth_hz: 5.0e6
+    pulse_compression_ratio: 200.0
+receiver:
+  noise_figure_db: 3.0
+  system_temperature_k: 290.0
+  receiver_dynamic_range_db: 92.0
+  adc_bits: 14
+  system_losses_db: 4.0
+scan:
+  scan_pattern: mechanical_360
+  azimuth_coverage_deg: 360.0
+  elevation_coverage_deg: 55.0
+  scan_rate_rpm: 30.0
+  revisit_rate_s: 2.0
+  dwell_time_s: 0.020
+  max_simultaneous_tracks: 100
+declared_detection_envelope:
+  - target_class_slug: "fighter-class"
+    range_m: 75000.0
+    rcs_dbsm: 0.0
+    rcs_m2: 1.0
+    conditions: "USAASC-declared 75 km instrumented range against 0 dBsm fighter-class target, 360° coverage, clear air, X-band 3D mode. Primary spec from public acquisition material."
+    citation_id: "usaasc-sentinel-a3-public"
+    confidence_label: "A"
+  - target_class_slug: "shahed-class-piston"
+    range_m: 40000.0
+    rcs_dbsm: -10.0
+    conditions: "OSINT-derived: scaled from declared 75 km @ 0 dBsm using radar equation (range scales as RCS^0.25). For Shahed-class aspect-dependent RCS centroid ~-10 dBsm: 75 km * (0.1)^0.25 = 42 km. Reduced to 40 km for clutter/Doppler-occluded low-altitude regimes per DOT&E A4 commentary."
+    citation_id: "tips-detectors-tip1-206"
+    confidence_label: "C"
+  - target_class_slug: "small-uas-class-i"
+    range_m: 15000.0
+    rcs_m2: 0.01
+    conditions: "OSINT-derived: Sentinel A4 multi-mission upgrade adds explicit C-UAS mode per DOT&E commentary; 0.01 m^2 small-UAS detection scaled from 75 km @ 1 m^2 via radar equation (75 * 0.01^0.25 = 23.7 km), de-rated to 15 km for clutter/low-altitude operational regime."
+    citation_id: "dote-sentinel-a4-public"
+    confidence_label: "C"
+  - target_class_slug: "rcs-0p1-m2"
+    range_m: 28000.0
+    rcs_m2: 0.1
+    conditions: "OSINT-derived 0.1 m^2 (cruise-missile-class) detection range via radar equation scaling from declared 75 km @ 1 m^2 (75 * 0.1^0.25 = 42 km), de-rated to 28 km for ground-clutter and turn-on/cueing latency in operational geometry."
+    citation_id: "dote-sentinel-a4-public"
+    confidence_label: "C"
+vendor_datasheet_refs:
+  - citation_id: "usaasc-sentinel-a3-public"
+    url: "https://asc.army.mil/web/portfolio-item/an-mpq-64-sentinel/"
+    title: "USAASC: AN/MPQ-64 A3 Enhanced Sentinel — public acquisition portfolio entry"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+osint_refs:
+  - citation_id: "tips-detectors-tip1-206"
+    url: "internal://tips/detectors/tip1.txt#L206-210"
+    title: "Sentinel public attribute summary — 360° X-band 3D phased-array, 75 km instrumented range"
+    publisher: "EchoForge internal OSINT compilation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: "dote-sentinel-a4-public"
+    url: "https://www.dote.osd.mil/Annual-Reports/"
+    title: "DOT&E annual reports — Sentinel A4 multi-mission (RAM, CM, UAS) upgrade commentary"
+    publisher: "U.S. DOT&E"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+operational_notes: "Described by U.S. Army as its 360° short-range air-defense surveillance radar feeding the air picture and cueing weapons (NASAMS, IFPC). The A4 variant adds multi-mission detection of RAM, cruise missiles, and small UAS per DOT&E. Not a Shahed-dedicated detector but central to U.S. short-range air defense."
+integration_refs:
+  - "NASAMS"
+  - "IFPC"
+  - "FAAD C2"
+aliases:
+  - "Sentinel A4"
+  - "AN/MPQ-64A4"
+  - "Enhanced Sentinel"

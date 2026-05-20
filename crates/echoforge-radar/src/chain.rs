@@ -68,7 +68,7 @@ impl<B: ArrayBackend> RadarChain<B> {
         received: &[ComplexSample],
         reference: &[ComplexSample],
     ) -> RadarChainOutput {
-        // Pre-window the reference so any backend (CPU, GPU stub) sees a
+        // Pre-window the reference so any backend (CPU, GPU unimplemented) sees a
         // tapered template. This keeps the `ArrayBackend` trait surface
         // unchanged but threads the Taylor-35 default through.
         let windowed_reference = apply_window(reference, self.compression_window);

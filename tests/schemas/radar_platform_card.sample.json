@@ -1,0 +1,145 @@
+{
+  "id": "ef:radar_platform_card:saab-giraffe-1x:0123456789abcdef:1",
+  "kind": "radar_platform_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "saab-giraffe-1x",
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "https://www.saab.com/products/giraffe-1x",
+      "tips/detectors/tip1.txt:220-222",
+      "tips/detectors/tip1.txt:384-386"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T21:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT",
+    "notice": "Card content derived from public vendor datasheets and OSINT. No measured-truth claim. Strict-open posture per current plan."
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "warn",
+    "uncertainty_score": 0.4,
+    "checks": [
+      {
+        "name": "vendor_datasheet_citation_present",
+        "status": "pass",
+        "message": "Saab product page cited"
+      },
+      {
+        "name": "detection_range_reproduction_within_20pct",
+        "status": "warn",
+        "message": "current case-study target — reproduction test landing next"
+      }
+    ],
+    "fidelity_class": "primitive_decomposed"
+  },
+  "sensor_name": "Saab Giraffe 1X",
+  "vendor": "Saab",
+  "model": "Giraffe 1X",
+  "country_of_origin": "SWE",
+  "role": "multi_mission",
+  "band_name": "S",
+  "waveform_family": "pulse_doppler",
+  "center_frequency_hz": 3.0e9,
+  "frequency_range_hz": {
+    "min": 2.7e9,
+    "max": 3.3e9
+  },
+  "sample_rate_hz": 25.0e6,
+  "antenna": {
+    "pattern_type": "phased_array_aesa",
+    "gain_dbi": 31.0,
+    "beamwidth_az_deg": 2.5,
+    "beamwidth_el_deg": 5.0,
+    "aperture_area_m2": 0.35,
+    "aperture_efficiency": 0.65,
+    "polarization_default": "vv",
+    "polarization_options": ["vv", "hh"],
+    "sidelobe_max_db": -25.0,
+    "panel_count": 1
+  },
+  "transmit": {
+    "peak_power_w": 1500.0,
+    "average_power_w": 150.0,
+    "duty_cycle": 0.10,
+    "prf_hz": 2000.0,
+    "pri_s": 0.0005,
+    "pulse_width_s": 5.0e-5,
+    "waveform_parameters": {
+      "lfm_bandwidth_hz": 2.0e6,
+      "pulse_compression_ratio": 100.0
+    }
+  },
+  "receiver": {
+    "noise_figure_db": 3.0,
+    "system_temperature_k": 290.0,
+    "receiver_dynamic_range_db": 90.0,
+    "adc_bits": 14,
+    "system_losses_db": 4.0
+  },
+  "scan": {
+    "scan_pattern": "mechanical_360",
+    "azimuth_coverage_deg": 360.0,
+    "elevation_coverage_deg": 70.0,
+    "scan_rate_rpm": 60.0,
+    "revisit_rate_s": 1.0,
+    "dwell_time_s": 0.020,
+    "max_simultaneous_tracks": 300
+  },
+  "declared_detection_envelope": [
+    {
+      "target_class_slug": "small-uas-class-i",
+      "range_m": 5000.0,
+      "rcs_m2": 0.01,
+      "conditions": "clear air, single-look detection, Pd=0.85 at Pfa=1e-4 (vendor brochure typical)",
+      "citation_id": "saab-giraffe-1x-brochure-2024",
+      "confidence_label": "B"
+    },
+    {
+      "target_class_slug": "shahed-class-piston",
+      "range_m": 25000.0,
+      "rcs_dbsm": -10.0,
+      "conditions": "OSINT-derived: rough estimate from declared 'small UAV' envelope scaled by Shahed-class RCS envelope (-25 to -10 dBsm depending on aspect/band)",
+      "citation_id": "tips-detectors-tip1-220",
+      "confidence_label": "C"
+    },
+    {
+      "target_class_slug": "fighter-class",
+      "range_m": 75000.0,
+      "rcs_dbsm": 0.0,
+      "conditions": "vendor declared full-fighter detection envelope",
+      "citation_id": "saab-giraffe-1x-brochure-2024",
+      "confidence_label": "A"
+    }
+  ],
+  "vendor_datasheet_refs": [
+    {
+      "citation_id": "saab-giraffe-1x-brochure-2024",
+      "url": "https://www.saab.com/products/giraffe-1x",
+      "title": "Giraffe 1X Multi-Mission 3D Radar — Product Brochure",
+      "retrieved_utc": "2026-05-18T20:00:00Z"
+    }
+  ],
+  "osint_refs": [
+    {
+      "citation_id": "tips-detectors-tip1-220",
+      "url": "internal://tips/detectors/tip1.txt#L220-222",
+      "title": "Reuters: US Army Giraffe 1X order 2026 — instrumented summary",
+      "publisher": "EchoForge internal OSINT compilation",
+      "retrieved_utc": "2026-05-18T20:00:00Z"
+    },
+    {
+      "citation_id": "tips-detectors-tip1-384",
+      "url": "internal://tips/detectors/tip1.txt#L384-386",
+      "title": "Saab Giraffe 1X — search-every-second drone-tracker capability",
+      "publisher": "EchoForge internal OSINT compilation",
+      "retrieved_utc": "2026-05-18T20:00:00Z"
+    }
+  ],
+  "operational_notes": "US Army order for ground-based air defense and counter-UAS roles announced 2026 (Reuters). Search the entire volume once per second. Distinguishes small UAVs from birds via micro-Doppler and reduces false alarms (Saab marketing). Integrates with NASAMS-class fire control.",
+  "integration_refs": ["FAAD C2", "NASAMS", "LIDS"],
+  "aliases": ["Giraffe 1X", "Saab 1X"]
+}

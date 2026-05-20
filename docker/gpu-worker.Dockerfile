@@ -28,8 +28,11 @@ WORKDIR /workspace
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system nonroot \
+  && useradd --system --gid nonroot --create-home nonroot
 
 COPY --from=rust-build /workspace/target/release/gpu-doctor /usr/local/bin/gpu-doctor
 
+USER nonroot
 CMD ["gpu-doctor"]

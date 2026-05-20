@@ -23,7 +23,7 @@ pub struct AxisDescriptor {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ValidationTier {
-    Placeholder,
+    Pending,
     AnalyticV1,
     CrossSolverV1,
 }
@@ -40,11 +40,11 @@ pub struct EchoSigManifest {
 }
 
 impl EchoSigManifest {
-    pub fn placeholder(artifact_id: impl Into<String>) -> Self {
+    pub fn pending(artifact_id: impl Into<String>) -> Self {
         Self {
             artifact_id: artifact_id.into(),
             version: "v0".to_string(),
-            validation_tier: ValidationTier::Placeholder,
+            validation_tier: ValidationTier::Pending,
             axes: default_axes(),
             tensor_files: vec![
                 "tensors/scattering_matrix_complex.zarr".to_string(),
@@ -81,7 +81,7 @@ pub struct ProvenanceRecord {
 }
 
 impl ProvenanceRecord {
-    pub fn placeholder() -> Self {
+    pub fn pending() -> Self {
         Self {
             source: "synthetic".to_string(),
             generated_by: "echoforge-sig".to_string(),
@@ -100,11 +100,11 @@ pub struct LicenseRecord {
 }
 
 impl LicenseRecord {
-    pub fn placeholder() -> Self {
+    pub fn pending() -> Self {
         Self {
             expression: "Apache-2.0".to_string(),
             spdx_id: Some("Apache-2.0".to_string()),
-            notes: Some("placeholder license record for synthetic bundle".to_string()),
+            notes: Some("pending license record for synthetic bundle".to_string()),
         }
     }
 }
@@ -126,11 +126,11 @@ pub struct EchoSigArtifactBundle {
 }
 
 impl EchoSigArtifactBundle {
-    pub fn placeholder(artifact_id: impl Into<String>) -> Self {
+    pub fn pending(artifact_id: impl Into<String>) -> Self {
         Self {
-            manifest: EchoSigManifest::placeholder(artifact_id),
-            provenance: ProvenanceRecord::placeholder(),
-            license: LicenseRecord::placeholder(),
+            manifest: EchoSigManifest::pending(artifact_id),
+            provenance: ProvenanceRecord::pending(),
+            license: LicenseRecord::pending(),
             object_card: None,
             material_card: None,
             solver_card: None,
@@ -257,10 +257,9 @@ fn read_card(path: PathBuf) -> Result<Option<BundleCard>> {
         path: path.clone(),
         source,
     })?;
-    let kind = path
-        .file_stem()
-        .and_then(|stem| stem.to_str())
-        .unwrap_or_default()
-        .to_string();
+    let kind = match path.file_stem().and_then(|stem| stem.to_str()) {
+        Some(s) => s.to_string(),
+        None => String::new(),
+    };
     Ok(Some(BundleCard { kind, raw_yaml }))
 }

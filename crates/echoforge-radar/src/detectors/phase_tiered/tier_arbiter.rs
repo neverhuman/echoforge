@@ -107,14 +107,8 @@ impl TierArbiter {
                 }
             }
             Tier::Boost => {
-                let speed = observation
-                    .current_radial_speed_mps()
-                    .map(|v| v.abs())
-                    .unwrap_or(0.0);
-                let accel = observation
-                    .current_acceleration_mps2()
-                    .map(|a| a.abs())
-                    .unwrap_or(f64::INFINITY);
+                let speed = observation.abs_radial_speed();
+                let accel = observation.abs_acceleration();
                 if accel < 5.0 && speed >= 25.0 {
                     Tier::ClimbOut
                 } else {
@@ -142,14 +136,8 @@ impl TierArbiter {
 
     fn update_steady_bookkeeping(&mut self, observation: &KinematicObservation) {
         // Steady = accel < 0.5 m/s² AND altitude rate < 1 m/s.
-        let accel_mag = observation
-            .current_acceleration_mps2()
-            .map(|a| a.abs())
-            .unwrap_or(f64::INFINITY);
-        let climb_mag = observation
-            .altitude_rate_mps()
-            .map(|c| c.abs())
-            .unwrap_or(f64::INFINITY);
+        let accel_mag = observation.abs_acceleration();
+        let climb_mag = observation.abs_altitude_rate();
         if accel_mag < 0.5 && climb_mag < 1.0 {
             self.steady_count = self.steady_count.saturating_add(1);
         } else {
@@ -159,10 +147,7 @@ impl TierArbiter {
         // Miss = no in-gate radial speed (i.e. nothing classified as
         // an expected cruise speed). We use a coarse rule: speed < 25
         // m/s or speed > 200 m/s counts as a miss while in Cruise.
-        let speed = observation
-            .current_radial_speed_mps()
-            .map(|v| v.abs())
-            .unwrap_or(0.0);
+        let speed = observation.abs_radial_speed();
         let in_cruise_band = (40.0..=60.0).contains(&speed) || (100.0..=150.0).contains(&speed);
         if !in_cruise_band {
             self.miss_count = self.miss_count.saturating_add(1);
@@ -177,14 +162,8 @@ impl TierArbiter {
     /// arbiter publishes a stable `history` of (tier, confidence) pairs
     /// for downstream reports.
     fn confidence(&self, observation: &KinematicObservation, next: Tier) -> f32 {
-        let speed = observation
-            .current_radial_speed_mps()
-            .map(|v| v.abs())
-            .unwrap_or(0.0);
-        let accel = observation
-            .current_acceleration_mps2()
-            .map(|a| a.abs())
-            .unwrap_or(f64::INFINITY);
+        let speed = observation.abs_radial_speed();
+        let accel = observation.abs_acceleration();
         match next {
             Tier::None => 0.0,
             Tier::Boost => {
@@ -233,20 +212,9 @@ fn boost_gate_3_of_5(observation: &KinematicObservation) -> bool {
 /// (handled by the arbiter), we also require the current sample to be
 /// inside the dossier's cruise speed envelopes.
 fn climb_to_cruise_signal(observation: &KinematicObservation) -> bool {
-    let speed = observation
-        .current_radial_speed_mps()
-        .map(|v| v.abs())
-        .unwrap_or(0.0);
-    let accel = observation
-        .current_acceleration_mps2()
-        .map(|a| a.abs())
-        .unwrap_or(f64::INFINITY);
-    let climb = observation
-        .altitude_rate_mps()
-        .map(|c| c.abs())
-        .unwrap_or(f64::INFINITY);
+    let speed = observation.abs_radial_speed();
     let in_speed = (40.0..=60.0).contains(&speed) || (100.0..=150.0).contains(&speed);
-    in_speed && accel < 0.5 && climb < 1.0
+    in_speed && observation.abs_acceleration() < 0.5 && observation.abs_altitude_rate() < 1.0
 }
 
 fn cpi_pair_matches_boost(

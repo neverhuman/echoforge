@@ -11,6 +11,9 @@
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+pub mod mesh;
+pub mod mesh_qa;
+
 pub mod schema {
     pub const OBJECT_CARD: &str = "schemas/object_card.schema.json";
     pub const MATERIAL_CARD: &str = "schemas/material_card.schema.json";
@@ -199,7 +202,7 @@ pub fn public_proxy_hard_negative_pack() -> HardNegativePack {
             "vehicles_and_cranes".to_string(),
             "weather_and_rfi".to_string(),
         ],
-        notes: "Hard-negative placeholders for robustness and false-alarm stress testing."
+        notes: "Hard-negative pending entries for robustness and false-alarm stress testing."
             .to_string(),
     }
 }

@@ -1,0 +1,74 @@
+# EchoForge detector_card — CA-CFAR default (Skolnik §7.7.2)
+# Schema: schemas/detector_card.schema.json
+#
+# Cell-averaging CFAR with Gaussian / Rayleigh closed-form alpha
+# (Skolnik 3rd ed. §7.7.2). Externalizes the Rust default at
+# crates/echoforge-radar/src/cfar.rs (CaCfarDetector / ca_cfar_1d).
+# Strict-open posture: parameters cited; no measured-truth claim.
+id: "ef:detector_card:ca-cfar-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: ca-cfar-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Skolnik, Introduction to Radar Systems, 3rd ed. §7.7.2 (CA-CFAR closed-form alpha = N*(Pfa^(-1/N) - 1))"
+    - "crates/echoforge-radar/src/cfar.rs (CaCfarDetector + ca_cfar_scale)"
+    - "crates/echoforge-radar/src/detectors/ca_cfar.rs (Detector-trait wrapper)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.25
+  checks:
+    - name: closed_form_alpha_skolnik_7_7_2
+      status: pass
+      message: "Gaussian/Rayleigh-amplitude alpha = N*(Pfa^(-1/N)-1) implemented in cfar::ca_cfar_scale"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built CaCfarDetector::new(CfarParams::new(10, 3, 1e-3)) byte-for-byte on pinned RD fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "CA-CFAR (Skolnik §7.7.2 default)"
+algorithm_family: ca_cfar
+parameters:
+  training_cells: 10
+  guard_cells: 3
+  pfa: 1.0e-3
+  clutter_assumption: "rayleigh_thermal_dominated"
+default_thresholds:
+  pfa: 1.0e-3
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - rcs-0p01-m2
+  - rcs-1-m2
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+  - src-an-tpq-50
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.70
+      pd_max: 0.88
+    snr_db_required_range:
+      min: 13.0
+      max: 16.0
+    citation_id: skolnik-3rd-ch9-pd-pfa-table-13.7
+citations:
+  - citation_id: skolnik-3rd-ch7-7-2
+    title: "Skolnik, Introduction to Radar Systems, 3rd ed. §7.7.2 (CA-CFAR)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: skolnik-3rd-ch9-pd-pfa-table-13.7
+    title: "Skolnik 3rd ed. ch. 9 PD/PFA table"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"

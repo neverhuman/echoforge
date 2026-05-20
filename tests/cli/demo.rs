@@ -7,7 +7,7 @@ fn demo_monte_carlo_args_are_parseable() {
         "demo",
         "monte-carlo",
         "--preset",
-        "iranian-takeoff-v1",
+        "low-altitude-fixed-wing-takeoff-v1",
         "--episodes",
         "2",
         "--seed",
@@ -15,7 +15,7 @@ fn demo_monte_carlo_args_are_parseable() {
         "--generated-at",
         "2026-05-18T00:00:00Z",
         "--out",
-        "outputs/demo/iranian-takeoff-v1",
+        "outputs/demo/low-altitude-fixed-wing-takeoff-v1",
     ]);
 
     assert!(cli.is_ok());

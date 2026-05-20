@@ -1,0 +1,38 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation of multiple
+# small boat variants are represented in the current catalog.
+id: "ef:object_card:boat-small:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: boat-small
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Small Recreational and Fishing Boat Hard Negative"
+object_family: maritime_vessel
+geometry_variant: small-displacement-or-planing-hull
+material_variant: fiberglass-hull
+dimensions_m:
+  x: 15.0
+  y: 3.5
+  z: 2.5
+tags:
+  - hard_negative
+  - marine
+  - maritime_vessel
+  - small_boat
+  - multipath

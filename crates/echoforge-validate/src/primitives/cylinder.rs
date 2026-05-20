@@ -23,15 +23,6 @@ impl PecCylinder {
     }
 }
 
-#[inline]
-fn sinc(x: f64) -> f64 {
-    if x.abs() < 1e-12 {
-        1.0
-    } else {
-        x.sin() / x
-    }
-}
-
 impl CanonicalTruth for PecCylinder {
     fn sigma_m2(&self, conditions: &Conditions) -> Truth {
         let lambda = conditions.wavelength_m();
@@ -42,7 +33,7 @@ impl CanonicalTruth for PecCylinder {
         let k = 2.0 * std::f64::consts::PI / lambda;
         let broadside = self.broadside_sigma(lambda);
         let theta = conditions.theta_rad;
-        let s = sinc(k * self.length_m * theta.sin());
+        let s = super::sinc(k * self.length_m * theta.sin());
         let sigma = broadside * s.powi(2) * theta.cos().powi(2);
         let regime = if theta.abs() < 1e-9 {
             "broadside"
@@ -59,14 +50,7 @@ impl CanonicalTruth for PecCylinder {
     }
 
     fn tolerance(&self, _conditions: &Conditions) -> ToleranceBand {
-        ToleranceBand {
-            analytic_db: 0.5,
-            numeric_db: 0.0,
-            method_db: 0.0,
-            total_db: 0.5,
-            floor_db: 0.1,
-            ceiling_db: 3.0,
-        }
+        ToleranceBand::analytic_only(0.5)
     }
 }
 

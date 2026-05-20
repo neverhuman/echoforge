@@ -11,7 +11,7 @@ RUN apt-get update \
 
 COPY package*.json ./
 COPY apps ./apps
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+RUN npm ci --no-fund --no-audit
 RUN npm run web:build
 
 FROM rust:1.85-bookworm AS rust-build
@@ -49,7 +49,9 @@ WORKDIR /app
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system nonroot \
+  && useradd --system --gid nonroot --create-home nonroot
 
 COPY --from=web-build /workspace/apps/web/dist ./apps/web/dist
 COPY --from=rust-build /workspace/target/release/echoforge-studio /usr/local/bin/echoforge-studio
@@ -58,4 +60,5 @@ COPY tests/science/fixtures/bundles/v1_pass ./tests/science/fixtures/bundles/v1_
 
 EXPOSE 8080
 
+USER nonroot
 CMD ["echoforge-studio"]

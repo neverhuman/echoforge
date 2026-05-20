@@ -1,0 +1,38 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation of multiple
+# wind turbine variants are represented in the current catalog.
+id: "ef:object_card:wind-turbine-large:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: wind-turbine-large
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Large Utility-Scale Wind Turbine Hard Negative"
+object_family: infrastructure_rotating
+geometry_variant: tubular-steel-tower-three-blade-rotor
+material_variant: tubular-steel-blade-composite
+dimensions_m:
+  x: 160.0
+  y: 160.0
+  z: 160.0
+tags:
+  - hard_negative
+  - infrastructure
+  - rotating_blade
+  - strong_glint
+  - wind_turbine

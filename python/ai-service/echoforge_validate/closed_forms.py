@@ -1,3 +1,4 @@
+# boundary: python-ai-service-ml-slice
 """Closed-form analytic ground truth for canonical PEC scatterers.
 
 References (cited, not copied):

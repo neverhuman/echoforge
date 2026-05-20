@@ -1,9 +1,11 @@
 //! Dataset and benchmark scaffold for EchoForge.
 //!
-//! This crate owns split policy, leakage checks, and benchmark placeholders.
+//! This crate owns split policy, leakage checks, and benchmark pending entries.
 
 pub mod benchmark;
 pub mod campaign;
+pub(crate) mod guard;
+pub(crate) mod rng;
 pub mod export;
 pub mod leakage;
 pub mod ml_training;

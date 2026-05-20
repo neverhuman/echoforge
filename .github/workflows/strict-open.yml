@@ -13,34 +13,61 @@ on:
       - README.md
       - assets/**
 
-jobs:
-  license-and-deny:
-    runs-on: ubuntu-latest
-    continue-on-error: false
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
+permissions:
+  contents: read
 
-  sbom:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vendor-scrub:
     runs-on: ubuntu-latest
-    continue-on-error: true
-    needs: license-and-deny
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '20'
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install SBOM tools
-        run: |
-          cargo install cargo-cyclonedx || true
-          pip install pip-licenses || true
-      - name: Emit SBOM
-        run: bash tools/sbom_emit.sh || true
-      - uses: actions/upload-artifact@v4
+      - name: Vendor scrub lane
+        shell: bash
+        run: bash ops/ci/vendor-scrub.sh
+
+  receipts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
-          name: sbom
-          path: sbom/
+          node-version: '20'
+      - name: Receipts lane
+        shell: bash
+        run: bash ops/ci/receipts.sh
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Install cargo-deny
+        shell: bash
+        run: cargo install cargo-deny --locked
+      - name: Dependency audit (cargo deny)
+        shell: bash
+        run: cargo deny check
+      - name: Secret scan (trufflehog)
+        uses: trufflesecurity/trufflehog@37b77001d0174ebec2fcca2bd83ff83a6d45a3ab  # v3.95.3
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+      - name: Security lane
+        shell: bash
+        run: bash ops/ci/security.sh

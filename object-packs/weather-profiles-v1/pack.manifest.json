@@ -1,0 +1,51 @@
+{
+  "id": "pack.weather-profiles-v1",
+  "schema_version": "2.0.0",
+  "kind": "pack_manifest_v2",
+  "display_name": "Weather Profiles v1 (named atmospheric and oceanic regimes)",
+  "purpose": "Named atmospheric / oceanic regime cards covering cloud cover (ITU-R P.840-8), rain (ITU-R P.838-3), refractivity / ducting (ITU-R P.453-14), sea state (Pierson-Moskowitz 1964, WMO Beaufort), and MODTRAN-style EO/IR band transmission. Cards drive the radar propagation chain, EO/IR sensor archetypes, and clutter-Doppler models. Strict-open posture: every parameter cites ITU-R, WMO, Pierson-Moskowitz, or published climate atlases; no measured-truth claim.",
+  "card_refs": {
+    "weather_profile": [
+      "uae_coastal_summer.yaml",
+      "ukraine_winter.yaml",
+      "black_sea_autumn_duct.yaml",
+      "gulf_monsoon_heavy_rain.yaml",
+      "mediterranean_clear_air.yaml"
+    ]
+  },
+  "card_slugs": [
+    "uae-coastal-summer",
+    "ukraine-winter",
+    "black-sea-autumn-duct",
+    "gulf-monsoon-heavy-rain",
+    "mediterranean-clear-air"
+  ],
+  "license": {
+    "spdx_id": "MIT",
+    "notice": "Pack content derived from public ITU-R recommendations, WMO standards, Pierson-Moskowitz 1964, MODTRAN technical documentation, and public climate atlases. No measured-truth or site-specific operational claim."
+  },
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "ITU-R P.676-13 (atmospheric gases)",
+      "ITU-R P.838-3 (rain specific attenuation)",
+      "ITU-R P.840-8 (cloud / fog attenuation)",
+      "ITU-R P.453-14 (refractivity, ducting)",
+      "Pierson & Moskowitz 1964 (fully-developed wind-sea spectrum)",
+      "WMO Code Tables (Beaufort, Douglas, cloud-okta)",
+      "MODTRAN 5.4 technical documentation (Berk et al. 2014)",
+      "Public climate atlases (Persian Gulf, Black Sea, Ukraine, Eastern Mediterranean, Arabian Sea monsoon)"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T23:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "validation_tier": "basic",
+  "fidelity_class": "primitive_decomposed",
+  "notes": [
+    "Five-card seed: UAE Coastal Summer, Ukraine Winter, Black Sea Autumn Moderate Duct, Gulf Monsoon Heavy Rain, Mediterranean Clear Air. Each card populates all required weather_profile.schema.json fields and at least one optional sub-block (cloud_cover, rain, fog, sea_state, refractivity_profile, eo_ir_transmission_bands).",
+    "Each card is consumed by the radar propagation chain (crates/echoforge-radar/src/propagation.rs + crates/echoforge-radar/src/weather/) and downstream EO/IR sensor archetypes. EO/IR transmission entries are computed via the MODTRAN-style band model in crates/echoforge-radar/src/weather/modtran_eo_ir.rs.",
+    "No card claims measured-truth fidelity; declared validation tier is 'basic' and fidelity_class is 'primitive_decomposed'. Cross-card numerical consistency between Pierson-Moskowitz H_s / ω_peak / Beaufort fields is enforced by tests/case_studies/ (lands in later wave)."
+  ],
+  "source_status": "public_proxy"
+}

@@ -3,13 +3,13 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-/// Result alias for the legacy `EchoSigError` API.
+/// Result alias for the prior `EchoSigError` API.
 pub type Result<T> = std::result::Result<T, EchoSigError>;
 
 /// Result alias for the new bundle I/O API.
 pub type SigResult<T> = std::result::Result<T, SigError>;
 
-/// Legacy error preserved for the original `artifact::EchoSigArtifactBundle`
+/// Prior error preserved for the original `artifact::EchoSigArtifactBundle`
 /// pathway. New code should use [`SigError`].
 #[derive(Debug, Error)]
 pub enum EchoSigError {

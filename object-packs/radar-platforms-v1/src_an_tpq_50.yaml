@@ -1,0 +1,134 @@
+# EchoForge radar_platform_card — SRC AN/TPQ-50
+# (L-band Lightweight Counter-Mortar Radar, dual-mode counter-battery / air surveillance)
+# Schema: schemas/radar_platform_card.schema.json
+#
+# Strict-open: parameters derived from SRC public product page
+# (tips/detectors/tip1.txt §5.4). No measured-truth claim. Vendor
+# name allowed per the 20260518T160000Z naming-policy reversal;
+# cited to SRC product page and OSINT.
+#
+# Antenna gain derived via G = 4*pi*eta*A_phys/lambda^2 with eta=0.55
+# (rotating planar array w/ tapered illumination) at lambda = c/1.4e9
+# = 0.214 m. A ~1.0 m^2 aperture yields G ~= 24-25 dBi.
+id: "ef:radar_platform_card:src-an-tpq-50:0000000000000000:1"
+kind: radar_platform_card
+schema_version: "1.0.0"
+public_proxy_id: src-an-tpq-50
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "SRC AN/TPQ-50 LCMR product page (https://www.srcinc.com/products/an-tpq-50-lcmr.html)"
+    - "tips/detectors/tip1.txt:216-218 (AN/TPQ-50 attribute summary, dual-mode counter-battery + air-surveillance)"
+    - "Skolnik 3rd ed. ch. 2 (radar equation, antenna gain G = 4*pi*eta*A_phys/lambda^2)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:30:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public datasheets and OSINT. No measured-truth claim. No classified parameters."
+validation:
+  tier: basic
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: vendor_datasheet_citation_present
+      status: pass
+      message: "SRC product page cited as primary source"
+    - name: radar_equation_inputs_self_consistent
+      status: pass
+      message: "Antenna gain (25 dBi) consistent with 1.0 m^2 aperture at 1.4 GHz (eta = 0.55)"
+    - name: detection_range_reproduction_within_20pct
+      status: warn
+      message: ">35 km air-surveillance range and 15 km RAM range vendor-declared (confidence A); 50 m POO accuracy at 10 km vendor-declared (confidence A)"
+  fidelity_class: primitive_decomposed
+sensor_name: "SRC AN/TPQ-50"
+vendor: "SRC"
+model: "AN/TPQ-50"
+country_of_origin: "USA"
+role: counter_battery
+band_name: "L"
+waveform_family: pulse_doppler
+center_frequency_hz: 1.4e9
+frequency_range_hz:
+  min: 1.215e9
+  max: 1.4e9
+sample_rate_hz: 10.0e6
+antenna:
+  pattern_type: rotating_planar_array
+  gain_dbi: 25.0
+  beamwidth_az_deg: 6.0
+  beamwidth_el_deg: 10.0
+  aperture_area_m2: 1.0
+  aperture_efficiency: 0.55
+  polarization_default: vv
+  polarization_options: [vv]
+  sidelobe_max_db: -22.0
+  panel_count: 1
+transmit:
+  peak_power_w: 3000.0
+  average_power_w: 300.0
+  duty_cycle: 0.10
+  prf_hz: 1500.0
+  pri_s: 0.000667
+  pulse_width_s: 0.00006
+  waveform_parameters:
+    lfm_bandwidth_hz: 2.0e6
+    pulse_compression_ratio: 120.0
+receiver:
+  noise_figure_db: 4.0
+  system_temperature_k: 438.0
+  receiver_dynamic_range_db: 88.0
+  adc_bits: 14
+  system_losses_db: 4.5
+scan:
+  scan_pattern: mechanical_360
+  azimuth_coverage_deg: 360.0
+  elevation_coverage_deg: 60.0
+  scan_rate_rpm: 45.0
+  revisit_rate_s: 1.33
+  dwell_time_s: 0.022
+  max_simultaneous_tracks: 50
+declared_detection_envelope:
+  - target_class_slug: "ram-class"
+    range_m: 15000.0
+    rcs_m2: 0.005
+    conditions: "Vendor-declared 15 km detection range against rocket/artillery/mortar (RAM) threats in counter-battery mode. Primary spec from SRC product page."
+    citation_id: "src-an-tpq-50-product-page"
+    confidence_label: "A"
+  - target_class_slug: "rcs-1-m2"
+    range_m: 35000.0
+    rcs_m2: 1.0
+    conditions: "Vendor-declared >35 km instrumented range in air-surveillance software mode against traditional and non-traditional aircraft (including small UAS). Single-look, clear air."
+    citation_id: "src-an-tpq-50-product-page"
+    confidence_label: "A"
+  - target_class_slug: "ram-poo-class"
+    range_m: 10000.0
+    rcs_m2: 0.005
+    conditions: "Vendor-declared 50 m point-of-origin accuracy at 10 km in RAM counter-battery mode. Range_m here is the geometry distance at which accuracy is quoted, not a detection threshold."
+    citation_id: "src-an-tpq-50-product-page"
+    confidence_label: "A"
+  - target_class_slug: "small-uas-class-i"
+    range_m: 8000.0
+    rcs_m2: 0.01
+    conditions: "OSINT-derived: scaled small-UAS (0.01 m^2) detection range in air-surveillance mode. L-band has weak target-class discrimination vs nano-quads; figure derived from >35 km @ 1 m^2 via radar equation (35 * 0.01^0.25 = 11 km), de-rated to 8 km for L-band clutter floor and class-I micro-Doppler penalty."
+    citation_id: "tips-detectors-tip1-216"
+    confidence_label: "C"
+vendor_datasheet_refs:
+  - citation_id: "src-an-tpq-50-product-page"
+    url: "https://www.srcinc.com/products/an-tpq-50-lcmr.html"
+    title: "SRC AN/TPQ-50 Lightweight Counter-Mortar Radar (LCMR) — product page"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+osint_refs:
+  - citation_id: "tips-detectors-tip1-216"
+    url: "internal://tips/detectors/tip1.txt#L216-218"
+    title: "AN/TPQ-50 dual-mode attribute summary — counter-battery + air-surveillance, vendor-cited ranges"
+    publisher: "EchoForge internal OSINT compilation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+operational_notes: "Originally fielded as the LCMR (Lightweight Counter-Mortar Radar). Single-soldier-portable / vehicle-mounted L-band radar. Counter-battery is the primary role; the air-surveillance mode (added in software) extends use into low-altitude air picture and small-UAS cueing. Common at FOBs and combat outposts."
+integration_refs:
+  - "FAAD C2"
+  - "FBCB2 / BFT"
+aliases:
+  - "AN/TPQ-50"
+  - "LCMR"
+  - "Lightweight Counter-Mortar Radar"

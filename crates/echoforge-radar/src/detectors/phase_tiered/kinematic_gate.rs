@@ -47,6 +47,24 @@ pub struct KinematicObservation {
     pub radar_altitude_agl_m: f64,
 }
 
+/// Finite-difference helper: `(f(samples[n-1]) - f(samples[n-2])) / dt`.
+/// Returns `None` when fewer than two samples exist or `dt <= 0`.
+fn last_pair_delta_per_dt(
+    samples: &[KinematicSample],
+    extract: impl Fn(&KinematicSample) -> f64,
+) -> Option<f64> {
+    if samples.len() < 2 {
+        return None;
+    }
+    let n = samples.len();
+    let (a, b) = (&samples[n - 2], &samples[n - 1]);
+    let dt = b.time_s - a.time_s;
+    if dt <= 0.0 {
+        return None;
+    }
+    Some((extract(b) - extract(a)) / dt)
+}
+
 impl KinematicObservation {
     pub fn new(samples: Vec<KinematicSample>, range_m: f64, radar_altitude_agl_m: f64) -> Self {
         Self {
@@ -66,38 +84,39 @@ impl KinematicObservation {
         self.samples.last().map(|s| s.altitude_agl_m)
     }
 
+    /// Absolute radial speed (m/s). Returns `0.0` when no samples are present.
+    pub fn abs_radial_speed(&self) -> f64 {
+        self.current_radial_speed_mps().map(f64::abs).unwrap_or(0.0)
+    }
+
+    /// Absolute acceleration magnitude (m/s²). Returns `f64::INFINITY` when
+    /// fewer than two samples exist or timestamps are degenerate.
+    pub fn abs_acceleration(&self) -> f64 {
+        self.current_acceleration_mps2()
+            .map(f64::abs)
+            .unwrap_or(f64::INFINITY)
+    }
+
+    /// Absolute altitude rate (m/s). Returns `f64::INFINITY` when fewer than
+    /// two samples exist or timestamps are degenerate.
+    pub fn abs_altitude_rate(&self) -> f64 {
+        self.altitude_rate_mps()
+            .map(f64::abs)
+            .unwrap_or(f64::INFINITY)
+    }
+
     /// Finite-difference acceleration in m/s² between the last two
     /// samples, or `None` if fewer than two samples exist or the time
     /// delta is non-positive (degenerate or duplicate timestamps).
     pub fn current_acceleration_mps2(&self) -> Option<f64> {
-        if self.samples.len() < 2 {
-            return None;
-        }
-        let n = self.samples.len();
-        let a = self.samples[n - 2];
-        let b = self.samples[n - 1];
-        let dt = b.time_s - a.time_s;
-        if dt <= 0.0 {
-            return None;
-        }
-        Some((b.radial_speed_mps - a.radial_speed_mps) / dt)
+        last_pair_delta_per_dt(&self.samples, |s| s.radial_speed_mps)
     }
 
     /// Finite-difference altitude rate (climb rate) in m/s between the
     /// last two samples, or `None` if fewer than two samples or
     /// non-positive time delta.
     pub fn altitude_rate_mps(&self) -> Option<f64> {
-        if self.samples.len() < 2 {
-            return None;
-        }
-        let n = self.samples.len();
-        let a = self.samples[n - 2];
-        let b = self.samples[n - 1];
-        let dt = b.time_s - a.time_s;
-        if dt <= 0.0 {
-            return None;
-        }
-        Some((b.altitude_agl_m - a.altitude_agl_m) / dt)
+        last_pair_delta_per_dt(&self.samples, |s| s.altitude_agl_m)
     }
 
     /// Trailing-window slice helper: returns the last `n` samples
@@ -227,117 +246,7 @@ pub fn cruise_kinematic_gate_jet() -> KinematicGate {
     }
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn obs_single(speed: f64, alt: f64) -> KinematicObservation {
-        KinematicObservation::new(
-            vec![KinematicSample::new(0.0, speed, alt)],
-            10_000.0,
-            20.0,
-        )
-    }
-
-    fn obs_pair(speed0: f64, alt0: f64, speed1: f64, alt1: f64, dt: f64) -> KinematicObservation {
-        KinematicObservation::new(
-            vec![
-                KinematicSample::new(0.0, speed0, alt0),
-                KinematicSample::new(dt, speed1, alt1),
-            ],
-            10_000.0,
-            20.0,
-        )
-    }
-
-    #[test]
-    fn boost_gate_accepts_canonical() {
-        // Speed 15 m/s, accel 12 m/s² (about 1.2g), altitude 80 m AGL
-        // — all comfortably within the dossier's boost envelope.
-        let gate = boost_kinematic_gate();
-        let obs = obs_pair(3.0, 80.0, 15.0, 80.0, 1.0);
-        // dv/dt = (15 - 3) / 1 = 12 m/s² ∈ [5, 20]; speed 15 ∈ [0, 35];
-        // altitude 80 ∈ [0, 200].
-        assert!(gate.accepts(&obs), "boost gate must accept canonical");
-    }
-
-    #[test]
-    fn boost_gate_rejects_too_high() {
-        // Altitude 5000 m far outside dossier's boost band (0–200 m).
-        let gate = boost_kinematic_gate();
-        let obs = obs_pair(3.0, 5000.0, 15.0, 5000.0, 1.0);
-        assert!(!gate.accepts(&obs), "boost gate must reject 5000 m altitude");
-    }
-
-    #[test]
-    fn climb_gate_accepts_canonical() {
-        // 40 m/s speed (post-boost, below piston cruise), 1.0 m/s² accel,
-        // 250 m AGL altitude — squarely within the dossier's climb-out band.
-        let gate = climb_kinematic_gate();
-        let obs = obs_pair(39.0, 250.0, 40.0, 250.0, 1.0);
-        assert!(gate.accepts(&obs), "climb gate must accept canonical");
-    }
-
-    #[test]
-    fn climb_gate_rejects_aircraft_speed() {
-        // Speed 80 m/s falls in the unmodeled gap (60–100 m/s) — above
-        // the climb-out cap (60 m/s).
-        let gate = climb_kinematic_gate();
-        let obs = obs_pair(79.5, 250.0, 80.0, 250.0, 1.0);
-        assert!(
-            !gate.accepts(&obs),
-            "climb gate must reject 80 m/s (above piston cap)"
-        );
-    }
-
-    #[test]
-    fn cruise_gate_piston_accepts_50mps() {
-        let gate = cruise_kinematic_gate_piston();
-        let obs = obs_pair(50.0, 800.0, 50.0, 800.0, 1.0);
-        assert!(gate.accepts(&obs), "piston cruise gate must accept 50 m/s");
-    }
-
-    #[test]
-    fn cruise_gate_jet_accepts_120mps() {
-        let gate = cruise_kinematic_gate_jet();
-        let obs = obs_pair(120.0, 800.0, 120.0, 800.0, 1.0);
-        assert!(gate.accepts(&obs), "jet cruise gate must accept 120 m/s");
-    }
-
-    #[test]
-    fn cruise_gate_rejects_ambiguous_75mps() {
-        // 75 m/s sits in the explicit dossier gap [65, 100]; both
-        // piston and jet cruise gates must reject.
-        let piston = cruise_kinematic_gate_piston();
-        let jet = cruise_kinematic_gate_jet();
-        let obs = obs_pair(75.0, 800.0, 75.0, 800.0, 1.0);
-        assert!(!piston.accepts(&obs), "piston gate must reject 75 m/s");
-        assert!(!jet.accepts(&obs), "jet gate must reject 75 m/s");
-    }
-
-    #[test]
-    fn observation_returns_none_for_empty_window() {
-        let obs = KinematicObservation::new(vec![], 1000.0, 20.0);
-        assert_eq!(obs.current_radial_speed_mps(), None);
-        assert_eq!(obs.current_altitude_agl_m(), None);
-        assert_eq!(obs.current_acceleration_mps2(), None);
-        assert_eq!(obs.altitude_rate_mps(), None);
-    }
-
-    #[test]
-    fn observation_single_sample_has_no_accel() {
-        let obs = obs_single(50.0, 200.0);
-        assert_eq!(obs.current_acceleration_mps2(), None);
-        assert_eq!(obs.altitude_rate_mps(), None);
-    }
-
-    #[test]
-    fn observation_finite_diff_accel_and_climb_rate() {
-        // Speed 30 → 40 over 2 s = 5 m/s²; altitude 100 → 106 over 2 s = 3 m/s.
-        let obs = obs_pair(30.0, 100.0, 40.0, 106.0, 2.0);
-        let a = obs.current_acceleration_mps2().unwrap();
-        let c = obs.altitude_rate_mps().unwrap();
-        assert!((a - 5.0).abs() < 1e-9, "accel = {a}");
-        assert!((c - 3.0).abs() < 1e-9, "climb_rate = {c}");
-    }
-}
+#[path = "kinematic_gate_tests.rs"]
+mod tests;

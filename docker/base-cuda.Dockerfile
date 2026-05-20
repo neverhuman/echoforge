@@ -5,5 +5,9 @@ WORKDIR /workspace
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates nodejs npm \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system nonroot \
+  && useradd --system --gid nonroot --create-home nonroot
+
+USER nonroot
 

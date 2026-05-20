@@ -38,6 +38,7 @@ mod tests {
                     status: "pass".to_string(),
                     message: "ok".to_string(),
                 }],
+                fidelity_class: None,
             },
         )
     }

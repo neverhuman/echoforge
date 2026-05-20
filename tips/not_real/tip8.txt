@@ -1,0 +1,766 @@
+Because this is framed around a real-world military scenario, I’m going to keep this at the level of **scientific simulator validity, evaluation hygiene, and generic low-altitude small-UAS radar physics** rather than operational guidance for detecting or engaging a specific system. That said: the AUC table is a giant, useful diagnostic. It strongly suggests your simulator/benchmark is leaking labels or creating class-separable synthetic worlds, not that the models solved real radar.
+
+I did a scan of `neverhuman/echoforge` and a literature-backed sweep across radar simulation, RCS, micro-Doppler, clutter, propagation, sensor artifacts, and sim-to-real validation. I cannot honestly claim that every online publication in existence is covered, but the report below is the technical checklist I would use before trusting this simulator for any serious inference.
+
+# Executive diagnosis
+
+Your AUC results are not merely “too good.” They are **structurally impossible-looking** for a realistic radar problem.
+
+The biggest red flags are:
+
+1. **Every model class is essentially perfect**, including tree models, deep sequence models, transformer-style models, and a CFAR/TBD-style baseline. When unrelated model families all reach holdout AUC ≈ 1.0, the usual cause is not model brilliance; it is a separable synthetic feature, data leakage, or a trivial simulator shortcut.
+
+2. **The baseline AUC is already extreme**: 0.9656 at 5 s, 0.9892 at 15 s, and 0.9995 at 45 s. That means a simple baseline almost solves the task before ML adds anything. The reported lift is tiny, especially at 45 s. The benchmark is therefore mostly measuring the separability of the simulator’s generation rules.
+
+3. **The holdout split probably is not independent enough.** The same `n_train/n_validation/n_holdout` and identical positive holdout rate across all horizons are not automatically wrong, but combined with perfect AUC they suggest repeated or highly correlated windows, shared seeds, shared trajectories, shared scenario IDs, or horizon labels leaking into features.
+
+4. **The repo itself labels much of this as proxy/unvalidated.** The README describes EchoForge as a “strict-open” synthetic sensing foundry and explicitly warns against exact measured-truth claims without lawful measured data and provenance. The scenario fixture I found is marked synthetic, “unvalidated,” and “fixture only, not validated.” The benchmark fixture is also a placeholder and lists required artifacts like leakage reports and split manifests. ([GitHub][1])
+
+5. **The configured proxy object/environment fields are too clean and too class-aware.** The `airspace-objects` file contains public-proxy assumptions for a “Fixed-Wing UAV Takeoff” object with explicit RCS, kinematics, micro-motion, expected range bins, Doppler spread, scintillation, and even a `classification_prior`. Those are useful generator-side metadata, but any of them leaking into model features, split keys, scenario IDs, sampling distributions, or baseline scores can make the task trivial. ([GitHub][2])
+
+The most likely root cause is: **your positive class and negative classes are generated from different, visible distributions, and your split is probably random over windows rather than grouped over latent worlds.**
+
+---
+
+# Highest-impact fixes, ranked
+
+## 1. Fix leakage before touching radar physics
+
+This is the first thing to attack. AUC 1.0 across all horizons and all model families is much more consistent with leakage than with radar realism.
+
+Likely leakage channels in your setup:
+
+| Possible leakage source                                            | Why it would create AUC ≈ 1.0                                                                                                                                     |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `classification_prior`                                             | It is literally class-related metadata. It should never be a model input.                                                                                         |
+| `object_id`, object pack name, scenario name, preset name          | Encodes the target class or generation recipe.                                                                                                                    |
+| `snr_db`, `rcs_dbsm`, `expected_range_bins`, `doppler_spread_bins` | If sampled from class-specific ranges, these become labels in disguise.                                                                                           |
+| `horizon_name`, `horizon_s`, future timestamps                     | Can reveal how labels were constructed.                                                                                                                           |
+| `seed`, `trajectory_id`, `scene_id`, `split_id`                    | Random split may put near-identical windows in train and holdout.                                                                                                 |
+| hard-negative family                                               | If positives are “UAV” and negatives are “birds/balloons/vehicles” with non-overlapping kinematics or SNR distributions, the model learns the simulator taxonomy. |
+| baseline score                                                     | Your baseline AUC is already near-perfect; inspect whether it uses a truth-derived feature.                                                                       |
+
+Immediate tests:
+
+1. **Single-feature AUC audit**
+   Compute holdout AUC for every individual feature. Any single feature with AUC > 0.85 is suspicious; >0.95 is likely a simulator shortcut.
+
+2. **Metadata-only model**
+   Train CatBoost/LightGBM using only non-physical metadata: seed, scenario, object pack, preset, horizon, environment label, sensor archetype, index fields. If AUC remains high, the benchmark is contaminated.
+
+3. **Physics-only model**
+   Train with all metadata removed and only actual sensor outputs available. If AUC collapses, metadata was doing the work.
+
+4. **Permutation test**
+   Randomly permute labels within each split. AUC should go to ~0.5. If it does not, labels are still encoded elsewhere.
+
+5. **Group split test**
+   Split by entire latent worlds: no shared seed, object geometry, trajectory, environment, sensor archetype, terrain tile, or simulation preset across train/validation/holdout.
+
+6. **Near-duplicate window search**
+   Hash or embed raw radar windows and search for nearest neighbors across splits. If holdout windows are adjacent slices from trajectories seen in training, the holdout is not a holdout.
+
+The benchmark fixture in the repo already hints at the right direction: it lists required artifacts such as `dataset_card.md`, `leakage_report.json`, and `split_manifest.json`. Those should be mandatory, not optional. ([GitHub][3])
+
+**Priority:** existential. Until this is fixed, no physics improvement matters.
+
+---
+
+## 2. Stop treating synthetic proxy data as measured radar truth
+
+The repo is commendably honest here: it says public-proxy signatures should not be treated as exact measured truth without lawful measured data and explicit provenance. The current scenario fixture is marked synthetic and unvalidated. ([GitHub][1])
+
+A radar simulator only becomes useful when it is tied to measurement campaigns. The sim-to-real literature is blunt on this point: modern radar simulation work emphasizes validation against real radar outputs, separation of environment-model error from signal-processing error, and evaluation at multiple levels such as detections, radar cubes, and downstream task performance. The “double validation metric” work shows that radar simulation errors can be localized to environment modeling, propagation, and signal processing, and that looking only at object-level detections can hide serious model mismatch. ([Springer][4])
+
+A realistic validation ladder should look like this:
+
+1. **Level 0: Noise-only validation**
+   Real radar powered on, no intended target. Match noise floor, thermal statistics, phase noise artifacts, saturation behavior, dropped frames, range-Doppler sidelobes, and false-alarm density.
+
+2. **Level 1: Calibration-object validation**
+   Use lawful calibration reflectors or benign known objects. Validate range, azimuth, elevation, power/RCS estimates, and repeatability.
+
+3. **Level 2: Static clutter validation**
+   Measure empty scenes across terrain types: asphalt, dirt, grass, buildings, fences, vegetation, power lines, masts, roads. Match clutter distributions and spatial correlations.
+
+4. **Level 3: Dynamic non-target validation**
+   Birds, vehicles, wind turbines, pedestrians, rotating machinery, rain, insects, and moving vegetation. These are where false alarms live.
+
+5. **Level 4: Benign small-UAS validation**
+   Use legally operated surrogate UAVs or public measured datasets. Match not just detection rate, but range-Doppler-angle cubes, tracks, micro-Doppler spectrograms, and false positives.
+
+6. **Level 5: Out-of-distribution validation**
+   Different terrain, sensor, weather, mounting height, clutter background, and unseen object geometries.
+
+RadSimReal and related work show that physical radar simulation can help bridge synthetic-to-real perception, but the literature also stresses that implementation details, point-spread functions, radar installation, environment modeling, and measured validation are central to trustworthiness. ([Ben-Gurion University Research Portal][5])
+
+**Priority:** existential. Without measured anchoring, the simulator can be internally consistent and still wrong.
+
+---
+
+## 3. Replace scalar RCS ranges with aspect-, frequency-, polarization-, and motion-dependent scattering
+
+Your object pack appears to use broad RCS ranges, for example dBsm envelopes for a public-proxy fixed-wing UAV. That is useful for rough stress testing, but it is not realistic enough for classifier benchmarking. Real RCS is not a scalar.
+
+Published UAV RCS studies emphasize that small-UAS RCS varies strongly with look angle, frequency, polarization, body geometry, materials, and component motion. One fixed-wing UAV RCS paper notes that assigning a single RCS value is difficult because RCS depends on look angles, frequency, polarization, and materials; it also reports measured/simulated small fixed-wing mean RCS values around the -17 dBsm range with limitations tied to material assumptions and stationary propellers. ([MDPI][6])
+
+A separate UAV RCS measurement/statistical-analysis study measured five UAVs across 8.2–18 GHz, aspect angle, polarization, and frequency, then used background subtraction, range gating, calibration, and statistical tests to fit distributions. That is much closer to the type of empirical process your simulator needs. 
+
+What to add:
+
+* Aspect-dependent RCS tables or functions: azimuth, elevation, roll, pitch, yaw.
+* Frequency-dependent RCS, not just “X-band.”
+* Polarization-dependent returns.
+* Material uncertainty: plastic, composites, metal fasteners, engine, payload, antenna, battery, propeller.
+* Dynamic glints from attitude changes and propeller motion.
+* Statistical target fluctuation models: Swerling-style, expanded Swerling, or measured empirical distributions.
+* Bistatic/multistatic scattering if multiple receivers are modeled.
+* Uncertainty bounds on every proxy RCS model.
+
+What to avoid:
+
+* Sampling one uniform `rcs_dbsm` per object class.
+* Making positive targets occupy a different RCS/SNR region than negatives.
+* Feeding RCS or RCS-derived “clean” features to the classifier.
+
+**Priority:** extremely high. Scalar RCS is one of the easiest ways to create fake separability.
+
+---
+
+## 4. Model low-altitude takeoff as a ground/clutter problem, not an airborne-target problem
+
+A drone taking off from the ground is not just a smaller aircraft. At takeoff, the target is near terrain, support objects, roads, structures, people, vehicles, launch fixtures, vegetation, and ground multipath. The return is entangled with clutter and obscuration.
+
+Your current environment profile appears to use broad scalar fields such as clutter density, ground glint density, multipath severity, weather, RFI, dropout, and label ambiguity. That is a good start for a placeholder, but it is not equivalent to a physical scene. ([GitHub][7])
+
+Low-altitude radar propagation is highly sensitive to ground reflection, terrain diffraction, surface material, grazing angle, atmospheric refraction, and multipath. RF propagation references emphasize that surface ducts, clutter rings, urban multipath, terrain diffraction, rain/clouds, scattering, reflection, refraction, diffraction, polarization, and absorption all affect radar propagation. ([ElectroScience Laboratory][8])
+
+What to add:
+
+* Actual terrain geometry: DEM, buildings, roads, vegetation, fences, poles.
+* Ground material properties: asphalt, dirt, concrete, grass, sand, wet soil.
+* Two-ray and multi-ray propagation near the ground.
+* Terrain and building occlusion.
+* Ground-bounce ghosts.
+* Range-cell merging between target and ground.
+* Near-horizon grazing-angle clutter.
+* Launch/ground-support objects as clutter, not sanitized background.
+* Sensor mounting height, tilt, vibration, and boresight error.
+* Time-varying transition from stationary/ground-adjacent to airborne.
+
+MathWorks and Altair radar propagation examples show why direct path alone is inadequate: multipath can create ghost detections and ghost tracks, and deterministic two-ray/ray-tracing models must consider ground-reflected rays, surface material, angle of incidence, topography, and land use. ([MathWorks][9])
+
+**Priority:** extremely high, especially for “takeoff from ground.”
+
+---
+
+## 5. Make clutter heavy-tailed, correlated, and scene-specific
+
+Real radar clutter is not white Gaussian background noise sprinkled into windows. It is structured, correlated, non-stationary, environment-dependent, and often heavy-tailed.
+
+The clutter literature commonly uses compound-Gaussian, K-distribution, Weibull, lognormal, generalized-gamma, and related models for non-Gaussian radar clutter. Recent clutter-modeling work continues to emphasize measured-data fitting and heavy-tailed texture/speckle structure. ([MDPI][10])
+
+What to add:
+
+* Land clutter by terrain class: urban, semi-urban, desert, coastal, agricultural, mountainous.
+* Spatial correlation across range/azimuth/elevation bins.
+* Temporal correlation across scans.
+* Doppler spectra for moving clutter: vegetation, traffic, turbines, birds, insects, weather.
+* Non-stationary clutter transitions: road-to-vegetation, building edges, runway/asphalt boundaries.
+* Clutter maps learned from measured empty-scene radar.
+* CFAR failure modes: masking, threshold inflation, edge effects, multiple-target interference.
+* False alarms per unit time and per unit area.
+
+The current object pack’s “hard negatives” are directionally good, but they need to be generated from overlapping radar distributions. A bird at similar range, SNR, radial velocity, altitude, and aspect should often be harder than a target. If the bird class always has different Doppler spread, altitude, speed, SNR, or micro-Doppler distribution, the simulator creates an artificial classification shortcut.
+
+**Priority:** extremely high. Unrealistic clutter is one of the main reasons synthetic radar benchmarks look solved.
+
+---
+
+## 6. Model the actual radar hardware/baseband chain
+
+The repo uses a public-proxy X-band radar archetype with parameters like center frequency, bandwidth, PRI, pulse count, noise figure, calibration error, and SNR. That is not enough. ([GitHub][7])
+
+Real radar outputs include artifacts created throughout the signal chain. A radar sensor-artifact simulation paper explicitly calls out false detections, clutter, aliasing, and the need to allocate artifacts to the signal-processing stage where they are formed. ([mediatum.ub.tum.de][11])
+
+Add the following hardware/signal-chain artifacts:
+
+| Artifact                                  | Why it matters                                                                                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Phase noise                               | Creates range shoulders around strong targets and reduces dynamic range. RadarSimPy’s phase-noise example specifically demonstrates this effect. ([RadarSimX][12]) |
+| Chirp nonlinearity / sweep error          | Distorts range estimation and range-Doppler structure.                                                                                                             |
+| Timing jitter                             | Creates coherence loss and measurement error.                                                                                                                      |
+| ADC quantization                          | Changes weak-target behavior and saturation.                                                                                                                       |
+| Receiver compression / saturation         | Strong clutter can suppress or distort weak nearby returns.                                                                                                        |
+| AGC behavior                              | Alters amplitude distributions and can leak scenario state.                                                                                                        |
+| I/Q imbalance                             | Creates image artifacts and spectral asymmetry.                                                                                                                    |
+| LO drift / temperature drift              | Changes calibration over time.                                                                                                                                     |
+| Antenna sidelobes                         | Generates detections from off-boresight clutter.                                                                                                                   |
+| Mutual coupling / array calibration error | Corrupts angle estimates.                                                                                                                                          |
+| Polarization mismatch                     | Changes RCS and clutter response.                                                                                                                                  |
+| Windowing and sidelobes                   | Affects detectability near strong clutter.                                                                                                                         |
+| PRF ambiguity                             | Causes range/Doppler ambiguities.                                                                                                                                  |
+| Range migration / range walk              | Matters for moving objects across coherent processing intervals.                                                                                                   |
+| Scan/revisit schedule                     | Determines whether a 5 s, 15 s, or 45 s horizon is physically meaningful.                                                                                          |
+
+RadarSimPy’s documentation is useful as a practical checklist because it includes examples for ray tracing, multipath, micro-Doppler, turbine Doppler, RCS, CFAR, interference, phase noise, and ROC simulation. ([RadarSimX][13])
+
+**Priority:** very high. A clean ideal sensor creates clean ML.
+
+---
+
+## 7. Resolve waveform inconsistencies: FMCW vs pulse-Doppler vs what the model actually sees
+
+I noticed a possible inconsistency: the scenario fixture comments mention a baseline X-band FMCW sensor archetype, while the object pack includes a “public-proxy pulse-Doppler” radar archetype. ([GitHub][14])
+
+That matters. FMCW, pulsed Doppler, staring radar, mechanically scanned radar, electronically scanned radar, MIMO automotive-style radar, and surveillance radar produce different artifacts. Their data products are not interchangeable.
+
+You should explicitly define:
+
+1. Transmit waveform.
+2. Antenna pattern and scan/revisit behavior.
+3. Receiver chain.
+4. Matched filtering / dechirping.
+5. Range FFT.
+6. Doppler FFT or coherent integration.
+7. Angle processing.
+8. CFAR or detection thresholding.
+9. Plot extraction.
+10. Track initiation and maintenance.
+11. ML feature extraction point.
+
+Also: the object pack preset I saw lists episode duration on the order of 0.012–0.12 s, while your benchmark horizons are 5 s, 15 s, and 45 s. If that same preset underlies the experiment, the horizon task is probably not physically grounded. ([GitHub][7])
+
+**Priority:** very high. A simulator needs one coherent radar chain, not mixed archetype vocabulary.
+
+---
+
+## 8. Rebuild SNR generation so it is not class-separable
+
+Your baseline AUC strongly suggests that a simple score, perhaps SNR-like, nearly separates positives from negatives. That is not realistic.
+
+For real low-altitude small targets, the relevant quantity is often not clean thermal-noise SNR. It is closer to **signal-to-clutter-plus-interference**, and it varies with aspect, range, altitude, terrain, weather, multipath, antenna sidelobes, integration time, and the target’s micro-motion state.
+
+Fixes:
+
+* Generate range from scene geometry, not class.
+* Generate received power from the radar equation plus aspect-dependent RCS and propagation.
+* Generate clutter power from terrain and grazing angle.
+* Generate interference separately.
+* Let positives and hard negatives share overlapping SNR/range/Doppler distributions.
+* Include low-SNR and negative-SNR samples.
+* Include target masking by clutter.
+* Include intermittent detections and track fragmentation.
+
+Never let the model see generator-side `snr_db` as a feature. It can be stored for audit, but not training.
+
+**Priority:** very high. SNR leakage alone can explain the entire table.
+
+---
+
+## 9. Model micro-Doppler at waveform/spectrogram level, not as a scalar
+
+Your object pack includes public-proxy micro-motion fields such as propulsor frequency, blade count, micro-Doppler frequency, amplitude modulation, and attitude jitter. That is a reasonable placeholder, but real micro-Doppler is aspect-dependent, waveform-dependent, range-dependent, and often clutter-limited. ([GitHub][2])
+
+Drone/bird micro-Doppler studies show that rotors, propellers, and wingbeats can produce discriminative signatures, but they also show that the signatures depend on frequency band, radar view, coherent processing, and target type. K-band and W-band experiments found distinctive signatures for drones and birds, including drone sidebands and rotor blade flashes, while dual-radar work showed that multi-view sensing can improve classification over a single sensor. ([Nature][15])
+
+An X-band/L-band multistatic UAV measurement study emphasizes that small UAV detection is hard because of small RCS, low altitude, low speed, hovering or slow movement, similarity to birds, and environmental clutter; it also discusses micro-Doppler sidebands from rotor motion. ([UCL Discovery][16])
+
+What to add:
+
+* Rotor/propeller geometry, not just frequency.
+* Blade flash / harmonic structure.
+* Aspect-angle dependence.
+* RPM changes over takeoff phase.
+* Coherence and integration-time effects.
+* Weak or absent micro-Doppler at long range or unfavorable aspect.
+* Bird wingbeat models with overlapping spectrogram features.
+* Wind turbine, fan, and rotating-machinery negatives.
+
+**Priority:** high. Micro-Doppler is valuable, but easy to over-sanitize.
+
+---
+
+## 10. Make kinematics physically correlated instead of independently sampled
+
+The current proxy fields appear to sample speed, acceleration, climb rate, turn rate, radial velocity, and altitude envelopes. ([GitHub][2])
+
+That can accidentally make the class separable. Real kinematics are correlated through a trajectory:
+
+* Ground roll or launch event.
+* Initial acceleration.
+* Pitch/rotation.
+* Climb transition.
+* Crosswind drift.
+* Yaw/heading relative to radar.
+* Radial velocity determined by geometry, not sampled independently.
+* Altitude determined by trajectory and terrain.
+* Aspect angle determined by attitude and radar location.
+
+Fix:
+
+* Sample a latent mission/flight profile.
+* Propagate a physically consistent 6-DOF or simplified 3-DOF trajectory.
+* Derive range, radial velocity, elevation, aspect, and Doppler from geometry.
+* Let negatives share many of the same low-level observables.
+* Do not independently draw “radial velocity” as a class feature.
+
+**Priority:** high. Independent scalar kinematics often create fake separability.
+
+---
+
+## 11. Expand hard negatives and force overlap with positives
+
+Your object pack includes useful hard-negative families such as consumer quadrotors, birds, balloons/debris, ground vehicles, and wind turbines. That is the right direction. ([GitHub][7])
+
+But hard negatives only work if they are genuinely hard. They need to overlap positives in range, SNR, Doppler, altitude, aspect, clutter environment, and track quality.
+
+Add or strengthen:
+
+* Single birds.
+* Bird flocks.
+* Insects.
+* Wind turbines.
+* HVAC fans and industrial rotating machinery.
+* Ground vehicles partially occluded by terrain.
+* Motorcycles and small vehicles.
+* Power lines and towers.
+* Construction cranes.
+* Moving vegetation.
+* Balloons, trash, kites, debris.
+* Rain cells and weather clutter.
+* Other legal/surrogate UAVs with unknown class.
+* False tracks from multipath.
+* Ghost detections from strong reflectors.
+
+For each negative class, require matched distributions:
+
+* Same range distribution as positives.
+* Same SNR distribution as positives.
+* Same radial-velocity distribution as positives.
+* Same clutter environments as positives.
+* Same sensor schedule and dropout behavior.
+
+**Priority:** high. A classifier that only distinguishes “target recipe” from “negative recipe” is not useful.
+
+---
+
+## 12. Add multipath ghosts and track-level confusion
+
+Multipath is not just extra noise. It can create plausible ghost detections and ghost tracks. Simulation examples for radar multipath show that signals can arrive by direct and reflected paths, that multi-bounce paths can produce ghost detections, and that those ghost detections can become tracks that confuse downstream logic. ([MathWorks][9])
+
+Add:
+
+* Direct path + ground bounce.
+* Building reflection.
+* Vehicle reflection.
+* Terrain reflection.
+* Multipath ghosts with plausible range/angle/Doppler.
+* Tracker association errors.
+* Track swaps.
+* Track fragmentation.
+* Duplicate tracks.
+* Ghost tracks born near strong reflectors.
+
+This is especially important for low-altitude takeoff because the target is close to the ground and clutter sources.
+
+**Priority:** high.
+
+---
+
+## 13. Model weather, atmosphere, and anomalous propagation
+
+At X-band and nearby bands, weather and atmosphere matter differently depending on range, rain rate, humidity, temperature, and propagation path. ITU-R P.676 models gaseous attenuation from oxygen and water vapor and provides methods for terrestrial paths across relevant frequency ranges. ([itu-rpy.readthedocs.io][17])
+
+Add:
+
+* Rain attenuation.
+* Rain clutter.
+* Wet-ground reflectivity changes.
+* Humidity/temperature profiles.
+* Atmospheric refraction.
+* Ducting/anomalous propagation.
+* Dust/sand effects where relevant.
+* Wind-driven vegetation clutter.
+* Fog/cloud effects where frequency-appropriate.
+* Weather-dependent false-alarm rates.
+
+Propagation references emphasize that non-standard propagation and ducts can change clutter and low-altitude target visibility, while ray/geometry propagation references discuss atmospheric refraction, multipath interference, and layered atmospheres. ([ElectroScience Laboratory][8])
+
+**Priority:** medium-high. Crucial for robustness and false alarms.
+
+---
+
+## 14. Validate at radar-cube level, not only model AUC
+
+AUC is too weak for this problem. It hides operationally important failures, especially under class imbalance and changing prevalence.
+
+Report at minimum:
+
+| Metric                        | Why                                                         |
+| ----------------------------- | ----------------------------------------------------------- |
+| Pd at fixed Pfa               | Standard detection framing.                                 |
+| False alarms per hour         | More meaningful than ROC-AUC.                               |
+| False tracks per hour         | Track-level nuisance burden.                                |
+| Time to first detection       | Better for horizon tasks.                                   |
+| Track continuity              | Measures fragmentation.                                     |
+| Missed-detection burst length | Important under intermittent visibility.                    |
+| Calibration error / ECE       | Whether scores mean anything.                               |
+| PR-AUC                        | More sensitive under imbalance.                             |
+| DET curves                    | Useful for detection tradeoffs.                             |
+| Per-condition metrics         | Range, altitude, aspect, clutter, weather, sensor, terrain. |
+| Out-of-domain holdout         | True robustness test.                                       |
+
+The radar simulation validation literature stresses that validation should occur at multiple data interfaces, including detections and radar cuboids, and that environment, propagation, and signal-processing errors should be separated where possible. ([Springer][4])
+
+**Priority:** medium-high. AUC 1.0 can be meaningless even when computed correctly.
+
+---
+
+## 15. Build physically consistent domain randomization
+
+Domain randomization is useful, but independent random sliders are dangerous. If you randomly sample RCS, SNR, speed, altitude, clutter, micro-Doppler, and dropout independently, the result is often physically impossible and class-separable.
+
+Use hierarchical sampling:
+
+1. Sample site/terrain.
+2. Sample weather/time.
+3. Sample sensor placement and calibration state.
+4. Sample object geometry/material state.
+5. Sample trajectory.
+6. Derive aspect/range/radial velocity.
+7. Derive propagation and clutter.
+8. Generate baseband/cube.
+9. Run detection/tracking.
+10. Produce ML-visible features.
+
+All class labels should be hidden downstream of generation. Latent variables should be stored for audits, not fed to models.
+
+**Priority:** medium-high.
+
+---
+
+## 16. Separate generator metadata from model features completely
+
+This is a concrete engineering fix.
+
+Create three data namespaces:
+
+1. **`latent_truth/`**
+   Object ID, class, RCS parameters, trajectory, seed, scenario, simulator version, weather, terrain, etc. Never used for training.
+
+2. **`sensor_observation/`**
+   What the radar would actually output: I/Q, range-Doppler-angle cube, detections, tracks, timestamps, quality flags.
+
+3. **`evaluation_truth/`**
+   Labels and uncertainty intervals used only by the evaluator.
+
+Then enforce this with code:
+
+* Feature whitelist, not blacklist.
+* Unit tests that fail if latent fields appear in training matrices.
+* Automated single-feature AUC report.
+* Split manifest with group keys.
+* Hash-based duplicate checks.
+* Model card listing every input feature.
+
+**Priority:** medium-high, and easy to implement.
+
+---
+
+## 17. Improve antenna and scan modeling
+
+Antenna modeling is often a hidden source of unrealistic performance.
+
+Add:
+
+* Realistic main lobe and sidelobes.
+* Elevation beam shape.
+* Azimuth/elevation resolution limits.
+* Array calibration errors.
+* Sidelobe detections from bright clutter.
+* Beam scheduling and revisit rate.
+* Mechanical or electronic scan patterns.
+* Boresight misalignment.
+* Mount vibration and platform motion.
+* Polarization and cross-polar response.
+
+Without these, the model may see clean, perfectly registered measurements that real radars do not provide.
+
+**Priority:** medium.
+
+---
+
+## 18. Include interference and co-site effects
+
+Real sensors do not live in RF silence.
+
+Add generic, non-operational interference models:
+
+* Other radars.
+* Communications emitters.
+* Broadband impulsive interference.
+* Chirp-like interference.
+* Receiver desensitization.
+* Intermittent bursts.
+* Sidelobe interference.
+* Packet drops or corrupted frames.
+* Time synchronization issues in multi-sensor setups.
+
+RadarSimPy examples include interference simulation and other RF-chain effects, which is another practical sign that these belong in the simulator checklist. ([RadarSimX][13])
+
+**Priority:** medium.
+
+---
+
+## 19. Treat labels as uncertain, delayed, and sometimes wrong
+
+Synthetic datasets often have perfect labels. Real radar data does not.
+
+Add:
+
+* Label ambiguity near ground.
+* Uncertain takeoff time.
+* Uncertain first-detection time.
+* Track association uncertainty.
+* Multiple objects in one resolution cell.
+* Partial observability.
+* Delayed labels.
+* Unknown/other class.
+* “Do not know” labels.
+* Multi-label cases: target + clutter + ghost.
+
+Your object pack already includes a `label_ambiguity` concept in the environment profile, which is good, but it needs to affect evaluation and training, not just appear as metadata. ([GitHub][7])
+
+**Priority:** medium.
+
+---
+
+## 20. Make the horizon task physically meaningful
+
+Your horizons are 5 s, 15 s, and 45 s. A real radar “horizon” task needs a definition tied to observable time:
+
+* 5 s before what?
+* Before first confirmed track?
+* Before takeoff?
+* Before crossing altitude threshold?
+* Before entering a defended area?
+* Before human annotation?
+* Before simulator truth event?
+
+You should define:
+
+```text
+label_time = physical event time
+observation_window = sensor data available up to t
+prediction_horizon = label_time - t
+forbidden_features = anything after t
+```
+
+Then test for future leakage:
+
+* Remove all timestamps and horizon fields from model input.
+* Ensure feature extraction uses only data available before prediction time.
+* Ensure the same trajectory does not contribute windows to both train and holdout.
+* Ensure labels are not derived from simulator variables visible in the feature matrix.
+
+**Priority:** medium.
+
+---
+
+## 21. Rework the benchmark split strategy
+
+Use multiple holdouts, not one random holdout.
+
+Recommended splits:
+
+| Split                     | What is held out                                        |
+| ------------------------- | ------------------------------------------------------- |
+| Random-window split       | Only for debugging; not a real score.                   |
+| Leave-seed-out            | New random seeds.                                       |
+| Leave-trajectory-out      | New trajectories.                                       |
+| Leave-object-geometry-out | New object shapes/materials.                            |
+| Leave-environment-out     | New terrain/clutter.                                    |
+| Leave-sensor-out          | New radar parameterization.                             |
+| Leave-weather-out         | New weather distribution.                               |
+| Leave-negative-family-out | Unknown false alarms.                                   |
+| Real-data holdout         | Measured data never used in tuning.                     |
+| Stress/OOD holdout        | Hard cases intentionally outside training distribution. |
+
+Your published score should be the worst or median across meaningful grouped holdouts, not the random split.
+
+**Priority:** medium.
+
+---
+
+## 22. Add model-fooling diagnostics
+
+Before trusting any model, run adversarial audits:
+
+1. **Train on generator metadata only.**
+2. **Train on SNR/range/Doppler only.**
+3. **Train on timestamps only.**
+4. **Train on scene IDs only.**
+5. **Train on shuffled radar cubes with metadata intact.**
+6. **Train on radar cubes with labels permuted within scenario.**
+7. **Train on positives and negatives with matched SNR/range distributions.**
+8. **Swap labels between object packs while keeping scenario metadata.**
+9. **Render the same latent target under different sensors.**
+10. **Render negative objects under positive-like conditions.**
+
+A good simulator should make these tests boring: metadata-only AUC near 0.5, no single-feature domination, and no perfect separation.
+
+**Priority:** medium.
+
+---
+
+# Specific things in your current setup that I would change immediately
+
+Based on the repo scan and your AUC table, I would make these first-pass changes before adding advanced physics:
+
+1. **Remove all generator-side fields from model features**
+   Especially `classification_prior`, `object_id`, `scenario`, `preset`, `source_kind`, `sensor_archetype_id`, `expected_range_bins`, `doppler_spread_bins`, `rcs_dbsm`, clean `snr_db`, and any class-specific sampled variables.
+
+2. **Audit your baseline**
+   A baseline AUC of 0.9995 at 45 s means the baseline is almost a truth oracle. Identify the exact scalar or rule responsible.
+
+3. **Use grouped holdouts**
+   No shared trajectory, seed, object geometry, environment, or sensor between train and holdout.
+
+4. **Match positive/negative nuisance distributions**
+   Positives and negatives must overlap in range, SNR, altitude, radial velocity, Doppler spread, clutter, and track length.
+
+5. **Delete or quarantine `classification_prior`**
+   Keep it only in `latent_truth/`, never in any model-accessible table.
+
+6. **Check the horizon implementation**
+   Ensure no features are computed after the prediction time.
+
+7. **Introduce measured-noise and measured-clutter corpora**
+   Even if no target is present, empty-scene measurements are incredibly valuable.
+
+8. **Downgrade the claim language**
+   The repo’s own guardrails are good: call this a public-proxy simulator, not a real-world validated simulator, until measured validation exists. ([GitHub][1])
+
+---
+
+# What a better simulator architecture should look like
+
+A trustworthy radar simulator for low-altitude small objects should be built as an end-to-end chain:
+
+```text
+scenario graph
+  -> terrain / structures / vegetation / weather
+  -> sensor placement / antenna / waveform
+  -> object geometry / material / trajectory
+  -> propagation / multipath / occlusion
+  -> scattering / RCS / micro-Doppler
+  -> baseband I/Q
+  -> receiver artifacts
+  -> range-Doppler-angle processing
+  -> CFAR / detection
+  -> tracking
+  -> ML-visible observations
+  -> evaluation with uncertain labels
+```
+
+The key discipline: **the model should see only what the radar would see.** Everything else is latent truth.
+
+---
+
+# Ranked master list of missing or under-modeled real-world artifacts
+
+Below is the compressed ranking from highest to lowest impact.
+
+| Rank | Missing/weak consideration                                         | Impact                                                       |
+| ---: | ------------------------------------------------------------------ | ------------------------------------------------------------ |
+|    1 | Leakage via metadata, seeds, labels, horizons, generator variables | Can fully explain AUC 1.0                                    |
+|    2 | Random-window split instead of grouped world split                 | Makes holdout meaningless                                    |
+|    3 | Synthetic proxy not anchored to measured radar data                | Simulator may be internally consistent but physically wrong  |
+|    4 | Scalar/class-specific RCS                                          | Creates fake separability                                    |
+|    5 | Clean SNR/range/Doppler distributions                              | Lets simple baselines solve the task                         |
+|    6 | Low-altitude ground interaction                                    | Critical for takeoff scenarios                               |
+|    7 | Heavy-tailed correlated clutter                                    | Central to false alarms                                      |
+|    8 | Multipath and ghost tracks                                         | Common in low-altitude radar                                 |
+|    9 | Real radar hardware artifacts                                      | Clean simulated sensors overperform                          |
+|   10 | Waveform-chain inconsistency                                       | FMCW/pulsed products are not interchangeable                 |
+|   11 | Micro-Doppler over-simplification                                  | Can create unrealistic class signatures                      |
+|   12 | Hard negatives not distribution-matched                            | “Hard” negatives become easy                                 |
+|   13 | Physically inconsistent kinematics                                 | Independent sliders leak class                               |
+|   14 | Antenna sidelobes/beam schedule/calibration                        | Real detections are not perfectly registered                 |
+|   15 | Weather/atmosphere/anomalous propagation                           | Drives range/clutter variation                               |
+|   16 | Interference/RFI                                                   | Real RF environments are messy                               |
+|   17 | Label uncertainty                                                  | Synthetic truth is too clean                                 |
+|   18 | Track-level errors                                                 | Real systems fail through association, fragmentation, ghosts |
+|   19 | Evaluation only by ROC-AUC                                         | Hides false-alarm burden                                     |
+|   20 | No radar-cube-level validation                                     | Detection-level metrics hide model mismatch                  |
+|   21 | No uncertainty/provenance model                                    | Proxy assumptions become false certainty                     |
+|   22 | Insufficient OOD holdouts                                          | No evidence of robustness                                    |
+
+---
+
+# Literature-backed reference map
+
+These are the areas I would use to guide the next engineering cycle:
+
+1. **UAV RCS measurement/statistical modeling**
+   Use measured aspect/frequency/polarization-dependent RCS and statistical fluctuation models rather than scalar RCS ranges. ([MDPI][6])
+
+2. **Drone/bird micro-Doppler**
+   Model rotor/wingbeat signatures as time-frequency phenomena and validate against measured spectrograms. ([Nature][15])
+
+3. **Low-altitude propagation and multipath**
+   Include terrain, ground reflection, material properties, atmospheric refraction, diffraction, and ghost detections/tracks. ([ElectroScience Laboratory][8])
+
+4. **Atmospheric attenuation and propagation standards**
+   Use ITU-style gaseous attenuation and terrestrial propagation models where frequency/range/weather make them relevant. ([itu-rpy.readthedocs.io][17])
+
+5. **Radar clutter models**
+   Heavy-tailed, compound-Gaussian, K, Weibull, generalized-gamma, and measured-data-fitted clutter models are much more realistic than independent Gaussian noise. ([MDPI][10])
+
+6. **Radar sensor artifacts**
+   False detections, clutter, aliasing, phase noise, interference, and processing-chain artifacts must be modeled at the stage where they arise. ([mediatum.ub.tum.de][11])
+
+7. **Simulation validation / sim-to-real gap**
+   Validate at radar-cube, detection, and downstream-task levels; use measured scenes; quantify synthetic-real discrepancy directly. ([Ben-Gurion University Research Portal][5])
+
+---
+
+# Bottom line
+
+The most important conclusion is not “add more noise.” It is:
+
+**Your simulator is probably generating labels that are easier than reality, and your benchmark likely allows the models to see some part of the generation recipe.**
+
+The fastest path to a useful simulator is:
+
+1. Prove no leakage.
+2. Use grouped holdouts.
+3. Match nuisance distributions across positives and negatives.
+4. Remove all latent generator variables from model input.
+5. Validate noise/clutter/RCS/micro-Doppler against measured data.
+6. Score with false alarms, detection probability, time-to-detect, track quality, calibration, and OOD performance—not just ROC-AUC.
+
+Once those changes are made, realistic performance should stop being perfect. That would be a good sign.
+
+[1]: https://github.com/neverhuman/echoforge "GitHub - neverhuman/echoforge: EM simulator · GitHub"
+[2]: https://github.com/neverhuman/echoforge/blob/main/configs/monte-carlo/airspace-objects.json "echoforge/configs/monte-carlo/airspace-objects.json at main · neverhuman/echoforge · GitHub"
+[3]: https://github.com/neverhuman/echoforge/blob/main/benchmarks/public-proxy-clutter/report.placeholder.json "echoforge/benchmarks/public-proxy-clutter/report.placeholder.json at main · neverhuman/echoforge · GitHub"
+[4]: https://link.springer.com/article/10.1007/s41104-024-00143-5 "Introducing the double validation metric for radar sensor models | Automotive and Engine Technology | Springer Nature Link"
+[5]: https://cris.bgu.ac.il/en/publications/radsimreal-bridging-the-gap-between-synthetic-and-real-data-in-ra-3/ "
+        RadSimReal: Bridging the Gap Between Synthetic and Real Data in Radar Object Detection With Simulation
+      \-  Ben-Gurion University Research Portal"
+[6]: https://www.mdpi.com/2504-446X/7/1/39 "Small Fixed-Wing UAV Radar Cross-Section Signature Investigation and Detection and Classification of Distance Estimation Using Realistic Parameters of a Commercial Anti-Drone System | MDPI"
+[7]: https://github.com/neverhuman/echoforge/raw/refs/heads/main/configs/monte-carlo/airspace-objects.json "raw.githubusercontent.com"
+[8]: https://electroscience.osu.edu/research/rf-propagation "RF Propagation | ElectroScience Laboratory"
+[9]: https://www.mathworks.com/help/radar/ug/simulate-radar-ghosts-due-to-multipath-return.html "Simulate Radar Ghosts Due to Multipath Return - MATLAB & Simulink
+"
+[10]: https://www.mdpi.com/2072-4292/16/16/2912?utm_source=chatgpt.com "Compound-Gaussian Clutter Model with Weibull ..."
+[11]: https://mediatum.ub.tum.de/1535151 "mediaTUM - Media and Publication Server"
+[12]: https://radarsimx.com/2021/01/13/phase-noise/?utm_source=chatgpt.com "Phase Noise"
+[13]: https://radarsimx.github.io/radarsimpy/user_guide/examples.html?utm_source=chatgpt.com "Usage Examples — RadarSimPy 15.2.0 documentation"
+[14]: https://github.com/neverhuman/echoforge/blob/main/scenarios/public-proxy-clutter/scenario.yaml "echoforge/scenarios/public-proxy-clutter/scenario.yaml at main · neverhuman/echoforge · GitHub"
+[15]: https://www.nature.com/articles/s41598-018-35880-9 "Radar micro-Doppler signatures of drones and birds at K-band and W-band | Scientific Reports"
+[16]: https://discovery.ucl.ac.uk/id/eprint/10112296/1/NeXtRAD%20Florence%20Paper%20-%20UCL%20Submission.pdf "Microsoft Word - NeXtRAD Florence Paper - UCL Submission.docx"
+[17]: https://itu-rpy.readthedocs.io/en/develop/apidoc/itu676.html "Recommendation ITU-R P.676 — ITU-Rpy 0.3.1 documentation"
+

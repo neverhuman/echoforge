@@ -82,3 +82,21 @@ pub trait CanonicalTruth {
     fn validity_mask(&self, conditions: &Conditions) -> bool;
     fn tolerance(&self, conditions: &Conditions) -> ToleranceBand;
 }
+
+/// True when a rectangular aperture (width_m × height_m) is electrically large
+/// (kw > 3 and kh > 3) at the given wavelength.
+#[inline]
+pub(super) fn kw_kh_large(width_m: f64, height_m: f64, lambda: f64) -> bool {
+    let k = 2.0 * std::f64::consts::PI / lambda;
+    k * width_m > 3.0 && k * height_m > 3.0
+}
+
+/// Unnormalized sinc: sin(x)/x, with the limit 1 at x=0.
+#[inline]
+pub(super) fn sinc(x: f64) -> f64 {
+    if x.abs() < 1e-12 {
+        1.0
+    } else {
+        x.sin() / x
+    }
+}

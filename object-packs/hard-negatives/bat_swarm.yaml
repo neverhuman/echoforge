@@ -1,0 +1,41 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Bat swarm (e.g., Mexican free-tailed bat colonies) — well-studied in
+# ornithology radar literature. Small individual RCS, high spatial density,
+# erratic flight, characteristic 8-15 Hz wingbeat.
+id: "ef:object_card:bat-swarm:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: bat-swarm
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Mexican_free-tailed_bat"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Bat Swarm"
+object_family: biological
+geometry_variant: bat-swarm-colony
+material_variant: biological-tissue
+dimensions_m:
+  x: 0.08
+  y: 0.3
+  z: 0.05
+tags:
+  - hard_negative
+  - biological
+  - bat
+  - swarm
+  - erratic_flight
+  - wildlife_confuser

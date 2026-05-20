@@ -126,10 +126,12 @@ fn canonical_json(kind: &str) -> String {
 
 #[test]
 fn schema_catalog_has_twelve_entries() {
-    let catalog: Vec<Value> = load_json(&workspace_root().join("contracts/schema_catalog.json"))
-        .as_array()
+    let root = load_json(&workspace_root().join("contracts/schema_catalog.json"));
+    let catalog: Vec<Value> = root
+        .get("schemas")
+        .and_then(Value::as_array)
         .cloned()
-        .expect("catalog array");
+        .expect("catalog.schemas array");
     assert_eq!(catalog.len(), 12);
 }
 

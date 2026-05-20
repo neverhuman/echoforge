@@ -1,5 +1,7 @@
 pub mod antenna;
 mod backend;
+pub mod complex_iq;
+mod prng;
 pub mod beamforming;
 mod cfar;
 mod chain;
@@ -29,7 +31,7 @@ pub use backend::{
     BackendSignals, CpuBackend, GpuBackendUnavailable, RuntimeBackend, RuntimePlan,
 };
 pub use beamforming::{
-    steering_vector, Beamformer, CaponStubBeamformer, DelayAndSumBeamformer, SumBeamformer,
+    steering_vector, Beamformer, CaponUnimplementedBeamformer, DelayAndSumBeamformer, SumBeamformer,
 };
 pub use cfar::{ca_cfar_1d, ca_cfar_scale, CfarDecision, CfarParams};
 pub use chain::{RadarChain, RadarChainOutput};

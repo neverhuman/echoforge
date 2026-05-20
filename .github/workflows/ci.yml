@@ -1,0 +1,107 @@
+name: ci
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths-ignore:
+      - README.md
+      - assets/**
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - README.md
+      - assets/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+      SCCACHE_CACHE_SIZE: 1G
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Configure sccache for Rust builds
+        uses: mozilla-actions/sccache-action@1583d6b38d7be47f593cb472781bbb21cab4321e
+      - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install nextest
+        uses: taiki-e/install-action@213ccc1a076163c093f914550b94feb90fab916d
+        with:
+          tool: nextest
+      - name: Fast lane
+        shell: bash
+        env:
+          CARGO_INCREMENTAL: "0"
+        run: |
+          cargo nextest run --workspace --locked --jobs $(nproc)
+          bash ops/ci/fast.sh
+
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Contracts lane
+        shell: bash
+        run: bash ops/ci/contracts.sh
+
+  web-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+        with:
+          node-version: '20'
+      - name: Web smoke lane
+        shell: bash
+        run: bash ops/ci/web-smoke.sh
+
+  web-e2e:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: web-smoke
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+        with:
+          node-version: '20'
+      - name: Web e2e lane
+        shell: bash
+        run: bash ops/ci/web-e2e.sh
+
+  score:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+      - name: Governance score lane
+        shell: bash
+        run: bash ops/ci/score.sh

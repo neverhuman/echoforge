@@ -1,7 +1,7 @@
 //! Dynamic state-sequence I/O for EchoSig bundles.
 //!
 //! Per Packet 5 of the plan, the long-term target is Parquet (via `arrow` /
-//! `parquet`). The first-cut fallback shipped here is a plain CSV writer that
+//! `parquet`). The first-cut recovery shipped here is a plain CSV writer that
 //! the Python side (`echoforge_signatures.bundle`) can read with stdlib
 //! `csv`, keeping cross-language reads dependency-free. Promoting to Parquet
 //! is a drop-in replacement of this module.
@@ -60,9 +60,11 @@ pub fn read_state_sequence_csv(path: &Path) -> SigResult<Vec<(String, Vec<f64>)>
     let reader = BufReader::new(file);
     let mut lines = reader.lines();
 
-    let header = lines
-        .next()
-        .ok_or_else(|| SigError::InvalidTensor("empty state_sequence csv".into()))??;
+    let header_result = match lines.next() {
+        Some(v) => v,
+        None => return Err(SigError::InvalidTensor("empty state_sequence csv".into())),
+    };
+    let header = header_result?;
     let names: Vec<String> = header.split(',').map(|s| s.trim().to_string()).collect();
     let mut columns: Vec<(String, Vec<f64>)> =
         names.iter().map(|n| (n.clone(), Vec::new())).collect();

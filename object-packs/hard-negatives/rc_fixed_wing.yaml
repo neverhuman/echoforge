@@ -1,0 +1,38 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation across
+# multiple RC fixed-wing variants are represented in the current catalog.
+id: "ef:object_card:rc-fixed-wing:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: rc-fixed-wing
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "RC Fixed-Wing Hobby Aircraft Hard Negative"
+object_family: hobby_aircraft
+geometry_variant: small-fixed-wing
+material_variant: foam-balsa
+dimensions_m:
+  x: 1.1
+  y: 1.6
+  z: 0.25
+tags:
+  - hard_negative
+  - civilian_benign
+  - hobby_aircraft
+  - fixed_wing
+  - low_rcs

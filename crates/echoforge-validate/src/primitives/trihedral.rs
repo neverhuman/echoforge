@@ -55,14 +55,7 @@ impl CanonicalTruth for PecTrihedral {
     }
 
     fn tolerance(&self, _conditions: &Conditions) -> ToleranceBand {
-        ToleranceBand {
-            analytic_db: 0.5,
-            numeric_db: 0.0,
-            method_db: 0.0,
-            total_db: 0.5,
-            floor_db: 0.1,
-            ceiling_db: 3.0,
-        }
+        ToleranceBand::analytic_only(0.5)
     }
 }
 

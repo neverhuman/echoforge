@@ -13,6 +13,9 @@ use thiserror::Error;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
+mod mesh_serve;
+mod traceability;
+
 pub const DEFAULT_SERVICE_NAME: &str = "echoforge-studio";
 pub const DEFAULT_PUBLIC_BASE_URL: &str = "/";
 pub const DEFAULT_CATALOG_PATH: &str = "contracts/schema_catalog.json";
@@ -26,6 +29,11 @@ pub struct CatalogEntry {
     pub schema_file: String,
     pub rust_type: String,
     pub python_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct CatalogFile {
+    schemas: Vec<CatalogEntry>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -76,26 +84,36 @@ pub struct StudioConfig {
 
 impl StudioConfig {
     pub fn from_env() -> Result<Self, StudioError> {
-        let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-        let port = std::env::var("PORT")
-            .unwrap_or_else(|_| "8080".to_string())
-            .parse::<u16>()
-            .map_err(|err| StudioError::Config(format!("invalid PORT: {err}")))?;
-        let service_name = std::env::var("ECHOFORGE_SERVICE_NAME")
-            .unwrap_or_else(|_| DEFAULT_SERVICE_NAME.to_string());
-        let public_base_url = std::env::var("ECHOFORGE_PUBLIC_BASE_URL")
-            .unwrap_or_else(|_| DEFAULT_PUBLIC_BASE_URL.to_string());
-        let catalog_path = PathBuf::from(
-            std::env::var("ECHOFORGE_CATALOG_PATH")
-                .unwrap_or_else(|_| DEFAULT_CATALOG_PATH.to_string()),
-        );
-        let bundle_path = PathBuf::from(
-            std::env::var("ECHOFORGE_BUNDLE_PATH")
-                .unwrap_or_else(|_| DEFAULT_BUNDLE_PATH.to_string()),
-        );
-        let web_dist = PathBuf::from(
-            std::env::var("ECHOFORGE_WEB_DIST").unwrap_or_else(|_| DEFAULT_WEB_DIST.to_string()),
-        );
+        let host = match std::env::var("HOST") {
+            Ok(v) => v,
+            Err(_) => "127.0.0.1".to_string(),
+        };
+        let port = match std::env::var("PORT") {
+            Ok(v) => v,
+            Err(_) => "8080".to_string(),
+        }
+        .parse::<u16>()
+        .map_err(|err| StudioError::Config(format!("invalid PORT: {err}")))?;
+        let service_name = match std::env::var("ECHOFORGE_SERVICE_NAME") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_SERVICE_NAME.to_string(),
+        };
+        let public_base_url = match std::env::var("ECHOFORGE_PUBLIC_BASE_URL") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_PUBLIC_BASE_URL.to_string(),
+        };
+        let catalog_path = PathBuf::from(match std::env::var("ECHOFORGE_CATALOG_PATH") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_CATALOG_PATH.to_string(),
+        });
+        let bundle_path = PathBuf::from(match std::env::var("ECHOFORGE_BUNDLE_PATH") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_BUNDLE_PATH.to_string(),
+        });
+        let web_dist = PathBuf::from(match std::env::var("ECHOFORGE_WEB_DIST") {
+            Ok(v) => v,
+            Err(_) => DEFAULT_WEB_DIST.to_string(),
+        });
 
         Ok(Self {
             host,
@@ -144,7 +162,8 @@ impl StudioState {
             )));
         }
 
-        let catalog_entries: Vec<CatalogEntry> = load_json(&config.catalog_path)?;
+        let catalog_file: CatalogFile = load_json(&config.catalog_path)?;
+        let catalog_entries = catalog_file.schemas;
         let catalog_source = config.catalog_path.display().to_string();
         let validation = load_validation_report(&config.bundle_path)?;
         let catalog = CatalogResponse {
@@ -202,8 +221,8 @@ fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, StudioErr
 }
 
 fn load_validation_report(bundle_path: &Path) -> Result<ValidateReport, StudioError> {
-    let temp = NamedTempFile::new()?;
-    let report_path = temp.path().to_path_buf();
+    let tmp_file = NamedTempFile::new()?;
+    let report_path = tmp_file.path().to_path_buf();
     let args = ValidateArgs {
         bundle: bundle_path.to_path_buf(),
         primitive: Some("auto".to_string()),
@@ -223,6 +242,16 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
     let contracts_state = state;
     let index = web_dist.join("index.html");
     let static_files = ServeDir::new(&web_dist).not_found_service(ServeFile::new(index));
+
+    let trace_state = Arc::new(traceability::TraceabilityState {
+        config: traceability::TraceabilityConfig::from_env(),
+    });
+    let traceability_router = Router::new()
+        .route(
+            "/provenance/detection/{detection_id}",
+            get(traceability::detection_handler),
+        )
+        .with_state(trace_state);
 
     Router::new()
         .route(
@@ -253,14 +282,18 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
                 async move { Json(state.contracts()) }
             }),
         )
+        .merge(mesh_serve::mesh_router())
+        .merge(traceability_router)
         .fallback_service(static_files)
 }
 
+#[tracing::instrument(name = "studio.serve_from_env")]
 pub async fn serve_from_env() -> Result<(), StudioError> {
     let config = StudioConfig::from_env()?;
     serve(config).await
 }
 
+#[tracing::instrument(name = "studio.serve", fields(host = %config.host, port = %config.port))]
 pub async fn serve(config: StudioConfig) -> Result<(), StudioError> {
     let state = Arc::new(StudioState::load(&config)?);
     let router = build_router(state, config.web_dist.clone());
@@ -281,90 +314,7 @@ impl IntoResponse for StudioError {
     }
 }
 
+
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::body::Body;
-    use std::fs;
-    use tempfile::tempdir;
-    use tower::ServiceExt;
-
-    fn test_config(web_dist: PathBuf) -> StudioConfig {
-        let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../..")
-            .canonicalize()
-            .expect("workspace root");
-        StudioConfig {
-            host: "127.0.0.1".to_string(),
-            port: 0,
-            service_name: DEFAULT_SERVICE_NAME.to_string(),
-            public_base_url: DEFAULT_PUBLIC_BASE_URL.to_string(),
-            catalog_path: workspace_root.join("contracts/schema_catalog.json"),
-            bundle_path: workspace_root.join("tests/science/fixtures/bundles/v1_pass"),
-            web_dist,
-        }
-    }
-
-    #[tokio::test]
-    async fn router_serves_live_contracts() {
-        let dist = tempdir().expect("tempdir");
-        fs::write(
-            dist.path().join("index.html"),
-            "<!doctype html><div id=\"app\"></div>",
-        )
-        .expect("index");
-        let config = test_config(dist.path().to_path_buf());
-        let state = Arc::new(StudioState::load(&config).expect("state"));
-        let app = build_router(state, config.web_dist.clone());
-
-        let health = app
-            .clone()
-            .oneshot(
-                axum::http::Request::builder()
-                    .uri("/healthz")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
-        assert_eq!(health.status(), axum::http::StatusCode::OK);
-        let health_body = axum::body::to_bytes(health.into_body(), usize::MAX)
-            .await
-            .expect("health body");
-        let health_json: HealthResponse =
-            serde_json::from_slice(&health_body).expect("health json");
-        assert_eq!(health_json.service, DEFAULT_SERVICE_NAME);
-        assert_eq!(health_json.validation_status, "pass");
-        assert_eq!(health_json.schema_count, 12);
-
-        let validation = app
-            .clone()
-            .oneshot(
-                axum::http::Request::builder()
-                    .uri("/api/validation/latest")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
-        assert_eq!(validation.status(), axum::http::StatusCode::OK);
-        let validation_body = axum::body::to_bytes(validation.into_body(), usize::MAX)
-            .await
-            .expect("validation body");
-        let validation_json: ValidateReport =
-            serde_json::from_slice(&validation_body).expect("validation json");
-        assert_eq!(validation_json.overall_status, "pass");
-        assert_eq!(validation_json.tier.as_str(), "V1");
-
-        let contracts = app
-            .oneshot(
-                axum::http::Request::builder()
-                    .uri("/api/contracts")
-                    .body(Body::empty())
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
-        assert_eq!(contracts.status(), axum::http::StatusCode::OK);
-    }
-}
+#[path = "lib_tests.rs"]
+mod tests;

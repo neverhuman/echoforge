@@ -1,0 +1,22 @@
+[package]
+name = "echoforge-hardneg-mining"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Closed-loop hard-negative mining: read model_eval reports → cluster failures
+# → synthesize variant object classes that perturb bounds toward the failure
+# region. The loop is human-in-the-loop: each iteration writes proposed
+# variants under outputs/hard-negative-runs/iteration-<N>/ for curator review;
+# this crate deliberately does NOT apply variants to the live
+# configs/monte-carlo/airspace-objects.json.
+
+[dependencies]
+echoforge-core = { path = "../echoforge-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"

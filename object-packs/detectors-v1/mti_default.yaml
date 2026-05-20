@@ -1,0 +1,88 @@
+# EchoForge detector_card — MTI (Skolnik §3.7) 3-pulse binomial default
+# Schema: schemas/detector_card.schema.json
+#
+# Moving-target indicator: binomial-weighted FIR canceller across slow
+# time (MtiOrder::Three coefficients [+1, -2, +1]). Suppresses zero-
+# Doppler clutter; targets with non-zero Doppler survive with the
+# binomial frequency response |H(f)| = 4 sin^2(pi f T_pri). Externalizes
+# the Rust default at crates/echoforge-radar/src/mti_mtd.rs (apply_mti).
+#
+# Canonical performance per .agents/receipts/mti-mtd-filter-bank/
+# 20260518T193508Z.md: I_3 = 73.09 dB at sigma_f = 2 Hz, T_pri = 900 us
+# (S-band C-UAS / surveillance archetype).
+id: "ef:detector_card:mti-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: mti-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Skolnik, Introduction to Radar Systems, 3rd ed. §3.7 (MTI binomial cancellers)"
+    - "Richards, Fundamentals of Radar Signal Processing, 2nd ed. §5.6 (pulse-Doppler / MTI)"
+    - "Schleher, MTI and Pulsed Doppler Radar, Artech House 1991 §2.4 (improvement factor derivation)"
+    - "crates/echoforge-radar/src/mti_mtd.rs (apply_mti + MtiOrder::Three)"
+    - ".agents/receipts/mti-mtd-filter-bank/20260518T193508Z.md (I_3 = 73.09 dB at sigma_f=2 Hz)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: benchmarked
+  status: pass
+  uncertainty_score: 0.15
+  checks:
+    - name: dc_cancellation_zero_residue
+      status: pass
+      message: "mti_three_pulse_cancels_dc unit test: |residue| < 1e-5 on constant complex sequence"
+    - name: skolnik_canonical_improvement_factor
+      status: pass
+      message: "I_3 = 73.09 dB at sigma_f=2 Hz, T_pri=900 us per .agents/receipts/mti-mtd-filter-bank/20260518T193508Z.md"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built apply_mti(_, MtiOrder::Three) byte-for-byte on pinned slow-time fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "MTI (3-pulse binomial canceller, Skolnik §3.7)"
+algorithm_family: mti
+parameters:
+  mti_order: 3
+  binomial_coefficients: [1.0, -2.0, 1.0]
+  pri_s_default: 9.0e-4
+  carrier_freq_hz_default: 3.0e9
+  clutter_spectrum_assumption: "gaussian_sigma_f_2hz_s_band"
+default_thresholds:
+  improvement_factor_db_min: 40.0
+intended_target_classes:
+  - shahed-class-piston
+  - geran-3-jet-variant
+  - small-uas-class-i
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+  - src-an-tpq-50
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.80
+      pd_max: 0.95
+    snr_db_required_range:
+      min: 10.0
+      max: 14.0
+    citation_id: skolnik-3rd-3-7-mti-improvement-factor
+citations:
+  - citation_id: skolnik-3rd-3-7-mti-improvement-factor
+    title: "Skolnik 3rd ed. §3.7 (MTI improvement factor eq. 3.32)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: schleher-1991-mti-pulsed-doppler
+    title: "MTI and Pulsed Doppler Radar (improvement factor derivation §2.4)"
+    authors: "Schleher"
+    publisher: "Artech House 1991"
+  - citation_id: richards-2nd-5-6-pulse-doppler
+    title: "Fundamentals of Radar Signal Processing, 2nd ed. §5.6"
+    authors: "Richards"
+    publisher: "McGraw-Hill"

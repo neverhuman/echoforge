@@ -47,7 +47,7 @@ class CoreSliceTests(unittest.TestCase):
         }
 
     def test_schema_catalog_and_common_schema_parse(self) -> None:
-        catalog = load_json(REPO_ROOT / "contracts" / "schema_catalog.json")
+        catalog = load_json(REPO_ROOT / "contracts" / "schema_catalog.json")["schemas"]
         self.assertEqual(len(catalog), 12)
         for entry in catalog:
             schema = load_json(REPO_ROOT / entry["schema_file"])

@@ -1,0 +1,147 @@
+# EchoForge detector_card — Micro-Doppler 5-feature Neyman-Pearson LRT classifier
+# Schema: schemas/detector_card.schema.json
+#
+# Extracts a 5-feature vector from a target's slow-time/Doppler grid
+# (rotor_fundamental, modulation_depth, harmonic_ratio,
+# spectral_entropy, body_doppler_centroid) and runs a Neyman-Pearson
+# LRT against public-proxy reference signatures for {quadcopter_4rotor,
+# fixed_wing_uav, bird_flapping, helicopter}. Externalizes the Rust
+# default at
+# crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs.
+# Reference signatures encoded as per-feature mean ± 1 sigma cited to
+# Chen 2011, Tahmoush 2015, Rahman & Robertson Nature Sci Rep 2018,
+# MDPI Drones 2023.
+id: "ef:detector_card:micro-doppler-lrt-classifier-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: micro-doppler-lrt-classifier-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Chen, V. C., The Micro-Doppler Effect in Radar, Artech House 2011 (ch. 3 rotating blades, ch. 7 flapping-wing birds)"
+    - "Tahmoush, Review of micro-Doppler signatures, IET Radar Sonar Navig. 9(9), 1140-1146 (2015)"
+    - "Rahman & Robertson, Radar micro-Doppler signatures of drones and birds at K-band and W-band, Nature Sci Rep 8:17396 (2018)"
+    - "MDPI Drones 7(1):39 (2023) — small fixed-wing UAS RCS + micro-Doppler envelopes"
+    - "Skolnik 3rd ed. §9.5 (likelihood-ratio detection theory)"
+    - "crates/echoforge-radar/src/detectors/micro_doppler_classifier.rs"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim. Reference signatures are public-proxy envelopes."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: neyman_pearson_lrt_per_class
+      status: pass
+      message: "Per-class log-likelihood under independent Gaussian feature priors; posteriors are softmax with equal priors per Skolnik §9.5"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built classifier with ReferenceSignature::library() byte-for-byte on pinned slow-time fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "Micro-Doppler 5-feature Neyman-Pearson LRT (Chen 2011 / Tahmoush 2015 / Rahman-Robertson 2018)"
+algorithm_family: micro_doppler_lrt_classifier
+parameters:
+  features:
+    - rotor_fundamental_hz
+    - modulation_depth_db
+    - harmonic_ratio
+    - spectral_entropy_bits
+    - body_doppler_centroid_hz
+  reference_signatures:
+    - class: quadcopter_4rotor
+      rotor_freq_mean_hz: 400.0
+      rotor_freq_std_hz: 150.0
+      modulation_depth_mean_db: -3.0
+      modulation_depth_std_db: 1.5
+      harmonic_ratio_mean: 0.25
+      harmonic_ratio_std: 0.10
+      spectral_entropy_mean: 4.5
+      spectral_entropy_std: 0.5
+      body_doppler_centroid_mean_hz: 50.0
+      body_doppler_centroid_std_hz: 30.0
+      citation_id: chen-2011-micro-doppler-ch3-quadcopter
+    - class: fixed_wing_uav
+      rotor_freq_mean_hz: 185.0
+      rotor_freq_std_hz: 35.0
+      modulation_depth_mean_db: -8.0
+      modulation_depth_std_db: 2.0
+      harmonic_ratio_mean: 0.10
+      harmonic_ratio_std: 0.05
+      spectral_entropy_mean: 3.2
+      spectral_entropy_std: 0.4
+      body_doppler_centroid_mean_hz: 970.0
+      body_doppler_centroid_std_hz: 200.0
+      citation_id: mdpi-drones-2023-fixed-wing-uav-blade-pass
+    - class: bird_flapping
+      rotor_freq_mean_hz: 5.0
+      rotor_freq_std_hz: 2.0
+      modulation_depth_mean_db: -15.0
+      modulation_depth_std_db: 3.0
+      harmonic_ratio_mean: 0.05
+      harmonic_ratio_std: 0.03
+      spectral_entropy_mean: 5.5
+      spectral_entropy_std: 0.6
+      body_doppler_centroid_mean_hz: 200.0
+      body_doppler_centroid_std_hz: 100.0
+      citation_id: rahman-robertson-nature-2018-bird-wingbeat
+    - class: helicopter
+      rotor_freq_mean_hz: 25.0
+      rotor_freq_std_hz: 8.0
+      modulation_depth_mean_db: -2.0
+      modulation_depth_std_db: 1.0
+      harmonic_ratio_mean: 0.35
+      harmonic_ratio_std: 0.10
+      spectral_entropy_mean: 5.8
+      spectral_entropy_std: 0.4
+      body_doppler_centroid_mean_hz: 400.0
+      body_doppler_centroid_std_hz: 150.0
+      citation_id: tahmoush-2015-helicopter-tail-rotor
+  prior_distribution: "equal_class_priors"
+  posterior_combine: "softmax_log_likelihood"
+default_thresholds:
+  micro_doppler_lrt_threshold: 4.5
+  min_class_posterior: 0.55
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - mohajer-6
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.70
+      pd_max: 0.90
+    snr_db_required_range:
+      min: 14.0
+      max: 19.0
+    citation_id: rahman-robertson-nature-2018-bird-wingbeat
+citations:
+  - citation_id: chen-2011-micro-doppler-ch3-quadcopter
+    title: "The Micro-Doppler Effect in Radar (ch. 3 quadcopter rotating blades)"
+    authors: "Chen, V. C."
+    publisher: "Artech House 2011"
+  - citation_id: tahmoush-2015-helicopter-tail-rotor
+    title: "Review of micro-Doppler signatures (helicopter tail-rotor overtone)"
+    authors: "Tahmoush"
+    publisher: "IET Radar Sonar Navig. 9(9), 1140-1146 (2015)"
+  - citation_id: rahman-robertson-nature-2018-bird-wingbeat
+    title: "Radar micro-Doppler signatures of drones and birds at K-band and W-band"
+    authors: "Rahman & Robertson"
+    publisher: "Nature Sci Rep 8:17396 (2018)"
+  - citation_id: mdpi-drones-2023-fixed-wing-uav-blade-pass
+    title: "Small fixed-wing UAV RCS signature investigation (blade-pass envelopes)"
+    authors: "MDPI Drones editorial board"
+    publisher: "MDPI Drones 7(1):39 (2023)"
+  - citation_id: skolnik-3rd-9-5-lrt
+    title: "Skolnik 3rd ed. §9.5 (likelihood-ratio detection theory)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"

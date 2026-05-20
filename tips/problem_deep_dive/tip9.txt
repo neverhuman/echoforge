@@ -1,0 +1,299 @@
+The core answer: for the common **Shahed-131 / Shahed-136 / Geran-1 / Geran-2** Iranian one-way attack drone family, radar detection is usually limited first by **line of sight, low-elevation clutter, radar cross section, aspect angle, false-alarm control, and track confirmation**, not by a single magical altitude. A drone can be “visible” to radar only when the geometry allows it, but it is not **operationally useful** until the radar can build a reliable track and classify it against birds, ground vehicles, rain, terrain reflections, and other clutter.
+
+I’ll keep this framed as a defensive/open-source technical briefing. I’m not going to provide a site-specific evasion/intercept recipe, exact radar operating settings, or a guaranteed “fly below X meters and you are invisible / fly above Y meters and you are detected” threshold, because that would be misleading and potentially harmful. The real answer depends heavily on the radar, terrain, weather, antenna height, target aspect, signal processing, and sensor fusion.
+
+## 1. Which “Iranian drone” matters most here?
+
+The main drone family people usually mean is the **Shahed-136**, also called **Geran-2** in Russian service. It is a delta-wing, one-way attack UAV with a pusher propeller, relatively low speed, long range, and a warhead typically cited around tens of kilograms. The smaller **Shahed-131 / Geran-1** is similar but smaller. DIA’s public visual-identification report specifically compares Shahed-136/Geran-2, Shahed-131/Geran-1, and Mohajer-6 systems used in Ukraine. ([dia.mil][1])
+
+Open-source specs for the **Shahed-136** commonly put it around **3.5 m long**, **2.5 m wingspan**, about **200 kg**, roughly **185 km/h** cruise/top speed for the piston-engine variant, and a warhead often quoted near **40–50 kg**. Janes cites Iranian-displayed specs of **2,500 km range**, **200 kg weight**, **50 kg warhead**, and **185 km/h** from the MD550 engine; OSMP similarly lists the Shahed-136 series as a GNSS/INS-guided one-way attack UAV with roughly **1,000–2,000 km** estimated range and up to **50 kg** warheads. ([Default][2])
+
+The baseline Shahed-136 is not a fast jet-like target. It is a slow, propeller-driven, fixed-wing target, which creates a mixed detection problem: it is larger than many hobby drones, but slower and lower than conventional aircraft, and its materials and geometry can reduce radar return. OSMP describes Shahed-131/136 airframes as using fiberglass/carbon-fiber honeycomb structures intended to reduce radar cross section, while Janes and DIA identify the MD550/MD-550-style piston engine and truck/rail launch arrangement. ([Open Source Munitions Portal][3])
+
+There are also reported **jet-powered Shahed/Geran variants**, sometimes discussed as Shahed-238 / Geran-3-type derivatives. Those change the detection/interception problem because higher speed compresses warning time and changes Doppler signatures. OSMP notes reported jet-powered variants with much higher cruising speeds than the standard ~180–185 km/h piston version. ([Open Source Munitions Portal][3])
+
+## 2. Launch and flight profile, at a high level
+
+The Shahed-136 is commonly described as a **rail-launched** or **truck-launched** drone using a **rocket-assisted booster** for takeoff; after launch, the booster separates and the piston engine/propeller sustains flight. Janes states that the booster rocket drops off after launch from the rail, while DIA imagery shows Shahed-136 UAVs prepared for launch from a truck platform during an IRGC Aerospace Force exercise. ([Default][2])
+
+A simplified phase model looks like this:
+
+| Phase            | What happens                                                          | Radar relevance                                                               |
+| ---------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Pre-launch       | Drone sits on rail/truck launcher                                     | Ground clutter and occlusion dominate; not normally a radar-air-track problem |
+| Boost launch     | Rocket-assisted launch, rapid acceleration, booster separation        | Transient signature; may be brief and geometry-dependent                      |
+| Stabilization    | Fixed-wing attitude settles, piston engine/propeller becomes dominant | Track can become more consistent if within line of sight                      |
+| Cruise / ingress | Slow fixed-wing flight, often low altitude in public reporting        | Horizon, terrain masking, clutter, and false alarms dominate                  |
+| Terminal phase   | Continues toward preprogrammed target; may descend/approach           | Warning time can be short if first detected near horizon or in clutter        |
+
+For radar, “final attitude” is not a hard prerequisite. A radar can receive returns before the vehicle is perfectly stabilized, but **reliable tracking and classification** usually require multiple consistent detections over time. Classification may improve once the vehicle is in steady fixed-wing flight because velocity, heading, RCS fluctuation, and propeller micro-Doppler become more stable. Public C-UAS testing reviewed by the EU Joint Research Centre found examples where RF/radar systems detected UAVs within **less than 30 seconds after takeoff** and provided location updates at **10 seconds or less**, but that was a generic C-UAS test context, not a guarantee for Shahed detection in combat terrain. 
+
+## 3. Why low elevation is the big problem
+
+Low-altitude radar detection is fundamentally hard because the drone may be **below the radar horizon**, blocked by terrain/buildings, or buried in ground clutter. The EU JRC C-UAS report emphasizes that many sensors require line of sight and that obstacles create blind spots, especially in urban environments. 
+
+The first-order geometry is the **radar horizon**. A commonly used standard-atmosphere approximation is:
+
+[
+d_{km} \approx 4.12(\sqrt{h_r} + \sqrt{h_t})
+]
+
+where (h_r) is radar antenna height in meters, (h_t) is target altitude in meters, and (d) is approximate line-of-sight distance in kilometers. This uses the common “4/3 Earth radius” approximation for atmospheric refraction; MIT Lincoln Laboratory radar materials and radar-navigation references discuss Earth curvature, refraction, diffraction, and radar-horizon limitations for low-altitude detection. ([MIT Lincoln Laboratory][4])
+
+Illustrative, non-site-specific horizon numbers for a **185 km/h** Shahed-136-class target:
+
+| Radar antenna height | Target altitude | Approx. radar-horizon distance | Time for target to cover that distance at 185 km/h |
+| -------------------: | --------------: | -----------------------------: | -------------------------------------------------: |
+|                  5 m |            10 m |                         ~22 km |                                             ~7 min |
+|                  5 m |            60 m |                         ~41 km |                                            ~13 min |
+|                  5 m |           120 m |                         ~54 km |                                            ~18 min |
+|                 20 m |            10 m |                         ~31 km |                                            ~10 min |
+|                 20 m |            60 m |                         ~50 km |                                            ~16 min |
+|                 20 m |           120 m |                         ~64 km |                                            ~21 min |
+|                 50 m |            10 m |                         ~42 km |                                            ~14 min |
+|                 50 m |            60 m |                         ~61 km |                                            ~20 min |
+|                 50 m |           120 m |                         ~74 km |                                            ~24 min |
+
+Those are **not guaranteed detection ranges**. They are only rough line-of-sight limits. Actual detection may be much shorter if the drone has low radar cross section, poor aspect angle, terrain masking, rain clutter, multipath, low Doppler separation, antenna sidelobe contamination, or conservative false-alarm thresholds. Public spec sheets often quote Shahed-136 altitude envelopes such as roughly **60–4,000 m**, but real mission profiles and effective detection heights vary widely by terrain and radar geometry. ([Army Recognition][5])
+
+The practical implication is: **height helps detection mostly because it clears the horizon and terrain**, not because the radar suddenly “turns on” at one altitude. A drone at low altitude may be geometrically hidden until it is close. A radar on a tower, hill, airborne platform, aerostat, or elevated building can see farther over the horizon. Networks of radars reduce blind spots.
+
+## 4. What makes Shahed-type targets hard or easy for radar?
+
+A Shahed-136 is easier than a tiny quadcopter in some ways because it is larger, fixed-wing, and has a metal engine. It is harder than a conventional aircraft because it can fly low, slow, with a relatively small radar cross section and a speed/altitude regime that overlaps with birds and clutter. Radar reviews note that small UAS are difficult to detect and classify, are often confused with birds, and may require multiple sensors or sensor networks. ([MDPI][6])
+
+Important target properties:
+
+| Property                      | Effect on detection                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Radar cross section / RCS** | Main driver of received echo strength. Composite/fiberglass structures can reduce returns; engine/prop/warhead may still reflect.                |
+| **Aspect angle**              | A delta wing can present very different RCS head-on, side-on, or from below. RCS can scintillate as the target maneuvers or vibrates.            |
+| **Altitude**                  | Determines horizon clearance and clutter background. Low altitude is much harder.                                                                |
+| **Speed**                     | Standard Shahed-136 speed around 185 km/h gives measurable Doppler, but it is still slow enough to overlap with some clutter/biological targets. |
+| **Propeller micro-Doppler**   | Rotating propeller can create distinctive micro-Doppler, but it depends on radar frequency, aspect, SNR, and processing.                         |
+| **Route and terrain**         | Valleys, buildings, ridgelines, vegetation, and sea/ground reflections can delay or prevent detection.                                           |
+| **Mass launches**             | Many tracks at once stress radar processing, command-and-control, and interceptor allocation.                                                    |
+
+OSMP’s note about fiberglass/carbon-fiber honeycomb construction is relevant because radar return is strongly influenced by material and geometry. The EU JRC report also emphasizes that radar performance depends on UA radar cross section and background clutter, while the FAA’s detection-technology guidance says radar users should ask vendors about detectable RCS, detection ranges, weather effects, altitude/azimuth coverage, and clutter filtering. ([Open Source Munitions Portal][3])
+
+## 5. The radar-detection chain
+
+Radar detection is not one event. A defensive system usually goes through:
+
+1. **Raw return:** receiver sees energy in a range/Doppler/angle cell.
+2. **Detection thresholding:** algorithms such as CFAR decide whether the cell is above noise/clutter.
+3. **Track initiation:** multiple detections are associated over time into a possible object track.
+4. **Track maintenance:** velocity, heading, altitude, and confidence are updated.
+5. **Classification:** the system estimates whether it is a drone, bird, aircraft, vehicle, weather, or false alarm.
+6. **Identification/confirmation:** EO/IR camera, acoustic array, RF sensor, human observer, or additional radar confirms.
+7. **Engagement/mitigation decision:** command system decides whether to jam, intercept, cue mobile teams, or ignore.
+
+The JRC report describes radar as one detection modality among acoustic, EO, RF, and other sensors, and repeatedly stresses that no single modality is comprehensive or fail-safe. Sensor fusion is often required because different sensors update at different rates, produce different uncertainties, and solve different parts of detection, tracking, and identification. 
+
+## 6. Major noise, clutter, and false-alarm problems
+
+The biggest radar problems for low-flying Shahed-type drones are not just “noise” in the simple thermal-noise sense. They are **clutter and ambiguity**.
+
+### Ground and terrain clutter
+
+At low elevation, the radar beam intersects terrain, buildings, trees, hills, roads, power lines, vehicles, and other reflectors. A small moving drone return must be extracted from a huge number of irrelevant reflections. This is especially hard near the horizon and in urban or mountainous terrain. The JRC report highlights line-of-sight problems and blind spots from obstacles, while MIT Lincoln Laboratory materials discuss how terrain, propagation, multipath, and atmospheric effects shape radar detection. 
+
+### Sea clutter and surface clutter
+
+Over water or flat terrain, low-elevation beams can get strong surface returns. Sea state, waves, and specular reflections can produce returns that look dynamic. Radar-navigation references describe sea return, side-lobe echoes, radar-horizon limits, and target-strength dependence on target height, size, shape, and aspect. 
+
+### Birds, insects, and biological clutter
+
+Birds are a serious false-alarm source because they fly low, move in flocks, and can have radar cross sections and speeds overlapping small UAVs. Micro-Doppler can help distinguish propeller/blade rotation from bird wingbeats, but it is not perfect and depends on SNR and radar band. A Scientific Reports radar study notes that drones and birds both produce micro-Doppler signatures, with drones showing propeller-blade effects and birds showing wingbeats. ([Nature][7])
+
+### Multipath and nulls
+
+At low elevation, radar energy can reach the target by direct and reflected paths. The return can interfere constructively or destructively. A target in a multipath null may be much harder to detect even if it is geometrically above the horizon. MIT Lincoln Laboratory material discusses multipath and interference effects, including cases where target echoes are altered or suppressed. ([MIT Lincoln Laboratory][4])
+
+### Weather
+
+Rain, snow, fog, humidity, and water vapor affect different radar bands differently. Higher-frequency radars can provide better resolution and micro-Doppler detail but may be more weather-sensitive. The JRC C-UAS table notes radar sensitivity to heavy precipitation, and MIT radar-propagation materials discuss frequency-dependent attenuation and weather effects. 
+
+### Slow-target filtering and Doppler ambiguity
+
+Many radars suppress stationary or slow returns to reduce clutter. A low, slow drone may partially overlap with clutter-rejection filters or with biological targets. Pulse-Doppler processing helps, but the trade-off is not trivial: set thresholds too low and false alarms explode; set them too high and faint drones are missed.
+
+### Swarms and saturation
+
+Mass Shahed attacks create a systems problem, not just a radar problem. CSIS describes Russia’s Shahed campaign as using inexpensive drones to saturate Ukrainian air defenses, with high loss rates tolerated because the drones are cheap and numerous. CSIS also notes that Shaheds can clutter radar screens and force command centers to decide where to spend more capable interceptors. ([CSIS][8])
+
+## 7. How soon can it be detected?
+
+There is no universal answer. The best defensible answer is:
+
+**A Shahed-type drone can be detected once it is simultaneously:**
+
+[
+\text{above the local line of sight} + \text{strong enough in SNR} + \text{separable from clutter} + \text{observed long enough to form a track}.
+]
+
+In a clean geometry with an elevated radar, detection could occur many tens of kilometers away. In bad terrain, low altitude, rain, or clutter, first useful detection might occur much later. The horizon table above gives rough warning-time ceilings for ground-based radar against a 185 km/h target, but actual warning time can be shorter.
+
+For a standard Shahed-136 at ~185 km/h:
+
+* **10 km warning distance** ≈ 3.2 minutes.
+* **25 km warning distance** ≈ 8.1 minutes.
+* **50 km warning distance** ≈ 16.2 minutes.
+* **75 km warning distance** ≈ 24.3 minutes.
+
+Those numbers are just kinematics. They do not mean the radar will detect at those distances. They only show why low altitude is so operationally important: a slow drone still gives very little decision time if it is first detected at short range.
+
+For jet-powered variants, warning time compresses substantially because speed is higher. OSMP reports that jet-powered Shahed/Geran variants may cruise several times faster than the standard piston Shahed-136, which would reduce the time available after first detection. ([Open Source Munitions Portal][3])
+
+## 8. How high does it need to get to be detected?
+
+A better way to phrase it is: **how high must the target be for a particular radar to have line of sight at a particular range?**
+
+The answer depends on radar antenna height, terrain, Earth curvature, refraction, and obstacles. In flat terrain under standard refraction, a target at **10 m altitude** may be below the horizon for a low-mounted radar beyond a few tens of kilometers. At **60–120 m**, the horizon extends, but clutter and RCS still matter. Elevated radars or airborne sensors extend the horizon substantially.
+
+But height alone does not guarantee detection. A drone can be above the geometric horizon and still not generate a reliable track if:
+
+* its RCS is too small from that aspect,
+* terrain or buildings create partial occlusion,
+* clutter masks the return,
+* weather attenuates or contaminates the return,
+* the radar’s scan revisit/dwell is insufficient,
+* the false-alarm threshold is conservative,
+* the radar is optimized for larger/faster aircraft rather than low, slow UAVs.
+
+FAA detection guidance explicitly recommends asking radar vendors about detectable RCS, detection distance, altitude/azimuth coverage, scanning type, weather effects, background-clutter filtering, and false cueing, which is a good reminder that “height required” is not a standalone number. ([FAA][9])
+
+## 9. Sampling window, dwell time, and “how long does it need to be flying?”
+
+For raw radar detection, the drone does **not** need to be flying in its final attitude for a long time. A radar can receive returns whenever the target is in the beam and above detection threshold. But for a useful air-defense track, the system needs enough observations to estimate:
+
+* range,
+* azimuth/elevation,
+* radial velocity,
+* heading,
+* acceleration/maneuver state,
+* classification confidence,
+* false-alarm probability.
+
+In tracking terms, one radar hit is rarely enough. A system usually needs multiple revisits or a sufficient coherent dwell to reject clutter and establish a track. Exact dwell and sampling settings depend on radar type, waveform, frequency, beam steering, processing, and false-alarm requirements, so there is no universal safe number.
+
+Conceptually:
+
+[
+\text{longer coherent dwell} \Rightarrow \text{better Doppler resolution and SNR}
+]
+
+but:
+
+[
+\text{longer dwell} \Rightarrow \text{slower updates and fewer sectors watched}
+]
+
+So radar design is a trade-off between detection sensitivity, Doppler resolution, angular coverage, revisit rate, and false-alarm rate.
+
+For classification, micro-Doppler processing may use seconds-scale observation windows in public research contexts, especially when trying to distinguish drones from birds. An IEEE Aerospace and Electronic Systems Magazine radar-surveillance study using real radar data reported experimental drone-classification performance with **0.97 accuracy**, **0.85 F1**, **0.83 hard true-positive classification probability**, **0.02 false-positive classification probability**, **3.4 false alarms/hour**, and about **9.15 seconds classification time delay** in that specific dataset/algorithm context. That is useful as an example of the metric space, not a universal Shahed detection guarantee. 
+
+That same study warns that high accuracy alone can hide operational problems: even a small false-positive rate can become painful if the radar produces many candidate tracks per hour, and classification confidence falls as SNR decreases. 
+
+## 10. How accurate are the best methods?
+
+The honest answer is: **field accuracy is scenario-dependent and cannot be summarized by one number.**
+
+Good systems report several metrics:
+
+| Metric                        | What it means                                                        |
+| ----------------------------- | -------------------------------------------------------------------- |
+| Probability of detection      | Chance the drone is detected when present                            |
+| Probability of track          | Chance detections become a stable track                              |
+| False alarms/hour             | How often the system creates bogus tracks                            |
+| Classification accuracy       | How often it labels drone vs bird/aircraft/clutter correctly         |
+| Classification latency        | How long before it can confidently classify                          |
+| Range/azimuth/elevation error | How accurately it localizes the target                               |
+| Track continuity              | Whether the track survives clutter, terrain, maneuvers, and dropouts |
+
+Controlled research can show high classification numbers, but real deployments have terrain, multipath, weather, decoys, jamming, overloaded operators, and adversarial adaptation. The JRC report explicitly says it is impossible to guarantee a specific performance level and that no single C-UAS modality is comprehensive or fail-safe. 
+
+The “best” practical approach is usually **layered fusion**: radar for wide-area detection/tracking, EO/IR for visual confirmation, acoustic arrays for low-cost cueing, RF sensing where drones emit useful signals, passive radar where infrastructure allows it, and command software to fuse everything. CSIS notes that Ukraine uses large acoustic-sensor networks and integrated systems such as DELTA to combine sensor data, radar coverage, mobile teams, EW, and aerial interceptors. ([CSIS][8])
+
+## 11. Main radar techniques used against this class of target
+
+### Pulse-Doppler radar
+
+Pulse-Doppler radar separates targets by range and radial velocity. It is useful against moving targets because Doppler helps separate them from stationary clutter. For Shahed-type drones, pulse-Doppler can exploit the body velocity and sometimes propeller micro-Doppler, but low altitude and slow speed keep false-alarm control difficult.
+
+### FMCW radar
+
+FMCW radars are common in counter-UAS work because they can be compact, lower cost, and effective at short-to-medium range. The MDPI/Sensors review identifies FMCW radar as a key C-UAS technology because of its cost, range, and robustness to illumination and weather, while also noting the difficulty of detecting and identifying small drones at longer ranges. ([MDPI][6])
+
+### 3D staring / electronically scanned radar
+
+A staring or electronically scanned radar can revisit sectors rapidly and avoid some limitations of mechanically scanned antennas. That can help with low, slow, intermittent targets, but the system still faces clutter, RCS, and false-alarm trade-offs.
+
+### Passive radar
+
+Passive radar uses existing transmitters rather than emitting its own signal. This can be useful in some environments but depends on transmitter geometry, receiver placement, signal availability, synchronization, and clutter suppression. The JRC report distinguishes active and passive radar and explains that passive radar uses existing RF transmissions to detect reflections. 
+
+### Micro-Doppler classification
+
+Rotating propellers, engine vibration, and airframe motion can create micro-Doppler features. This is useful for distinguishing drones from birds, but not always reliable. Aspect angle, SNR, radar band, dwell time, propeller geometry, and clutter strongly affect whether the feature is visible. Research comparing drones and birds shows that propeller rotation and bird wingbeats can produce distinguishable micro-Doppler signatures under suitable conditions. ([Nature][7])
+
+### Sensor fusion
+
+Sensor fusion is often the decisive layer. Radar gives range/velocity/track. EO/IR confirms visually. Acoustic arrays can cue low-cost wide-area detection. RF sensing can help when drones communicate or navigate in detectable ways. Human observers and mobile teams can add confirmation. JRC emphasizes that different sensors solve different parts of the C-UAS problem and that fusion must handle timing, update-rate, and uncertainty differences. 
+
+## 12. Why Shahed attacks are hard even if the drone is technically detectable
+
+A Shahed-136 is not invulnerable. It is slow, noisy, and often detectable. The hard part is doing detection, classification, decision, and interception cheaply and reliably at scale.
+
+CSIS describes the strategic logic clearly: Shaheds are inexpensive enough that very high loss rates can still be acceptable, especially if they force defenders to spend expensive missiles, expose air-defense positions, or overload command systems. CSIS reports Shahed costs often discussed around tens of thousands of dollars and notes that high loss rates above 75% can still be tolerated in saturation campaigns. ([CSIS][8])
+
+CSIS also estimated that by late 2024, many one-way attack drones were intercepted or failed, but the campaign remained dangerous because mass salvos impose cost, attention, and ammunition burdens on defenders. That is a systems-level problem: radar detection accuracy alone does not determine defense success. ([CSIS][10])
+
+## 13. Practical defensive conclusions
+
+For a standard piston Shahed-136-class drone:
+
+* **Typical speed:** around **185 km/h** for the public piston-engine variant. ([Default][2])
+* **Launch:** generally **rail/truck launch with rocket-assisted booster**, then booster separation and piston/propeller cruise. ([Default][2])
+* **Size:** roughly **3.5 m length**, **2.5 m wingspan** for Shahed-136; smaller for Shahed-131. ([Open Source Munitions Portal][3])
+* **Guidance:** public descriptions usually cite **GNSS/INS waypoint or preprogrammed-coordinate navigation** for baseline Shahed-131/136. ([Open Source Munitions Portal][3])
+* **Detection bottleneck:** low-altitude line of sight plus clutter, not just radar power.
+* **Warning time:** can be minutes to tens of minutes depending on first useful detection range; at 185 km/h, every 10 km is only about 3.2 minutes.
+* **Track confirmation:** usually needs multiple detections/revisits; seconds-scale classification delays are common in public research examples, but exact values are radar- and scenario-specific.
+* **Best detection architecture:** layered radar + acoustic + EO/IR + RF/passive sensing + command-system fusion.
+* **Biggest signal problems:** ground clutter, terrain masking, multipath, birds, weather, RCS/aspect fluctuation, false alarms, and saturation by many simultaneous targets.
+
+## 14. Best public resources to read
+
+Here are the highest-value open resources behind the above:
+
+| Resource                                                 | Why it matters                                                                                                                             |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **DIA Iranian UAVs in Ukraine visual comparison report** | Public U.S. defense-intelligence comparison of Shahed/Geran systems, visual signatures, engines, and recovered components. ([dia.mil][1])  |
+| **Janes Shahed-136 profile/spec reporting**              | Public specs: rail launch, booster separation, MD550 engine, speed, mass, warhead, range. ([Default][2])                                   |
+| **Open Source Munitions Portal Shahed-131/136 guide**    | Useful consolidated open-source details on dimensions, warheads, materials, guidance, and variants. ([Open Source Munitions Portal][11])   |
+| **CSIS Shahed campaign analysis**                        | Explains saturation tactics, cost-exchange problem, Ukrainian layered defenses, acoustic networks, and command fusion. ([CSIS][8])         |
+| **EU JRC Counter-UAS technical report**                  | Excellent general science of radar, RF, EO/IR, acoustic sensing, sensor fusion, false alarms, and why no single sensor is fail-safe.       |
+| **FAA UAS detection technical considerations**           | Good checklist for radar detection questions: RCS, range, altitude coverage, weather, clutter, false cueing, and sensor limits. ([FAA][9]) |
+| **MIT Lincoln Laboratory radar propagation notes**       | Radar horizon, refraction, multipath, weather attenuation, ducting, and low-altitude propagation issues. ([MIT Lincoln Laboratory][4])     |
+| **Drone-surveillance radar research / IEEE AESS**        | Real-radar-data example showing accuracy/F1/false-alarm/classification-delay metrics and why false alarms matter.                          |
+| **Micro-Doppler drone/bird research**                    | Explains how propeller micro-Doppler can help distinguish drones from birds, with important limits. ([Nature][7])                          |
+
+Bottom line: a Shahed-136 is slow enough that early detection can theoretically give useful warning time, but low-altitude flight turns the problem into a radar-horizon, clutter, and false-alarm fight. The best systems do not rely on one radar magically “seeing the drone”; they build a layered picture from radar, acoustic, EO/IR, RF/passive sensors, and command fusion, then manage the cost-exchange problem created by mass, cheap, one-way attack drones.
+
+[1]: https://www.dia.mil/News-Features/Articles/Article-View/Article/3297418/dia-report-confirms-russias-use-of-lethal-iranian-unmanned-aerial-vehicles-in-u/ "
+	DIA report confirms Russia’s use of lethal Iranian unmanned aerial vehicles in Ukraine  > Defense Intelligence Agency > Article View
+"
+[2]: https://www.janes.com/defence-intelligence-insights/defence-news-details/air/irgc-confirms-specs-for-shahed-136-attack-uav "
+	IRGC confirms specs for Shahed-136 attack UAV
+"
+[3]: https://osmp.ngo/collection/shahed-131-136-uavs-a-visual-guide/ "Shahed-131 & -136 UAVs: a visual guide – Open Source Munitions Portal"
+[4]: https://www.ll.mit.edu/media/6951 "No Slide Title"
+[5]: https://armyrecognition.com/military-products/army/unmanned-systems/unmanned-aerial-vehicles/shahed-136-loitering-munition-kamikaze-suicide-drone-technical-data "Shahed-136"
+[6]: https://www.mdpi.com/1424-8220/20/15/4172 "Detection and Classification of Multirotor Drones in Radar Sensor Networks: A Review"
+[7]: https://www.nature.com/articles/s41598-018-35880-9 "Radar micro-Doppler signatures of drones and birds at K-band and W-band | Scientific Reports"
+[8]: https://www.csis.org/analysis/drone-saturation-russias-shahed-campaign "Drone Saturation: Russia’s Shahed Campaign"
+[9]: https://www.faa.gov/sites/faa.gov/files/airports/airport_safety/Attachment-3-UAS-Detection-Technical-Considerations.pdf "Attachment 3, Unmanned Aircraft Systems Detection – Technical Considerations, May 2019"
+[10]: https://www.csis.org/analysis/calculating-cost-effectiveness-russias-drone-strikes "Calculating the Cost-Effectiveness of Russia’s Drone Strikes"
+[11]: https://osmp.ngo/model/shahed-136-series/ "Shahed-136 series – Open Source Munitions Portal"
+

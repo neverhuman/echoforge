@@ -1,3 +1,4 @@
+# boundary: python-ai-service-ml-slice
 """PEC Mie sphere reference via scipy (oracle for the Rust implementation).
 
 References (cited, not copied):

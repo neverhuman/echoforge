@@ -1,0 +1,77 @@
+# EchoForge detector_card — MTI + MTD chain default
+# Schema: schemas/detector_card.schema.json
+#
+# Composed MTI clutter canceller + MTD Doppler filter bank. Equivalent
+# to doppler_filter_bank(apply_mti(...), ...). Externalizes the Rust
+# default at crates/echoforge-radar/src/mti_mtd.rs (mtd_chain).
+id: "ef:detector_card:mti-mtd-chain-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: mti-mtd-chain-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Skolnik, Introduction to Radar Systems, 3rd ed. §3.7 (MTI) + §3.8 (MTD)"
+    - "Richards, Fundamentals of Radar Signal Processing, 2nd ed. §5.6 (pulse-Doppler chain)"
+    - "crates/echoforge-radar/src/mti_mtd.rs (mtd_chain)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.20
+  checks:
+    - name: mtd_chain_pure_tone_lands_in_correct_bin
+      status: pass
+      message: "mtd_chain_pure_tone_lands_in_correct_bin unit test: peak bin == K_D, peak > 5x runner-up"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built mtd_chain() byte-for-byte on pinned slow-time fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "MTI + MTD chain (Skolnik §3.7-3.8)"
+algorithm_family: mti_mtd_chain
+parameters:
+  mti_order: 3
+  doppler_bins: 64
+  doppler_window: "taylor_35db"
+  pri_s_default: 9.0e-4
+  carrier_freq_hz_default: 3.0e9
+default_thresholds:
+  doppler_bin_pfa: 1.0e-3
+  improvement_factor_db_min: 40.0
+intended_target_classes:
+  - shahed-class-piston
+  - geran-3-jet-variant
+  - small-uas-class-i
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.85
+      pd_max: 0.97
+    snr_db_required_range:
+      min: 8.0
+      max: 12.0
+    citation_id: skolnik-3rd-3-8-mtd-filter-bank
+citations:
+  - citation_id: skolnik-3rd-3-7-mti-improvement-factor
+    title: "Skolnik 3rd ed. §3.7 (MTI improvement factor)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: skolnik-3rd-3-8-mtd-filter-bank
+    title: "Skolnik 3rd ed. §3.8 (MTD pulse-Doppler filter bank)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: richards-2nd-5-6-pulse-doppler
+    title: "Fundamentals of Radar Signal Processing, 2nd ed. §5.6"
+    authors: "Richards"
+    publisher: "McGraw-Hill"

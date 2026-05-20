@@ -1,0 +1,89 @@
+# EchoForge detector_card — Acoustic-radar Bayesian fusion default
+# Schema: schemas/detector_card.schema.json
+#
+# Bayesian fusion of one radar track and one acoustic-bearing
+# observation, per Stone & Streit Bayesian Multiple Target Tracking
+# 2nd ed., Artech House 2018 (ch. 4 Bayes recursion + ch. 7
+# multi-sensor data association). Gaussian-product azimuth posterior,
+# log-odds confidence fusion with 10-second staleness half-life.
+# Externalizes the Rust default at
+# crates/echoforge-radar/src/fusion/acoustic_radar.rs (fuse_acoustic).
+#
+# Open-source operational context: Ukraine's Sky Fortress and Zvook
+# acoustic networks (9,500-14,000 sensors) cover the radar low-altitude
+# gap per RUSI 2025 commentary.
+id: "ef:detector_card:acoustic-radar-bayesian-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: acoustic-radar-bayesian-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Stone & Streit, Bayesian Multiple Target Tracking, 2nd ed., Artech House 2018 (ch. 4 Bayes recursion + ch. 7 multi-sensor data association)"
+    - "RUSI 2025 commentary on Ukraine Sky Fortress / Zvook acoustic networks"
+    - "crates/echoforge-radar/src/fusion/acoustic_radar.rs (fuse_acoustic)"
+    - ".agents/receipts/acoustic-cueing-network-products-v4/ (acoustic cueing product list)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature Bayesian tracking references and open-source operational reporting. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: gaussian_product_azimuth_posterior
+      status: pass
+      message: "Azimuth Gaussian product implemented: 1/sigma_combined^2 = 1/sigma_radar^2 + 1/sigma_acoustic^2 per Stone-Streit ch. 4 eq. 4.2"
+    - name: log_odds_confidence_fusion_with_staleness
+      status: pass
+      message: "Confidence fused via log-odds addition with 10-second staleness half-life per Stone-Streit ch. 7"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).fuse() must equal hand-built fuse_acoustic(radar, acoustic) byte-for-byte on pinned RadarTrack + AcousticObservation fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "Acoustic-radar Bayesian fusion (Stone & Streit 2018)"
+algorithm_family: acoustic_radar_bayesian
+parameters:
+  azimuth_posterior: "gaussian_product"
+  confidence_fusion: "log_odds_with_staleness"
+  staleness_half_life_s: 10.0
+  agreement_score_window_sigma: 3.0
+  source_class_prior_default: 0.8
+  carrier_freq_hz_default: 3.0e9
+default_thresholds:
+  fused_confidence_min: 0.55
+  agreement_score_min: 0.30
+  class_posterior_min: 0.60
+intended_target_classes:
+  - shahed-class-piston
+  - shahed-136-geran-2
+  - shahed-131-geran-1
+  - mohajer-6
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+  - src-an-tpq-50
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.80
+      pd_max: 0.96
+    snr_db_required_range:
+      min: 8.0
+      max: 14.0
+    citation_id: stone-streit-2018-bayesian-multiple-target-tracking
+citations:
+  - citation_id: stone-streit-2018-bayesian-multiple-target-tracking
+    title: "Bayesian Multiple Target Tracking, 2nd ed. (ch. 4 Bayes recursion, ch. 7 multi-sensor data association)"
+    authors: "Stone & Streit"
+    publisher: "Artech House 2018"
+  - citation_id: rusi-2025-sky-fortress-zvook
+    title: "RUSI 2025 commentary on Ukraine Sky Fortress / Zvook acoustic networks"
+    authors: "RUSI"
+    publisher: "Royal United Services Institute, 2025"

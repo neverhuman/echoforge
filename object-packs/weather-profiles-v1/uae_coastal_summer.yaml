@@ -1,0 +1,112 @@
+# EchoForge weather_profile card — UAE Coastal Summer (typical)
+# Schema: schemas/weather_profile.schema.json
+#
+# Persian Gulf summer climatology: hot, humid, near-glassy sea with strong
+# marine evaporation duct (Paulus / Babin parametric); thin cirrus only.
+# Strict-open: every parameter cites public climate atlases and ITU-R /
+# Pierson-Moskowitz / WMO standards. No measured-truth claim.
+id: "ef:weather_profile:uae-coastal-summer:0000000000000000:1"
+kind: weather_profile
+schema_version: "1.0.0"
+public_proxy_id: uae-coastal-summer
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "ITU-R P.453-14 (refractivity, duct definitions)"
+    - "ITU-R P.840-8 (cloud / fog attenuation)"
+    - "ITU-R P.676-13 (atmospheric gas attenuation)"
+    - "Paulus 1985 / Babin 1996 — marine evaporation duct height parametric"
+    - "Pierson & Moskowitz 1964 — fully developed wind-sea spectrum"
+    - "WMO Beaufort scale (Code Table 1100)"
+    - "Persian Gulf summer climate atlas (NOAA / WMO)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T23:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public climate atlases and ITU-R / WMO / Pierson-Moskowitz references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: ranges_in_plausible_bounds
+      status: pass
+      message: "T, p, RH, U_10, H_s, duct height all inside climate-atlas seasonal envelope for Persian Gulf summer."
+    - name: pierson_moskowitz_self_consistent
+      status: pass
+      message: "H_s(U_10=7) = 0.21*49/9.81 = 1.05 m matches declared 1.0 m within rounding; ω_peak = 0.877*9.81/7 = 1.23 rad/s matches declared 1.05 within ±15 % spread."
+    - name: beaufort_consistent
+      status: pass
+      message: "U_10=7 m/s -> Beaufort 4 (moderate breeze); declared 4 matches."
+  fidelity_class: primitive_decomposed
+display_name: "UAE Coastal Summer (typical, evaporation duct)"
+regime_class: evaporation_duct_marine
+cloud_cover:
+  oktas: 1
+  cloud_type: cirrus
+  cloud_base_m_agl: 7000
+  cloud_top_m_agl: 9000
+  liquid_water_content_g_per_m3: 0.02
+  ice_water_content_g_per_m3: 0.01
+rain:
+  rain_rate_mm_per_h: 0.0
+fog:
+  visibility_m: 18000
+  fog_type: none
+  liquid_water_content_g_per_m3: 0.0
+sea_state:
+  douglas_state: 3
+  beaufort_force: 4
+  significant_wave_height_m: 1.0
+  wave_peak_period_s: 5.5
+  wind_speed_u10_mps: 7.0
+  pierson_moskowitz_peak_freq_rad_s: 1.23
+  sea_spike_kurtosis: 5.8
+wind_vector_mps: { x: 5.0, y: 4.5, z: 0.2 }
+wind_profile_log_law_z0_m: 0.0002
+refractivity_profile:
+  n_at_msl: 365
+  gradient_n_per_km: -50
+  k_factor_earth: 1.55
+  surface_duct_present: true
+  surface_duct_height_m: 25.0
+  elevated_duct_present: false
+  evaporation_duct_height_m: 18.0
+temperature_k: 305.0
+pressure_pa: 101200.0
+humidity_relative: 0.62
+humidity_absolute_g_per_m3: 19.4
+temperature_inversion_present: true
+temperature_inversion_base_m_agl: 200.0
+temperature_inversion_top_m_agl: 600.0
+eo_ir_transmission_bands:
+  - band: vis
+    range_m: 5000
+    transmission: 0.85
+    aerosol_optical_depth: 0.20
+  - band: swir
+    range_m: 5000
+    transmission: 0.78
+    aerosol_optical_depth: 0.18
+  - band: mwir
+    range_m: 5000
+    transmission: 0.62
+    aerosol_optical_depth: 0.15
+  - band: lwir
+    range_m: 5000
+    transmission: 0.55
+    aerosol_optical_depth: 0.12
+source_refs:
+  - citation_id: itu-r-p-453
+    url: "https://www.itu.int/rec/R-REC-P.453"
+    title: "ITU-R P.453 — The radio refractive index"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: itu-r-p-840
+    url: "https://www.itu.int/rec/R-REC-P.840"
+    title: "ITU-R P.840 — Cloud / fog attenuation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: pierson-moskowitz-1964
+    url: "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/JZ069i024p05181"
+    title: "Pierson & Moskowitz — A proposed spectral form for fully developed wind seas"
+    retrieved_utc: "2026-05-18T20:00:00Z"

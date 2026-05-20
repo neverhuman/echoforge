@@ -1,0 +1,41 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Large insect cloud (locusts, migrating moths, mayflies) — very low
+# individual RCS but volumetric scattering across large air volumes.
+# Appears as diffuse low-Doppler clutter in weather/surveillance radars.
+id: "ef:object_card:insect-cloud:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: insect-cloud
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Radar_entomology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Migrating Insect Cloud"
+object_family: biological
+geometry_variant: insect-cloud-volumetric
+material_variant: chitin-tissue-proxy
+dimensions_m:
+  x: 0.02
+  y: 0.06
+  z: 0.015
+tags:
+  - hard_negative
+  - biological
+  - insect
+  - cloud
+  - volumetric_clutter
+  - wildlife_confuser

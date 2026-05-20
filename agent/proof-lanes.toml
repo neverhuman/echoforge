@@ -1,69 +1,94 @@
 [[lane]]
-name = "fast"
 command = "rtk just fast"
+name = "fast"
 purpose = "Deterministic local bootstrap validation."
 
 [[lane]]
-name = "contracts"
 command = "rtk just contracts"
+name = "contracts"
 purpose = "Validate schema and contract scaffolding."
 
 [[lane]]
-name = "demo"
 command = "rtk just demo"
+name = "demo"
 purpose = "Launch the same-origin Rust studio demo."
 
 [[lane]]
-name = "studio"
 command = "rtk cargo test -p echoforge-studio --locked"
+name = "studio"
 purpose = "Validate the Rust studio service package."
 
 [[lane]]
-name = "web-smoke"
 command = "rtk just web-smoke"
+name = "web-smoke"
 purpose = "Validate the API/catalog/web smoke surface."
 
 [[lane]]
-name = "science-smoke"
 command = "rtk just science-smoke"
+name = "science-smoke"
 purpose = "Validate the scientific runtime crates."
 
 [[lane]]
-name = "gpu-smoke"
 command = "rtk just gpu-smoke"
+name = "gpu-smoke"
 purpose = "Validate the placeholder GPU doctor surface."
 
 [[lane]]
-name = "dataset-smoke"
 command = "rtk just dataset-smoke"
+name = "dataset-smoke"
 purpose = "Validate dataset and benchmark scaffolding."
 
 [[lane]]
-name = "doctor"
 command = "rtk jankurai doctor . --fail-on critical"
+name = "doctor"
 purpose = "Advisory repository health check."
 
 [[lane]]
-name = "score"
 command = "rtk jankurai audit . --mode advisory"
+name = "score"
 purpose = "Advisory repository score."
 
 [[lane]]
-name = "vendor-scrub"
 command = "rtk node tools/vendor_scrub.mjs"
+name = "vendor-scrub"
 purpose = "Reject vendor names from agent/banned-terms.toml."
 
 [[lane]]
-name = "receipts"
 command = "rtk node tools/receipt_guard.mjs --all"
+name = "receipts"
 purpose = "Validate receipt shape across .agents/receipts/."
 
 [[lane]]
-name = "licenses"
 command = "rtk cargo deny check"
+name = "licenses"
 purpose = "Enforce strict-open license allow-list."
 
 [[lane]]
-name = "validate-schemas"
 command = "rtk cargo test -p echoforge-contracts-smoke --locked"
+name = "validate-schemas"
 purpose = "Validate every JSON Schema and sample fixture."
+
+[[lane]]
+command = "just fast"
+name = "fast"
+purpose = "deterministic local health proof"
+
+[[lane]]
+command = "just score"
+name = "audit"
+purpose = "write jankurai score artifacts"
+
+[[lane]]
+command = "just security"
+name = "security"
+purpose = "secret, dependency, and workflow proof"
+
+[[lane]]
+command = "just check"
+name = "release"
+purpose = "full merge gate"
+
+[[lane]]
+command = "jankurai copy-code . --json target/jankurai/copy-code.json --md target/jankurai/copy-code.md"
+name = "copy-code"
+purpose = "Detect and report duplicate code classes across active sources."

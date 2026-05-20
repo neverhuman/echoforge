@@ -1,0 +1,81 @@
+{
+  "id": "ef:acoustic_sensor_card:sky-fortress-node-typical:0123456789abcdef:1",
+  "kind": "acoustic_sensor_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "sky-fortress-node-typical",
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "Defense One — Ukraine Sky Fortress 10,000+ acoustic sensor network",
+      "Reuters — Sky Map / Sky Fortress synthesizes radar + sensor data",
+      "ISO 9613-2:1996 — Outdoor sound attenuation",
+      "tips/detectors/tip1.txt:160-166 (acoustic sensor architecture for Shahed-class)"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T21:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": { "spdx_id": "MIT" },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.30,
+    "checks": [{ "name": "shape", "status": "pass", "message": "ok" }],
+    "fidelity_class": "primitive_decomposed"
+  },
+  "sensor_name": "Sky Fortress-style Acoustic Sensor Node (typical)",
+  "vendor": "Sky Fortress (Ukraine)",
+  "model": "Cellphone-pole-mounted detection node — typical",
+  "mic_count": 4,
+  "array_geometry": "tetrahedral",
+  "aperture_diameter_m": 0.18,
+  "sample_rate_hz": 48000,
+  "bandwidth_hz_range": { "min": 50, "max": 12000 },
+  "sensitivity_dbv_per_pa": -38.0,
+  "self_noise_db_a": 32.0,
+  "bearing_accuracy_deg": 8.0,
+  "doa_method": "time_difference_arrival",
+  "unit_cost_usd_range": { "min": 50, "max": 300 },
+  "form_factor": "smartphone_pole_mount",
+  "network_topology": "centralized_fusion",
+  "network_density_per_km2": 0.05,
+  "declared_detection_envelope": [
+    {
+      "target_class_slug": "shahed-class-piston",
+      "range_m": 3500,
+      "conditions": "rural night, 25 dB ambient, light wind, upwind side",
+      "citation_id": "defense-one-sky-fortress-2024"
+    },
+    {
+      "target_class_slug": "shahed-class-piston",
+      "range_m": 1200,
+      "conditions": "urban day, 55 dB ambient, light wind",
+      "citation_id": "iso-9613-2-derived-estimate"
+    },
+    {
+      "target_class_slug": "geran-3-jet",
+      "range_m": 8000,
+      "conditions": "rural night — jet roar is much louder than piston, longer detection range",
+      "citation_id": "iso-9613-2-derived-estimate"
+    },
+    {
+      "target_class_slug": "commercial-multirotor-small",
+      "range_m": 400,
+      "conditions": "rural night — small electric quadcopters are very quiet",
+      "citation_id": "iso-9613-2-derived-estimate"
+    }
+  ],
+  "weather_dependence": {
+    "wind_attenuation_db_per_5mps": 6.0,
+    "rain_masking_threshold_mm_per_h": 5.0,
+    "temperature_gradient_refraction_factor": 1.0
+  },
+  "source_refs": [
+    {
+      "citation_id": "defense-one-sky-fortress-2024",
+      "url": "internal://tips/detectors/tip1.txt#L162-164",
+      "title": "Defense One — Ukraine Sky Fortress / Sky Map",
+      "retrieved_utc": "2026-05-18T20:00:00Z"
+    }
+  ]
+}

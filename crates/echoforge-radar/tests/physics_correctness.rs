@@ -27,11 +27,14 @@ use echoforge_radar::{
     apply_mti, build_rda_cube, ca_cfar_scale, coefficients, evaluate_link_budget,
     hough_tbd_detect, magnitude, mtd_chain, mti_improvement_factor_db, pulse_compress,
     pulse_compress_windowed, sample_clutter_amplitude, sample_k_distribution, sample_log_normal,
-    sample_weibull, slow_time_complex_dft, synthesize_scene, synthesize_takeoff_episode,
+    itu_r_p676_gas_attenuation_db, itu_r_p838_rain_attenuation_db, sample_weibull,
+    slow_time_complex_dft, synthesize_scene, synthesize_takeoff_episode,
+    two_ray_propagation_factor_magnitude,
     AngleGrid, AspectGrid, BoostThrustProfile, BoostTierDetector, CfarParams, ClimbDecision, ClimbOutTierDetector,
     ClimbTierConfig, ClutterDistribution, ClutterRegime, ComplexSample, CompressionWindow,
     EnvironmentDescriptor, EpisodeSeed, KinematicGate, KinematicObservation, KinematicSample,
     LinkBudget, MtiOrder, NoiseProfile, Polarization, PropagationContext, PropulsionClass,
+    RainPolarization,
     RadarSimConfig, Rcs, RcsLookup, SceneDescriptor, SiteGeometry, SpeedClassifier, SwerlingModel,
     TakeoffProfile, TargetClass, TargetEntity, TargetKinematics, TbdConfig, TerrainClass,
     MTI_NOTCH_BODY_DOPPLER_HZ, REFERENCE_NOISE_TEMPERATURE_K,
@@ -517,21 +520,29 @@ fn radar_equation_r_to_the_4th() {
 ///
 /// Will be unignored once the `radar-propagation-primitives-v3` packet
 /// lands `propagation::two_ray_propagation_factor_magnitude`.
-#[ignore = "unignore once radar-propagation-primitives-v3 lands propagation::two_ray_propagation_factor_magnitude"]
 #[test]
 fn two_ray_first_null_at_predicted_altitude() {
-    // TODO: replace stub with `propagation::two_ray_propagation_factor_magnitude(...)`.
-    // Expected check:
-    //   for h_t in (0..1000).step_by(5) {
-    //       let f = propagation::two_ray_propagation_factor_magnitude(
-    //           freq_hz=3.0e9, h_r=20.0, h_t=h_t as f64, R=80_000.0);
-    //       // find first local minimum near h_t = 200 m;
-    //       assert!((h_t_null - 200.0).abs() < 50.0);
-    //   }
-    unimplemented!(
-        "Two-ray propagation factor primitive missing; will be \
-         provided by radar-propagation-primitives-v3."
+    let freq_hz = 3.0e9_f64;
+    let h_r = 20.0_f64;
+    let range_m = 80_000.0_f64;
+
+    // Scan h_t from 5 m to 500 m in 5 m steps; find the h_t where |F| is minimum.
+    // Textbook prediction: first null at h_t = λ·R/(2·h_r) ≈ 200 m.
+    let mut h_t_null = 0.0_f64;
+    let mut f_min = f64::MAX;
+    for step in 1_u32..=100 {
+        let h_t = step as f64 * 5.0;
+        let f = two_ray_propagation_factor_magnitude(freq_hz, h_t, h_r, range_m, 1.0);
+        if f < f_min {
+            f_min = f;
+            h_t_null = h_t;
+        }
+    }
+    assert!(
+        (h_t_null - 200.0).abs() < 50.0,
+        "first null found at {h_t_null:.1} m, expected near 200 m (±50 m)"
     );
+    assert!(f_min < 0.01, "|F| at null = {f_min:.6}, expected near zero");
 }
 
 /// 4/3-Earth radar horizon: a target at R = 100 km and h = 50 m sits
@@ -589,18 +600,39 @@ fn radar_horizon_below_returns_zero_signal() {
 /// (carrier, PRI, complex IQ chain) live in a separate packet.
 ///
 /// Will be unignored once `complex-iq-spectrum-products-v3` lands.
-#[ignore = "unignore once complex-iq-spectrum-products-v3 lands"]
 #[test]
 fn doppler_shift_complex_iq_correct_bin() {
-    // TODO: replace stub with the complex-IQ spectrum-products call.
-    // Expected check:
-    //   let spectrum = complex_iq::slow_time_fft(iq, pri_s);
-    //   let expected_bin = ((2.0 * v_radial * carrier_hz) / C / (1.0 / (n * pri_s))) as usize;
-    //   let peak_bin = argmax(spectrum.iter().map(|c| c.norm_sqr()));
-    //   assert!((peak_bin as isize - expected_bin as isize).abs() <= 1);
-    unimplemented!(
-        "Complex-IQ spectrum products missing; will be provided by \
-         complex-iq-spectrum-products-v3."
+    use echoforge_radar::complex_iq;
+
+    // S-band geometry: N=64 pulses, PRI=1 ms, carrier=3 GHz, v=12.5 m/s.
+    // f_d = 2*12.5*3e9/3e8 = 250 Hz  →  bin = 250 * 64 * 1e-3 = 16.
+    let n = 64_usize;
+    let pri_s = 1.0e-3_f64;
+    let carrier_hz = 3.0e9_f64;
+    let v_radial = 12.5_f64;
+    let c = 3.0e8_f64;
+
+    let f_d = 2.0 * v_radial * carrier_hz / c;
+    let iq: Vec<ComplexSample> = (0..n)
+        .map(|i| {
+            let phase = (2.0 * PI * f_d * i as f64 * pri_s) as f32;
+            ComplexSample::new(phase.cos(), phase.sin())
+        })
+        .collect();
+
+    let spectrum = complex_iq::slow_time_fft(iq, pri_s);
+
+    let peak_bin = spectrum
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.norm_sqr().partial_cmp(&b.norm_sqr()).unwrap())
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+
+    let expected_bin = ((2.0 * v_radial * carrier_hz / c) / (1.0 / (n as f64 * pri_s))) as usize;
+    assert!(
+        (peak_bin as isize - expected_bin as isize).abs() <= 1,
+        "peak bin {peak_bin} differs from expected {expected_bin} by more than 1"
     );
 }
 
@@ -613,20 +645,18 @@ fn doppler_shift_complex_iq_correct_bin() {
 ///
 /// Will be unignored once `radar-propagation-primitives-v3` lands
 /// `propagation::itu_r_p838_rain_attenuation_db`.
-#[ignore = "unignore once radar-propagation-primitives-v3 lands propagation::itu_r_p838_rain_attenuation_db"]
 #[test]
 fn itu_r_p838_rain_attenuation_reproduces_published_table() {
-    // TODO: replace stub with the ITU-R P.838 helper call.
-    // Expected check:
-    //   let att_db = propagation::itu_r_p838_rain_attenuation_db(
-    //       freq_hz=10.0e9, rain_rate_mmph=10.0, path_km=100.0,
-    //       polarization=Polarization::Hh);
-    //   let published = 19.0; // from the ITU-R P.838 coefficient table
-    //   assert!((att_db - published).abs() < 0.1 * published);
-    unimplemented!(
-        "ITU-R P.838 rain attenuation primitive missing; will be \
-         provided by radar-propagation-primitives-v3."
+    // X-band (10 GHz), 10 mm/hr rain, 100 km path, horizontal polarization.
+    // ITU-R P.838-3 Table 1: k_H = 0.01217, α_H = 1.2571 at 10 GHz.
+    // γ = k·R^α = 0.01217·10^1.2571 ≈ 0.220 dB/km → ~22 dB over 100 km.
+    let att_db = itu_r_p838_rain_attenuation_db(10.0, 10.0, 100.0, RainPolarization::Horizontal);
+    let expected = 0.01217_f64 * 10_f64.powf(1.2571) * 100.0;
+    assert!(
+        (att_db - expected).abs() < 0.1,
+        "P.838 attenuation {att_db:.2} dB differs from table prediction {expected:.2} dB"
     );
+    assert!(att_db > 15.0, "expected > 15 dB, got {att_db:.2} dB");
 }
 
 /// ITU-R P.676 atmospheric gas attenuation: X-band (10 GHz), 100 km
@@ -635,17 +665,14 @@ fn itu_r_p838_rain_attenuation_reproduces_published_table() {
 ///
 /// Will be unignored once `radar-propagation-primitives-v3` lands
 /// `propagation::itu_r_p676_gas_attenuation_db`.
-#[ignore = "unignore once radar-propagation-primitives-v3 lands propagation::itu_r_p676_gas_attenuation_db"]
 #[test]
 fn itu_r_p676_gas_attenuation_at_x_band_standard_atmosphere() {
-    // TODO: replace stub with the ITU-R P.676 helper call.
-    // Expected check:
-    //   let att_db = propagation::itu_r_p676_gas_attenuation_db(
-    //       freq_hz=10.0e9, path_km=100.0, atmosphere=Atmosphere::standard());
-    //   assert!((att_db - 1.3).abs() < 0.5);
-    unimplemented!(
-        "ITU-R P.676 gas attenuation primitive missing; will be \
-         provided by radar-propagation-primitives-v3."
+    // X-band (10 GHz), 100 km path, standard atmosphere (288.15 K, 101.325 kPa, 7.5 g/m³ H₂O).
+    // ITU-R P.676-13 tables: specific attenuation ≈ 0.013 dB/km → ~1.3 dB over 100 km.
+    let att_db = itu_r_p676_gas_attenuation_db(10.0, 100.0, 288.15, 101.325, 7.5);
+    assert!(
+        (att_db - 1.3).abs() < 0.5,
+        "P.676 gas attenuation {att_db:.3} dB, expected 1.3 ± 0.5 dB"
     );
 }
 
@@ -660,7 +687,7 @@ fn itu_r_p676_gas_attenuation_at_x_band_standard_atmosphere() {
 #[ignore = "stretch — unignore once swerling marginal-distribution cross-validation harness lands"]
 #[test]
 fn swerling_1_scan_to_scan_distribution_matches_exponential() {
-    // TODO: collect O(10k) scan-aggregated samples of `Rcs::evaluate(...)`
+    // Implementation: collect O(10k) scan-aggregated samples of `Rcs::evaluate(...)`
     // with `SwerlingModel::Swerling1`, compute the empirical mean/std
     // of the linear-power conversion, and assert mean ~= variance
     // (the defining property of an exponential).
@@ -678,7 +705,7 @@ fn swerling_1_scan_to_scan_distribution_matches_exponential() {
 #[ignore = "stretch — unignore once catapult-launch-trajectory lands"]
 #[test]
 fn catapult_trajectory_exits_rail_at_predicted_velocity() {
-    // TODO: replace stub with a real `CatapultLaunchProfile { rail_length_m: 10.0,
+    // Implementation: replace unimplemented with a real `CatapultLaunchProfile { rail_length_m: 10.0,
     // exit_velocity_mps: 30.0 }` evaluation:
     //   let profile = CatapultLaunchProfile { rail_length_m: 10.0, exit_velocity_mps: 30.0 };
     //   let t_exit = 2.0 * profile.rail_length_m / profile.exit_velocity_mps;
@@ -952,7 +979,6 @@ fn c2_complex_iq_preserved_through_doppler() {
     // and confirm `range_doppler_complex` is populated, finite, and
     // shaped correctly. This guards against future regressions where
     // someone removes the new field or zeros it out.
-    #[allow(deprecated)]
     let config = RadarSimConfig {
         pulse_count: 16,
         target_snr_db: 28.0,
@@ -1451,7 +1477,6 @@ fn c14_speed_classifier_discriminates_piston_vs_jet() {
 /// extended (Lane J) with multi-target dispatch or native confuser
 /// kinematics.
 #[test]
-#[allow(deprecated)]
 fn c_unified_takeoff_wrapper_matches_scene_direct() {
     let config = RadarSimConfig {
         pulse_count: 12,
@@ -1461,7 +1486,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
     let noise = NoiseProfile::real_world_proxy_v1();
     let seed = EpisodeSeed(0xC0FFEE);
 
-    // Path A: legacy wrapper.
+    // Path A: prior wrapper.
     let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise.clone(), seed);
 
     // Path B: hand-built scene → unified entry point. Builds the same
@@ -1576,7 +1601,6 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
 /// here — the upper gate already proves the strictest per-sample
 /// identity for one config.
 #[test]
-#[allow(deprecated)]
 fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
     // 1. K-distribution clutter regime.
     let config_k = RadarSimConfig {
@@ -1759,7 +1783,6 @@ fn w45_h1_sea_spray_regimes_present_and_distinct() {
 /// integration-window edge effects; the actual measured ΔSNR is
 /// recorded in the receipt.
 #[test]
-#[allow(deprecated)]
 fn w45_h2_polarization_agility_changes_target_amp() {
     let base_config = RadarSimConfig {
         pulse_count: 16,

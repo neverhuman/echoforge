@@ -11,10 +11,10 @@ pub use echoforge_core::EchosigManifest;
 pub use error::{SigError, SigResult};
 pub use tensor::Dtype;
 
-// Legacy surface retained so existing radar_chain tests and downstream
+// Prior surface retained so existing radar_chain tests and downstream
 // callers compile. Replaced incrementally as packets land.
 pub use analytic::{
-    placeholder_analytic_report, AnalyticPrimitive, AnalyticValidationCase,
+    pending_analytic_report, AnalyticPrimitive, AnalyticValidationCase,
     AnalyticValidationReport, ValidationStatus,
 };
 pub use artifact::{

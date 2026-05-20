@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::prng::SplitMix64;
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct RfiProfile {
     pub burst_probability: f32,
@@ -77,37 +79,15 @@ pub fn apply_rfi_to_profile(power: &mut [f32], profile: RfiProfile, seed: u64) {
     let cw_bin = ((rng.unit_f32() * power.len() as f32) as usize).min(power.len() - 1);
     power[cw_bin] += profile.narrowband_cw_power;
 
-    for value in power.iter_mut() {
-        if rng.unit_f32() < profile.burst_probability {
+    power.iter_mut().for_each(|value| {
+        let burst = rng.unit_f32() < profile.burst_probability;
+        if burst {
             *value += profile.burst_amplitude * (0.4 + rng.unit_f32());
         }
         *value += profile.sidelobe_pressure * 0.015;
-    }
+    });
 }
 
-#[derive(Debug, Clone)]
-struct SplitMix64 {
-    state: u64,
-}
-
-impl SplitMix64 {
-    fn new(seed: u64) -> Self {
-        Self { state: seed }
-    }
-
-    fn next_u64(&mut self) -> u64 {
-        self.state = self.state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-        let mut z = self.state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-        z ^ (z >> 31)
-    }
-
-    fn unit_f32(&mut self) -> f32 {
-        let bits = (self.next_u64() >> 40) as u32;
-        (bits as f32) / ((1u32 << 24) as f32)
-    }
-}
 
 #[cfg(test)]
 mod tests {

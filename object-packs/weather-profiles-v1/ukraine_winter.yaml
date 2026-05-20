@@ -1,0 +1,119 @@
+# EchoForge weather_profile card — Ukraine Winter (overcast stratus, light snow / fog)
+# Schema: schemas/weather_profile.schema.json
+#
+# Continental Eastern European winter: overcast stratus deck, near-freezing
+# temperatures, light precipitation (snow / mixed), low cloud base, reduced
+# visibility from fog plus snow. Drives the radar / EO-IR rain / cloud
+# attenuation chain heavily; LWC near 0.4 g/m^3 puts cumulus-edge values
+# into the ITU-R P.840 dB/km calculation.
+id: "ef:weather_profile:ukraine-winter:0000000000000000:1"
+kind: weather_profile
+schema_version: "1.0.0"
+public_proxy_id: ukraine-winter
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "ITU-R P.840-8 (cloud / fog attenuation, LWC = 0.4 g/m^3 stratus typical)"
+    - "ITU-R P.838-3 (rain specific attenuation; snow ~ liquid-equivalent 1.5 mm/h)"
+    - "ITU-R P.453-14 (refractivity, standard mid-latitude continental)"
+    - "ITU-R P.676-13 (gas attenuation)"
+    - "WMO Beaufort scale, Code Table 1100"
+    - "WMO Code Table 2700 (sky cover / okta)"
+    - "Eastern European winter climate atlas (NOAA / ECMWF reanalysis seasonal mean)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T23:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public climate atlases and ITU-R / WMO references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.35
+  checks:
+    - name: ranges_in_plausible_bounds
+      status: pass
+      message: "T=268 K (-5 C), RH=0.85, LWC=0.4 g/m^3 stratus, 1.5 mm/h light snow-equivalent all inside continental winter envelope."
+    - name: cloud_loss_consistent_with_p840
+      status: pass
+      message: "At X-band 10 GHz: K_L ~ 0.4 dB/km per g/m^3 x 0.4 g/m^3 x ~3 km cloud thickness = ~0.5 dB; matches ITU-R P.840 stratus tabulation."
+    - name: beaufort_consistent
+      status: pass
+      message: "U_10=8 m/s -> Beaufort 4 (moderate breeze, upper end of force 4)."
+  fidelity_class: primitive_decomposed
+display_name: "Ukraine Winter (overcast stratus, light snow + fog)"
+regime_class: winter_snow_fog
+cloud_cover:
+  oktas: 8
+  cloud_type: stratus
+  cloud_base_m_agl: 600
+  cloud_top_m_agl: 2000
+  liquid_water_content_g_per_m3: 0.4
+  ice_water_content_g_per_m3: 0.15
+rain:
+  rain_rate_mm_per_h: 1.5
+  rain_top_m_agl: 2000
+  rain_polarization_h_vs_v_ratio_db: 0.3
+fog:
+  visibility_m: 5000
+  fog_type: radiation
+  liquid_water_content_g_per_m3: 0.05
+sea_state:
+  douglas_state: 4
+  beaufort_force: 4
+  significant_wave_height_m: 1.4
+  wave_peak_period_s: 6.5
+  wind_speed_u10_mps: 8.0
+  pierson_moskowitz_peak_freq_rad_s: 1.08
+  sea_spike_kurtosis: 4.5
+wind_vector_mps: { x: -6.0, y: -5.0, z: 0.0 }
+wind_profile_log_law_z0_m: 0.03
+refractivity_profile:
+  n_at_msl: 320
+  gradient_n_per_km: -40
+  k_factor_earth: 1.33
+  surface_duct_present: false
+  surface_duct_height_m: 0.0
+  elevated_duct_present: false
+  evaporation_duct_height_m: 0.0
+temperature_k: 268.0
+pressure_pa: 101800.0
+humidity_relative: 0.85
+humidity_absolute_g_per_m3: 3.6
+temperature_inversion_present: true
+temperature_inversion_base_m_agl: 50.0
+temperature_inversion_top_m_agl: 400.0
+eo_ir_transmission_bands:
+  - band: vis
+    range_m: 5000
+    transmission: 0.28
+    aerosol_optical_depth: 0.45
+  - band: nir
+    range_m: 5000
+    transmission: 0.35
+    aerosol_optical_depth: 0.40
+  - band: swir
+    range_m: 5000
+    transmission: 0.42
+    aerosol_optical_depth: 0.35
+  - band: mwir
+    range_m: 5000
+    transmission: 0.30
+    aerosol_optical_depth: 0.30
+  - band: lwir
+    range_m: 5000
+    transmission: 0.20
+    aerosol_optical_depth: 0.25
+source_refs:
+  - citation_id: itu-r-p-840
+    url: "https://www.itu.int/rec/R-REC-P.840"
+    title: "ITU-R P.840 — Cloud / fog attenuation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: itu-r-p-838
+    url: "https://www.itu.int/rec/R-REC-P.838"
+    title: "ITU-R P.838 — Rain specific attenuation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: wmo-code-2700
+    url: "https://library.wmo.int/idurl/4/35713"
+    title: "WMO Manual on Codes — Code Table 2700 (Sky cover)"
+    retrieved_utc: "2026-05-18T20:00:00Z"

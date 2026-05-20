@@ -1,0 +1,80 @@
+{
+  "id": "ef:passive_rf_sensor_card:tdoa-network-typical:0123456789abcdef:1",
+  "kind": "passive_rf_sensor_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "tdoa-network-typical",
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "tips/detectors/tip1.txt:156-164 (passive RF / electronic-support sensors)",
+      "Stein 1981 — Differential delay/Doppler ML estimation TDOA framework",
+      "SDR-handbook references for sensitivity"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T21:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": { "spdx_id": "MIT" },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.35,
+    "checks": [
+      { "name": "shape", "status": "pass", "message": "ok" },
+      {
+        "name": "rf_silent_target_returns_null_detection",
+        "status": "pass",
+        "message": "Shahed-class with silent_default=true correctly produces no detection per limitation declaration"
+      }
+    ],
+    "fidelity_class": "primitive_decomposed"
+  },
+  "sensor_name": "Typical 3-Site Passive RF TDOA Network",
+  "frequency_range_hz": { "min": 70.0e6, "max": 6.0e9 },
+  "instantaneous_bandwidth_hz": 80.0e6,
+  "sensitivity_dbm": -110.0,
+  "noise_figure_db": 5.5,
+  "aoa_method": "tdoa_network_three_or_more",
+  "bearing_accuracy_deg": 1.5,
+  "tdoa_network_baseline_km": { "min": 5.0, "max": 30.0 },
+  "tdoa_timing_accuracy_ns": 30.0,
+  "antenna": {
+    "antenna_type": "log_periodic",
+    "gain_dbi": 7.0,
+    "polarization": "vv"
+  },
+  "target_emission_classes": [
+    "control_link_2_4ghz_ism",
+    "control_link_5_8ghz_ism",
+    "video_downlink_5_8ghz",
+    "telemetry_868mhz_915mhz"
+  ],
+  "network_count": 3,
+  "declared_detection_envelope": [
+    {
+      "target_class_slug": "commercial-multirotor-small",
+      "range_m": 12000,
+      "conditions": "clear-air ISM-band control link active, suburban RF environment",
+      "citation_id": "robin-radar-iris-cuas-survey-2023"
+    },
+    {
+      "target_class_slug": "dji-phantom-class",
+      "range_m": 8000,
+      "conditions": "OcuSync control link active, rural RF environment",
+      "citation_id": "robin-radar-iris-cuas-survey-2023"
+    }
+  ],
+  "limitations": [
+    "Cannot detect pre-programmed RF-silent OWA drones (e.g. Shahed-136 with GNSS+INS only and no control link)",
+    "Cluttered urban RF environment (LTE, Wi-Fi, ISM congestion) degrades AoA accuracy substantially",
+    "Frequency-hopping spread-spectrum control links require wideband instantaneous capture or coherent multi-channel"
+  ],
+  "source_refs": [
+    {
+      "citation_id": "robin-radar-iris-cuas-survey-2023",
+      "url": "internal://tips/detectors/tip1.txt#L156-164",
+      "title": "Robin Radar — Counter-UAS sensor architecture survey",
+      "retrieved_utc": "2026-05-18T20:00:00Z"
+    }
+  ]
+}

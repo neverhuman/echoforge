@@ -73,3 +73,7 @@ export interface EchoForgeContracts {
 export async function loadStudioContracts(): Promise<EchoForgeContracts> {
   return createEchoForgeClient().getContracts() as Promise<EchoForgeContracts>;
 }
+
+export function provenanceLinkForDetection(detectionId: string): string {
+  return `/provenance/detection/${encodeURIComponent(detectionId)}`;
+}

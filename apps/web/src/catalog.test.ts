@@ -1,12 +1,7 @@
 import { expect, test } from 'vitest';
-import catalog from '../../../contracts/schema_catalog.json';
+import catalogRoot from '../../../contracts/schema_catalog.json';
 
-const schemaCatalog = catalog as Array<{
-  name: string;
-  schema_file: string;
-  rust_type: string;
-  python_type: string;
-}>;
+const schemaCatalog = (catalogRoot as { schemas: Array<{ name: string; schema_file: string; rust_type: string; python_type: string }> }).schemas;
 
 test('schema catalog stays canonical and stable', () => {
   expect(schemaCatalog).toHaveLength(12);

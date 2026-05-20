@@ -15,6 +15,7 @@ pub mod cfar_closed_forms;
 pub mod go_cfar;
 pub mod micro_doppler_classifier;
 pub mod micro_doppler_feature;
+pub(super) mod micro_doppler_lrt;
 pub mod os_cfar;
 pub mod phase_tiered;
 pub mod so_cfar;
@@ -76,6 +77,40 @@ impl DetectionEvent {
 /// keep zero-magnitude bins finite.
 pub fn magnitude_to_db(linear: f64) -> f64 {
     10.0 * (linear.max(1e-12)).log10()
+}
+
+/// Shared inner loop for SO-CFAR and GO-CFAR. The only difference between those
+/// two detectors is whether the noise estimate uses the minimum or maximum of
+/// the two training-window means. `combine` provides that selection:
+/// `f32::min` for SO, `f32::max` for GO.
+pub(super) fn cfar_minmax_detect(
+    input: &[f32],
+    params: &crate::cfar::CfarParams,
+    kind: DetectionKind,
+    combine: fn(f32, f32) -> f32,
+) -> Vec<DetectionEvent> {
+    use crate::cfar::ca_cfar_scale;
+    let n_train = params.training_cells;
+    let g = params.guard_cells;
+    let window = n_train + g;
+    let alpha = ca_cfar_scale(n_train, params.pfa);
+    let mut events = Vec::new();
+    if input.len() < 2 * window + 1 || n_train == 0 {
+        return events;
+    }
+    for index in window..(input.len() - window) {
+        let lead = &input[index - window..index - g];
+        let lag = &input[index + g + 1..=index + window];
+        let mean_lead = lead.iter().sum::<f32>() / lead.len() as f32;
+        let mean_lag = lag.iter().sum::<f32>() / lag.len() as f32;
+        let noise = combine(mean_lead, mean_lag);
+        let threshold = alpha * noise;
+        let stat = input[index];
+        if stat > threshold && threshold.is_finite() {
+            events.push(DetectionEvent::new(index, None, magnitude_to_db(stat as f64), kind));
+        }
+    }
+    events
 }
 
 /// Common detector contract. `Input` is whatever shape the detector consumes
