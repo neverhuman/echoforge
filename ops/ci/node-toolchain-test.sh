@@ -4,7 +4,9 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel)"
 expected="v$(tr -d '[:space:]' <"${repo_root}/.nvmrc" | sed 's/^v//')"
-node_bin_dir="$(CDPATH= cd -- "$(dirname "$(command -v node)")" && pwd)"
+# shellcheck source=ops/ci/node-toolchain.sh
+source "${repo_root}/ops/ci/node-toolchain.sh"
+node_bin_dir="${ECHOFORGE_NODE_BIN:?node bootstrap did not resolve ECHOFORGE_NODE_BIN}"
 
 clean_user_path="$(
   env -i HOME="${HOME}" PATH="${node_bin_dir}:/usr/bin:/bin" \
