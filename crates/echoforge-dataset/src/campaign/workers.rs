@@ -131,7 +131,7 @@ fn generate_campaign_record(
         yaw_jitter_deg: envelope.attitude_jitter_deg,
         propulsor_hz: envelope.propulsor_hz,
         micro_doppler_hz: envelope.micro_doppler_hz,
-        rcs_scalar: 10f64.powf(envelope.rcs_dbsm / 20.0).max(0.01),
+        rcs_scalar: 10f64.powf(envelope.rcs_dbsm / 10.0).max(0.01),
         blade_count: None,
         blade_length_m: None,
     };

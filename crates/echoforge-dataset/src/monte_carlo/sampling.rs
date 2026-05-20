@@ -198,7 +198,7 @@ pub(super) fn sample_episode(
         yaw_jitter_deg: rng.range_f64(object.micro_motion.attitude_jitter_deg),
         propulsor_hz: rng.range_f64(object.micro_motion.propulsor_hz),
         micro_doppler_hz: rng.range_f64(object.micro_motion.micro_doppler_hz),
-        rcs_scalar: 10f64.powf(rcs_dbsm / 20.0).max(0.03),
+        rcs_scalar: 10f64.powf(rcs_dbsm / 10.0).max(0.03),
         // Wave 2 Lane D: opt into multi-blade PropellerGenerator dispatch
         // by setting `Some(...)`; prior single-sinusoid retained when both
         // are `None`. Dataset-tier defaults to prior for byte-stability.
@@ -259,6 +259,10 @@ pub(super) fn write_episode_json_products(
     write_json_pretty(
         &products_dir.join("noise_profile.json"),
         &sampled.noise_profile,
+    )?;
+    write_json_pretty(
+        &products_dir.join("link_diagnostics.json"),
+        &episode.pulse_diagnostics,
     )?;
     Ok(())
 }
@@ -324,6 +328,7 @@ pub(super) fn radar_episode_model(
             "products/tracks.json".to_string(),
             "products/truth.json".to_string(),
             "products/noise_profile.json".to_string(),
+            "products/link_diagnostics.json".to_string(),
         ],
     }
     .finalize()

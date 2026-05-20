@@ -21,8 +21,8 @@ pub use campaign::{
 };
 pub use leakage::{build_leakage_report, LeakageFinding, LeakageReport};
 pub use ml_pipelines::{
-    default_ml_pipeline_request, discover_repo_root, inspect_pipeline, list_pipelines, run_pipeline,
-    run_suite, MlPipelineError, PipelineArtifact, PipelineGate, PipelineRunRequest,
+    default_ml_pipeline_request, discover_repo_root, inspect_pipeline, list_pipelines,
+    run_pipeline, run_suite, MlPipelineError, PipelineArtifact, PipelineGate, PipelineRunRequest,
     PipelineRunResult, PipelineSpec, PipelineSuiteResult, DEFAULT_DATA_ROOT, DEFAULT_OUT_ROOT,
     DEFAULT_VALIDATION_TIER, MAX_PIPELINE_WORKERS, MAX_SUITE_CONCURRENCY,
 };

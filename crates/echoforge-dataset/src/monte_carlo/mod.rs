@@ -59,6 +59,9 @@ mod tests {
         assert!(output
             .join("episodes/episode_000001/products/iq_complex.zarr/.zarray")
             .exists());
+        assert!(output
+            .join("episodes/episode_000001/products/link_diagnostics.json")
+            .exists());
 
         let dataset_card: DatasetCard =
             serde_json::from_slice(&fs::read(output.join("dataset_card.json")).unwrap()).unwrap();

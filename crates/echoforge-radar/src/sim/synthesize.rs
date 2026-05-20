@@ -1,17 +1,170 @@
 use crate::cfar::ca_cfar_1d;
 use crate::link_budget::{evaluate_link_budget, snr_to_target_amplitude, LinkBudgetResult};
+use crate::rcs::{Polarization, Rcs};
 use crate::scene::{SceneDescriptor, TargetClass, TargetEntity, TargetKinematics};
 
 use super::config::{NoiseProfile, RadarSimConfig, TakeoffProfile};
 use super::dft::{slow_time_complex_dft, slow_time_dft_magnitude};
-use super::episode::{DetectionRecord, EpisodeSeed, SplitMix64, SyntheticEpisode};
+use super::episode::{
+    DetectionRecord, EpisodeSeed, SourceDiagnostics, SplitMix64, SyntheticEpisode,
+};
 use super::helpers::{
-    build_ground_glints, class_default_rcs_scalar, entity_initial_range_recovery,
-    integrate_profiles, range_bin_to_m,
+    build_ground_glints, class_default_rcs_scalar, integrate_profiles, public_proxy_rcs_class_name,
+    range_bin_to_m, target_aspect_deg, target_elevation_deg,
 };
 
 #[path = "synthesize_loop.rs"]
 mod synthesize_loop;
+
+pub(super) struct EntityLinkEvaluation {
+    pub amp: f32,
+    pub link_budget: LinkBudgetResult,
+    pub diagnostics: SourceDiagnostics,
+}
+
+pub(super) fn evaluate_entity_link(
+    scene: &SceneDescriptor,
+    config: &RadarSimConfig,
+    noise: &NoiseProfile,
+    first_profile: &TakeoffProfile,
+    rcs_catalog: &Rcs,
+    entity_idx: usize,
+    t_s: f64,
+    seed: u64,
+    pulse_index: usize,
+    active: bool,
+) -> EntityLinkEvaluation {
+    let entity = &scene.targets[entity_idx];
+    let (state, range_offset_m) = super::helpers::resolve_entity_state(
+        scene.targets.as_slice(),
+        entity_idx,
+        t_s,
+        config.radar_altitude_agl_m,
+    );
+    let effective_range_m = (state.range_m + range_offset_m).max(0.0);
+    let effective_state = super::episode::TargetState {
+        range_m: effective_range_m,
+        ..state
+    };
+    let prop_ctx = config.propagation_context(&effective_state);
+    let tx_pol = config.polarization_for_pulse(pulse_index).0;
+    let rx_pol = config.polarization_for_pulse(pulse_index).1;
+    let lookup_pol = if tx_pol == rx_pol {
+        tx_pol
+    } else {
+        Polarization::Cross
+    };
+    let aspect_deg = target_aspect_deg(&effective_state);
+    let elevation_deg = target_elevation_deg(&effective_state);
+    let class_name = format!("{:?}", entity.class);
+    let base_rcs_dbsm = match public_proxy_rcs_class_name(entity, scene.targets.as_slice()) {
+        Some(table_name) => {
+            let evaluated = rcs_catalog.evaluate(
+                table_name,
+                aspect_deg,
+                elevation_deg,
+                config.carrier_hz / 1.0e9,
+                lookup_pol,
+                seed ^ (entity_idx as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15),
+                pulse_index,
+            );
+            if evaluated.is_finite() {
+                evaluated
+            } else {
+                10.0 * class_default_rcs_scalar(&entity.class, &entity.kinematics, first_profile)
+                    .max(1e-12)
+                    .log10()
+            }
+        }
+        None => {
+            10.0 * class_default_rcs_scalar(&entity.class, &entity.kinematics, first_profile)
+                .max(1e-12)
+                .log10()
+        }
+    };
+    let mut rcs_m2 = 10f64.powf(base_rcs_dbsm / 10.0).max(0.0);
+    if let TargetKinematics::MultipathGhost {
+        reflection_coefficient_magnitude,
+        ..
+    } = &entity.kinematics
+    {
+        let gamma = reflection_coefficient_magnitude.max(0.0);
+        rcs_m2 *= gamma * gamma;
+    }
+    let link = evaluate_link_budget(&config.link_budget(), &prop_ctx, rcs_m2);
+    let amp = if active && link.above_horizon && link.snr_db.is_finite() {
+        snr_to_target_amplitude(link.snr_db, noise.awgn_sigma)
+    } else {
+        0.0
+    };
+    let (tx_scale, rx_scale) = (tx_pol, rx_pol);
+    let amp = if active {
+        amp * super::config::polarization_amplitude_scale(tx_scale, rx_scale)
+    } else {
+        0.0
+    };
+    let signal_after_processing_w = if link.received_power_w > 0.0 {
+        link.received_power_w / 10f64.powf(config.processing_loss_db.max(0.0) / 10.0)
+    } else {
+        0.0
+    };
+    let clutter_power_w = if let Some(regime) = noise.clutter_regime {
+        let range_resolution_m = super::helpers::C_M_PER_S / (2.0 * config.bandwidth_hz.max(1.0));
+        let grazing_factor = (effective_state.altitude_m + config.radar_altitude_agl_m)
+            .abs()
+            .max(1.0)
+            / effective_state.range_m.max(1.0);
+        let illuminated_span_m = (effective_state.range_m * grazing_factor)
+            .abs()
+            .max(range_resolution_m);
+        let sigma0_linear = 10f64.powf(regime.mean_power_dbsm_per_m2 / 10.0)
+            * f64::from(noise.clutter_sigma_0_scale.max(0.0));
+        let clutter_rcs_m2 = sigma0_linear * range_resolution_m * illuminated_span_m;
+        let clutter_link = evaluate_link_budget(&config.link_budget(), &prop_ctx, clutter_rcs_m2);
+        clutter_link.received_power_w
+    } else {
+        f64::from(noise.clutter_sigma.max(0.0)).powi(2)
+    };
+    let interference_power_w = f64::from(noise.rfi_probability.max(0.0))
+        * f64::from(noise.rfi_amplitude.max(0.0)).powi(2)
+        * link.noise_power_w.max(1.0);
+    let combined_noise_w = (link.noise_power_w + clutter_power_w + interference_power_w).max(1e-30);
+    let sinr_db = if signal_after_processing_w > 0.0 {
+        10.0 * (signal_after_processing_w / combined_noise_w).log10()
+    } else {
+        f64::NEG_INFINITY
+    };
+    let propagation_loss_db = if link.free_space_path_loss_db.is_finite() {
+        link.free_space_path_loss_db + link.atmospheric_loss_db + link.rain_loss_db
+            - link.propagation_factor_db
+    } else {
+        f64::INFINITY
+    };
+    EntityLinkEvaluation {
+        amp,
+        link_budget: link,
+        diagnostics: SourceDiagnostics {
+            pulse_index,
+            entity_index: entity_idx,
+            class_name,
+            active,
+            time_s: t_s,
+            range_m: effective_state.range_m,
+            altitude_m: effective_state.altitude_m,
+            aspect_deg,
+            elevation_deg,
+            rcs_dbsm: base_rcs_dbsm,
+            rcs_m2,
+            received_power_w: if active { link.received_power_w } else { 0.0 },
+            thermal_noise_power_w: link.noise_power_w,
+            clutter_power_w,
+            interference_power_w,
+            propagation_loss_db,
+            processing_loss_db: config.processing_loss_db,
+            sinr_db: if active { sinr_db } else { f64::NEG_INFINITY },
+        },
+    }
+}
 
 /// bridged wrapper around the unified [`synthesize_scene`] path.
 ///
@@ -122,90 +275,62 @@ pub fn synthesize_scene(
 
     let mut rng = SplitMix64::new(seed.0);
 
-    // Per-entity initial-state link-budget evaluation. Replace the
-    // prior `target_snr_db` knob with a transparent radar-equation
-    // result evaluated at each entity's initial geometry. Sub-horizon
-    // entities contribute zero return (target_amp == 0), which the
-    // rest of the chain treats identically to a missing target.
-    let mut per_entity_target_amp: Vec<f32> = Vec::with_capacity(scene.targets.len());
+    let rcs_catalog = Rcs::seeded_public_proxy_v1();
+
     let mut per_entity_snr_db: Vec<f64> = Vec::with_capacity(scene.targets.len());
-    let mut first_link_result: Option<LinkBudgetResult> = None;
-
-    // Resolve per-entity initial state (for the link-budget pass) and
-    // per-entity RCS scalar. Ghosts inherit their parent's amp scaled
-    // by |Γ|; this matches the Skolnik §1.6 multipath convention.
-    let entity_initial_states: Vec<super::episode::TargetState> = scene
-        .targets
-        .iter()
-        .map(|entity| match &entity.kinematics {
-            TargetKinematics::MultipathGhost { parent_idx, .. } => {
-                // Resolve parent's initial state for diagnostic SNR.
-                let parent = scene.targets.get(*parent_idx).unwrap_or(first_entity);
-                let parent_initial_range = entity_initial_range_recovery(parent);
-                parent
-                    .kinematics
-                    .state_at(0.0, parent_initial_range, config.radar_altitude_agl_m)
-            }
-            _ => {
-                let initial_range = entity_initial_range_recovery(entity);
-                entity
-                    .kinematics
-                    .state_at(0.0, initial_range, config.radar_altitude_agl_m)
-            }
-        })
-        .collect();
-
-    for (idx, entity) in scene.targets.iter().enumerate() {
-        let entity_initial = entity_initial_states[idx];
-        let prop_ctx = config.propagation_context(&entity_initial);
-        let rcs_scalar =
-            class_default_rcs_scalar(&entity.class, &entity.kinematics, &first_profile);
-        let link = evaluate_link_budget(&config.link_budget(), &prop_ctx, rcs_scalar.max(0.0));
-        let amp_full = if link.above_horizon && link.snr_db.is_finite() {
-            snr_to_target_amplitude(link.snr_db, noise.awgn_sigma)
+    for (entity_idx, _) in scene.targets.iter().enumerate() {
+        let evaluation = evaluate_entity_link(
+            &scene,
+            &config,
+            &noise,
+            &first_profile,
+            &rcs_catalog,
+            entity_idx,
+            0.0,
+            seed.0,
+            0,
+            0.0 >= scene.targets[entity_idx].spawn_time_s,
+        );
+        per_entity_snr_db.push(if evaluation.diagnostics.active {
+            evaluation.link_budget.snr_db
         } else {
-            0.0
-        };
-        // Ghosts inherit a scaled amplitude — their kinematics carry
-        // the reflection coefficient |Γ|. Apply the linear scale and
-        // the dB-equivalent to the SNR.
-        let (amp_effective, snr_effective) = match &entity.kinematics {
-            TargetKinematics::MultipathGhost {
-                reflection_coefficient_magnitude,
-                ..
-            } => {
-                let gamma = reflection_coefficient_magnitude.max(0.0) as f32;
-                let snr_offset_db = if *reflection_coefficient_magnitude > 0.0 {
-                    20.0 * reflection_coefficient_magnitude.log10()
-                } else {
-                    f64::NEG_INFINITY
-                };
-                (amp_full * gamma, link.snr_db + snr_offset_db)
-            }
-            _ => (amp_full, link.snr_db),
-        };
-        per_entity_target_amp.push(amp_effective);
-        per_entity_snr_db.push(snr_effective);
-        if idx == 0 {
-            first_link_result = Some(link);
-        }
+            f64::NEG_INFINITY
+        });
     }
-    let link_result_first = first_link_result.expect("at least one entity");
+    let mut first_link_result = evaluate_entity_link(
+        &scene,
+        &config,
+        &noise,
+        &first_profile,
+        &rcs_catalog,
+        0,
+        0.0,
+        seed.0,
+        0,
+        0.0 >= scene.targets[0].spawn_time_s,
+    )
+    .link_budget;
+    if scene.targets[0].spawn_time_s > 0.0 {
+        first_link_result.received_power_w = 0.0;
+        first_link_result.snr_linear = 0.0;
+        first_link_result.snr_db = f64::NEG_INFINITY;
+    }
 
     let waveform = config.waveform();
     let sample_count = waveform.samples().len();
     let compressed_len = sample_count.saturating_mul(2).saturating_sub(1);
     let glints = build_ground_glints(sample_count, &noise, &mut rng);
 
-    let (iq, profiles, compressed_complex, states_first) = synthesize_loop::run_synthesis_loop(
-        &config,
-        &noise,
-        seed,
-        &scene,
-        &per_entity_target_amp,
-        &glints,
-        &first_profile,
-    );
+    let (iq, profiles, compressed_complex, states_first, pulse_diagnostics) =
+        synthesize_loop::run_synthesis_loop(
+            &config,
+            &noise,
+            seed,
+            &scene,
+            &rcs_catalog,
+            &glints,
+            &first_profile,
+        );
 
     let integrated = integrate_profiles(&profiles, compressed_len);
     let decisions = ca_cfar_1d(&integrated, config.cfar_params());
@@ -247,9 +372,10 @@ pub fn synthesize_scene(
         integrated_range_profile: integrated,
         range_doppler_proxy,
         detections,
-        diagnostic_snr_db: link_result_first.snr_db,
-        diagnostic_link_budget: link_result_first,
+        diagnostic_snr_db: first_link_result.snr_db,
+        diagnostic_link_budget: first_link_result,
         range_doppler_complex,
         per_target_snr_db: per_entity_snr_db,
+        pulse_diagnostics,
     }
 }

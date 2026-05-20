@@ -18,7 +18,38 @@ pub struct TargetState {
     pub radial_velocity_mps: f64,
     pub pitch_deg: f64,
     pub yaw_deg: f64,
+    #[serde(default)]
+    pub course_deg: f64,
     pub propulsor_phase_rad: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SourceDiagnostics {
+    pub pulse_index: usize,
+    pub entity_index: usize,
+    pub class_name: String,
+    pub active: bool,
+    pub time_s: f64,
+    pub range_m: f64,
+    pub altitude_m: f64,
+    pub aspect_deg: f64,
+    pub elevation_deg: f64,
+    pub rcs_dbsm: f64,
+    pub rcs_m2: f64,
+    pub received_power_w: f64,
+    pub thermal_noise_power_w: f64,
+    pub clutter_power_w: f64,
+    pub interference_power_w: f64,
+    pub propagation_loss_db: f64,
+    pub processing_loss_db: f64,
+    pub sinr_db: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PulseDiagnostics {
+    pub pulse_index: usize,
+    pub time_s: f64,
+    pub source_diagnostics: Vec<SourceDiagnostics>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -74,6 +105,10 @@ pub struct SyntheticEpisode {
     /// their parent's SNR scaled by `20·log10(|Γ|)` so a ghost's
     /// entry reflects the reduced phantom-return level.
     pub per_target_snr_db: Vec<f64>,
+    /// Per-pulse, per-entity diagnostics emitted by the live scene
+    /// link-budget path. These are public-proxy diagnostics only and
+    /// are intended for QA / validation products, not as exact truth.
+    pub pulse_diagnostics: Vec<PulseDiagnostics>,
 }
 
 /// Deterministic PRNG (SplitMix64 + Box-Muller Gaussian).

@@ -1,8 +1,8 @@
 use crate::calibrate::{run_calibrate, CalibrateArgs};
 use crate::core::{Health, StatusCheck, StatusSummary};
 use crate::demo::{run_demo, DemoArgs};
-use crate::ml::{run_ml, MlArgs};
 use crate::manifest::EchoSigManifest;
+use crate::ml::{run_ml, MlArgs};
 use crate::schema::{validate_inputs, SchemaValidationReport};
 use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;

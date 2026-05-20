@@ -115,6 +115,7 @@ pub(super) fn sample_state_at_time(
             radial_velocity_mps: 0.0,
             pitch_deg: 0.0,
             yaw_deg: 0.0,
+            course_deg: 0.0,
             propulsor_phase_rad: 0.0,
         };
     }
@@ -136,6 +137,7 @@ pub(super) fn sample_state_at_time(
         radial_velocity_mps: lerp64(a.radial_velocity_mps, b.radial_velocity_mps),
         pitch_deg: lerp64(a.pitch_deg, b.pitch_deg),
         yaw_deg: lerp64(a.yaw_deg, b.yaw_deg),
+        course_deg: lerp64(a.course_deg, b.course_deg),
         propulsor_phase_rad: lerp64(a.propulsor_phase_rad, b.propulsor_phase_rad),
     }
 }

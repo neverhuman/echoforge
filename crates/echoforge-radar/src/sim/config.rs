@@ -88,6 +88,7 @@ impl TakeoffProfile {
             radial_velocity_mps,
             pitch_deg,
             yaw_deg,
+            course_deg: self.runway_heading_deg,
             propulsor_phase_rad,
         }
     }
