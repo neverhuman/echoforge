@@ -8,7 +8,7 @@ node_bin_dir="$(CDPATH= cd -- "$(dirname "$(command -v node)")" && pwd)"
 
 clean_user_path="$(
   env -i HOME="${HOME}" PATH="${node_bin_dir}:/usr/bin:/bin" \
-    bash -lc "cd '${repo_root}' && node --version"
+    bash -c "cd '${repo_root}' && node --version"
 )"
 if [[ "${clean_user_path}" != "${expected}" ]]; then
   echo "error: node --version in clean shell got ${clean_user_path}, want ${expected}" >&2
@@ -17,7 +17,7 @@ fi
 
 bootstrap_path="$(
   env -i HOME="${HOME}" PATH="/usr/bin:/bin" \
-    bash -lc "cd '${repo_root}' && source ops/ci/node-toolchain.sh && node --version"
+    bash -c "cd '${repo_root}' && source ops/ci/node-toolchain.sh && node --version"
 )"
 if [[ "${bootstrap_path}" != "${expected}" ]]; then
   echo "error: repo Node bootstrap got ${bootstrap_path}, want ${expected}" >&2
@@ -34,7 +34,7 @@ done
 
 setup_node_path="$(
   env -i HOME="${setup_node_home}" PATH="${setup_node_bin}:/usr/bin:/bin" \
-    bash -lc "cd '${repo_root}' && source ops/ci/node-toolchain.sh && printf '%s %s\n' \"\$(node --version)\" \"\${ECHOFORGE_NODE_BIN}\""
+    bash -c "cd '${repo_root}' && source ops/ci/node-toolchain.sh && printf '%s %s\n' \"\$(node --version)\" \"\${ECHOFORGE_NODE_BIN}\""
 )"
 expected_setup_node="${expected} ${setup_node_bin}"
 if [[ "${setup_node_path}" != "${expected_setup_node}" ]]; then
