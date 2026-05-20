@@ -31,7 +31,7 @@ try:  # direct script entrypoints import this module as a top-level file
         write_auxiliary_reports,
         write_reports,
     )
-except ModuleNotFoundError:  # pragma: no cover - fallback for direct execution from detection/
+except ModuleNotFoundError:  # pragma: no cover - direct execution from detection/
     from detection_common_types import (
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,

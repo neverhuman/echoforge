@@ -50,7 +50,7 @@ export function repaintWaterfall(
   const columns = Math.min(w, ring.length);
   for (let age = 0; age < columns; age++) {
     const col = ring.at(age);
-    if (col) {
+    if (col.length > 0) {
       paintColumn(ctx, w - 1 - age, h, col, lut);
     }
   }

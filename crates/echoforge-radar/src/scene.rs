@@ -168,8 +168,8 @@ impl TargetKinematics {
     /// time `t_s`.
     ///
     /// `initial_range_m` and `antenna_alt_agl_m` are provided as
-    /// fallbacks for variants that do not carry their own range /
-    /// antenna height (e.g. the [`Bird`] and [`Helicopter`] entities
+    /// scene-level defaults for variants that do not carry their own
+    /// range / antenna height (e.g. the [`Bird`] and [`Helicopter`] entities
     /// inherit their initial range from the scene-level dispatch; the
     /// [`GroundVehicle`], [`WindTurbine`], [`Balloon`], and [`Kite`]
     /// variants carry their own initial range or anchor range and

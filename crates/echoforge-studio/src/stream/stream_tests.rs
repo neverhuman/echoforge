@@ -175,8 +175,8 @@ fn builtin_scenarios_resolve_and_are_well_formed() {
             scenario.id
         );
     }
-    let fallback = resolve_scenario("does-not-exist");
-    assert_eq!(fallback.id, all[0].id);
+    let default_scenario = resolve_scenario("does-not-exist");
+    assert_eq!(default_scenario.id, all[0].id);
 }
 
 #[test]

@@ -80,7 +80,6 @@ jobs:
         run: bash ops/ci/web-smoke.sh
 
   web-e2e:
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: web-smoke
@@ -94,7 +93,6 @@ jobs:
         run: bash ops/ci/web-e2e.sh
 
   score:
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -102,6 +100,20 @@ jobs:
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
           toolchain: stable
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+        with:
+          node-version: '26.1.0'
+      - name: Install Jankurai
+        shell: bash
+        run: |
+          cargo install --git https://github.com/neverhuman/jankurai.git --rev 6f1aa45fca09ebb523f79b38ad465da28a86dfb1 --locked jankurai
+          jankurai --version
       - name: Governance score lane
         shell: bash
         run: bash ops/ci/score.sh
+      - name: Upload Jankurai score artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: jankurai-score
+          path: target/jankurai/**

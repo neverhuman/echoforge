@@ -3,16 +3,21 @@
 from __future__ import annotations
 
 import argparse
-import importlib
 import json
-import os
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-from .core import MAX_PIPELINE_WORKERS, MAX_SUITE_CONCURRENCY, PipelineError, as_jsonable, make_run_id
+from .core import (
+    MAX_PIPELINE_WORKERS,
+    MAX_SUITE_CONCURRENCY,
+    PipelineError,
+    as_jsonable,
+    make_run_id,
+)
 from .validation import validate_pipeline_spec
+from detection.pipelines import physics_cfar_track, raw_iq_ssl_research, tensor_microdoppler_fusion
 
 SUITES = {
     "evidence-ladder-v1": [
@@ -22,34 +27,29 @@ SUITES = {
     ]
 }
 
-
-def discover_pipeline_modules() -> list[str]:
-    modules = []
-    root = Path(__file__).resolve().parents[2] / "detection" / "pipelines"
-    for path in sorted(root.glob("*.py")):
-        if path.name == "__init__.py":
-            continue
-        modules.append(f"detection.pipelines.{path.stem}")
-    return modules
+PIPELINE_MODULES = (
+    physics_cfar_track,
+    tensor_microdoppler_fusion,
+    raw_iq_ssl_research,
+)
 
 
-def load_pipeline(module_name: str):
-    module = importlib.import_module(module_name)
+def load_pipeline(module):
     spec = getattr(module, "PIPELINE_SPEC")
     validate_pipeline_spec(spec)
     return module, spec
 
 
 def module_for_pipeline_id(pipeline_id: str):
-    for module_name in discover_pipeline_modules():
-        module, spec = load_pipeline(module_name)
+    for module in PIPELINE_MODULES:
+        module, spec = load_pipeline(module)
         if spec.id == pipeline_id:
             return module, spec
     raise PipelineError(f"unknown pipeline id: {pipeline_id}", code="unknown_pipeline")
 
 
 def list_specs() -> list[dict[str, Any]]:
-    return [load_pipeline(module_name)[1].to_json() for module_name in discover_pipeline_modules()]
+    return [load_pipeline(module)[1].to_json() for module in PIPELINE_MODULES]
 
 
 def inspect_spec(pipeline_id: str) -> dict[str, Any]:
@@ -57,8 +57,18 @@ def inspect_spec(pipeline_id: str) -> dict[str, Any]:
     return spec.to_json()
 
 
-def execute_pipeline(module, spec, *, repo_root: Path, data_root: Path, out_root: Path, workers: int, seed: int, smoke: bool, validation_tier: str):
-    module_name = module.__name__
+def execute_pipeline(
+    module,
+    spec,
+    *,
+    repo_root: Path,
+    data_root: Path,
+    out_root: Path,
+    workers: int,
+    seed: int,
+    smoke: bool,
+    validation_tier: str,
+):
     run_id = make_run_id(seed, spec.id, smoke)
     from .core import PipelineContext
 
@@ -76,7 +86,17 @@ def execute_pipeline(module, spec, *, repo_root: Path, data_root: Path, out_root
     return module.smoke(context) if smoke else module.run(context)
 
 
-def run_pipeline(*, pipeline_id: str, repo_root: Path, data_root: Path, out_root: Path, workers: int, seed: int, smoke: bool, validation_tier: str) -> dict[str, Any]:
+def run_pipeline(
+    *,
+    pipeline_id: str,
+    repo_root: Path,
+    data_root: Path,
+    out_root: Path,
+    workers: int,
+    seed: int,
+    smoke: bool,
+    validation_tier: str,
+) -> dict[str, Any]:
     run_id = make_run_id(seed, pipeline_id, smoke)
     try:
         module, spec = module_for_pipeline_id(pipeline_id)
@@ -112,7 +132,18 @@ def run_pipeline(*, pipeline_id: str, repo_root: Path, data_root: Path, out_root
         return payload
 
 
-def run_suite(*, suite: str, repo_root: Path, data_root: Path, out_root: Path, workers_per_pipeline: int, max_concurrent: int, seed: int, smoke: bool, validation_tier: str) -> dict[str, Any]:
+def run_suite(
+    *,
+    suite: str,
+    repo_root: Path,
+    data_root: Path,
+    out_root: Path,
+    workers_per_pipeline: int,
+    max_concurrent: int,
+    seed: int,
+    smoke: bool,
+    validation_tier: str,
+) -> dict[str, Any]:
     pipeline_ids = SUITES.get(suite)
     if not pipeline_ids:
         raise PipelineError(f"unknown suite: {suite}", code="unknown_suite")
@@ -123,17 +154,19 @@ def run_suite(*, suite: str, repo_root: Path, data_root: Path, out_root: Path, w
     with ThreadPoolExecutor(max_workers=max_concurrent) as executor:
         futures = {}
         for index, pipeline_id in enumerate(pipeline_ids):
-            futures[executor.submit(
-                run_pipeline,
-                pipeline_id=pipeline_id,
-                repo_root=repo_root,
-                data_root=data_root,
-                out_root=out_root,
-                workers=workers_per_pipeline,
-                seed=seed + index,
-                smoke=smoke,
-                validation_tier=validation_tier,
-            )] = pipeline_id
+            futures[
+                executor.submit(
+                    run_pipeline,
+                    pipeline_id=pipeline_id,
+                    repo_root=repo_root,
+                    data_root=data_root,
+                    out_root=out_root,
+                    workers=workers_per_pipeline,
+                    seed=seed + index,
+                    smoke=smoke,
+                    validation_tier=validation_tier,
+                )
+            ] = pipeline_id
         for future in as_completed(futures):
             pipeline_id = futures[future]
             try:
@@ -242,7 +275,7 @@ def main(argv: list[str] | None = None) -> int:
         payload = {"error": exc.code, "message": str(exc), "details": exc.details}
         print(json.dumps(payload, indent=2, sort_keys=True), file=sys.stderr)
         return 2
-    except Exception as exc:  # pragma: no cover - defensive guard for subprocess callers
+    except (OSError, RuntimeError, TypeError, ValueError) as exc:  # pragma: no cover
         payload = {"error": "unexpected_error", "message": str(exc)}
         print(json.dumps(payload, indent=2, sort_keys=True), file=sys.stderr)
         return 3

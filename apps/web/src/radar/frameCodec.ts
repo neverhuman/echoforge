@@ -12,6 +12,112 @@ import {
 
 export class FrameDecodeError extends Error {}
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+function isPpiBlip(value: unknown): value is ScanMeta['ppi'][number] {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.entity_id) &&
+    isFiniteNumber(value.range_m) &&
+    isFiniteNumber(value.azimuth_deg) &&
+    isFiniteNumber(value.amplitude_db) &&
+    isFiniteNumber(value.snr_db) &&
+    isBoolean(value.detected) &&
+    isString(value.class_label)
+  );
+}
+
+function isRdDetection(value: unknown): value is ScanMeta['detections'][number] {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.range_bin) &&
+    isFiniteNumber(value.range_m) &&
+    isFiniteNumber(value.doppler_bin) &&
+    isFiniteNumber(value.magnitude_db) &&
+    isFiniteNumber(value.snr_db)
+  );
+}
+
+function isTrackRow(value: unknown): value is ScanMeta['tracks'][number] {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.track_id) &&
+    isFiniteNumber(value.range_m) &&
+    isFiniteNumber(value.azimuth_deg) &&
+    isFiniteNumber(value.radial_velocity_mps) &&
+    isFiniteNumber(value.snr_db) &&
+    isFiniteNumber(value.confidence) &&
+    isString(value.class_label) &&
+    isFiniteNumber(value.age_frames)
+  );
+}
+
+function isTelemetry(value: unknown): value is ScanMeta['telemetry'] {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.snr_db) &&
+    isFiniteNumber(value.received_power_dbw) &&
+    isFiniteNumber(value.noise_power_dbw) &&
+    isFiniteNumber(value.free_space_path_loss_db) &&
+    isFiniteNumber(value.atmospheric_loss_db) &&
+    isFiniteNumber(value.rain_loss_db) &&
+    isFiniteNumber(value.propagation_factor_db) &&
+    isFiniteNumber(value.coherent_integration_gain_db) &&
+    isBoolean(value.above_horizon) &&
+    isFiniteNumber(value.detections_this_frame) &&
+    isFiniteNumber(value.frame_compute_ms) &&
+    isFiniteNumber(value.scan_rate_hz)
+  );
+}
+
+function isScanMeta(value: unknown): value is ScanMeta {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    isFiniteNumber(value.frame_index) &&
+    isFiniteNumber(value.sim_time_s) &&
+    isFiniteNumber(value.wall_time_ms) &&
+    isFiniteNumber(value.beam_azimuth_deg) &&
+    Array.isArray(value.ppi) &&
+    value.ppi.every(isPpiBlip) &&
+    Array.isArray(value.detections) &&
+    value.detections.every(isRdDetection) &&
+    Array.isArray(value.tracks) &&
+    value.tracks.every(isTrackRow) &&
+    isTelemetry(value.telemetry)
+  );
+}
+
+function parseScanMeta(value: unknown): ScanMeta {
+  if (!isScanMeta(value)) {
+    throw new FrameDecodeError('scan meta shape does not match ScanMeta');
+  }
+  return value;
+}
+
 /** Parse a JSON text WebSocket frame into a `ControlFrame`. */
 export function decodeControlFrame(text: string): ControlFrame {
   let parsed: unknown;
@@ -78,12 +184,13 @@ export function decodeScanFrame(buffer: ArrayBuffer): ScanFrame {
   const jsonText = new TextDecoder().decode(
     new Uint8Array(buffer, jsonStart, jsonLen),
   );
-  let meta: ScanMeta;
+  let parsedMeta: unknown;
   try {
-    meta = JSON.parse(jsonText) as ScanMeta;
+    parsedMeta = JSON.parse(jsonText);
   } catch (err) {
     throw new FrameDecodeError(`scan meta is not valid JSON: ${String(err)}`);
   }
+  const meta = parseScanMeta(parsedMeta);
 
   return {
     meta,

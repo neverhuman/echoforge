@@ -3,6 +3,7 @@
 
 export class ColumnRing {
   private readonly buffer: Uint8Array;
+  private readonly emptyColumn = new Uint8Array(0);
   private writeIndex = 0;
   private filled = 0;
 
@@ -42,10 +43,10 @@ export class ColumnRing {
     return this.filled;
   }
 
-  /** Column at `age` (0 = newest), or `null` when out of range. */
-  at(age: number): Uint8Array | null {
+  /** Column at `age` (0 = newest), or an empty view when out of range. */
+  at(age: number): Uint8Array {
     if (age < 0 || age >= this.filled) {
-      return null;
+      return this.emptyColumn;
     }
     const index = (this.writeIndex - 1 - age + this.capacity * 2) % this.capacity;
     const offset = index * this.columnLength;

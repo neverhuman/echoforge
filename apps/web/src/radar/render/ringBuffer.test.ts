@@ -16,9 +16,9 @@ describe('ColumnRing', () => {
       ring.push(new Uint8Array([i, i]));
     }
     expect(ring.length).toBe(3);
-    expect(Array.from(ring.at(0) ?? [])).toEqual([5, 5]);
-    expect(Array.from(ring.at(2) ?? [])).toEqual([3, 3]);
-    expect(ring.at(3)).toBeNull();
+    expect(Array.from(ring.at(0))).toEqual([5, 5]);
+    expect(Array.from(ring.at(2))).toEqual([3, 3]);
+    expect(ring.at(3).length).toBe(0);
   });
 
   test('resamples a mismatched column length', () => {
@@ -35,7 +35,7 @@ describe('ColumnRing', () => {
     ring.push(new Uint8Array([1, 1]));
     ring.clear();
     expect(ring.length).toBe(0);
-    expect(ring.at(0)).toBeNull();
+    expect(ring.at(0).length).toBe(0);
   });
 
   test('rejects non-positive dimensions', () => {

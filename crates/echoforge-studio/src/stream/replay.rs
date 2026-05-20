@@ -66,14 +66,14 @@ pub(super) async fn run_replay(
                     "replay_unavailable",
                     format!(
                         "bundle '{}' could not be read ({err}); streaming the \
-                         fallback scenario instead",
+                         default scenario instead",
                         bundle_path.display()
                     ),
                 ),
             )));
             (
                 scenario.base_seed,
-                format!("replay fallback: {}", scenario.label),
+                format!("replay default scenario: {}", scenario.label),
             )
         }
     };

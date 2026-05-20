@@ -221,6 +221,18 @@ export interface JobComposeRequest {
   validation_tier: string;
 }
 
+export interface JobOption {
+  id: string;
+  label: string;
+}
+
+export interface JobDefaultsResponse {
+  request: JobComposeRequest;
+  pipelines: JobOption[];
+  suites: JobOption[];
+  validation_tiers: string[];
+}
+
 export interface JobArtifact {
   id: string;
   kind: string;

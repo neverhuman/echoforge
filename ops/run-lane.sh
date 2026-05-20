@@ -81,6 +81,11 @@ case "$lane" in
   web-e2e)
     require_node_at_least 26.1.0
     run npm ci --no-fund --no-audit
+    if [[ "${CI:-}" == "true" ]]; then
+      run npx playwright install --with-deps chromium
+    else
+      run npx playwright install chromium
+    fi
     cd apps/web
     run ../../node_modules/.bin/playwright test
     ;;
@@ -108,8 +113,10 @@ case "$lane" in
     ;;
   score)
     require_command jankurai
+    require_node_at_least 26.1.0
     mkdir -p target/jankurai
-    run jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
+    run node tools/boundary_evidence.mjs
+    run jankurai audit . --full --mode standard --fail-under 85 --fail-on high --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
     ;;
   licenses)
     security_lane

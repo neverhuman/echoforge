@@ -17,5 +17,8 @@ pub fn slow_time_fft(iq: Vec<ComplexSample>, _pri_s: f64) -> Vec<ComplexSample> 
     }
     let pulses: Vec<Vec<ComplexSample>> = iq.into_iter().map(|s| vec![s]).collect();
     let grid = slow_time_complex_dft(&pulses, n);
-    grid.into_iter().next().unwrap_or_default()
+    match grid.into_iter().next() {
+        Some(spectrum) => spectrum,
+        None => Vec::new(),
+    }
 }

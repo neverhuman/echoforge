@@ -72,7 +72,8 @@ doctor:
 
 score:
     mkdir -p target/jankurai
-    rtk jankurai audit . --mode advisory --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
+    rtk node tools/boundary_evidence.mjs
+    rtk jankurai audit . --full --mode standard --fail-under 85 --fail-on high --json target/jankurai/repo-score.json --md target/jankurai/repo-score.md
 
 score-fast:
     mkdir -p target/jankurai

@@ -29,6 +29,10 @@ node_modules/
 .yarn/
 dist/
 coverage/
+playwright-report/
+test-results/
+apps/web/playwright-report/
+apps/web/test-results/
 
 # Rust and general build output
 target/
@@ -71,6 +75,9 @@ sbom/*
 !artifacts/.keep
 !build/.keep
 !dist/.keep
+!outputs/
+outputs/*
+!outputs/.keep
 
 # Benchmark zone fixture files (tracked as zone-existence evidence, not real ML artifacts)
 !benchmarks/fixtures/

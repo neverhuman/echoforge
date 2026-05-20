@@ -4,6 +4,7 @@
 
 import type {
   JobComposeRequest,
+  JobDefaultsResponse,
   JobSummary,
   RadarParamPatch,
   RunArtifact,
@@ -87,6 +88,39 @@ export async function fetchJobs(): Promise<JobSummary[]> {
     throw new Error(`GET /api/jobs failed: ${res.status}`);
   }
   return (await res.json()) as JobSummary[];
+}
+
+export async function fetchJobDefaults(): Promise<JobDefaultsResponse> {
+  const res = await fetch('/api/jobs/defaults');
+  if (!res.ok) {
+    throw new Error(`GET /api/jobs/defaults failed: ${res.status}`);
+  }
+  return (await res.json()) as JobDefaultsResponse;
+}
+
+export function staticPreviewJobDefaults(): JobDefaultsResponse {
+  return {
+    request: {
+      job_type: 'ml_processing',
+      selection: 'pipeline',
+      pipeline_id: 'physics_cfar_track_fusion_v1',
+      suite_id: 'evidence-ladder-v1',
+      data_root: 'outputs/training-data/best-final-scenario-v1',
+      out_root: 'outputs/ml-pipelines',
+      workers_per_pipeline: 20,
+      max_concurrent: 3,
+      seed: 20260520390001,
+      smoke: true,
+      validation_tier: 'evidence_ladder_v1',
+    },
+    pipelines: [
+      { id: 'physics_cfar_track_fusion_v1', label: 'Physics CFAR Track Fusion' },
+      { id: 'tensor_microdoppler_fusion_v1', label: 'Tensor Micro-Doppler Fusion' },
+      { id: 'raw_iq_ssl_research_v1', label: 'Raw IQ SSL Research' },
+    ],
+    suites: [{ id: 'evidence-ladder-v1', label: 'Evidence Ladder Suite' }],
+    validation_tiers: ['evidence_ladder_v1'],
+  };
 }
 
 export async function createJob(request: JobComposeRequest): Promise<JobSummary> {

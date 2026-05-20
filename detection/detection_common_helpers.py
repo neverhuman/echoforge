@@ -21,14 +21,12 @@ try:  # direct script entrypoints import from detection/ without a package root 
     from detection.detection_common_types import (
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,
-        SINGLE_FEATURE_AUC_GATE,
         TRUTH_LIKE_FRAME_COLUMNS,
     )
-except ModuleNotFoundError:  # pragma: no cover - fallback for direct execution from detection/
+except ModuleNotFoundError:  # pragma: no cover - direct execution from detection/
     from detection_common_types import (
         DEFAULT_DATA_ROOT,
         DEFAULT_OUT_ROOT,
-        SINGLE_FEATURE_AUC_GATE,
         TRUTH_LIKE_FRAME_COLUMNS,
     )
 
@@ -48,10 +46,14 @@ def parse_horizons(raw: str) -> list[int]:
     return horizons
 
 
-def load_records(data_root: Path = Path(DEFAULT_DATA_ROOT), seed: int = 42, max_records: int | None = None) -> pd.DataFrame:
+def load_records(
+    data_root: Path = Path(DEFAULT_DATA_ROOT), seed: int = 42, max_records: int | None = None
+) -> pd.DataFrame:
     records = pd.read_csv(data_root / "records.csv")
     splits = pd.read_csv(data_root / "split_manifest.csv", usecols=["record_id", "split"])
-    records = records.drop(columns=["split"], errors="ignore").merge(splits, on="record_id", validate="one_to_one")
+    records = records.drop(columns=["split"], errors="ignore").merge(
+        splits, on="record_id", validate="one_to_one"
+    )
     records["label"] = records["is_public_proxy_positive"].astype(bool).astype(np.int64)
     if max_records is not None and max_records < len(records):
         rng = np.random.default_rng(seed)
@@ -63,19 +65,31 @@ def load_records(data_root: Path = Path(DEFAULT_DATA_ROOT), seed: int = 42, max_
             if split != "test":
                 remaining -= take
             take = max(1, min(take, len(group)))
-            sampled.append(records.loc[np.sort(rng.choice(group.index.to_numpy(), size=take, replace=False))])
-        records = pd.concat(sampled, axis=0).sort_values(["split", "record_id"]).reset_index(drop=True)
+            sampled.append(
+                records.loc[np.sort(rng.choice(group.index.to_numpy(), size=take, replace=False))]
+            )
+        records = (
+            pd.concat(sampled, axis=0).sort_values(["split", "record_id"]).reset_index(drop=True)
+        )
     return records.reset_index(drop=True)
 
 
-def load_frame_store(data_root: Path = Path(DEFAULT_DATA_ROOT)) -> tuple[np.ndarray, list[str], dict[str, int]]:
+def load_frame_store(
+    data_root: Path = Path(DEFAULT_DATA_ROOT),
+) -> tuple[np.ndarray, list[str], dict[str, int]]:
     payload = np.load(data_root / "frame_features.npz", allow_pickle=False)
     frames = payload["frames"].astype(np.float32, copy=False)
     record_ids = payload["record_ids"].astype(str).tolist()
-    return frames, payload["frame_columns"].astype(str).tolist(), {rid: idx for idx, rid in enumerate(record_ids)}
+    return (
+        frames,
+        payload["frame_columns"].astype(str).tolist(),
+        {rid: idx for idx, rid in enumerate(record_ids)},
+    )
 
 
-def select_frames(data_root: Path = Path(DEFAULT_DATA_ROOT), records: pd.DataFrame | None = None) -> tuple[np.ndarray, list[str]]:
+def select_frames(
+    data_root: Path = Path(DEFAULT_DATA_ROOT), records: pd.DataFrame | None = None
+) -> tuple[np.ndarray, list[str]]:
     frames, columns, index = load_frame_store(data_root)
     if records is None:
         return frames, columns
@@ -105,7 +119,9 @@ def _time_index(columns: list[str]) -> int:
         raise ValueError("frame store is missing time_s") from exc
 
 
-def _prefix_mask(frames: np.ndarray, columns: list[str], horizon_s: int) -> tuple[np.ndarray, float]:
+def _prefix_mask(
+    frames: np.ndarray, columns: list[str], horizon_s: int
+) -> tuple[np.ndarray, float]:
     time_idx = _time_index(columns)
     times = frames[0, :, time_idx]
     mask = times <= (float(horizon_s) + 1e-6)
@@ -114,7 +130,9 @@ def _prefix_mask(frames: np.ndarray, columns: list[str], horizon_s: int) -> tupl
     return mask, float(times[mask].max())
 
 
-def horizon_slice(frames: np.ndarray, columns: list[str], horizon_s: int) -> tuple[np.ndarray, float]:
+def horizon_slice(
+    frames: np.ndarray, columns: list[str], horizon_s: int
+) -> tuple[np.ndarray, float]:
     mask, max_consumed = _prefix_mask(frames, columns, horizon_s)
     return frames[:, mask, :].copy(), max_consumed
 
@@ -142,7 +160,7 @@ def _safe_auc(labels: np.ndarray, scores: np.ndarray) -> float:
         return 0.5
     try:
         return float(roc_auc_score(labels, scores))
-    except Exception:
+    except ValueError:
         return 0.5
 
 
@@ -233,18 +251,24 @@ def _profile_columns(profile: str) -> list[str]:
     ]
 
 
-def _augment_feature_bank(frames: np.ndarray, columns: list[str], horizon_s: int, profile: str) -> pd.DataFrame:
+def _augment_feature_bank(
+    frames: np.ndarray, columns: list[str], horizon_s: int, profile: str
+) -> pd.DataFrame:
     mask, _ = _prefix_mask(frames, columns, horizon_s)
     prefix = frames[:, mask, :].astype(np.float32, copy=False)
     idx = {name: columns.index(name) for name in columns}
     selected_numeric = [
-        name for name in _profile_columns(profile) if name in idx and name not in TRUTH_LIKE_FRAME_COLUMNS
+        name
+        for name in _profile_columns(profile)
+        if name in idx and name not in TRUTH_LIKE_FRAME_COLUMNS
     ]
 
     derived = {
         "cfar_margin": prefix[:, :, idx["cfar_statistic"]] - prefix[:, :, idx["cfar_threshold"]],
         "snr_minus_noise": prefix[:, :, idx["snr_db"]] - prefix[:, :, idx["local_noise_floor_db"]],
-        "track_evidence": np.maximum(prefix[:, :, idx["cfar_statistic"]] - prefix[:, :, idx["cfar_threshold"]], 0.0)
+        "track_evidence": np.maximum(
+            prefix[:, :, idx["cfar_statistic"]] - prefix[:, :, idx["cfar_threshold"]], 0.0
+        )
         + prefix[:, :, idx["tbd_track_score"]],
         "energy_ratio": prefix[:, :, idx["range_doppler_time_energy"]]
         / (1.0 + prefix[:, :, idx["range_time_energy"]] + prefix[:, :, idx["doppler_time_energy"]]),
@@ -303,7 +327,9 @@ def _render_markdown_table(rows: list[dict[str, Any]], columns: list[str]) -> st
         for idx, cell in enumerate(row):
             widths[idx] = max(widths[idx], len(cell))
 
-    header = "| " + " | ".join(column.ljust(widths[idx]) for idx, column in enumerate(columns)) + " |"
+    header = (
+        "| " + " | ".join(column.ljust(widths[idx]) for idx, column in enumerate(columns)) + " |"
+    )
     separator = "| " + " | ".join("-" * widths[idx] for idx in range(len(columns))) + " |"
     body = [
         "| " + " | ".join(cell.ljust(widths[idx]) for idx, cell in enumerate(row)) + " |"
@@ -346,7 +372,13 @@ def tabular_features(
     splits = records["split"].astype(str).to_numpy()
     baseline = _baseline_from_feature_frame(feature_frame)
     _, max_consumed = _prefix_mask(frames, columns, horizon_s)
-    return feature_frame.to_numpy(np.float32), baseline.astype(np.float32), labels, splits, max_consumed
+    return (
+        feature_frame.to_numpy(np.float32),
+        baseline.astype(np.float32),
+        labels,
+        splits,
+        max_consumed,
+    )
 
 
 def sequence_features(
@@ -358,13 +390,24 @@ def sequence_features(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
     mask, max_consumed = _prefix_mask(frames, columns, horizon_s)
     prefix = frames[:, mask, :]
-    selected_idx = [columns.index(name) for name in selected_columns if name in columns and name not in TRUTH_LIKE_FRAME_COLUMNS]
+    selected_idx = [
+        columns.index(name)
+        for name in selected_columns
+        if name in columns and name not in TRUTH_LIKE_FRAME_COLUMNS
+    ]
     sequence = prefix[:, :, selected_idx].astype(np.float32, copy=False)
     static_frame = _augment_feature_bank(frames, columns, horizon_s, "lightgbm")
     baseline = _baseline_from_feature_frame(static_frame)
     labels = records["is_public_proxy_positive"].astype(np.int64).to_numpy()
     splits = records["split"].astype(str).to_numpy()
-    return sequence, static_frame.to_numpy(np.float32), baseline.astype(np.float32), labels, splits, max_consumed
+    return (
+        sequence,
+        static_frame.to_numpy(np.float32),
+        baseline.astype(np.float32),
+        labels,
+        splits,
+        max_consumed,
+    )
 
 
 def transformer_features(
@@ -393,12 +436,16 @@ def counts(labels: np.ndarray, splits: np.ndarray) -> dict[str, float]:
     }
 
 
-def operating_metrics(labels: np.ndarray, splits: np.ndarray, scores: np.ndarray) -> dict[str, float]:
+def operating_metrics(
+    labels: np.ndarray, splits: np.ndarray, scores: np.ndarray
+) -> dict[str, float]:
     # The published AUC table currently does not surface extra operating metrics.
     return {}
 
 
-def _prefix_operational_metrics(frames: np.ndarray, columns: list[str], labels: np.ndarray, splits: np.ndarray) -> dict[str, float]:
+def _prefix_operational_metrics(
+    frames: np.ndarray, columns: list[str], labels: np.ndarray, splits: np.ndarray
+) -> dict[str, float]:
     idx = {name: columns.index(name) for name in columns}
     time_values = frames[0, :, idx[_TIME_COLUMN]]
     train_mask = np.asarray(splits, dtype=str) == "train"
@@ -426,7 +473,9 @@ def _prefix_operational_metrics(frames: np.ndarray, columns: list[str], labels: 
             initiations.append(init)
         transitions = np.diff(np.r_[False, row_confirmed, False].astype(np.int8))
         fragments.append(float((transitions == 1).sum()))
-    false_track_rate = float(confirmed[neg_mask].any(axis=1).mean()) if neg_mask.any() else float("nan")
+    false_track_rate = (
+        float(confirmed[neg_mask].any(axis=1).mean()) if neg_mask.any() else float("nan")
+    )
     return {
         "track_initiation_latency_s": float(np.mean(initiations)) if initiations else float("nan"),
         "track_fragmentation_rate": float(np.mean(fragments)) if fragments else float("nan"),
@@ -435,7 +484,9 @@ def _prefix_operational_metrics(frames: np.ndarray, columns: list[str], labels: 
     }
 
 
-def track_metrics(frames: np.ndarray, columns: list[str], labels: np.ndarray, splits: np.ndarray) -> dict[str, float]:
+def track_metrics(
+    frames: np.ndarray, columns: list[str], labels: np.ndarray, splits: np.ndarray
+) -> dict[str, float]:
     return _prefix_operational_metrics(frames, columns, labels, splits)
 
 
@@ -445,7 +496,9 @@ def _subset_auc(labels: np.ndarray, scores: np.ndarray, mask: np.ndarray) -> flo
     return _safe_auc(np.asarray(labels)[mask], np.asarray(scores)[mask])
 
 
-def slice_metrics(records: pd.DataFrame, labels: np.ndarray, splits: np.ndarray, scores: np.ndarray) -> dict[str, float]:
+def slice_metrics(
+    records: pd.DataFrame, labels: np.ndarray, splits: np.ndarray, scores: np.ndarray
+) -> dict[str, float]:
     labels = np.asarray(labels, dtype=np.int64)
     scores = np.asarray(scores, dtype=np.float32)
     split_mask = np.asarray(splits, dtype=str) == "test"
@@ -499,13 +552,21 @@ def write_auxiliary_reports(
         "horizon_name": horizon_name,
         "record_count": int(len(records)),
         "holdout_count": int(holdout_mask.sum()),
-        "holdout_score_mean": float(np.mean(np.asarray(scores)[holdout_mask])) if holdout_mask.any() else float("nan"),
-        "holdout_score_std": float(np.std(np.asarray(scores)[holdout_mask])) if holdout_mask.any() else float("nan"),
-        "holdout_brier": float(brier_score_loss(np.asarray(labels)[holdout_mask], np.asarray(scores)[holdout_mask]))
+        "holdout_score_mean": float(np.mean(np.asarray(scores)[holdout_mask]))
+        if holdout_mask.any()
+        else float("nan"),
+        "holdout_score_std": float(np.std(np.asarray(scores)[holdout_mask]))
+        if holdout_mask.any()
+        else float("nan"),
+        "holdout_brier": float(
+            brier_score_loss(np.asarray(labels)[holdout_mask], np.asarray(scores)[holdout_mask])
+        )
         if holdout_mask.any() and np.unique(np.asarray(labels)[holdout_mask]).size > 1
         else float("nan"),
     }
-    (report_dir / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (report_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def write_reports(row: dict[str, Any], out_root: Path) -> None:
@@ -555,12 +616,17 @@ def write_reports(row: dict[str, Any], out_root: Path) -> None:
         existing = pd.concat([existing, pd.DataFrame([current])], ignore_index=True)
     else:
         existing = pd.DataFrame([current])
-    existing = existing.sort_values(["horizon_s", "holdout_auc", "method"], ascending=[True, False, True]).reset_index(drop=True)
+    existing = existing.sort_values(
+        ["horizon_s", "holdout_auc", "method"], ascending=[True, False, True]
+    ).reset_index(drop=True)
     existing.to_csv(csv_path, index=False, float_format="%.6f")
 
-    best_rows = existing.sort_values(["horizon_s", "holdout_auc", "method"], ascending=[True, False, True]).groupby(
-        "horizon_name", as_index=False
-    ).head(1).reset_index(drop=True)
+    best_rows = (
+        existing.sort_values(["horizon_s", "holdout_auc", "method"], ascending=[True, False, True])
+        .groupby("horizon_name", as_index=False)
+        .head(1)
+        .reset_index(drop=True)
+    )
     md = [
         "# Detection AUC Table",
         "",
