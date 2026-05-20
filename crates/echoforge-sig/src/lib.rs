@@ -14,8 +14,8 @@ pub use tensor::Dtype;
 // Prior surface retained so existing radar_chain tests and downstream
 // callers compile. Replaced incrementally as packets land.
 pub use analytic::{
-    pending_analytic_report, AnalyticPrimitive, AnalyticValidationCase,
-    AnalyticValidationReport, ValidationStatus,
+    pending_analytic_report, AnalyticPrimitive, AnalyticValidationCase, AnalyticValidationReport,
+    ValidationStatus,
 };
 pub use artifact::{
     default_axes, AxisDescriptor, BundleCard, EchoSigArtifactBundle, EchoSigManifest,

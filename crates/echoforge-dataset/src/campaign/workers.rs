@@ -4,13 +4,11 @@ use std::sync::Arc;
 use std::thread;
 
 use echoforge_radar::{
-    synthesize_takeoff_episode, EpisodeSeed, NoiseProfile,
-    RuntimePlan, TakeoffProfile,
+    synthesize_takeoff_episode, EpisodeSeed, NoiseProfile, RuntimePlan, TakeoffProfile,
 };
 use indicatif::{ProgressBar, ProgressStyle};
 use serde_json::json;
 
-use crate::guard::gpu_stage_recovery_note;
 use super::reporting::campaign_guardrails;
 use super::rng::SplitMix64;
 use super::simulation::{
@@ -23,6 +21,7 @@ use super::types::{
 };
 use crate::export::{write_episode_tensors, write_json_pretty};
 use crate::guard::build_radar_sim_config;
+use crate::guard::gpu_stage_recovery_note;
 use crate::monte_carlo::DatasetError;
 
 use super::reporting::write_csv;
@@ -216,10 +215,7 @@ fn generate_campaign_record(
             tensor_dir: relative_record_path(&plan.record_id, "products"),
             frame_labels_path: relative_record_path(&plan.record_id, "frame_labels.csv"),
             truth_metadata_path: relative_record_path(&plan.record_id, "truth_metadata.json"),
-            model_predictions_path: relative_record_path(
-                &plan.record_id,
-                "model_predictions.csv",
-            ),
+            model_predictions_path: relative_record_path(&plan.record_id, "model_predictions.csv"),
             detector_events_path: relative_record_path(&plan.record_id, "detector_events.json"),
             max_confidence_by_model: model_run.max_confidence_by_model,
             first_trigger_by_model: model_run.first_trigger_by_model,

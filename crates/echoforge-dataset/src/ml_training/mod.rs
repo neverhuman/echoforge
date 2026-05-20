@@ -52,7 +52,8 @@ mod util;
 // ---------------------------------------------------------------------------
 
 pub use config::{
-    MlTrainingDataConfig, DEFAULT_ML_TRAINING_DATASET_ID, DEFAULT_ML_TRAINING_OUTPUT,
+    MlTrainingDataConfig, BEST_FINAL_OUTPUT, BEST_FINAL_POSITIVE_CLASS_IDS, BEST_FINAL_SCENARIO_ID,
+    BEST_FINAL_SENSOR_IDS, DEFAULT_ML_TRAINING_DATASET_ID, DEFAULT_ML_TRAINING_OUTPUT,
 };
 pub use types::{MlTrainingDataReport, PerTierMetrics};
 
@@ -72,8 +73,8 @@ use config::validate_config;
 use pipeline::run_record_workers;
 use report::{
     aggregate_per_tier_metrics, dataset_card, dataset_manifest, external_calibration_sources,
-    feature_schema, label_schema, local_external_data_config, normalization_stats,
-    quality_report, runtime_report, split_counts,
+    feature_schema, label_schema, local_external_data_config, normalization_stats, quality_report,
+    runtime_report, split_counts,
 };
 use types::MlTrainingDataReport as Report;
 use util::{build_record_plan, write_csv};
@@ -84,16 +85,25 @@ pub fn run_ml_training_data(
     validate_config(&config)?;
     guard_output_dir(&config.output_dir)?;
     let mut ctx = begin_generation_run(
-        &config.output_dir, config.backend, config.workers, config.records,
-        config.time_window_s, config.frame_rate_hz,
+        &config.output_dir,
+        config.backend,
+        config.workers,
+        config.records,
+        config.time_window_s,
+        config.frame_rate_hz,
     )?;
     let plan_start = Instant::now();
     let plans = build_record_plan(&config, ctx.frame_count)?;
     ctx.push_timing("record_plan", plan_start);
 
     let generation_start = Instant::now();
-    let mut outputs =
-        run_record_workers(&config, &ctx.runtime, &plans, ctx.frame_count, ctx.worker_count)?;
+    let mut outputs = run_record_workers(
+        &config,
+        &ctx.runtime,
+        &plans,
+        ctx.frame_count,
+        ctx.worker_count,
+    )?;
     outputs.sort_by_key(|output| output.summary.record_index);
     ctx.push_timing("record_generation", generation_start);
 
@@ -114,8 +124,12 @@ pub fn run_ml_training_data(
 
     ctx.push_timing("postprocess", post_start);
     let rt_report = runtime_report(
-        &config, &ctx.runtime, ctx.worker_count, ctx.frame_count,
-        &ctx.stage_timings, ctx.overall_start.elapsed(),
+        &config,
+        &ctx.runtime,
+        ctx.worker_count,
+        ctx.frame_count,
+        &ctx.stage_timings,
+        ctx.overall_start.elapsed(),
     );
     write_json_pretty(&out.join("runtime_report.json"), &rt_report)?;
 
@@ -123,9 +137,15 @@ pub fn run_ml_training_data(
     write_json_pretty(&out.join("quality_report.json"), &q_report)?;
 
     let external_sources = external_calibration_sources();
-    write_json_pretty(&out.join("external_calibration_sources.json"), &external_sources)?;
+    write_json_pretty(
+        &out.join("external_calibration_sources.json"),
+        &external_sources,
+    )?;
     let local_ext = local_external_data_config(&external_sources);
-    write_json_pretty(&out.join("local_external_data_config.example.json"), &local_ext)?;
+    write_json_pretty(
+        &out.join("local_external_data_config.example.json"),
+        &local_ext,
+    )?;
 
     let d_card = dataset_card(&config, &q_report)?;
     write_json_pretty(&out.join("dataset_card.json"), &d_card)?;
@@ -137,18 +157,26 @@ pub fn run_ml_training_data(
         .collect();
     let per_tier_rows = aggregate_per_tier_metrics(&tier_observations);
     let per_tier_path = out.join("per_tier_pd_pfa.json");
-    write_json_pretty(&per_tier_path, &json!({
-        "schema_id": "echoforge.ml_training.per_tier_pd_pfa.v1",
-        "source": "V3 unified-path PhaseTieredDetector evaluation per CPI per record",
-        "notes": vec![
-            "pd_proxy = n_detections / n_episodes; positive rows are Pd surrogate, confuser rows are Pfa surrogate",
-            "n_horizon_blocked counts CPIs where the detector reported below-horizon geometry",
-            "Tier::None counts CPIs where the arbiter never latched a phase tier",
-        ],
-        "rows": per_tier_rows,
-    }))?;
+    write_json_pretty(
+        &per_tier_path,
+        &json!({
+            "schema_id": "echoforge.ml_training.per_tier_pd_pfa.v1",
+            "source": "V3 unified-path PhaseTieredDetector evaluation per CPI per record",
+            "notes": vec![
+                "pd_proxy = n_detections / n_episodes; positive rows are Pd surrogate, confuser rows are Pfa surrogate",
+                "n_horizon_blocked counts CPIs where the detector reported below-horizon geometry",
+                "Tier::None counts CPIs where the arbiter never latched a phase tier",
+            ],
+            "rows": per_tier_rows,
+        }),
+    )?;
 
-    let manifest = dataset_manifest(&config, summaries.clone(), ctx.frame_count, external_sources);
+    let manifest = dataset_manifest(
+        &config,
+        summaries.clone(),
+        ctx.frame_count,
+        external_sources,
+    );
     write_json_pretty(&out.join("dataset_manifest.json"), &manifest)?;
     let s_counts = split_counts(&summaries);
     Ok(Report {
@@ -178,7 +206,6 @@ pub fn run_ml_training_data(
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
-
 
 #[cfg(test)]
 #[path = "mod_tests.rs"]

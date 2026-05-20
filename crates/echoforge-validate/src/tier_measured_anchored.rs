@@ -233,7 +233,12 @@ pub fn evaluate_v4_gate(
                 let underpowered_obs =
                     obs.observed_samples.len() < thresholds.min_samples_per_distribution;
                 if underpowered_anchor || underpowered_obs {
-                    anchor_outcome(anchor, obs.observed_samples.len(), f64::INFINITY, GateStatus::Fail)
+                    anchor_outcome(
+                        anchor,
+                        obs.observed_samples.len(),
+                        f64::INFINITY,
+                        GateStatus::Fail,
+                    )
                 } else {
                     let distance = compute_distance(anchor, &obs.observed_samples);
                     let status = if distance <= anchor.tolerance && distance.is_finite() {

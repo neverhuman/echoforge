@@ -1,11 +1,10 @@
 pub mod antenna;
 mod backend;
-pub mod complex_iq;
-mod prng;
 pub mod beamforming;
 mod cfar;
 mod chain;
 pub mod clutter;
+pub mod complex_iq;
 pub mod detectors;
 pub mod empirical_pfa;
 pub mod fusion;
@@ -13,12 +12,13 @@ pub mod impairments;
 pub mod link_budget;
 pub mod micro_doppler_gen;
 pub mod mti_mtd;
-pub mod scene;
-mod pulse_compression;
+mod prng;
 pub mod propagation;
+mod pulse_compression;
 pub mod rcs;
 pub mod rda_cube;
 pub mod rfi;
+pub mod scene;
 mod sim;
 mod tracking_fusion;
 mod waveform;
@@ -31,7 +31,8 @@ pub use backend::{
     BackendSignals, CpuBackend, GpuBackendUnavailable, RuntimeBackend, RuntimePlan,
 };
 pub use beamforming::{
-    steering_vector, Beamformer, CaponUnimplementedBeamformer, DelayAndSumBeamformer, SumBeamformer,
+    capon_spectrum, estimate_covariance, hermitian_solve, steering_vector, Beamformer,
+    CaponBeamformer, DelayAndSumBeamformer, StaticWeightBeamformer, SumBeamformer,
 };
 pub use cfar::{ca_cfar_1d, ca_cfar_scale, CfarDecision, CfarParams};
 pub use chain::{RadarChain, RadarChainOutput};
@@ -40,10 +41,17 @@ pub use clutter::{
     sample_clutter_frame, sample_k_distribution, sample_log_normal, sample_weibull,
     ClutterDistribution, ClutterFrameSample, ClutterProfile, ClutterRegime, TerrainClass,
 };
-pub use detectors::{
-    BlobRdDetector, BlobRdParams, CaCfarDetector, DetectionEvent, DetectionKind, Detector,
-    GoCfarDetector, MicroDopplerDetector, MicroDopplerParams, OsCfarDetector, OsCfarParams,
-    RangeDoppler, SoCfarDetector,
+pub use detectors::cfar_alpha::{
+    alpha_library_len, alpha_library_lookup, ca_cfar_scale_gaussian, calibrate_alpha_monte_carlo,
+    os_cfar_scale_gaussian, resolve_alpha, CfarVariant, NoiseDistribution,
+};
+pub use detectors::cfar_closed_forms::{
+    cfar_scale_k_distribution, cfar_scale_log_normal, cfar_scale_weibull, erfc_inv,
+    go_cfar_scale_gaussian, so_cfar_scale_gaussian,
+};
+pub use detectors::micro_doppler_classifier::{
+    argmax_class, classify_lrt, extract_features as md_extract_features, MicroDopplerFeatures,
+    ReferenceSignature, TargetClass as MdClass,
 };
 pub use detectors::phase_tiered::{
     classify_boost_sub_state, BoostDecision, BoostSubState, BoostThrustProfile, BoostTierConfig,
@@ -53,33 +61,19 @@ pub use detectors::phase_tiered::{
     Tier, TierArbiter, TierTransition, MTI_NOTCH_BODY_DOPPLER_HZ,
 };
 pub use detectors::tbd::{hough_tbd_detect, TbdConfig, TbdTrackCandidate};
-pub use detectors::cfar_closed_forms::{
-    cfar_scale_k_distribution, cfar_scale_log_normal, cfar_scale_weibull,
-    erfc_inv, go_cfar_scale_gaussian, so_cfar_scale_gaussian,
-};
-pub use detectors::micro_doppler_classifier::{
-    argmax_class, classify_lrt, extract_features as md_extract_features, MicroDopplerFeatures,
-    ReferenceSignature, TargetClass as MdClass,
-};
-pub use fusion::acoustic_radar::{
-    fuse_acoustic, AcousticObservation, FusedTrack, RadarTrack as AcousticFusionRadarTrack,
-};
-pub use scene::{
-    EnvironmentDescriptor, SceneDescriptor, SiteGeometry, TargetClass, TargetEntity,
-    TargetKinematics,
-};
-pub use detectors::cfar_alpha::{
-    alpha_library_len, alpha_library_lookup, ca_cfar_scale_gaussian, calibrate_alpha_monte_carlo,
-    os_cfar_scale_gaussian, resolve_alpha, CfarVariant, NoiseDistribution,
+pub use detectors::{
+    BlobRdDetector, BlobRdParams, CaCfarDetector, DetectionEvent, DetectionKind, Detector,
+    GoCfarDetector, MicroDopplerDetector, MicroDopplerParams, OsCfarDetector, OsCfarParams,
+    RangeDoppler, SoCfarDetector,
 };
 pub use empirical_pfa::{
     calibrate_standard_table, measure_pfa, render_jsonl, render_markdown, wilson_ci_95,
     PfaObservation, PfaTrial,
 };
-pub use fusion::{DetectorGraphRuntime, FusedDetections};
-pub use mti_mtd::{
-    apply_mti, doppler_filter_bank, mtd_chain, mti_improvement_factor_db, MtiOrder,
+pub use fusion::acoustic_radar::{
+    fuse_acoustic, AcousticObservation, FusedTrack, RadarTrack as AcousticFusionRadarTrack,
 };
+pub use fusion::{DetectorGraphRuntime, FusedDetections};
 pub use impairments::{
     apply_receiver_impairments, sample_receiver_impairments, ReceiverImpairmentProfile,
     ReceiverImpairmentSample,
@@ -92,15 +86,16 @@ pub use micro_doppler_gen::{
     sample_velocity_series, BirdWingbeatGenerator, HelicopterRotorGenerator,
     JetCompressorGenerator, MicroDopplerGenerator, PropellerGenerator,
 };
+pub use mti_mtd::{apply_mti, doppler_filter_bank, mtd_chain, mti_improvement_factor_db, MtiOrder};
+pub use propagation::{
+    itu_r_p453_refractivity_n_units, itu_r_p676_gas_attenuation_db, itu_r_p838_rain_attenuation_db,
+    min_target_altitude_for_los_m, target_above_horizon, two_ray_propagation_factor_magnitude,
+    RainPolarization, EARTH_RADIUS_M, EFFECTIVE_EARTH_RADIUS_M, SPEED_OF_LIGHT_M_PER_S,
+    STANDARD_K_FACTOR,
+};
 pub use pulse_compression::{
     coefficients, magnitude, matched_filter, pulse_compress, pulse_compress_windowed,
     CompressionWindow,
-};
-pub use propagation::{
-    itu_r_p453_refractivity_n_units, itu_r_p676_gas_attenuation_db,
-    itu_r_p838_rain_attenuation_db, min_target_altitude_for_los_m, target_above_horizon,
-    two_ray_propagation_factor_magnitude, RainPolarization, EARTH_RADIUS_M,
-    EFFECTIVE_EARTH_RADIUS_M, SPEED_OF_LIGHT_M_PER_S, STANDARD_K_FACTOR,
 };
 pub use rcs::{
     AspectGrid, Polarization, Rcs, RcsLookup, SwerlingModel, SWERLING_DEFAULT_SCAN_SIZE,
@@ -110,6 +105,10 @@ pub use rda_cube::{
     RdaPeak,
 };
 pub use rfi::{apply_rfi_to_profile, sample_rfi_frame, RfiFrameSample, RfiProfile};
+pub use scene::{
+    EnvironmentDescriptor, SceneDescriptor, SiteGeometry, TargetClass, TargetEntity,
+    TargetKinematics,
+};
 pub use sim::{
     range_bin_to_m, slow_time_complex_dft, slow_time_dft_magnitude, synthesize_scene,
     synthesize_takeoff_episode, DetectionRecord, EpisodeSeed, NoiseProfile, RadarSimConfig,

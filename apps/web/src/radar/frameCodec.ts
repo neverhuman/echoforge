@@ -28,7 +28,14 @@ export function decodeControlFrame(text: string): ControlFrame {
     throw new FrameDecodeError('control frame is missing a string `type` tag');
   }
   const tag = (parsed as { type: string }).type;
-  if (tag !== 'session_info' && tag !== 'status') {
+  if (
+    tag !== 'session_info' &&
+    tag !== 'status' &&
+    tag !== 'run_lifecycle' &&
+    tag !== 'artifact_ready' &&
+    tag !== 'validation_status' &&
+    tag !== 'backpressure'
+  ) {
     throw new FrameDecodeError(`unknown control frame type: ${tag}`);
   }
   return parsed as ControlFrame;

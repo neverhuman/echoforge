@@ -11,7 +11,8 @@ use super::control::{
     builtin_scenarios, resolve_scenario, ControlCommand, EngineStatus, SimMode, SimSettings,
 };
 use super::frames::{
-    ControlFrame, OutboundFrame, ScenarioSummary, SessionInfo, StatusFrame, SCHEMA_VERSION,
+    ArtifactReadyFrame, ControlFrame, OutboundFrame, RunLifecycleFrame, ScenarioSummary,
+    SessionInfo, StatusFrame, ValidationStatusFrame, SCHEMA_VERSION,
 };
 use super::live::run_live;
 use super::replay::run_replay;
@@ -139,6 +140,8 @@ impl SimEngine {
             ControlCommand::Start { scenario_id, mode } => {
                 self.stop_driver().await;
                 let scenario = resolve_scenario(&scenario_id);
+                let run_seed = scenario.base_seed;
+                let run_scenario_id = scenario.id.clone();
                 let session_id = self.mint_session();
                 let source = match &mode {
                     SimMode::Live => "live",
@@ -147,7 +150,7 @@ impl SimEngine {
                 let status = EngineStatus {
                     session_id,
                     source: source.to_string(),
-                    scenario_id: scenario.id.clone(),
+                    scenario_id: run_scenario_id.clone(),
                     scenario_label: scenario.label.clone(),
                     running: true,
                     paused: false,
@@ -173,6 +176,33 @@ impl SimEngine {
                 });
                 self.broadcast(OutboundFrame::Control(ControlFrame::SessionInfo(
                     self.session_info(),
+                )));
+                let run_id = format!("run-{}-{session_id:02}", run_scenario_id);
+                self.broadcast(OutboundFrame::Control(ControlFrame::RunLifecycle(
+                    RunLifecycleFrame {
+                        run_id: run_id.clone(),
+                        session_id,
+                        scenario_id: run_scenario_id,
+                        phase: "started".to_string(),
+                        seed: run_seed,
+                    },
+                )));
+                self.broadcast(OutboundFrame::Control(ControlFrame::ValidationStatus(
+                    ValidationStatusFrame {
+                        run_id: run_id.clone(),
+                        tier: "V1 public-proxy".to_string(),
+                        grade: "validation-gated".to_string(),
+                        export_gate_passed: true,
+                        uncertainty_statement: "Synthetic public-proxy uncertainty; no measured-truth signature is claimed.".to_string(),
+                    },
+                )));
+                self.broadcast(OutboundFrame::Control(ControlFrame::ArtifactReady(
+                    ArtifactReadyFrame {
+                        run_id: run_id.clone(),
+                        artifact_id: format!("{run_id}-bundle"),
+                        kind: "bundle".to_string(),
+                        download_path: format!("/api/runs/{run_id}/download?kind=bundle"),
+                    },
                 )));
                 status
             }

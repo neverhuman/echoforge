@@ -5,8 +5,7 @@ use echoforge_radar::SyntheticEpisode;
 use crate::ml_training::config::MlTrainingDataConfig;
 use crate::ml_training::pipeline_writers::sample_state_at_time;
 use crate::ml_training::types::{
-    MlDetectorEvent, MlEnvelope, MlFrameFeatureRow, MlFrameLabelRow,
-    MlRecordPlan, SplitMix64,
+    MlDetectorEvent, MlEnvelope, MlFrameFeatureRow, MlFrameLabelRow, MlRecordPlan, SplitMix64,
 };
 
 /// V3 unified-path frame feature extractor.
@@ -51,8 +50,7 @@ pub fn build_frame_products(
         let state_t = sample_state_at_time(states, time_s, episode_duration_s);
 
         let family_noise = rng.range_f32(-1.25, 1.25);
-        let rfi_pressure =
-            (envelope.rfi_pressure + rng.range_f32(-0.05, 0.09)).clamp(0.0, 1.0);
+        let rfi_pressure = (envelope.rfi_pressure + rng.range_f32(-0.05, 0.09)).clamp(0.0, 1.0);
         let local_noise_floor_db: f32 = (-42.0
             + 13.0 * envelope.clutter_pressure
             + 7.0 * rfi_pressure
@@ -118,16 +116,14 @@ pub fn build_frame_products(
             + rng.range_f32(0.0, 0.08))
         .clamp(0.0, 1.0);
         let stft_energy = (micro_energy * (1.0 - 0.3 * rfi_pressure)).clamp(0.0, 1.0);
-        let weighted_spectrum_peak =
-            (micro_energy * 0.72 + normalized_snr * 0.28).clamp(0.0, 1.0);
+        let weighted_spectrum_peak = (micro_energy * 0.72 + normalized_snr * 0.28).clamp(0.0, 1.0);
         let cepstrum_peak = (micro_energy * 0.55
             + (envelope.micro_bandwidth_hz / 260.0).clamp(0.0, 1.0) * 0.25)
             .clamp(0.0, 1.0);
         let cadence_velocity_peak = (micro_peak / 260.0
             * ((radial_velocity.abs() as f32) / 160.0).clamp(0.0, 1.0))
         .clamp(0.0, 1.0);
-        let range_time_energy =
-            (normalized_snr + envelope.clutter_pressure * 0.2).clamp(0.0, 1.2);
+        let range_time_energy = (normalized_snr + envelope.clutter_pressure * 0.2).clamp(0.0, 1.2);
         let doppler_time_energy =
             ((doppler_scr + 12.0) / 50.0 + micro_energy * 0.25).clamp(0.0, 1.2);
         let range_doppler_time_energy: f32 =

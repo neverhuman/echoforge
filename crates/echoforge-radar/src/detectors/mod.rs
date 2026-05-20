@@ -107,7 +107,12 @@ pub(super) fn cfar_minmax_detect(
         let threshold = alpha * noise;
         let stat = input[index];
         if stat > threshold && threshold.is_finite() {
-            events.push(DetectionEvent::new(index, None, magnitude_to_db(stat as f64), kind));
+            events.push(DetectionEvent::new(
+                index,
+                None,
+                magnitude_to_db(stat as f64),
+                kind,
+            ));
         }
     }
     events

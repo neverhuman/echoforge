@@ -1,5 +1,5 @@
-use super::*;
 use super::generators::*;
+use super::*;
 use tempfile::tempdir;
 
 const TOL_REL: f64 = 0.01;
@@ -64,7 +64,11 @@ fn all_meshes_have_finite_vertices() {
         trihedral_mesh(0.75, 6),
     ];
     for m in &meshes {
-        assert!(m.all_finite(), "mesh {} has non-finite vertex", m.primitive_id);
+        assert!(
+            m.all_finite(),
+            "mesh {} has non-finite vertex",
+            m.primitive_id
+        );
         assert!(m.triangle_count() > 0, "mesh {} is empty", m.primitive_id);
     }
 }
@@ -137,7 +141,12 @@ fn trihedral_plate_normals_point_into_corner() {
         for t in &mesh.triangles[start..start + per] {
             let n = t.normal();
             let dp = dot(n, *expected_normal);
-            assert!(dp > 0.999, "plate {} normal misaligned: n={:?}", plate_idx, n);
+            assert!(
+                dp > 0.999,
+                "plate {} normal misaligned: n={:?}",
+                plate_idx,
+                n
+            );
             assert!(t.area() > 1e-12, "plate {} degenerate triangle", plate_idx);
         }
     }
@@ -173,8 +182,7 @@ fn emit_mesh_bundle_writes_stl_and_manifest() {
     assert_eq!(expected_count as usize, mesh.triangles.len());
 
     let manifest_json = std::fs::read_to_string(&manifest_path).expect("read manifest");
-    let manifest: MeshManifestFile =
-        serde_json::from_str(&manifest_json).expect("parse manifest");
+    let manifest: MeshManifestFile = serde_json::from_str(&manifest_json).expect("parse manifest");
     assert_eq!(manifest.triangle_count, mesh.triangles.len());
     assert_eq!(manifest.sha256_of_stl, sha256_hex(&stl_bytes));
 }

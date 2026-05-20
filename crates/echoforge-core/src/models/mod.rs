@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::validation::SCHEMA_VERSION;
 
-pub mod models_ext;
 mod models_cards;
+pub mod models_ext;
 pub use models_cards::{
     DetectorGraph, EchosigManifest, RadarEpisode, RcsCampaign, Scenario, SensorArchetype,
 };

@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use echoforge_radar::{
     apply_clutter_to_profile, apply_receiver_impairments, apply_rfi_to_profile,
     sample_clutter_frame, sample_receiver_impairments, sample_rfi_frame, ClutterProfile,
-    RfiProfile, ReceiverImpairmentProfile,
+    ReceiverImpairmentProfile, RfiProfile,
 };
 
 use super::detectors::{
@@ -11,8 +11,8 @@ use super::detectors::{
 };
 use super::rng::SplitMix64;
 use super::types::{
-    CampaignBucket, CampaignClass, CampaignConfig, CampaignRecordPlan,
-    DimensionsSample, FirstTriggerEvent, FrameFeature, FrameLabel, ModelPredictionRow,
+    CampaignBucket, CampaignClass, CampaignConfig, CampaignRecordPlan, DimensionsSample,
+    FirstTriggerEvent, FrameFeature, FrameLabel, ModelPredictionRow,
 };
 use crate::monte_carlo::DatasetError;
 use echoforge_radar::SyntheticEpisode;

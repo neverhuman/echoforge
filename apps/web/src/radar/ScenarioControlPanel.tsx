@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import {
   pauseSim,
   resumeSim,
+  setRadarParams,
   setPlaybackSpeed,
   startSim,
   stopSim,
@@ -13,6 +14,8 @@ export default function ScenarioControlPanel() {
   const { session, status } = useRadarSnapshot();
   const [busy, setBusy] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [power, setPower] = useState(250000);
+  const [rain, setRain] = useState(2);
 
   const scenarios = session?.available_scenarios ?? [];
   const running = session?.running ?? false;
@@ -41,6 +44,18 @@ export default function ScenarioControlPanel() {
     },
     [],
   );
+
+  const onPowerChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(event.target.value);
+    setPower(value);
+    setRadarParams({ transmit_power_w: value }).catch(() => undefined);
+  }, []);
+
+  const onRainChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(event.target.value);
+    setRain(value);
+    setRadarParams({ rain_rate_mm_per_h: value }).catch(() => undefined);
+  }, []);
 
   return (
     <section className="radar-panel" data-testid="scenario-control">
@@ -131,6 +146,40 @@ export default function ScenarioControlPanel() {
           value={speed}
           onChange={onSpeedChange}
           data-testid="speed-slider"
+        />
+      </label>
+
+      <div className="studio-segment" aria-label="run mode">
+        <button type="button" className="is-active">
+          Live
+        </button>
+        <button type="button">Replay</button>
+        <button type="button">Campaign</button>
+      </div>
+
+      <label className="radar-field">
+        <span>Transmit power — {Math.round(power / 1000)} kW</span>
+        <input
+          type="range"
+          min="50000"
+          max="1000000"
+          step="50000"
+          value={power}
+          onChange={onPowerChange}
+          data-testid="power-slider"
+        />
+      </label>
+
+      <label className="radar-field">
+        <span>Rain attenuation proxy — {rain.toFixed(1)} mm/h</span>
+        <input
+          type="range"
+          min="0"
+          max="25"
+          step="0.5"
+          value={rain}
+          onChange={onRainChange}
+          data-testid="rain-slider"
         />
       </label>
 

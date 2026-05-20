@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 #[path = "backend_helpers.rs"]
 mod backend_helpers;
 pub use backend_helpers::GpuBackendUnavailable;
-use backend_helpers::{default_gpu_min_free_memory_mb, detect_backend_signals};
 pub use backend_helpers::{cpu_worker_budget, gpu_worker_budget};
+use backend_helpers::{default_gpu_min_free_memory_mb, detect_backend_signals};
 
 use crate::cfar::{ca_cfar_1d, CfarDecision, CfarParams};
 use crate::pulse_compression::matched_filter;

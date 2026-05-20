@@ -38,6 +38,14 @@ pub enum ControlFrame {
     SessionInfo(SessionInfo),
     /// Lifecycle / error notice (paused, ended, lagged client, …).
     Status(StatusFrame),
+    /// Run lifecycle notice, keyed by a stable run/session identifier.
+    RunLifecycle(RunLifecycleFrame),
+    /// A downloadable artifact became available for a run.
+    ArtifactReady(ArtifactReadyFrame),
+    /// Validation gate state changed for the active run.
+    ValidationStatus(ValidationStatusFrame),
+    /// Backpressure metrics for a slow client.
+    Backpressure(BackpressureFrame),
 }
 
 /// Describes the active simulation session and the axis calibration a
@@ -83,6 +91,43 @@ pub struct StatusFrame {
     /// Number of frames a slow consumer missed — set only for `lagged`.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub dropped_frames: Option<u64>,
+}
+
+/// Coarse lifecycle event for the active run.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RunLifecycleFrame {
+    pub run_id: String,
+    pub session_id: u64,
+    pub scenario_id: String,
+    pub phase: String,
+    pub seed: u64,
+}
+
+/// Downloadable artifact event.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ArtifactReadyFrame {
+    pub run_id: String,
+    pub artifact_id: String,
+    pub kind: String,
+    pub download_path: String,
+}
+
+/// Validation status and export gate state.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ValidationStatusFrame {
+    pub run_id: String,
+    pub tier: String,
+    pub grade: String,
+    pub export_gate_passed: bool,
+    pub uncertainty_statement: String,
+}
+
+/// Per-client lag/backpressure signal.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BackpressureFrame {
+    pub dropped_frames: u64,
+    pub broadcast_capacity: usize,
+    pub advice: String,
 }
 
 impl StatusFrame {

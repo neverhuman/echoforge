@@ -14,9 +14,8 @@ fn gpu_budget_reduces_host_workers_when_constrained() {
 
 #[test]
 fn cpu_only_signals_select_cpu_and_keep_budget() {
-    let plan =
-        RuntimePlan::from_signals(BackendMode::Cpu, BackendSignals::new(128, false, false))
-            .expect("cpu plan");
+    let plan = RuntimePlan::from_signals(BackendMode::Cpu, BackendSignals::new(128, false, false))
+        .expect("cpu plan");
 
     assert_eq!(plan.selected_backend, RuntimeBackend::Cpu);
     assert_eq!(plan.recommended_worker_budget, 38);
@@ -25,9 +24,8 @@ fn cpu_only_signals_select_cpu_and_keep_budget() {
 
 #[test]
 fn auto_backend_prefers_gpu_when_available() {
-    let plan =
-        RuntimePlan::from_signals(BackendMode::Auto, BackendSignals::new(64, true, true))
-            .expect("auto plan");
+    let plan = RuntimePlan::from_signals(BackendMode::Auto, BackendSignals::new(64, true, true))
+        .expect("auto plan");
 
     assert_eq!(plan.selected_backend, RuntimeBackend::Gpu);
     assert!(plan.recommended_worker_budget <= cpu_worker_budget(64));
@@ -39,9 +37,8 @@ fn auto_backend_prefers_gpu_when_available() {
 
 #[test]
 fn forced_gpu_without_device_fails_cleanly() {
-    let err =
-        RuntimePlan::from_signals(BackendMode::Gpu, BackendSignals::new(32, false, false))
-            .expect_err("gpu selection should fail without a detected device");
+    let err = RuntimePlan::from_signals(BackendMode::Gpu, BackendSignals::new(32, false, false))
+        .expect_err("gpu selection should fail without a detected device");
 
     assert!(matches!(
         err,

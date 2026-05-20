@@ -40,6 +40,18 @@ The claim boundary stays narrow: public-source priors only, explicit uncertainty
 - Passive RF card: [schemas/passive_rf_sensor_card.schema.json](./schemas/passive_rf_sensor_card.schema.json), [tests/schemas/passive_rf_sensor_card.sample.json](./tests/schemas/passive_rf_sensor_card.sample.json)
 - Supporting reports: [detection/reports/phase_pd_pfa.md](./detection/reports/phase_pd_pfa.md), [detection/reports/auc_table.md](./detection/reports/auc_table.md), [detection/reports/track_lifecycle_baseline.md](./detection/reports/track_lifecycle_baseline.md), [detection/reports/benchmark_regeneration_report.md](./detection/reports/benchmark_regeneration_report.md), [detection/reports/passive_rf_eoir_passive_radar_backlog.md](./detection/reports/passive_rf_eoir_passive_radar_backlog.md)
 
+## Modeling Results
+
+The current detection lane is the three-method `detection/run_all.sh` orchestrator over the standard synthetic public-proxy benchmark. The leaderboard below ranks the current lane by mean holdout AUC.
+
+| method | 5 s holdout AUC | 15 s holdout AUC | 45 s holdout AUC | mean holdout AUC |
+| --- | ---: | ---: | ---: | ---: |
+| `lightgbm_window_gbdt` | 0.939756 | 0.942676 | 0.944569 | 0.942334 |
+| `catboost_ordered_boosting` | 0.931495 | 0.931396 | 0.938359 | 0.933750 |
+| `cfar_tbd_fusion` | 0.851080 | 0.858492 | 0.871792 | 0.860455 |
+
+Synthetic public-proxy benchmark evidence only; these numbers are not measured truth or field-performance claims.
+
 ## Scenarios and Weather
 
 - Public-proxy clutter baseline: [scenarios/public-proxy-clutter/scenario.yaml](./scenarios/public-proxy-clutter/scenario.yaml)
@@ -56,7 +68,7 @@ HOST=127.0.0.1 PORT=8080 rtk cargo run -p echoforge-studio --locked
 rtk npm run web:build
 rtk npm run web:smoke
 rtk python3 detection/generate_ml_training.py --out-root outputs/training-data/shahed136-public-proxy-ml-training-smoke --scenario-groups 24 --seed 136 --scale-name smoke --max-time-s 150 --force
-rtk python3 detection/run_all.py --smoke
+rtk bash detection/run_all.sh --smoke
 ```
 
 Generated datasets, solver outputs, and benchmark artifacts stay under `outputs/` and out of Git.

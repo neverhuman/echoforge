@@ -1,5 +1,5 @@
-use super::*;
 use super::helpers::C_M_PER_S;
+use super::*;
 
 /// The default `TakeoffProfile` keeps `blade_count` / `blade_length_m`
 /// at `None`, so the synthesis loop falls back to the prior single-
@@ -72,10 +72,13 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
         .integrated_range_profile
         .iter()
         .enumerate()
-        .fold(
-            (0usize, f32::NEG_INFINITY),
-            |(best, best_v), (i, &v)| if v > best_v { (i, v) } else { (best, best_v) },
-        )
+        .fold((0usize, f32::NEG_INFINITY), |(best, best_v), (i, &v)| {
+            if v > best_v {
+                (i, v)
+            } else {
+                (best, best_v)
+            }
+        })
         .0;
     assert!(
         episode.integrated_range_profile[target_bin] > 0.0,
@@ -88,9 +91,9 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
     // `delay_samples`; we read at that bin so the IQ across pulses
     // is dominated by the modulated target return.
     let initial_state = profile.state_at(0.0);
-    let raw_delay_samples =
-        ((2.0 * initial_state.range_m / C_M_PER_S) * episode.config.sample_rate_hz)
-            .round() as usize;
+    let raw_delay_samples = ((2.0 * initial_state.range_m / C_M_PER_S)
+        * episode.config.sample_rate_hz)
+        .round() as usize;
     // Pick the bin slightly inside the chirp footprint to ensure
     // every pulse has a sample written there.
     let iq_bin = raw_delay_samples + episode.iq[0].len() / 4;
@@ -103,8 +106,7 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
 
     // Slow-time vector at the chosen range bin.
     let pulses = episode.iq.len();
-    let slow_time: Vec<crate::ComplexSample> =
-        (0..pulses).map(|p| episode.iq[p][iq_bin]).collect();
+    let slow_time: Vec<crate::ComplexSample> = (0..pulses).map(|p| episode.iq[p][iq_bin]).collect();
 
     // Slow-time DFT (complex IQ).
     let spec_iq: Vec<f64> = (0..pulses)
@@ -112,8 +114,7 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
             let mut re = 0.0_f64;
             let mut im = 0.0_f64;
             for (p, sample) in slow_time.iter().enumerate() {
-                let angle = -2.0 * std::f64::consts::PI * (k as f64) * (p as f64)
-                    / (pulses as f64);
+                let angle = -2.0 * std::f64::consts::PI * (k as f64) * (p as f64) / (pulses as f64);
                 let (c, s) = (angle.cos(), angle.sin());
                 re += sample.re as f64 * c - sample.im as f64 * s;
                 im += sample.re as f64 * s + sample.im as f64 * c;
@@ -128,20 +129,23 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
     let bin_hz = pulse_rate / pulses as f64;
     let body_doppler =
         2.0 * initial_state.radial_velocity_mps * episode.config.carrier_hz / C_M_PER_S;
-    let body_bin = ((body_doppler.rem_euclid(pulse_rate)) / bin_hz).round() as usize
-        % pulses;
+    let body_bin = ((body_doppler.rem_euclid(pulse_rate)) / bin_hz).round() as usize % pulses;
 
-    let (peak_bin, peak_mag) = spec_iq
-        .iter()
-        .enumerate()
-        .skip(1)
-        .fold((0usize, 0.0_f64), |(bi, bv), (i, &v)| {
-            if v > bv {
-                (i, v)
-            } else {
-                (bi, bv)
-            }
-        });
+    let (peak_bin, peak_mag) =
+        spec_iq
+            .iter()
+            .enumerate()
+            .skip(1)
+            .fold(
+                (0usize, 0.0_f64),
+                |(bi, bv), (i, &v)| {
+                    if v > bv {
+                        (i, v)
+                    } else {
+                        (bi, bv)
+                    }
+                },
+            );
     // Allow ±2 bins of tolerance around the predicted body-Doppler
     // bin (rounding, finite slow-time DFT resolution).
     let peak_offset = (peak_bin as isize - body_bin as isize).unsigned_abs();
@@ -169,19 +173,18 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
     //     verifying it sits well above a control bin at a
     //     non-harmonic offset.
     let probe_offset_hz = 95.0; // rotation rate / effective blade-pass for N=2
-    let upper_bin = (((body_doppler + probe_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
-        .round() as usize
+    let upper_bin = (((body_doppler + probe_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
+        as usize
         % pulses;
-    let lower_bin = (((body_doppler - probe_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
-        .round() as usize
+    let lower_bin = (((body_doppler - probe_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
+        as usize
         % pulses;
     // Control bin: 60 Hz offset is well off the rotation harmonic
     // and at the prior single-sinusoid micro_doppler_hz=42 region
     // boundary, so it samples the spectral floor between lines.
     let control_offset_hz = 60.0;
-    let control_bin = (((body_doppler + control_offset_hz).rem_euclid(pulse_rate))
-        / bin_hz)
-        .round() as usize
+    let control_bin = (((body_doppler + control_offset_hz).rem_euclid(pulse_rate)) / bin_hz).round()
+        as usize
         % pulses;
 
     let sideband_mag = spec_iq[upper_bin].max(spec_iq[lower_bin]);
@@ -203,12 +206,10 @@ fn takeoff_profile_with_propeller_generator_produces_blade_pass() {
     // (per the dominant-blade discussion above), but it must still
     // be measurable; we require it to exceed the control bin.
     let blade_pass_offset_hz = (profile.blade_count.unwrap() as f64) * profile.propulsor_hz;
-    let bp_upper_bin = (((body_doppler + blade_pass_offset_hz).rem_euclid(pulse_rate))
-        / bin_hz)
+    let bp_upper_bin = (((body_doppler + blade_pass_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
         .round() as usize
         % pulses;
-    let bp_lower_bin = (((body_doppler - blade_pass_offset_hz).rem_euclid(pulse_rate))
-        / bin_hz)
+    let bp_lower_bin = (((body_doppler - blade_pass_offset_hz).rem_euclid(pulse_rate)) / bin_hz)
         .round() as usize
         % pulses;
     let bp_mag = spec_iq[bp_upper_bin].max(spec_iq[bp_lower_bin]);
@@ -242,12 +243,7 @@ fn propeller_generator_backward_compatible() {
     let noise = NoiseProfile::real_world_proxy_v1();
     // Wave 4.5 H2: `RadarSimConfig` is no longer `Copy` so we clone
     // for each call.
-    let a = synthesize_takeoff_episode(
-        config.clone(),
-        prior_profile,
-        noise,
-        EpisodeSeed(2024),
-    );
+    let a = synthesize_takeoff_episode(config.clone(), prior_profile, noise, EpisodeSeed(2024));
     let b = synthesize_takeoff_episode(
         config.clone(),
         explicit_none_profile,
@@ -276,8 +272,7 @@ fn propeller_generator_backward_compatible() {
         blade_length_m: Some(0.6),
         ..TakeoffProfile::default()
     };
-    let ha =
-        synthesize_takeoff_episode(config.clone(), half_a, noise, EpisodeSeed(2024));
+    let ha = synthesize_takeoff_episode(config.clone(), half_a, noise, EpisodeSeed(2024));
     let hb = synthesize_takeoff_episode(config, half_b, noise, EpisodeSeed(2024));
     assert_eq!(
         a.integrated_range_profile, ha.integrated_range_profile,

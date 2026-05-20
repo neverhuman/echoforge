@@ -339,4 +339,3 @@ pub(super) fn polarization_amplitude_scale(tx: Polarization, rx: Polarization) -
         _ => 1.0,
     }
 }
-

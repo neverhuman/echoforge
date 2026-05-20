@@ -254,7 +254,6 @@ impl AntennaPattern for PhasedArrayManifold {
     }
 }
 
-
 #[cfg(test)]
 #[path = "antenna_tests.rs"]
 mod tests;

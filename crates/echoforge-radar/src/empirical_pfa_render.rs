@@ -19,7 +19,10 @@ pub(super) struct WindowLayout {
 pub(super) fn layout_for(trial: &PfaTrial) -> WindowLayout {
     let half_train = trial.training_cells.div_ceil(2);
     let window_len = 2 * half_train + 2 * trial.guard_cells + 1;
-    WindowLayout { half_train, window_len }
+    WindowLayout {
+        half_train,
+        window_len,
+    }
 }
 
 /// One CFAR decision. Returns `true` if the CUT power exceeds `alpha * stat`.
@@ -40,19 +43,27 @@ pub(super) fn cfar_decision(
             sum / n as f64
         }
         CfarVariant::GreatestOf => {
-            let lead_mean = if lead.is_empty() { 0.0 } else {
+            let lead_mean = if lead.is_empty() {
+                0.0
+            } else {
                 lead.iter().sum::<f64>() / lead.len() as f64
             };
-            let lag_mean = if lag.is_empty() { 0.0 } else {
+            let lag_mean = if lag.is_empty() {
+                0.0
+            } else {
                 lag.iter().sum::<f64>() / lag.len() as f64
             };
             lead_mean.max(lag_mean)
         }
         CfarVariant::SmallestOf => {
-            let lead_mean = if lead.is_empty() { f64::INFINITY } else {
+            let lead_mean = if lead.is_empty() {
+                f64::INFINITY
+            } else {
                 lead.iter().sum::<f64>() / lead.len() as f64
             };
-            let lag_mean = if lag.is_empty() { f64::INFINITY } else {
+            let lag_mean = if lag.is_empty() {
+                f64::INFINITY
+            } else {
                 lag.iter().sum::<f64>() / lag.len() as f64
             };
             lead_mean.min(lag_mean)
@@ -140,7 +151,11 @@ pub fn render_jsonl(observations: &[PfaObservation]) -> String {
         // Hand-written JSON to avoid pulling in `serde_json` from the radar
         // crate. Fields are emitted as JSON numbers (so `null` for NaN).
         let f = |v: f64| -> String {
-            if v.is_finite() { format!("{v}") } else { "null".to_string() }
+            if v.is_finite() {
+                format!("{v}")
+            } else {
+                "null".to_string()
+            }
         };
         out.push_str(&format!(
             r#"{{"regime":"{}","distribution_kind":"{}","distribution_param_a":{},"distribution_param_b":{},"variant_kind":"{}","variant_rank":{},"training_cells":{},"guard_cells":{},"nominal_pfa":{},"observed_count":{},"trials":{},"observed_pfa":{},"wilson_ci_low":{},"wilson_ci_high":{},"ratio_observed_to_nominal":{},"passes":{}}}"#,

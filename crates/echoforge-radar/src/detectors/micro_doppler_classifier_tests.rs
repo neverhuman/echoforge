@@ -22,7 +22,10 @@ fn uniform01(state: &mut u64) -> f64 {
 /// Build a synthetic feature vector by sampling the per-feature
 /// Gaussian envelope of one reference signature using a deterministic
 /// xorshift64 generator.
-fn synth_feature_from_signature(sig: &ReferenceSignature, rng_state: &mut u64) -> MicroDopplerFeatures {
+fn synth_feature_from_signature(
+    sig: &ReferenceSignature,
+    rng_state: &mut u64,
+) -> MicroDopplerFeatures {
     let normal = |state: &mut u64, mu: f64, sigma: f64| -> f64 {
         // Box-Muller pair on two uniforms in (0,1].
         let u1 = uniform01(state).max(1e-12);
@@ -31,7 +34,8 @@ fn synth_feature_from_signature(sig: &ReferenceSignature, rng_state: &mut u64) -
         mu + sigma * z
     };
     MicroDopplerFeatures {
-        rotor_fundamental_hz: normal(rng_state, sig.rotor_freq_mean_hz, sig.rotor_freq_std_hz).max(0.0),
+        rotor_fundamental_hz: normal(rng_state, sig.rotor_freq_mean_hz, sig.rotor_freq_std_hz)
+            .max(0.0),
         modulation_depth_db: normal(
             rng_state,
             sig.modulation_depth_mean_db,
@@ -39,8 +43,12 @@ fn synth_feature_from_signature(sig: &ReferenceSignature, rng_state: &mut u64) -
         ),
         harmonic_ratio: normal(rng_state, sig.harmonic_ratio_mean, sig.harmonic_ratio_std)
             .clamp(0.0, 5.0),
-        spectral_entropy: normal(rng_state, sig.spectral_entropy_mean, sig.spectral_entropy_std)
-            .max(0.0),
+        spectral_entropy: normal(
+            rng_state,
+            sig.spectral_entropy_mean,
+            sig.spectral_entropy_std,
+        )
+        .max(0.0),
         body_doppler_centroid_hz: normal(
             rng_state,
             sig.body_doppler_centroid_mean_hz,
@@ -95,8 +103,7 @@ fn cross_class_midpoint_is_not_overconfident() {
         .unwrap();
     let mid = MicroDopplerFeatures {
         rotor_fundamental_hz: 0.5 * (quad.rotor_freq_mean_hz + bird.rotor_freq_mean_hz),
-        modulation_depth_db: 0.5
-            * (quad.modulation_depth_mean_db + bird.modulation_depth_mean_db),
+        modulation_depth_db: 0.5 * (quad.modulation_depth_mean_db + bird.modulation_depth_mean_db),
         harmonic_ratio: 0.5 * (quad.harmonic_ratio_mean + bird.harmonic_ratio_mean),
         spectral_entropy: 0.5 * (quad.spectral_entropy_mean + bird.spectral_entropy_mean),
         body_doppler_centroid_hz: 0.5

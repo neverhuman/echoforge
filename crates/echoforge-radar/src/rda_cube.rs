@@ -180,7 +180,14 @@ pub fn build_rda_cube(
     pri_s: f64,
     carrier_hz: f64,
 ) -> RangeDopplerAngle {
-    rda_cube_impl::build_rda_cube_impl(channel_iq, manifold, angle_grid, range_doppler_bins, pri_s, carrier_hz)
+    rda_cube_impl::build_rda_cube_impl(
+        channel_iq,
+        manifold,
+        angle_grid,
+        range_doppler_bins,
+        pri_s,
+        carrier_hz,
+    )
 }
 
 /// Find the global maximum cell in the cube and decode its grid coordinates.
@@ -269,9 +276,9 @@ pub fn rda_to_rd_sum(cube: &RangeDopplerAngle) -> Vec<Vec<f32>> {
 
 // Re-export implementation helpers needed by the test module via `use super::*`.
 #[cfg(test)]
-pub use rda_cube_impl::{dft_in_place, hann_window};
-#[cfg(test)]
 pub use num_complex::Complex;
+#[cfg(test)]
+pub use rda_cube_impl::{dft_in_place, hann_window};
 
 #[cfg(test)]
 #[path = "rda_cube_tests.rs"]

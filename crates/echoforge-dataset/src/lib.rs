@@ -4,12 +4,13 @@
 
 pub mod benchmark;
 pub mod campaign;
-pub(crate) mod guard;
-pub(crate) mod rng;
 pub mod export;
+pub(crate) mod guard;
 pub mod leakage;
+pub mod ml_pipelines;
 pub mod ml_training;
 pub mod monte_carlo;
+pub(crate) mod rng;
 pub mod scenarios;
 pub mod split;
 
@@ -19,9 +20,16 @@ pub use campaign::{
     DEFAULT_CAMPAIGN_REQUEST_ID, NEUTRAL_CAMPAIGN_ID, OWA_DELTA_OBJECT_ID,
 };
 pub use leakage::{build_leakage_report, LeakageFinding, LeakageReport};
+pub use ml_pipelines::{
+    default_ml_pipeline_request, discover_repo_root, inspect_pipeline, list_pipelines, run_pipeline,
+    run_suite, MlPipelineError, PipelineArtifact, PipelineGate, PipelineRunRequest,
+    PipelineRunResult, PipelineSpec, PipelineSuiteResult, DEFAULT_DATA_ROOT, DEFAULT_OUT_ROOT,
+    DEFAULT_VALIDATION_TIER, MAX_PIPELINE_WORKERS, MAX_SUITE_CONCURRENCY,
+};
 pub use ml_training::{
     run_ml_training_data, MlTrainingDataConfig, MlTrainingDataReport, PerTierMetrics,
-    DEFAULT_ML_TRAINING_DATASET_ID, DEFAULT_ML_TRAINING_OUTPUT,
+    BEST_FINAL_OUTPUT, BEST_FINAL_POSITIVE_CLASS_IDS, BEST_FINAL_SCENARIO_ID,
+    BEST_FINAL_SENSOR_IDS, DEFAULT_ML_TRAINING_DATASET_ID, DEFAULT_ML_TRAINING_OUTPUT,
 };
 pub use monte_carlo::{
     embedded_airspace_config, known_presets, run_monte_carlo_demo, AirspaceMonteCarloConfig,

@@ -20,7 +20,11 @@ pub(super) struct DetectorState {
 
 impl DetectorState {
     pub fn new(threshold: f32) -> Self {
-        Self { threshold, consecutive: 0, first_trigger: None }
+        Self {
+            threshold,
+            consecutive: 0,
+            first_trigger: None,
+        }
     }
 
     pub fn apply(
@@ -50,7 +54,9 @@ pub(super) struct CfarTrackerBaseline {
 impl CfarTrackerBaseline {
     // jankurai:allow HLT-001-DEAD-MARKER each detector has a distinct state shape; identical constructor signatures are idiomatic Rust for threshold-parameterized detectors
     pub fn new(threshold: f32) -> Self {
-        Self { state: DetectorState::new(threshold) }
+        Self {
+            state: DetectorState::new(threshold),
+        }
     }
 }
 
@@ -77,7 +83,9 @@ pub(super) struct FeatureTreeClassifier {
 impl FeatureTreeClassifier {
     // jankurai:allow HLT-001-DEAD-MARKER each detector has a distinct update algorithm; identical constructor signatures are idiomatic Rust for threshold-parameterized detectors
     pub fn new(threshold: f32) -> Self {
-        Self { state: DetectorState::new(threshold) }
+        Self {
+            state: DetectorState::new(threshold),
+        }
     }
 }
 
@@ -87,7 +95,8 @@ impl StreamingDetector for FeatureTreeClassifier {
     }
 
     fn update(&mut self, frame: &FrameFeature) -> DetectionState {
-        let speed_like = feature_likelihood(frame.range_rate_mps.abs() as f32, 35.0, 75.0, 0.28, 0.04);
+        let speed_like =
+            feature_likelihood(frame.range_rate_mps.abs() as f32, 35.0, 75.0, 0.28, 0.04);
         let micro_like =
             feature_likelihood(frame.micro_doppler_modulation, 25.0, 130.0, 0.24, 0.05);
         let area_like = feature_likelihood(frame.blob_area_bins, 2.0, 18.0, 0.18, 0.04);
@@ -145,7 +154,11 @@ impl StreamingDetector for TemporalTinyModel {
 /// pattern that appeared at lines 239-253 (FeatureTreeClassifier::update) and was
 /// structurally duplicated across all three likelihood terms in that function.
 fn feature_likelihood(value: f32, lo: f32, hi: f32, hit: f32, miss: f32) -> f32 {
-    if (lo..=hi).contains(&value) { hit } else { miss }
+    if (lo..=hi).contains(&value) {
+        hit
+    } else {
+        miss
+    }
 }
 
 fn detection_update(

@@ -1,10 +1,8 @@
 //! `BoostTierDetector::evaluate` implementation — extracted for LOC compliance.
 
-use crate::propagation::{
-    min_target_altitude_for_los_m, two_ray_propagation_factor_magnitude,
-};
+use super::{classify_boost_sub_state, BoostDecision, BoostTierDetector};
 use crate::detectors::phase_tiered::kinematic_gate::KinematicObservation;
-use super::{BoostDecision, BoostTierDetector, classify_boost_sub_state};
+use crate::propagation::{min_target_altitude_for_los_m, two_ray_propagation_factor_magnitude};
 
 /// Core evaluate implementation. Called from `BoostTierDetector::evaluate`.
 pub(super) fn evaluate_impl(

@@ -9,21 +9,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::mesh::{MeshTriangle, ParametricMesh};
 
-mod math;
 mod gates_geometry;
 mod gates_topology;
+mod math;
 
 pub use gates_geometry::{
-    ASPECT_RATIO_FAIL_MEAN, ASPECT_RATIO_WARN, DEGENERATE_AREA_THRESHOLD_M2,
-    WINDING_FAIL_FRACTION,
     gate_bounded_aspect_ratio, gate_consistent_winding, gate_finite_vertices,
-    gate_no_degenerate_triangles,
+    gate_no_degenerate_triangles, ASPECT_RATIO_FAIL_MEAN, ASPECT_RATIO_WARN,
+    DEGENERATE_AREA_THRESHOLD_M2, WINDING_FAIL_FRACTION,
 };
 pub use gates_topology::{
-    DIHEDRAL_MAX_DEG, DIHEDRAL_MIN_DEG, ELECTRICAL_SIZE_WARN_LAMBDA, SPEED_OF_LIGHT_M_PER_S,
-    VOLUME_HI_FRAC, VOLUME_LO_FRAC,
     gate_bounded_dihedral_angle, gate_bounded_volume_vs_box, gate_max_electrical_size,
-    gate_watertight,
+    gate_watertight, DIHEDRAL_MAX_DEG, DIHEDRAL_MIN_DEG, ELECTRICAL_SIZE_WARN_LAMBDA,
+    SPEED_OF_LIGHT_M_PER_S, VOLUME_HI_FRAC, VOLUME_LO_FRAC,
 };
 
 #[cfg(test)]

@@ -63,8 +63,8 @@ fn embedded_scenario_antenna_height_is_twenty_m_agl() {
 #[test]
 fn load_round_trips_through_tempfile() {
     let scenario = SurveillanceScenario::embedded_uae_coastal();
-    let json = serde_json::to_string_pretty(&scenario)
-        .expect("scenario must serialize back to JSON");
+    let json =
+        serde_json::to_string_pretty(&scenario).expect("scenario must serialize back to JSON");
     let dir = tempfile::tempdir().expect("tempdir");
     let path = dir.path().join("uae-coastal-roundtrip.json");
     std::fs::write(&path, &json).expect("write scenario to disk");

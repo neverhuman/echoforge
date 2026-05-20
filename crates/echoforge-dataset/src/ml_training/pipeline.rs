@@ -16,20 +16,21 @@ use crate::monte_carlo::DatasetError;
 
 use super::config::{MlTrainingDataConfig, NEUTRAL_OBJECT_ID};
 use super::envelope::sample_envelope;
-use crate::guard::gpu_stage_recovery_note;
-use super::report::{feature_family_availability, guardrails};
-use super::scene::{adapt_envelope_to_takeoff_profile, build_noise_profile, build_scene_descriptor};
-use super::types::{
-    MlRecordPlan, MlRecordSummary, MlTruthMetadata, RecordOutput,
-    SplitManifestRow, SplitMix64,
-};
-use crate::export::write_json_pretty as write_json;
-use super::util::{relative_record_path, write_csv};
-use super::pipeline_writers::{
-    summarize_features, write_learned_windows,
-    write_micro_doppler_products, write_multi_view_products,
-};
 pub(super) use super::pipeline_writers::evaluate_phase_tiered;
+use super::pipeline_writers::{
+    summarize_features, write_learned_windows, write_micro_doppler_products,
+    write_multi_view_products,
+};
+use super::report::{feature_family_availability, guardrails};
+use super::scene::{
+    adapt_envelope_to_takeoff_profile, build_noise_profile, build_scene_descriptor,
+};
+use super::types::{
+    MlRecordPlan, MlRecordSummary, MlTruthMetadata, RecordOutput, SplitManifestRow, SplitMix64,
+};
+use super::util::{relative_record_path, write_csv};
+use crate::export::write_json_pretty as write_json;
+use crate::guard::gpu_stage_recovery_note;
 
 #[path = "pipeline_frame.rs"]
 mod pipeline_frame;
@@ -46,21 +47,23 @@ pub(super) fn run_record_workers(
     thread::scope(|scope| {
         let handles: Vec<_> = plans
             .chunks(chunk_size.max(1))
-            .map(|chunk| scope.spawn(move || -> Result<Vec<RecordOutput>, DatasetError> {
-                chunk.iter()
-                    .map(|plan| generate_record(config, runtime, plan, frame_count))
-                    .collect()
-            }))
+            .map(|chunk| {
+                scope.spawn(move || -> Result<Vec<RecordOutput>, DatasetError> {
+                    chunk
+                        .iter()
+                        .map(|plan| generate_record(config, runtime, plan, frame_count))
+                        .collect()
+                })
+            })
             .collect();
-        handles.into_iter().try_fold(
-            Vec::with_capacity(plans.len()),
-            |mut acc, handle| {
+        handles
+            .into_iter()
+            .try_fold(Vec::with_capacity(plans.len()), |mut acc, handle| {
                 acc.extend(handle.join().map_err(|_| {
                     DatasetError::InvalidConfig("ML training-data worker panicked".to_string())
                 })??);
                 Ok(acc)
-            },
-        )
+            })
     })
 }
 
@@ -102,8 +105,7 @@ fn generate_record(
     // phase-tiered detector (Lane H/H2). The detector consumes the
     // episode's `target_states` window as kinematic input and
     // optionally a per-CPI Doppler spectrum (Tier 3 cruise check).
-    let per_tier_observation =
-        evaluate_phase_tiered(&episode, plan.class.is_public_proxy_positive);
+    let per_tier_observation = evaluate_phase_tiered(&episode, plan.class.is_public_proxy_positive);
 
     let (frame_features, frame_labels, events, first_detectable_frame) =
         build_frame_products(config, plan, &envelope, &episode, frame_count, cpi_pulses);
@@ -120,6 +122,8 @@ fn generate_record(
         neutral_object_id: NEUTRAL_OBJECT_ID.to_string(),
         dataset_id: config.dataset.clone(),
         split: plan.split,
+        sensor_id: plan.sensor_id.clone(),
+        phase_target: plan.phase_target.clone(),
         class_id: plan.class.class_id.clone(),
         target_family: plan.class.target_family.clone(),
         is_public_proxy_positive: plan.class.is_public_proxy_positive,
@@ -152,6 +156,8 @@ fn generate_record(
     let feature_summary = summarize_features(
         &plan.record_id,
         plan.split,
+        &plan.sensor_id,
+        &plan.phase_target,
         &plan.class,
         &frame_features,
         first_detectable_frame,
@@ -159,6 +165,8 @@ fn generate_record(
     let summary = MlRecordSummary {
         record_id: plan.record_id.clone(),
         record_index: plan.record_index,
+        sensor_id: plan.sensor_id.clone(),
+        phase_target: plan.phase_target.clone(),
         split: plan.split,
         class_id: plan.class.class_id.clone(),
         target_family: plan.class.target_family.clone(),
@@ -170,10 +178,7 @@ fn generate_record(
         frame_count,
         cpi_pulses,
         tensor_dir: relative_record_path(&plan.record_id, "products"),
-        streaming_features_path: relative_record_path(
-            &plan.record_id,
-            "streaming_features.csv",
-        ),
+        streaming_features_path: relative_record_path(&plan.record_id, "streaming_features.csv"),
         frame_labels_path: relative_record_path(&plan.record_id, "frame_labels.csv"),
         truth_metadata_path: relative_record_path(&plan.record_id, "truth_metadata.json"),
         detector_events_path: relative_record_path(&plan.record_id, "detector_events.json"),
@@ -189,13 +194,12 @@ fn generate_record(
         record_id: plan.record_id.clone(),
         split: plan.split,
         split_key_kind: "scenario_object_seed".to_string(),
-        split_key: format!(
-            "{:016x}:{:016x}",
-            plan.scenario_seed, plan.object_seed
-        ),
+        split_key: format!("{:016x}:{:016x}", plan.scenario_seed, plan.object_seed),
         scenario_seed: plan.scenario_seed,
         object_seed: plan.object_seed,
         class_id: plan.class.class_id.clone(),
+        sensor_id: plan.sensor_id.clone(),
+        phase_target: plan.phase_target.clone(),
         target_family: plan.class.target_family.clone(),
         hard_negative_family: plan.class.hard_negative_family.clone(),
     };
@@ -207,6 +211,3 @@ fn generate_record(
         per_tier_observation,
     })
 }
-
-
-

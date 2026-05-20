@@ -152,8 +152,8 @@ pub fn two_ray_propagation_factor_magnitude(
         return 0.0;
     }
     let lambda = SPEED_OF_LIGHT_M_PER_S / freq_hz;
-    let delta_phi = 4.0 * std::f64::consts::PI * antenna_height_m * target_altitude_m
-        / (lambda * range_m);
+    let delta_phi =
+        4.0 * std::f64::consts::PI * antenna_height_m * target_altitude_m / (lambda * range_m);
     let rho = reflection_coeff_magnitude.clamp(0.0, 1.0);
     // |F|^2 = 1 + rho^2 - 2*rho*cos(delta_phi)
     (1.0 + rho * rho - 2.0 * rho * delta_phi.cos())
@@ -208,7 +208,13 @@ pub fn itu_r_p676_gas_attenuation_db(
     pressure_kpa: f64,
     water_vapor_g_per_m3: f64,
 ) -> f64 {
-    propagation_rain::gas_attenuation_db(freq_ghz, range_km, temperature_k, pressure_kpa, water_vapor_g_per_m3)
+    propagation_rain::gas_attenuation_db(
+        freq_ghz,
+        range_km,
+        temperature_k,
+        pressure_kpa,
+        water_vapor_g_per_m3,
+    )
 }
 
 // ----------------------------------------------------------------------------

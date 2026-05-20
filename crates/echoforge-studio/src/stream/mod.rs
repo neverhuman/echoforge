@@ -31,7 +31,7 @@ use tokio::sync::broadcast::error::RecvError;
 use control::{builtin_scenarios, ControlCommand, RadarParamPatch, SimMode};
 use encode::encode_scan_frame;
 use engine::SimEngine;
-use frames::{ControlFrame, OutboundFrame, ScenarioSummary, StatusFrame};
+use frames::{BackpressureFrame, ControlFrame, OutboundFrame, ScenarioSummary, StatusFrame};
 
 /// Default replay bundle when a `replay` start request omits a path.
 const DEFAULT_REPLAY_BUNDLE: &str = "tests/science/fixtures/bundles/v1_pass";
@@ -63,11 +63,15 @@ async fn ws_handler(
 }
 
 fn control_message(frame: &ControlFrame) -> Option<Message> {
-    serde_json::to_string(frame).ok().map(|s| Message::Text(s.into()))
+    serde_json::to_string(frame)
+        .ok()
+        .map(|s| Message::Text(s.into()))
 }
 
 fn scan_message(frame: &frames::ScanFrame) -> Option<Message> {
-    encode_scan_frame(frame).ok().map(|b| Message::Binary(b.into()))
+    encode_scan_frame(frame)
+        .ok()
+        .map(|b| Message::Binary(b.into()))
 }
 
 /// Per-connection task: pushes broadcast frames, refreshes `SessionInfo`
@@ -105,6 +109,16 @@ async fn handle_socket(socket: WebSocket, engine: Arc<SimEngine>) {
                     );
                     warn.dropped_frames = Some(dropped);
                     if let Some(msg) = control_message(&ControlFrame::Status(warn)) {
+                        if sink.send(msg).await.is_err() {
+                            break;
+                        }
+                    }
+                    let backpressure = BackpressureFrame {
+                        dropped_frames: dropped,
+                        broadcast_capacity: engine.settings().broadcast_capacity,
+                        advice: "client should reduce render cost or reconnect to resume from latest frame".to_string(),
+                    };
+                    if let Some(msg) = control_message(&ControlFrame::Backpressure(backpressure)) {
                         if sink.send(msg).await.is_err() {
                             break;
                         }

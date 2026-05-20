@@ -124,7 +124,13 @@ fn swerling1_correlated_within_scan_decorrelated_across_scans() {
     let same_scan_b = rcs.evaluate("test", 30.0, 10.0, 10.0, Polarization::Vv, 7, 5);
     assert_close(same_scan_a, same_scan_b, 1e-12);
     let next_scan = rcs.evaluate(
-        "test", 30.0, 10.0, 10.0, Polarization::Vv, 7, SWERLING_DEFAULT_SCAN_SIZE,
+        "test",
+        30.0,
+        10.0,
+        10.0,
+        Polarization::Vv,
+        7,
+        SWERLING_DEFAULT_SCAN_SIZE,
     );
     assert!(
         (same_scan_a - next_scan).abs() > 1e-6,
@@ -186,14 +192,24 @@ fn out_of_grid_elevation_clamps_to_nearest_edge() {
 #[test]
 fn seeded_public_proxy_v1_has_three_valid_cited_tables() {
     let rcs = Rcs::seeded_public_proxy_v1();
-    assert!(rcs.tables.len() >= 3, "expected at least 3 reference tables");
+    assert!(
+        rcs.tables.len() >= 3,
+        "expected at least 3 reference tables"
+    );
     let class_names: Vec<&str> = rcs.tables.iter().map(|t| t.target_class.as_str()).collect();
     for needed in ["fixed-wing-uas-small", "bird-large-single", "quadrotor"] {
-        assert!(class_names.contains(&needed), "missing seeded table for {needed}");
+        assert!(
+            class_names.contains(&needed),
+            "missing seeded table for {needed}"
+        );
     }
     for t in &rcs.tables {
         assert!(t.is_valid(), "table {} is invalid", t.target_class);
-        assert!(!t.citation.is_empty(), "citation must not be empty for {}", t.target_class);
+        assert!(
+            !t.citation.is_empty(),
+            "citation must not be empty for {}",
+            t.target_class
+        );
         assert!(
             t.aspect_grid.azimuth_deg.len() >= 4,
             "aspect grid too coarse for {}",
@@ -223,7 +239,15 @@ fn unknown_target_class_returns_neg_infinity() {
 fn fluctuation_overlay_preserves_finite_dbsm() {
     let rcs = Rcs::seeded_public_proxy_v1();
     for pulse in 0..64 {
-        let v = rcs.evaluate("quadrotor", 42.5, 5.0, 10.0, Polarization::Vv, 0xDEAD_BEEF, pulse);
+        let v = rcs.evaluate(
+            "quadrotor",
+            42.5,
+            5.0,
+            10.0,
+            Polarization::Vv,
+            0xDEAD_BEEF,
+            pulse,
+        );
         assert!(v.is_finite(), "non-finite dBsm at pulse {pulse}");
     }
 }

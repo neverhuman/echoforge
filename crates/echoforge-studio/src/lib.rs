@@ -6,6 +6,7 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::Json;
 use axum::Router;
+use echoforge_dataset::discover_repo_root;
 use echoforge_validate::{run_validate, ValidateArgs, ValidateReport};
 use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
@@ -13,7 +14,9 @@ use thiserror::Error;
 use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
+pub mod jobs;
 mod mesh_serve;
+pub mod runs;
 pub mod stream;
 mod traceability;
 
@@ -164,16 +167,19 @@ pub enum StudioError {
     MissingAsset(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StudioState {
     pub service_name: String,
     pub public_base_url: String,
     pub catalog_source: String,
     pub bundle_path: String,
+    pub repo_root: PathBuf,
     pub mode: String,
     pub catalog: CatalogResponse,
     pub validation: ValidateReport,
     pub sim_engine: Arc<stream::engine::SimEngine>,
+    pub run_store: runs::RunStore,
+    pub job_store: jobs::JobStore,
 }
 
 impl StudioState {
@@ -198,16 +204,20 @@ impl StudioState {
             schema_count: catalog_entries.len(),
             schemas: catalog_entries,
         };
+        let repo_root = discover_repo_root().map_err(|err| StudioError::Config(err.to_string()))?;
 
         Ok(Self {
             service_name: config.service_name.clone(),
             public_base_url: config.public_base_url.clone(),
             catalog_source,
             bundle_path: config.bundle_path.display().to_string(),
+            repo_root: repo_root.clone(),
             mode: "rust-studio".to_string(),
             catalog,
             validation,
             sim_engine: stream::engine::SimEngine::new(config.sim.clone()),
+            run_store: runs::RunStore::seeded(),
+            job_store: jobs::JobStore::seeded(&repo_root),
         })
     }
 
@@ -265,6 +275,8 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
     let catalog_state = state.clone();
     let validation_state = state.clone();
     let stream_router = stream::stream_router(state.sim_engine.clone());
+    let runs_state = state.clone();
+    let jobs_state = state.clone();
     let contracts_state = state;
     let index = web_dist.join("index.html");
     let static_files = ServeDir::new(&web_dist).not_found_service(ServeFile::new(index));
@@ -310,6 +322,8 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
         )
         .merge(mesh_serve::mesh_router())
         .merge(traceability_router)
+        .merge(runs::runs_router().with_state(runs_state))
+        .merge(jobs::jobs_router().with_state(jobs_state))
         .merge(stream_router)
         .fallback_service(static_files)
 }
@@ -341,7 +355,6 @@ impl IntoResponse for StudioError {
         (status, body).into_response()
     }
 }
-
 
 #[cfg(test)]
 #[path = "lib_tests.rs"]

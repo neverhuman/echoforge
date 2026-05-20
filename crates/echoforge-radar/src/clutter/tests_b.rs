@@ -4,7 +4,11 @@ use super::*;
 // We redeclare them locally since each test module is independent.
 fn collect_many(seed_base: u64, n: usize, mut f: impl FnMut(u64) -> f64) -> Vec<f64> {
     (0..n)
-        .map(|i| f(seed_base.wrapping_add(i as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)))
+        .map(|i| {
+            f(seed_base
+                .wrapping_add(i as u64)
+                .wrapping_mul(0x9e37_79b9_7f4a_7c15))
+        })
         .collect()
 }
 

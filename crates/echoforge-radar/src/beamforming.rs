@@ -6,15 +6,25 @@
 //! code (e.g. detectors, matched filters) can ignore whether the front-end
 //! used a single channel or an array.
 //!
-//! Three flavours ship with this scaffold:
+//! Four flavours ship here:
 //!
 //! * [`SumBeamformer`] — coherent (uniform-weight) sum.
 //! * [`DelayAndSumBeamformer`] — applies a per-channel steering vector
 //!   before summation, biasing toward the steered direction.
-//! * [`CaponUnimplementedBeamformer`] — applies a pre-computed weight vector. This
-//!   is an unimplemented adapter: the adaptive Capon weight estimation (sample covariance
-//!   inversion, etc.) is intentionally out of scope here; this struct only
-//!   pins down the interface so a follow-up packet can fill it in.
+//! * [`StaticWeightBeamformer`] — applies a caller-supplied fixed weight
+//!   vector (e.g. weights computed offline).
+//! * [`CaponBeamformer`] — the adaptive minimum-variance distortionless
+//!   response (MVDR) estimator: it estimates the spatial sample
+//!   covariance from the channel snapshots, applies diagonal loading,
+//!   and forms `w = R⁻¹a / (aᴴR⁻¹a)` so interference and clutter
+//!   off the look direction are nulled while the look direction is
+//!   passed distortionless.
+//!
+//! References: J. Capon, "High-resolution frequency-wavenumber spectrum
+//! analysis," Proc. IEEE 57(8), 1969; H. L. Van Trees, *Optimum Array
+//! Processing*, Wiley 2002, ch. 6-7; B. D. Carlson, "Covariance matrix
+//! estimation errors and diagonal loading in adaptive arrays," IEEE
+//! Trans. AES 24(4), 1988.
 //!
 //! [`steering_vector`] is a convenience for the common ULA case used by the
 //! antenna manifold model.
@@ -128,26 +138,21 @@ impl Beamformer for DelayAndSumBeamformer {
     }
 }
 
-/// Unimplemented adapter for the Capon (minimum-variance distortionless response) beamformer.
-///
-/// The full Capon adaptive estimator requires per-frame sample covariance
-/// inversion and is left for a follow-up packet. This unimplemented adapter locks in the
-/// interface by simply applying a pre-computed weight vector to each
-/// channel; callers can supply Capon weights produced offline (or any
-/// other adaptive scheme) and exercise the same code path that the
-/// production estimator will use.
+/// Applies a caller-supplied fixed weight vector to each channel. Useful
+/// for weights computed offline (Capon, eigen-beamforming, or any other
+/// scheme) when adaptive estimation is not wanted at run time.
 #[derive(Debug, Clone, PartialEq)]
-pub struct CaponUnimplementedBeamformer {
+pub struct StaticWeightBeamformer {
     pub weights: Vec<Complex<f64>>,
 }
 
-impl CaponUnimplementedBeamformer {
+impl StaticWeightBeamformer {
     pub fn new(weights: Vec<Complex<f64>>) -> Self {
         Self { weights }
     }
 }
 
-impl Beamformer for CaponUnimplementedBeamformer {
+impl Beamformer for StaticWeightBeamformer {
     fn beamform(&self, channel_iq: &[Vec<ComplexSample>]) -> Vec<ComplexSample> {
         let Some(first) = channel_iq.first() else {
             return Vec::new();
@@ -167,6 +172,237 @@ impl Beamformer for CaponUnimplementedBeamformer {
             }
         }
         out
+    }
+}
+
+/// Estimate the `n × n` spatial sample covariance `R = (1/K) Σ x xᴴ`
+/// from per-channel snapshots `channel_iq[channel][sample]`. `R` is
+/// Hermitian positive-semidefinite.
+pub fn estimate_covariance(channel_iq: &[Vec<ComplexSample>]) -> Vec<Vec<Complex<f64>>> {
+    let n = channel_iq.len();
+    let mut r = vec![vec![Complex::new(0.0, 0.0); n]; n];
+    if n == 0 {
+        return r;
+    }
+    let snapshots = channel_iq.iter().map(|c| c.len()).min().unwrap_or(0);
+    if snapshots == 0 {
+        return r;
+    }
+    for t in 0..snapshots {
+        for i in 0..n {
+            let xi = Complex::new(channel_iq[i][t].re as f64, channel_iq[i][t].im as f64);
+            for j in 0..n {
+                let xj = Complex::new(channel_iq[j][t].re as f64, channel_iq[j][t].im as f64);
+                r[i][j] += xi * xj.conj();
+            }
+        }
+    }
+    let scale = 1.0 / snapshots as f64;
+    for row in &mut r {
+        for cell in row {
+            *cell *= scale;
+        }
+    }
+    r
+}
+
+/// Add diagonal loading `R += ε·(tr(R)/n)·I` in place. Loading bounds the
+/// inverse when the covariance is rank-deficient (short snapshot support),
+/// trading a little white-noise gain for robustness (Carlson 1988).
+fn apply_diagonal_loading(r: &mut [Vec<Complex<f64>>], epsilon: f64) {
+    let n = r.len();
+    if n == 0 {
+        return;
+    }
+    let trace: f64 = (0..n).map(|i| r[i][i].re).sum();
+    let load = (epsilon.max(0.0) * trace / n as f64).max(1e-12);
+    for (i, row) in r.iter_mut().enumerate() {
+        row[i] += Complex::new(load, 0.0);
+    }
+}
+
+/// Solve the Hermitian positive-definite system `R x = b` via a complex
+/// Cholesky factorisation `R = L Lᴴ`. Returns `None` if `R` is not
+/// positive-definite (a non-positive pivot is encountered).
+pub fn hermitian_solve(r: &[Vec<Complex<f64>>], b: &[Complex<f64>]) -> Option<Vec<Complex<f64>>> {
+    let n = r.len();
+    if n == 0 || b.len() != n {
+        return None;
+    }
+    let mut l = vec![vec![Complex::new(0.0, 0.0); n]; n];
+    for j in 0..n {
+        let mut diag = r[j][j].re;
+        for k in 0..j {
+            diag -= l[j][k].norm_sqr();
+        }
+        if !(diag > 0.0) {
+            return None;
+        }
+        let ljj = diag.sqrt();
+        l[j][j] = Complex::new(ljj, 0.0);
+        for i in (j + 1)..n {
+            let mut s = r[i][j];
+            for k in 0..j {
+                s -= l[i][k] * l[j][k].conj();
+            }
+            l[i][j] = s / ljj;
+        }
+    }
+    // Forward solve L y = b.
+    let mut y = vec![Complex::new(0.0, 0.0); n];
+    for i in 0..n {
+        let mut s = b[i];
+        for k in 0..i {
+            s -= l[i][k] * y[k];
+        }
+        y[i] = s / l[i][i].re;
+    }
+    // Backward solve Lᴴ x = y.
+    let mut x = vec![Complex::new(0.0, 0.0); n];
+    for i in (0..n).rev() {
+        let mut s = y[i];
+        for k in (i + 1)..n {
+            s -= l[k][i].conj() * x[k];
+        }
+        x[i] = s / l[i][i].re;
+    }
+    Some(x)
+}
+
+/// Adaptive minimum-variance distortionless-response (MVDR / Capon)
+/// beamformer. The weight vector `w = R⁻¹a / (aᴴR⁻¹a)` minimises output
+/// power subject to `wᴴa = 1`, so a signal from the look direction is
+/// passed undistorted while interference is nulled.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaponBeamformer {
+    /// Look-direction steering vector `a`.
+    pub steering_vector: Vec<Complex<f64>>,
+    /// Diagonal-loading fraction `ε` of `tr(R)/n`.
+    pub diagonal_loading: f64,
+}
+
+impl CaponBeamformer {
+    pub fn new(steering_vector: Vec<Complex<f64>>, diagonal_loading: f64) -> Self {
+        Self {
+            steering_vector,
+            diagonal_loading,
+        }
+    }
+
+    /// Construct for a uniform linear array looking at `target_az_deg`.
+    pub fn for_ula(
+        n_elements: usize,
+        element_spacing_m: f64,
+        frequency_hz: f64,
+        target_az_deg: f64,
+        diagonal_loading: f64,
+    ) -> Self {
+        Self {
+            steering_vector: steering_vector(
+                n_elements,
+                element_spacing_m,
+                frequency_hz,
+                target_az_deg,
+            ),
+            diagonal_loading,
+        }
+    }
+
+    /// Compute the MVDR weight vector from channel snapshots. Falls back
+    /// to the (normalised) steering vector when the loaded covariance is
+    /// not positive-definite — a graceful conventional-beamformer
+    /// degradation rather than a NaN.
+    pub fn weights(&self, channel_iq: &[Vec<ComplexSample>]) -> Vec<Complex<f64>> {
+        let n = channel_iq.len();
+        let a = self.aligned_steering(n);
+        if n == 0 {
+            return a;
+        }
+        let mut r = estimate_covariance(channel_iq);
+        apply_diagonal_loading(&mut r, self.diagonal_loading);
+        match hermitian_solve(&r, &a) {
+            Some(u) => {
+                // denom = aᴴ u  (real positive for Hermitian PD R).
+                let mut denom = Complex::new(0.0, 0.0);
+                for i in 0..n {
+                    denom += a[i].conj() * u[i];
+                }
+                if denom.norm() < 1e-30 {
+                    return conventional_weights(&a);
+                }
+                u.iter().map(|&ui| ui / denom).collect()
+            }
+            None => conventional_weights(&a),
+        }
+    }
+
+    fn aligned_steering(&self, n: usize) -> Vec<Complex<f64>> {
+        (0..n)
+            .map(|i| {
+                self.steering_vector
+                    .get(i)
+                    .copied()
+                    .unwrap_or(Complex::new(1.0, 0.0))
+            })
+            .collect()
+    }
+}
+
+/// Conventional (delay-and-sum) weights normalised to `wᴴa = 1`.
+fn conventional_weights(a: &[Complex<f64>]) -> Vec<Complex<f64>> {
+    let norm: f64 = a.iter().map(|c| c.norm_sqr()).sum::<f64>().max(1e-30);
+    a.iter().map(|&ai| ai / norm).collect()
+}
+
+impl Beamformer for CaponBeamformer {
+    fn beamform(&self, channel_iq: &[Vec<ComplexSample>]) -> Vec<ComplexSample> {
+        let Some(first) = channel_iq.first() else {
+            return Vec::new();
+        };
+        let samples = first.len();
+        let weights = self.weights(channel_iq);
+        let mut out = vec![ComplexSample::new(0.0, 0.0); samples];
+        // y[t] = wᴴ x[t].
+        for (ch_idx, channel) in channel_iq.iter().enumerate() {
+            let w = weights
+                .get(ch_idx)
+                .copied()
+                .unwrap_or(Complex::new(0.0, 0.0));
+            let wc = w.conj();
+            let weight_sample = ComplexSample::new(wc.re as f32, wc.im as f32);
+            let len = channel.len().min(samples);
+            for i in 0..len {
+                out[i] += channel[i] * weight_sample;
+            }
+        }
+        out
+    }
+}
+
+/// Capon spatial power estimate `P = 1 / (aᴴ R⁻¹ a)` for a look-direction
+/// steering vector `a`. The classic high-resolution direction-of-arrival
+/// spectrum (Capon 1969). Returns `0.0` if the covariance is singular.
+pub fn capon_spectrum(
+    channel_iq: &[Vec<ComplexSample>],
+    steering: &[Complex<f64>],
+    diagonal_loading: f64,
+) -> f64 {
+    let n = channel_iq.len();
+    if n == 0 || steering.len() != n {
+        return 0.0;
+    }
+    let mut r = estimate_covariance(channel_iq);
+    apply_diagonal_loading(&mut r, diagonal_loading);
+    match hermitian_solve(&r, steering) {
+        Some(u) => {
+            let mut denom = Complex::new(0.0, 0.0);
+            for i in 0..n {
+                denom += steering[i].conj() * u[i];
+            }
+            let d = denom.re.max(1e-30);
+            1.0 / d
+        }
+        None => 0.0,
     }
 }
 
@@ -195,7 +431,6 @@ pub fn steering_vector(
         })
         .collect()
 }
-
 
 #[cfg(test)]
 #[path = "beamforming_tests.rs"]

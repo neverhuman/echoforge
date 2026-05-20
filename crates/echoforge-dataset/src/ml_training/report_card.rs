@@ -11,11 +11,11 @@ use crate::monte_carlo::DatasetError;
 use crate::split::SplitKind;
 
 use super::config::{MlTrainingDataConfig, DEFAULT_ML_TRAINING_DATASET_ID, NEUTRAL_OBJECT_ID};
+use super::report::feature_families;
 use super::types::{
     AvailabilityEntry, FeatureFamilyAvailability, PerRecordTierObservation, PerTierMetrics,
     QualityReport,
 };
-use super::report::feature_families;
 
 pub(super) fn dataset_card(
     config: &MlTrainingDataConfig,
@@ -199,8 +199,7 @@ pub(super) fn feature_family_availability(record_id: &str) -> FeatureFamilyAvail
             status: "unavailable".to_string(),
             path: "multi_view/range_angle_schema_pending.json".to_string(),
             reason: Some(
-                "future MIMO range-angle and range-azimuth-Doppler schema pending only"
-                    .to_string(),
+                "future MIMO range-angle and range-azimuth-Doppler schema pending only".to_string(),
             ),
         },
     }
@@ -226,23 +225,35 @@ pub(super) fn aggregate_per_tier_metrics(
             let (n_episodes, n_detections, n_horizon_blocked, conf_sum, conf_n) = observations
                 .iter()
                 .filter(|o| o.is_positive == is_positive)
-                .fold((0usize, 0usize, 0usize, 0.0f64, 0usize), |(eps, det, hor, cs, cn), obs| {
-                    (
-                        eps + obs.tier_counts.contains_key(&tier) as usize,
-                        det + (obs.detection_counts.get(&tier).copied().unwrap_or(0) > 0) as usize,
-                        hor + obs.horizon_blocked_counts.get(&tier).copied().unwrap_or(0),
-                        cs + obs.confidence_sum.get(&tier).copied().unwrap_or(0.0),
-                        cn + obs.confidence_n.get(&tier).copied().unwrap_or(0),
-                    )
-                });
+                .fold(
+                    (0usize, 0usize, 0usize, 0.0f64, 0usize),
+                    |(eps, det, hor, cs, cn), obs| {
+                        (
+                            eps + obs.tier_counts.contains_key(&tier) as usize,
+                            det + (obs.detection_counts.get(&tier).copied().unwrap_or(0) > 0)
+                                as usize,
+                            hor + obs.horizon_blocked_counts.get(&tier).copied().unwrap_or(0),
+                            cs + obs.confidence_sum.get(&tier).copied().unwrap_or(0.0),
+                            cn + obs.confidence_n.get(&tier).copied().unwrap_or(0),
+                        )
+                    },
+                );
             rows.push(PerTierMetrics {
                 tier: tier_name(tier).to_string(),
                 is_positive,
                 n_episodes,
                 n_detections,
                 n_horizon_blocked,
-                mean_confidence: if conf_n > 0 { conf_sum / conf_n as f64 } else { 0.0 },
-                pd_proxy: if n_episodes > 0 { n_detections as f64 / n_episodes as f64 } else { 0.0 },
+                mean_confidence: if conf_n > 0 {
+                    conf_sum / conf_n as f64
+                } else {
+                    0.0
+                },
+                pd_proxy: if n_episodes > 0 {
+                    n_detections as f64 / n_episodes as f64
+                } else {
+                    0.0
+                },
             });
         }
     }

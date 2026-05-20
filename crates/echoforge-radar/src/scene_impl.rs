@@ -34,8 +34,7 @@ pub(super) fn target_kinematics_state_at(
         } => {
             let heading_rad = heading_deg.to_radians();
             let along_track_m = speed_mps * t_s;
-            let range_m =
-                (vehicle_initial_range_m - along_track_m * heading_rad.cos()).max(0.0);
+            let range_m = (vehicle_initial_range_m - along_track_m * heading_rad.cos()).max(0.0);
             let radial_velocity_mps = speed_mps * heading_rad.cos();
             TargetState {
                 time_s: t_s,

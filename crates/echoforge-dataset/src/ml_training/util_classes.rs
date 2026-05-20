@@ -1,7 +1,7 @@
 //! ML class table — extracted from util.rs for LOC compliance.
 
-use crate::ml_training::types::MlClass;
 use crate::ml_training::config::NEUTRAL_OBJECT_ID;
+use crate::ml_training::types::MlClass;
 
 pub(super) fn ml_classes() -> Vec<MlClass> {
     vec![
@@ -9,6 +9,38 @@ pub(super) fn ml_classes() -> Vec<MlClass> {
             NEUTRAL_OBJECT_ID,
             "Delta Pusher Fixed-Wing OWA Public Proxy",
             "owa_delta_pusher_public_proxy",
+            "positive_public_proxy",
+            true,
+            false,
+        ),
+        ml_class(
+            "shahed-136-geran-2",
+            "Shahed-136 / Geran-2 Public Proxy",
+            "shahed_136_geran_2_public_proxy",
+            "positive_public_proxy",
+            true,
+            false,
+        ),
+        ml_class(
+            "shahed-131-geran-1",
+            "Shahed-131 / Geran-1 Public Proxy",
+            "shahed_131_geran_1_public_proxy",
+            "positive_public_proxy",
+            true,
+            false,
+        ),
+        ml_class(
+            "mohajer-6",
+            "Mohajer-6 Public Proxy",
+            "mohajer_6_public_proxy",
+            "positive_public_proxy",
+            true,
+            false,
+        ),
+        ml_class(
+            "geran-3-jet-variant",
+            "Geran-3 Jet Variant Public Proxy",
+            "geran_3_jet_variant_public_proxy",
             "positive_public_proxy",
             true,
             false,

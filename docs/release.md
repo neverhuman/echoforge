@@ -49,15 +49,18 @@ A release is only cut from a commit where both workflows show green on `main`.
 
 Before cutting a release:
 
-- [ ] `jankurai audit` passes: score >= 85, caps = 0, findings = 0
+- [ ] `rtk just web-smoke`
+- [ ] `rtk cargo test -p echoforge-studio --locked`
+- [ ] `rtk just science-smoke`
+- [ ] `rtk jankurai adapters verify .`
 - [ ] `bash ops/run-lane.sh fast` — all Rust tests green
 - [ ] `bash ops/run-lane.sh contracts` — schema contracts validated
 - [ ] `bash ops/run-lane.sh vendor-scrub` — 0 banned term matches
 - [ ] `bash ops/run-lane.sh receipts` — 0 failing receipts
 - [ ] `bash ops/run-lane.sh security` — cargo deny clean, SBOM generated
-- [ ] `bash ops/run-lane.sh web-smoke` — web build passes
 - [ ] `bash ops/run-lane.sh web-e2e` — Playwright E2E passes after merge, with UX QA screenshot
 - [ ] `CHANGELOG.md` updated with all changes since last release
+- [ ] Staged jankurai hook passes on the release commit before every push
 - [ ] Git tag created: `git tag -a v<VERSION> -m "Release v<VERSION>"`
 
 ## Automated Release Steps (`just`)
@@ -71,6 +74,8 @@ just release-check # runs all blocking lanes in sequence
 ```
 
 Run `just --list` to see all available recipes.
+
+Commit workflow for this release line should stay small and vertical: once the staged jankurai hook passes on a coherent slice, commit it instead of batching unrelated work.
 
 ## Deployment Steps
 

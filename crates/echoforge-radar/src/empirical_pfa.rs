@@ -34,15 +34,13 @@
 //! in `crate::detectors::cfar_alpha` are internally self-consistent under
 //! the synthetic distributions they were derived for.
 
-use crate::clutter::{
-    sample_clutter_amplitude, ClutterDistribution, ClutterRegime, TerrainClass,
-};
+use crate::clutter::{sample_clutter_amplitude, ClutterDistribution, ClutterRegime, TerrainClass};
 use crate::detectors::cfar_alpha::{resolve_alpha, CfarVariant, NoiseDistribution};
 
 #[path = "empirical_pfa_render.rs"]
 mod empirical_pfa_render;
-pub use empirical_pfa_render::{render_jsonl, render_markdown};
 use empirical_pfa_render::{cfar_decision, layout_for};
+pub use empirical_pfa_render::{render_jsonl, render_markdown};
 
 /// One Pfa-trial request. The combination of `clutter_regime` + `cfar_variant`
 /// + `training_cells` + `guard_cells` + `nominal_pfa` + `trials` + `seed` is

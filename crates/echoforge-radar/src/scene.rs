@@ -55,9 +55,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::clutter::ClutterRegime;
-use crate::sim::{NoiseProfile, RadarSimConfig, TargetState};
 #[cfg(test)]
 pub use crate::sim::TakeoffProfile;
+use crate::sim::{NoiseProfile, RadarSimConfig, TargetState};
 
 #[path = "scene_impl.rs"]
 mod scene_impl;
@@ -190,12 +190,7 @@ impl TargetKinematics {
     /// (no `_ => unreachable!()` fallthrough), and the panic guards
     /// against an accidental direct invocation that would silently
     /// return the wrong geometry.
-    pub fn state_at(
-        &self,
-        t_s: f64,
-        initial_range_m: f64,
-        antenna_alt_agl_m: f64,
-    ) -> TargetState {
+    pub fn state_at(&self, t_s: f64, initial_range_m: f64, antenna_alt_agl_m: f64) -> TargetState {
         scene_impl::target_kinematics_state_at(self, t_s, initial_range_m, antenna_alt_agl_m)
     }
 }

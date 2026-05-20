@@ -1,8 +1,6 @@
 use crate::cfar::ca_cfar_1d;
 use crate::link_budget::{evaluate_link_budget, snr_to_target_amplitude, LinkBudgetResult};
-use crate::scene::{
-    SceneDescriptor, TargetClass, TargetEntity, TargetKinematics,
-};
+use crate::scene::{SceneDescriptor, TargetClass, TargetEntity, TargetKinematics};
 
 use super::config::{NoiseProfile, RadarSimConfig, TakeoffProfile};
 use super::dft::{slow_time_complex_dft, slow_time_dft_magnitude};
@@ -40,11 +38,15 @@ pub fn synthesize_takeoff_episode(
     noise: NoiseProfile,
     seed: EpisodeSeed,
 ) -> SyntheticEpisode {
-    let scene = SceneDescriptor::from_radar_config(&config, &noise, vec![TargetEntity {
-        class: TargetClass::ShahedClassPiston,
-        kinematics: TargetKinematics::FromTakeoffProfile(profile),
-        spawn_time_s: 0.0,
-    }]);
+    let scene = SceneDescriptor::from_radar_config(
+        &config,
+        &noise,
+        vec![TargetEntity {
+            class: TargetClass::ShahedClassPiston,
+            kinematics: TargetKinematics::FromTakeoffProfile(profile),
+            spawn_time_s: 0.0,
+        }],
+    );
     synthesize_scene(scene, config, noise, seed)
 }
 
@@ -156,7 +158,8 @@ pub fn synthesize_scene(
     for (idx, entity) in scene.targets.iter().enumerate() {
         let entity_initial = entity_initial_states[idx];
         let prop_ctx = config.propagation_context(&entity_initial);
-        let rcs_scalar = class_default_rcs_scalar(&entity.class, &entity.kinematics, &first_profile);
+        let rcs_scalar =
+            class_default_rcs_scalar(&entity.class, &entity.kinematics, &first_profile);
         let link = evaluate_link_budget(&config.link_budget(), &prop_ctx, rcs_scalar.max(0.0));
         let amp_full = if link.above_horizon && link.snr_db.is_finite() {
             snr_to_target_amplitude(link.snr_db, noise.awgn_sigma)
@@ -194,11 +197,15 @@ pub fn synthesize_scene(
     let compressed_len = sample_count.saturating_mul(2).saturating_sub(1);
     let glints = build_ground_glints(sample_count, &noise, &mut rng);
 
-    let (iq, profiles, compressed_complex, states_first) =
-        synthesize_loop::run_synthesis_loop(
-            &config, &noise, seed, &scene,
-            &per_entity_target_amp, &glints, &first_profile,
-        );
+    let (iq, profiles, compressed_complex, states_first) = synthesize_loop::run_synthesis_loop(
+        &config,
+        &noise,
+        seed,
+        &scene,
+        &per_entity_target_amp,
+        &glints,
+        &first_profile,
+    );
 
     let integrated = integrate_profiles(&profiles, compressed_len);
     let decisions = ca_cfar_1d(&integrated, config.cfar_params());

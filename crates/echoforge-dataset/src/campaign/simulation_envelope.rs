@@ -1,10 +1,10 @@
 //! Per-class envelope sampling for campaign simulation — extracted for LOC compliance.
 
-use echoforge_radar::{ClutterProfile, RfiProfile, ReceiverImpairmentProfile};
+use echoforge_radar::{ClutterProfile, ReceiverImpairmentProfile, RfiProfile};
 
+use super::ClassEnvelope;
 use crate::campaign::rng::SplitMix64;
 use crate::campaign::types::{CampaignBucket, CampaignClass, DimensionsSample};
-use super::ClassEnvelope;
 
 pub(super) fn class_envelope(class: &CampaignClass, rng: &mut SplitMix64) -> ClassEnvelope {
     let mut clutter = ClutterProfile::moderate_mixed();

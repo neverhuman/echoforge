@@ -25,7 +25,11 @@ fn clutter_profile_application_changes_power_deterministically() {
 
 fn collect_many(seed_base: u64, n: usize, mut f: impl FnMut(u64) -> f64) -> Vec<f64> {
     (0..n)
-        .map(|i| f(seed_base.wrapping_add(i as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15)))
+        .map(|i| {
+            f(seed_base
+                .wrapping_add(i as u64)
+                .wrapping_mul(0x9e37_79b9_7f4a_7c15))
+        })
         .collect()
 }
 
@@ -113,7 +117,9 @@ fn k_distribution_large_shape_approaches_rayleigh() {
 
 #[test]
 fn log_normal_mean_of_log_matches_mean_log() {
-    let xs = collect_many(0xdead_beef_cafe_babe, 4000, |s| sample_log_normal(0.5, 0.25, s));
+    let xs = collect_many(0xdead_beef_cafe_babe, 4000, |s| {
+        sample_log_normal(0.5, 0.25, s)
+    });
     let logs: Vec<f64> = xs.iter().map(|x| x.ln()).collect();
     let m = mean(&logs);
     let rel_err = (m - 0.5).abs();
@@ -156,7 +162,11 @@ fn sample_clutter_amplitude_dispatches_each_variant() {
         },
     ] {
         let v = sample_clutter_amplitude(dist, seed);
-        assert!(v.is_finite(), "dispatched sample for {:?} must be finite", dist);
+        assert!(
+            v.is_finite(),
+            "dispatched sample for {:?} must be finite",
+            dist
+        );
         assert!(v >= 0.0, "amplitude must be non-negative");
     }
 }
@@ -210,7 +220,11 @@ fn clutter_regime_library_has_entries_with_citations() {
     // (Skolnik / Ward, Tough & Watts / JHU APL). The library must have at least 4
     // entries per the packet spec and at least one entry per distribution family.
     let lib = ClutterRegime::library();
-    assert!(lib.len() >= 4, "library must have >=4 regimes; got {}", lib.len());
+    assert!(
+        lib.len() >= 4,
+        "library must have >=4 regimes; got {}",
+        lib.len()
+    );
 
     let has_weibull = lib
         .iter()
@@ -221,9 +235,18 @@ fn clutter_regime_library_has_entries_with_citations() {
     let has_rayleigh = lib
         .iter()
         .any(|r| matches!(r.distribution, ClutterDistribution::Rayleigh));
-    assert!(has_weibull, "library must include at least one Weibull regime");
-    assert!(has_k, "library must include at least one K-distribution regime");
-    assert!(has_rayleigh, "library must include at least one Rayleigh regime");
+    assert!(
+        has_weibull,
+        "library must include at least one Weibull regime"
+    );
+    assert!(
+        has_k,
+        "library must include at least one K-distribution regime"
+    );
+    assert!(
+        has_rayleigh,
+        "library must include at least one Rayleigh regime"
+    );
 
     // Each regime must have physically plausible AR(1) coefficients and a
     // mean cross-section that is finite and < 0 dB(m^2)/m^2.

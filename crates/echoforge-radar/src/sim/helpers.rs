@@ -48,11 +48,10 @@ pub(super) fn resolve_entity_state(
         TargetKinematics::MultipathGhost { parent_idx, .. } => {
             let parent = targets.get(*parent_idx).unwrap_or(entity);
             let parent_initial_range = entity_initial_range_recovery(parent);
-            let parent_state = parent.kinematics.state_at(
-                t_s,
-                parent_initial_range,
-                antenna_alt_agl_m,
-            );
+            let parent_state =
+                parent
+                    .kinematics
+                    .state_at(t_s, parent_initial_range, antenna_alt_agl_m);
             // Two-ray multipath offset: 2·h_r·h_t/R. Guard against
             // R = 0 by clamping the range to a small positive value.
             let r = parent_state.range_m.max(1e-3);
@@ -160,13 +159,19 @@ pub(super) fn class_default_rcs_scalar(
         return profile.rcs_scalar;
     }
     use crate::scene::TargetClass as TC;
-    let dbsm: f64 =
-        if matches!(class, TC::ShahedClassPiston | TC::ShahedClassJet) { -10.0 }
-        else if matches!(class, TC::Bird | TC::Kite) { -25.0 }
-        else if matches!(class, TC::GroundVehicle | TC::Helicopter) { 5.0 }
-        else if matches!(class, TC::WindTurbine) { 25.0 }
-        else if matches!(class, TC::Balloon) { -20.0 }
-        else { -30.0 }; // MultipathGhost, TerrainGlint, ManRadarReturn
+    let dbsm: f64 = if matches!(class, TC::ShahedClassPiston | TC::ShahedClassJet) {
+        -10.0
+    } else if matches!(class, TC::Bird | TC::Kite) {
+        -25.0
+    } else if matches!(class, TC::GroundVehicle | TC::Helicopter) {
+        5.0
+    } else if matches!(class, TC::WindTurbine) {
+        25.0
+    } else if matches!(class, TC::Balloon) {
+        -20.0
+    } else {
+        -30.0
+    }; // MultipathGhost, TerrainGlint, ManRadarReturn
     10f64.powf(dbsm / 10.0)
 }
 

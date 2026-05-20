@@ -302,11 +302,18 @@ impl ClimbOutTierDetector {
                 matches += 1;
             }
         }
-        out.mof_n_ratio = if considered == 0 { 0.0 } else { matches as f32 / considered as f32 };
-        out.kalman_consistency = if considered == 0 { 0.0 } else { (score_sum / considered as f64) as f32 };
+        out.mof_n_ratio = if considered == 0 {
+            0.0
+        } else {
+            matches as f32 / considered as f32
+        };
+        out.kalman_consistency = if considered == 0 {
+            0.0
+        } else {
+            (score_sum / considered as f64) as f32
+        };
         Some(matches >= threshold)
     }
-
 }
 
 /// Cross-flight blade-pass confirmation: look for any bin in the

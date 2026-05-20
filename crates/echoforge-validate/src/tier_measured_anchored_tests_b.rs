@@ -177,8 +177,7 @@ fn v4_gate_report_serializes_with_stable_field_names() {
         observation("range_m", vec![1100.0, 2100.0, 3100.0, 4100.0]),
     ];
     let report = evaluate_v4_gate(&baseline_thresholds(), &anchors, &observations);
-    let json: serde_json::Value =
-        serde_json::to_value(&report).expect("serialize to value");
+    let json: serde_json::Value = serde_json::to_value(&report).expect("serialize to value");
     assert_eq!(json["tier"], "V4");
     assert_eq!(json["status"], "pass");
     assert_eq!(json["anchor_count"], 3);

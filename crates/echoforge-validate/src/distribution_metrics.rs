@@ -76,18 +76,28 @@ pub fn ks_distance_1d_sorted(a: &[f64], b: &[f64]) -> f64 {
     while i < na || j < nb {
         let (advance_a, advance_b) = match (a.get(i), b.get(j)) {
             (Some(&av), Some(&bv)) => {
-                if av < bv { (true, false) }
-                else if bv < av { (false, true) }
-                else { (true, true) }
+                if av < bv {
+                    (true, false)
+                } else if bv < av {
+                    (false, true)
+                } else {
+                    (true, true)
+                }
             }
             (Some(_), None) => (true, false),
             (None, Some(_)) => (false, true),
             (None, None) => break,
         };
-        if advance_a { i += 1; }
-        if advance_b { j += 1; }
+        if advance_a {
+            i += 1;
+        }
+        if advance_b {
+            j += 1;
+        }
         let diff = (i as f64 / na as f64 - j as f64 / nb as f64).abs();
-        if diff > sup { sup = diff; }
+        if diff > sup {
+            sup = diff;
+        }
     }
     sup
 }

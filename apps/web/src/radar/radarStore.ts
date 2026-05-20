@@ -5,7 +5,16 @@
 // external store library, per the web app conventions).
 
 import { decodeControlFrame, decodeScanFrame } from './frameCodec';
-import type { ScanFrame, SessionInfo, StatusFrame } from './radarContract';
+import { SCAN_HEADER_LEN } from './radarContract';
+import type {
+  ArtifactReadyFrame,
+  BackpressureFrame,
+  RunLifecycleFrame,
+  ScanFrame,
+  SessionInfo,
+  StatusFrame,
+  ValidationStatusFrame,
+} from './radarContract';
 import { ColumnRing } from './render/ringBuffer';
 
 export type ConnectionState = 'connecting' | 'open' | 'reconnecting' | 'closed';
@@ -15,6 +24,10 @@ export interface RadarSnapshot {
   connection: ConnectionState;
   session: SessionInfo | null;
   status: StatusFrame | null;
+  lifecycle: RunLifecycleFrame | null;
+  validation: ValidationStatusFrame | null;
+  artifact: ArtifactReadyFrame | null;
+  backpressure: BackpressureFrame | null;
   scanSeq: number;
   selectedTrackId: number | null;
   lastError: string | null;
@@ -36,6 +49,10 @@ export class RadarStore {
     connection: 'connecting',
     session: null,
     status: null,
+    lifecycle: null,
+    validation: null,
+    artifact: null,
+    backpressure: null,
     scanSeq: 0,
     selectedTrackId: null,
     lastError: null,
@@ -73,15 +90,36 @@ export class RadarStore {
   ingestText(text: string): void {
     const frame = decodeControlFrame(text);
     if (frame.type === 'session_info') {
-      this.snapshot = { ...this.snapshot, session: frame };
-    } else {
+      const mismatch =
+        typeof frame.schema_version === 'number' &&
+        frame.schema_version !== 1;
+      this.snapshot = {
+        ...this.snapshot,
+        session: frame,
+        lastError: mismatch
+          ? `stream schema mismatch: client 1, server ${frame.schema_version}`
+          : this.snapshot.lastError,
+      };
+    } else if (frame.type === 'status') {
       this.snapshot = { ...this.snapshot, status: frame };
+    } else if (frame.type === 'run_lifecycle') {
+      this.snapshot = { ...this.snapshot, lifecycle: frame };
+    } else if (frame.type === 'validation_status') {
+      this.snapshot = { ...this.snapshot, validation: frame };
+    } else if (frame.type === 'artifact_ready') {
+      this.snapshot = { ...this.snapshot, artifact: frame };
+    } else {
+      this.snapshot = { ...this.snapshot, backpressure: frame };
     }
     this.emit();
   }
 
   /** Ingest a binary scan frame. */
   ingestBinary(buffer: ArrayBuffer): void {
+    if (buffer.byteLength < SCAN_HEADER_LEN) {
+      this.setError(`scan frame too short: ${buffer.byteLength}`);
+      return;
+    }
     const scan = decodeScanFrame(buffer);
     this.latestScan = scan;
     this.waterfall.push(scan.micro_doppler.column);

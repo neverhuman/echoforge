@@ -119,7 +119,6 @@ fn quantize_clip(value: f32, limit: f32, step: f32) -> f32 {
     (value.clamp(-limit, limit) / step).round() * step
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

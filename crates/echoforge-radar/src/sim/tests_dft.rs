@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
-use super::*;
 use super::tests_helpers::high_snr_episode;
+use super::*;
 
 /// A pure complex tone `x[n] = exp(j 2π f₀ n / N)` injected into a
 /// single range bin must produce a DFT peak at Doppler bin `f₀` of

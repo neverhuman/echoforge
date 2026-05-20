@@ -509,10 +509,11 @@ dependencies = [
 
 [[package]]
 name = "echoforge-studio"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "echoforge-core",
+ "echoforge-dataset",
  "echoforge-radar",
  "echoforge-validate",
  "echoforge-world",

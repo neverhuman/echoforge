@@ -2,7 +2,14 @@
 // control plane is request/response; the live data plane is the
 // WebSocket in `radarSocket.ts`.
 
-import type { RadarParamPatch, ScenarioSummary } from './radarContract';
+import type {
+  JobComposeRequest,
+  JobSummary,
+  RadarParamPatch,
+  RunArtifact,
+  RunSummary,
+  ScenarioSummary,
+} from './radarContract';
 
 async function postSim(path: string, body?: unknown): Promise<unknown> {
   const res = await fetch(`/api/sim/${path}`, {
@@ -44,4 +51,63 @@ export async function fetchScenarios(): Promise<ScenarioSummary[]> {
     throw new Error(`GET /api/sim/scenarios failed: ${res.status}`);
   }
   return (await res.json()) as ScenarioSummary[];
+}
+
+export async function fetchRuns(): Promise<RunSummary[]> {
+  const res = await fetch('/api/runs');
+  if (!res.ok) {
+    throw new Error(`GET /api/runs failed: ${res.status}`);
+  }
+  return (await res.json()) as RunSummary[];
+}
+
+export async function fetchRunArtifacts(runId: string): Promise<RunArtifact[]> {
+  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/artifacts`);
+  if (!res.ok) {
+    throw new Error(`GET /api/runs/${runId}/artifacts failed: ${res.status}`);
+  }
+  return (await res.json()) as RunArtifact[];
+}
+
+export async function replayRun(runId: string): Promise<unknown> {
+  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/replay`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ mode: 'exact_seed' }),
+  });
+  if (!res.ok) {
+    throw new Error(`POST /api/runs/${runId}/replay failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export async function fetchJobs(): Promise<JobSummary[]> {
+  const res = await fetch('/api/jobs');
+  if (!res.ok) {
+    throw new Error(`GET /api/jobs failed: ${res.status}`);
+  }
+  return (await res.json()) as JobSummary[];
+}
+
+export async function createJob(request: JobComposeRequest): Promise<JobSummary> {
+  const res = await fetch('/api/jobs', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+  if (!res.ok) {
+    throw new Error(`POST /api/jobs failed: ${res.status}`);
+  }
+  return (await res.json()) as JobSummary;
+}
+
+export async function cancelJob(jobId: string): Promise<JobSummary> {
+  const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error(`POST /api/jobs/${jobId}/cancel failed: ${res.status}`);
+  }
+  return (await res.json()) as JobSummary;
 }

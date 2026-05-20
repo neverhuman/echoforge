@@ -16,7 +16,7 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: 'npm run web:build && npx vite preview --config apps/web/vite.config.ts --port 5173',
+    command: 'npm --prefix ../.. run web:build && ../../node_modules/.bin/vite preview --config ../../apps/web/vite.config.ts --port 5173',
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

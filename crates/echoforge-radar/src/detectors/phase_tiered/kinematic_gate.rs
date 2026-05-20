@@ -246,7 +246,6 @@ pub fn cruise_kinematic_gate_jet() -> KinematicGate {
     }
 }
 
-
 #[cfg(test)]
 #[path = "kinematic_gate_tests.rs"]
 mod tests;

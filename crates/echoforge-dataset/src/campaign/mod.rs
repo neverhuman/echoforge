@@ -14,18 +14,16 @@ mod types;
 mod workers;
 
 // Re-export types needed by types.rs (referenced in CampaignConfig::shahed_public_proxy_default)
+pub use detectors::StreamingDetector;
 pub use types::{
     CalibrationBin, CampaignBucket, CampaignClass, CampaignConfig, CampaignRecordPlan,
     CampaignReport, ClassBalanceReport, CurvePoint, DetectionState, FirstTriggerEvent,
     FrameFeature, FrameLabel, ModelEvaluationReport,
 };
-pub use detectors::StreamingDetector;
 
 use crate::guard::{begin_generation_run, guard_output_dir};
 
-use plan::{
-    build_campaign_plan, validate_campaign_config,
-};
+use plan::{build_campaign_plan, validate_campaign_config};
 use reporting::{
     build_campaign_benchmark_report, build_class_balance, build_runtime_report,
     campaign_dataset_card, campaign_guardrails, write_model_artifacts, write_root_csvs,
@@ -38,15 +36,18 @@ pub const NEUTRAL_CAMPAIGN_ID: &str = "owa-delta-pusher-public-proxy-early-detec
 pub const OWA_DELTA_OBJECT_ID: &str = "owa-delta-pusher-fixed-wing-public-proxy-v1";
 pub const DEFAULT_CAMPAIGN_OUTPUT: &str =
     "outputs/campaigns/shahed136-public-proxy-early-detection-v1";
-pub(super) const SOURCE_DOSSIER_REF: &str =
-    "object-packs/public-proxy-v1/source_dossier.yaml";
+pub(super) const SOURCE_DOSSIER_REF: &str = "object-packs/public-proxy-v1/source_dossier.yaml";
 
 pub fn run_monte_carlo_campaign(config: CampaignConfig) -> Result<CampaignReport, DatasetError> {
     validate_campaign_config(&config)?;
     guard_output_dir(&config.output_dir)?;
     let mut ctx = begin_generation_run(
-        &config.output_dir, config.backend, config.workers, config.records,
-        config.time_window_s, config.frame_rate_hz,
+        &config.output_dir,
+        config.backend,
+        config.workers,
+        config.records,
+        config.time_window_s,
+        config.frame_rate_hz,
     )?;
     let progress_enabled = config.progress && io::stderr().is_terminal();
     let plan_start = Instant::now();

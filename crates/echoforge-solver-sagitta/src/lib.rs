@@ -258,7 +258,6 @@ impl SolverAdapter for SagittaSbrAdapter {
 // docs and future wired-adapter code can refer to it without churn.
 const _: Option<RunStatus> = None;
 
-
 #[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;

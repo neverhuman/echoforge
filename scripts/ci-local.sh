@@ -21,6 +21,7 @@ ci_header "security lane"
 bash ops/ci/security.sh
 
 ci_header "web-smoke lane"
+require_node_at_least 26.1.0
 npm install --no-fund --no-audit
 run_lane web-smoke
 

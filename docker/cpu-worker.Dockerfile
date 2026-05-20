@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS web-build
+FROM node:26-bookworm-slim AS web-build
 
 ENV DEBIAN_FRONTEND=noninteractive \
   NODE_ENV=development

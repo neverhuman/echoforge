@@ -10,8 +10,8 @@ use std::path::Path;
 use serde::Serialize;
 
 use super::types::{
-    CampaignBucket, CampaignConfig, CampaignRecordSummary, ClassBalanceReport,
-    FirstTriggerEvent, ModelPredictionRow,
+    CampaignBucket, CampaignConfig, CampaignRecordSummary, ClassBalanceReport, FirstTriggerEvent,
+    ModelPredictionRow,
 };
 use crate::monte_carlo::DatasetError;
 
@@ -224,4 +224,3 @@ pub(super) fn build_class_balance(
         hard_negative_family_counts,
     }
 }
-

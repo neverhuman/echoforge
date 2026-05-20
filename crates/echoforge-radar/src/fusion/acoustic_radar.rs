@@ -76,8 +76,12 @@ pub fn fuse_acoustic(radar: &RadarTrack, acoustic: &AcousticObservation) -> Fuse
     // 1. Azimuth Gaussian product.
     let radar_var = radar.azimuth_uncertainty_deg.powi(2);
     let acoustic_var = acoustic.bearing_uncertainty_deg.powi(2);
-    let (combined_var, combined_az) =
-        gaussian_product_1d(radar.azimuth_deg, radar_var, acoustic.bearing_deg, acoustic_var);
+    let (combined_var, combined_az) = gaussian_product_1d(
+        radar.azimuth_deg,
+        radar_var,
+        acoustic.bearing_deg,
+        acoustic_var,
+    );
     let combined_std = combined_var.sqrt();
 
     // 2. Agreement: Gaussian kernel on bearing error. The f64::MIN_POSITIVE

@@ -324,8 +324,7 @@ impl Rcs {
         let freq_matches: Vec<usize> = class_matches
             .into_iter()
             .filter(|idx| {
-                let d =
-                    (prng::log10_safe(self.tables[*idx].frequency_ghz) - log_target).abs();
+                let d = (prng::log10_safe(self.tables[*idx].frequency_ghz) - log_target).abs();
                 d <= best_log_dist + tol
             })
             .collect();

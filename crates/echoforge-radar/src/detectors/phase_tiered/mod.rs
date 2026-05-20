@@ -180,7 +180,9 @@ impl PhaseTieredDetector {
                 };
             }
             Tier::Cruise => {
-                let cruise = self.cruise.evaluate(observation, mtd_power_spectrum, doppler_bin_hz);
+                let cruise = self
+                    .cruise
+                    .evaluate(observation, mtd_power_spectrum, doppler_bin_hz);
                 out.kinematic_consistency = cruise.kalman_consistency;
                 out.propulsion_class = cruise.propulsion_class;
                 out.micro_doppler_confirmed = cruise.micro_doppler_confirmed;

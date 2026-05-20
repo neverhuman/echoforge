@@ -1,6 +1,6 @@
 [package]
 name = "echoforge-studio"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 publish = false
@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 axum = { version = "0.8", features = ["ws"] }
 echoforge-core = { path = "../echoforge-core" }
+echoforge-dataset = { path = "../echoforge-dataset" }
 echoforge-radar = { path = "../echoforge-radar" }
 echoforge-validate = { path = "../echoforge-validate" }
 echoforge-world = { path = "../echoforge-world" }

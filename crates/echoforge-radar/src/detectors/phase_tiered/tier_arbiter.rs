@@ -77,7 +77,8 @@ impl TierArbiter {
         // Update steady/miss bookkeeping based on the *observation*,
         // independent of whether the tier moved.
         self.update_steady_bookkeeping(observation);
-        self.history.push((next, self.confidence(observation, next)));
+        self.history
+            .push((next, self.confidence(observation, next)));
         if next == from {
             self.consecutive_in_current += 1;
             return None;
@@ -297,10 +298,7 @@ mod tests {
         // (accel = 0, climb = 0) and at a piston-cluster speed.
         let mut last_transition = None;
         for k in 0..12usize {
-            let observation = obs(vec![
-                (k as f64, 50.0, 800.0),
-                ((k + 1) as f64, 50.0, 800.0),
-            ]);
+            let observation = obs(vec![(k as f64, 50.0, 800.0), ((k + 1) as f64, 50.0, 800.0)]);
             let t = arb.step(&observation);
             if t.is_some() {
                 last_transition = t;
@@ -329,10 +327,7 @@ mod tests {
         // transitions to None.
         let mut last_transition = None;
         for k in 0..5usize {
-            let observation = obs(vec![
-                (k as f64, 0.0, 800.0),
-                ((k + 1) as f64, 0.0, 800.0),
-            ]);
+            let observation = obs(vec![(k as f64, 0.0, 800.0), ((k + 1) as f64, 0.0, 800.0)]);
             let t = arb.step(&observation);
             if t.is_some() {
                 last_transition = t;

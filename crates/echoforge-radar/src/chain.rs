@@ -85,10 +85,7 @@ impl<B: ArrayBackend> RadarChain<B> {
     }
 }
 
-fn apply_window(
-    reference: &[ComplexSample],
-    window: CompressionWindow,
-) -> Vec<ComplexSample> {
+fn apply_window(reference: &[ComplexSample], window: CompressionWindow) -> Vec<ComplexSample> {
     if matches!(window, CompressionWindow::None) {
         return reference.to_vec();
     }

@@ -10,19 +10,19 @@ use echoforge_radar::{
 };
 
 use super::types::{
-    MicroDopplerDescriptors,
-    MlEnvelope, MlFeatureSummaryRow, MlFrameFeatureRow, PerRecordTierObservation,
+    MicroDopplerDescriptors, MlEnvelope, MlFeatureSummaryRow, MlFrameFeatureRow,
+    PerRecordTierObservation,
+};
+use super::util::{
+    cadence_velocity, cepstrum_proxy, entropy, stft_spectrogram, weighted_spectrum,
+    write_f32_tensor,
 };
 use crate::export::write_json_pretty as write_json;
 use crate::monte_carlo::DatasetError;
-use super::util::{
-    cadence_velocity, cepstrum_proxy, entropy, stft_spectrogram,
-    weighted_spectrum, write_f32_tensor,
-};
 
 #[path = "pipeline_writers_tensors.rs"]
 mod pipeline_writers_tensors;
-pub(super) use pipeline_writers_tensors::{write_multi_view_products, write_learned_windows};
+pub(super) use pipeline_writers_tensors::{write_learned_windows, write_multi_view_products};
 
 /// Run [`PhaseTieredDetector::evaluate_cpi`] against a synthesised
 /// episode and aggregate the per-tier counts.
@@ -190,6 +190,8 @@ pub(super) fn write_micro_doppler_products(
 pub(super) fn summarize_features(
     record_id: &str,
     split: crate::split::SplitKind,
+    sensor_id: &str,
+    phase_target: &str,
     class: &super::types::MlClass,
     features: &[MlFrameFeatureRow],
     first_detectable_frame: Option<usize>,
@@ -198,6 +200,8 @@ pub(super) fn summarize_features(
     MlFeatureSummaryRow {
         record_id: record_id.to_string(),
         split,
+        sensor_id: sensor_id.to_string(),
+        phase_target: phase_target.to_string(),
         target_family: class.target_family.clone(),
         hard_negative_family: class.hard_negative_family.clone(),
         is_public_proxy_positive: class.is_public_proxy_positive,

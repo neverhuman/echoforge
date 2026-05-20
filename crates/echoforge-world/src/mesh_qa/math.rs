@@ -64,7 +64,11 @@ fn quantise(v: [f64; 3]) -> (i64, i64, i64) {
 fn edge_key(a: [f64; 3], b: [f64; 3]) -> EdgeKey {
     let qa = quantise(a);
     let qb = quantise(b);
-    if qa <= qb { (qa, qb) } else { (qb, qa) }
+    if qa <= qb {
+        (qa, qb)
+    } else {
+        (qb, qa)
+    }
 }
 
 pub(super) fn build_edge_map(

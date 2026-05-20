@@ -184,7 +184,10 @@ fn polarization_vv_vs_hh_changes_target_amp() {
         .copied()
         .fold(0.0f32, f32::max);
 
-    assert!(peak_vv > 0.0 && peak_hh > 0.0, "both peaks must be positive");
+    assert!(
+        peak_vv > 0.0 && peak_hh > 0.0,
+        "both peaks must be positive"
+    );
 
     // HH amplitude scale = 10^(+1/20) ≈ 1.122 (see
     // `polarization_amplitude_scale`). The integrated profile is a

@@ -7,7 +7,11 @@ use crate::detectors::phase_tiered::speed_classifier::PropulsionClass;
 /// looks for an above-floor line *anywhere outside the body-Doppler
 /// region*, which is what jet compressor signatures look like in the
 /// public literature.
-pub(super) fn check_blade_pass_line(spec: &[f32], doppler_bin_hz: f64, class: PropulsionClass) -> bool {
+pub(super) fn check_blade_pass_line(
+    spec: &[f32],
+    doppler_bin_hz: f64,
+    class: PropulsionClass,
+) -> bool {
     if spec.is_empty() || doppler_bin_hz <= 0.0 {
         return false;
     }
@@ -40,4 +44,3 @@ pub(super) fn check_blade_pass_line(spec: &[f32], doppler_bin_hz: f64, class: Pr
     }
     spec[lo_bin..=hi_bin].iter().any(|&v| v >= 2.0 * median)
 }
-

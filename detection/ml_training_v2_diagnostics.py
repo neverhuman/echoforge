@@ -17,6 +17,7 @@ from sklearn.preprocessing import StandardScaler
 from ml_training_v2_config import (
     FRAME_COLUMNS,
     FRAME_INDEX,
+    FRAME_COUNT,
     HELDOUT_CONFUSER_FAMILIES,
     NEGATIVE_CONTROL_AUC_GATE,
     SINGLE_FEATURE_AUC_GATE,

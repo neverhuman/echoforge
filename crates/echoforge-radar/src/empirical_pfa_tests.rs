@@ -6,7 +6,10 @@ fn wilson_ci_centred_proportion() {
     // ~3% half-width.
     let (lo, hi) = wilson_ci_95(500, 1000);
     assert!(lo < 0.5 && hi > 0.5, "CI should bracket 0.5: [{lo}, {hi}]");
-    assert!(hi - lo < 0.10, "CI half-width should be small: [{lo}, {hi}]");
+    assert!(
+        hi - lo < 0.10,
+        "CI half-width should be small: [{lo}, {hi}]"
+    );
 }
 
 #[test]
@@ -23,7 +26,10 @@ fn wilson_ci_zero_successes_lower_bound_zero() {
     // to >= 0 in wilson_ci_95, so the returned value should be either
     // exactly 0.0 or a non-negative ~ eps value.
     let (lo, _hi) = wilson_ci_95(0, 1000);
-    assert!(lo >= 0.0 && lo < 1e-12, "lower bound should clamp to ~0, got {lo}");
+    assert!(
+        lo >= 0.0 && lo < 1e-12,
+        "lower bound should clamp to ~0, got {lo}"
+    );
 }
 
 #[test]
@@ -31,7 +37,10 @@ fn render_markdown_has_header_and_one_row_per_observation() {
     // Synthetic minimal observation set; just verify table structure.
     let observations = calibrate_standard_table(1_000, 0xABCD);
     let md = render_markdown(&observations);
-    assert!(md.starts_with("| Regime"), "markdown should start with header");
+    assert!(
+        md.starts_with("| Regime"),
+        "markdown should start with header"
+    );
     // 2 header rows + N data rows.
     let line_count = md.lines().count();
     assert_eq!(line_count, observations.len() + 2);

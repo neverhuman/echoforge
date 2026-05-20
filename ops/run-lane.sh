@@ -3,6 +3,8 @@ set -euo pipefail
 
 repo_root="$(CDPATH= cd -- "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
+# shellcheck source=ops/ci/lib.sh
+source "$repo_root/ops/ci/lib.sh"
 
 run() {
   printf '==> %s\n' "$*" >&2
@@ -64,6 +66,7 @@ case "$lane" in
     run cargo test -p echoforge-contracts-smoke --locked
     ;;
   demo)
+    require_node_at_least 26.1.0
     run npm run web:build
     HOST=127.0.0.1 PORT=8080 cargo run -p echoforge-studio --locked
     ;;
@@ -71,18 +74,21 @@ case "$lane" in
     run cargo test -p echoforge-studio --locked
     ;;
   web-smoke)
+    require_node_at_least 26.1.0
     run npm ci --no-fund --no-audit
     run npm run web:smoke
     ;;
   web-e2e)
+    require_node_at_least 26.1.0
     run npm ci --no-fund --no-audit
     cd apps/web
-    run node_modules/.bin/playwright test
+    run ../../node_modules/.bin/playwright test
     ;;
   ux-qa)
+    require_node_at_least 26.1.0
     run npm ci --no-fund --no-audit
     cd apps/web
-    run node_modules/.bin/playwright test --reporter=html
+    run ../../node_modules/.bin/playwright test --reporter=html
     ;;
   science-smoke)
     run cargo test -p echoforge-sig --locked

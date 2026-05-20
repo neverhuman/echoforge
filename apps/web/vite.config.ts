@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 // The Rust `echoforge-studio` service serves the API + WebSocket. In dev
 // the Vite server proxies to it; override the origin with

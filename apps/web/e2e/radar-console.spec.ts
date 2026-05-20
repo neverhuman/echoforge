@@ -41,3 +41,12 @@ test('tabs switch between the radar console and the contract surface', async ({ 
   await page.getByTestId('tab-radar').click();
   await expect(page.getByTestId('radar-console')).toBeVisible();
 });
+
+test('jobs tab exposes the ml pipeline composer and queue', async ({ page }) => {
+  await page.goto('/');
+  await page.getByTestId('tab-jobs').click();
+  await expect(page.getByTestId('jobs-view')).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId('job-composer')).toBeVisible();
+  await expect(page.getByTestId('job-board')).toBeVisible();
+  await expect(page.getByTestId('job-launch')).toBeVisible();
+});

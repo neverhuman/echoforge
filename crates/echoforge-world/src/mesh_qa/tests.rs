@@ -16,24 +16,42 @@ fn sphere_mesh_finite_and_consistent() {
     assert_eq!(report.triangle_count, mesh.triangle_count());
     assert!(report.bbox_max[0] > report.bbox_min[0]);
 
-    assert_eq!(gate_named(&report, "gate_finite_vertices").status, QaStatus::Pass);
-    assert_eq!(gate_named(&report, "gate_consistent_winding").status, QaStatus::Pass);
-    assert_eq!(gate_named(&report, "gate_max_electrical_size").status, QaStatus::Pass);
+    assert_eq!(
+        gate_named(&report, "gate_finite_vertices").status,
+        QaStatus::Pass
+    );
+    assert_eq!(
+        gate_named(&report, "gate_consistent_winding").status,
+        QaStatus::Pass
+    );
+    assert_eq!(
+        gate_named(&report, "gate_max_electrical_size").status,
+        QaStatus::Pass
+    );
     let w = gate_named(&report, "gate_watertight");
     assert!(
         matches!(w.status, QaStatus::Pass | QaStatus::Warn),
         "watertight gate must not Fail on closed sphere: {}",
         w.message
     );
-    assert_eq!(gate_named(&report, "gate_bounded_volume_vs_box").status, QaStatus::Pass);
+    assert_eq!(
+        gate_named(&report, "gate_bounded_volume_vs_box").status,
+        QaStatus::Pass
+    );
 }
 
 #[test]
 fn plate_mesh_warns_on_watertight() {
     let mesh = plate_mesh(1.0, 1.0, 10, 10);
     let report = run_qa(&mesh, None);
-    assert_eq!(gate_named(&report, "gate_finite_vertices").status, QaStatus::Pass);
-    assert_eq!(gate_named(&report, "gate_no_degenerate_triangles").status, QaStatus::Pass);
+    assert_eq!(
+        gate_named(&report, "gate_finite_vertices").status,
+        QaStatus::Pass
+    );
+    assert_eq!(
+        gate_named(&report, "gate_no_degenerate_triangles").status,
+        QaStatus::Pass
+    );
     let w = gate_named(&report, "gate_watertight");
     assert_eq!(w.status, QaStatus::Warn, "plate must warn on watertight");
     assert!(w.value > 0.0, "expected open edges > 0");
@@ -42,8 +60,14 @@ fn plate_mesh_warns_on_watertight() {
         "watertight message should flag plate as expected-open: {}",
         w.message
     );
-    assert_eq!(gate_named(&report, "gate_bounded_volume_vs_box").status, QaStatus::Skipped);
-    assert_eq!(gate_named(&report, "gate_max_electrical_size").status, QaStatus::Skipped);
+    assert_eq!(
+        gate_named(&report, "gate_bounded_volume_vs_box").status,
+        QaStatus::Skipped
+    );
+    assert_eq!(
+        gate_named(&report, "gate_max_electrical_size").status,
+        QaStatus::Skipped
+    );
     assert_eq!(report.overall_status, QaStatus::Warn);
 }
 
@@ -74,7 +98,12 @@ fn electrical_size_sphere_10ghz_under_budget() {
     let mesh = sphere_mesh(1.0, 16, 32);
     let report = run_qa(&mesh, Some(10e9));
     let g = gate_named(&report, "gate_max_electrical_size");
-    assert_eq!(g.status, QaStatus::Pass, "10 GHz sphere should pass: {}", g.message);
+    assert_eq!(
+        g.status,
+        QaStatus::Pass,
+        "10 GHz sphere should pass: {}",
+        g.message
+    );
     let expected = 2.0 * 10e9 / SPEED_OF_LIGHT_M_PER_S;
     assert!(
         (g.value - expected).abs() < 0.5,
@@ -97,7 +126,10 @@ fn electrical_size_warns_above_threshold() {
 fn electrical_size_missing_frequency_is_skipped() {
     let mesh = sphere_mesh(1.0, 4, 6);
     let report = run_qa(&mesh, None);
-    assert_eq!(gate_named(&report, "gate_max_electrical_size").status, QaStatus::Skipped);
+    assert_eq!(
+        gate_named(&report, "gate_max_electrical_size").status,
+        QaStatus::Skipped
+    );
 }
 
 #[test]
@@ -108,7 +140,10 @@ fn qa_status_worse_of_orders_correctly() {
     assert_eq!(QaStatus::Fail.worse_of(QaStatus::Warn), QaStatus::Fail);
     assert_eq!(QaStatus::Skipped.worse_of(QaStatus::Warn), QaStatus::Warn);
     assert_eq!(QaStatus::Pass.worse_of(QaStatus::Skipped), QaStatus::Pass);
-    assert_eq!(QaStatus::Skipped.worse_of(QaStatus::Pass), QaStatus::Skipped);
+    assert_eq!(
+        QaStatus::Skipped.worse_of(QaStatus::Pass),
+        QaStatus::Skipped
+    );
 }
 
 #[test]
@@ -116,7 +151,12 @@ fn sphere_volume_matches_pi_over_six() {
     let mesh = sphere_mesh(1.0, 32, 64);
     let report = run_qa(&mesh, None);
     let v = gate_named(&report, "gate_bounded_volume_vs_box");
-    assert_eq!(v.status, QaStatus::Pass, "sphere volume gate: {}", v.message);
+    assert_eq!(
+        v.status,
+        QaStatus::Pass,
+        "sphere volume gate: {}",
+        v.message
+    );
     assert!(
         (v.value - std::f64::consts::PI / 6.0).abs() < 0.05,
         "sphere V/V_bbox should be ~pi/6, got {:.4}",
@@ -128,7 +168,10 @@ fn sphere_volume_matches_pi_over_six() {
 fn plate_winding_is_consistent() {
     let mesh = plate_mesh(2.0, 2.0, 6, 6);
     let report = run_qa(&mesh, None);
-    assert_eq!(gate_named(&report, "gate_consistent_winding").status, QaStatus::Pass);
+    assert_eq!(
+        gate_named(&report, "gate_consistent_winding").status,
+        QaStatus::Pass
+    );
 }
 
 #[test]
