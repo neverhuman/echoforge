@@ -1,0 +1,419 @@
+{
+	"schema_version": 1,
+	"storage_policy": {
+		"raw_external_data_root": "${ECHOFORGE_REAL_DATA_ROOT:-$HOME/.cache/echoforge/real-data}",
+		"derived_outputs": "outputs/real-data/<dataset_id>/<run_id>/",
+		"git_policy": "Only registry metadata, adapter code, docs, and tiny synthetic test fixtures may be tracked. Raw measured data, normalized measured samples, and derived measured outputs stay out of Git."
+	},
+	"datasets": [
+		{
+			"dataset_id": "kth-drone-bird-human-77ghz",
+			"display_name": "KTH radar measurements on drones, birds and humans with a 77GHz FMCW sensor",
+			"source_url": "https://zenodo.org/records/5896641",
+			"citation": "Karlsson, Alexander. Radar measurements on drones, birds and humans with a 77GHz FMCW sensor. Zenodo, v2.0, 2021. DOI: 10.5281/zenodo.5896641.",
+			"access_status": "open_manual_download",
+			"license_status": "CC-BY-4.0",
+			"product_level": "processed_fmcw_samples_npy",
+			"radar_band_modality": ["77GHz FMCW"],
+			"target_classes": ["six drone types"],
+			"confuser_classes": ["birds", "humans"],
+			"phase_relevance": [
+				"micro_doppler_realism",
+				"drone_bird_human_hard_negatives"
+			],
+			"retrieval": {
+				"method": "manual_url",
+				"url": "https://zenodo.org/records/5896641",
+				"network_default": "disabled"
+			},
+			"adapter_name": "kth_microdoppler_v1",
+			"allowed_claim_level": "measured_anchor_candidate_only",
+			"claim_boundary": "Use for distribution-distance calibration of public-proxy radar products; do not claim object-specific measured truth or operational sensor performance.",
+			"priority": "primary_v1",
+			"reference_features": [
+				"micro_doppler_energy",
+				"doppler_bandwidth_hz",
+				"class_confuser_overlap"
+			],
+			"notes": "Best first airborne hard-negative anchor for drone-vs-bird/human micro-Doppler realism."
+		},
+		{
+			"dataset_id": "open-radar-initiative-outdoor-moving-object",
+			"display_name": "Open Radar Initiative Outdoor Moving Object Dataset",
+			"source_url": "https://github.com/openradarinitiative/open_radar_datasets",
+			"citation": "Gusland et al. Open Radar Initiative: Large Scale Dataset for Benchmarking of micro-Doppler Recognition Algorithms. IEEE Radar Conference, 2021.",
+			"access_status": "open_manual_download",
+			"license_status": "dataset_CC-BY-NC-4.0_repo_GPL-3.0",
+			"product_level": "track_dictionary_with_doppler_spectra",
+			"radar_band_modality": [
+				"stationary ground-surveillance radar",
+				"Doppler spectra",
+				"range",
+				"azimuth",
+				"radial_velocity",
+				"SNR"
+			],
+			"target_classes": ["UAV"],
+			"confuser_classes": ["person", "bicycle", "vehicle"],
+			"phase_relevance": [
+				"range_doppler_snr_statistics",
+				"operational_confusers",
+				"track_products"
+			],
+			"retrieval": {
+				"method": "manual_url",
+				"url": "https://github.com/openradarinitiative/open_radar_datasets",
+				"network_default": "disabled"
+			},
+			"adapter_name": "ori_outdoor_track_products_v1",
+			"allowed_claim_level": "measured_anchor_candidate_only",
+			"claim_boundary": "Use for observable product distributions and domain holdout checks; non-commercial license limits redistribution and downstream use.",
+			"priority": "primary_v1",
+			"reference_features": [
+				"range_m",
+				"radial_velocity_mps",
+				"snr_db",
+				"doppler_spectrum"
+			],
+			"notes": "Strong match for surveillance-style observable radar products and everyday confusers."
+		},
+		{
+			"dataset_id": "han-jung-2026-timesync-drone-radar-rf",
+			"display_name": "Time-synchronized multi-sensor drone dataset acquired from multiple radars and RF receiver",
+			"source_url": "https://www.nature.com/articles/s41597-026-06802-6",
+			"citation": "Han, S.-K. and Jung, Y.-H. A Time-Synchronized Multi-Sensor drone dataset acquired from multiple radars and RF receiver. Scientific Data 13, 407, 2026.",
+			"access_status": "pending_access_and_data_license_verification",
+			"license_status": "article_CC-BY-NC-ND-4.0_data_license_verify_before_use",
+			"product_level": "raw_cw_iq_raw_rf_iq_processed_fmcw_range_doppler_mat",
+			"radar_band_modality": ["FMCW radar", "CW radar", "RF receiver"],
+			"target_classes": ["commercial drones"],
+			"confuser_classes": ["one non-drone target"],
+			"phase_relevance": [
+				"direct_drone_radar_rf_anchor",
+				"sensor_fusion_alignment"
+			],
+			"retrieval": {
+				"method": "manual_article_data_access",
+				"url": "https://www.nature.com/articles/s41597-026-06802-6",
+				"network_default": "disabled"
+			},
+			"adapter_name": "han_jung_timesync_drone_v1",
+			"allowed_claim_level": "reference_only_until_license_verified",
+			"claim_boundary": "Do not adapt, redistribute, or derive committed artifacts from this dataset until data license and citation requirements are confirmed.",
+			"priority": "primary_v1_pending",
+			"reference_features": [
+				"range_doppler_map",
+				"doppler_spectrum",
+				"rf_power_spectral_density"
+			],
+			"notes": "Promising direct drone radar/RF anchor; remains reference-only until access and license are checked locally."
+		},
+		{
+			"dataset_id": "raddar-rdrd-real-doppler",
+			"display_name": "Real Doppler RAD-DAR Database",
+			"source_url": "https://www.kaggle.com/datasets/iroldan/real-doppler-raddar-database",
+			"citation": "Real Doppler RAD-DAR database, Kaggle; associated publication DOI: 10.1049/iet-rsn.2019.0307.",
+			"access_status": "kaggle_account_required",
+			"license_status": "CC-BY-4.0_on_kaggle",
+			"product_level": "cropped_range_doppler_matrices",
+			"radar_band_modality": ["8.75GHz FMCW", "range-Doppler"],
+			"target_classes": ["drones"],
+			"confuser_classes": ["cars", "people"],
+			"phase_relevance": [
+				"compact_doppler_classifier_benchmark",
+				"person_vehicle_hard_negatives"
+			],
+			"retrieval": {
+				"method": "manual_kaggle",
+				"url": "https://www.kaggle.com/datasets/iroldan/real-doppler-raddar-database",
+				"network_default": "disabled"
+			},
+			"adapter_name": "raddar_rdrd_v1",
+			"allowed_claim_level": "measured_anchor_candidate_only_after_kaggle_terms_review",
+			"claim_boundary": "Use as a compact public Doppler benchmark after Kaggle terms are accepted locally; no raw or normalized samples may be committed.",
+			"priority": "primary_v1_gated",
+			"reference_features": [
+				"range_doppler_patch_power",
+				"doppler_bandwidth_hz",
+				"target_class"
+			],
+			"notes": "Good compact benchmark but gated behind Kaggle authentication and terms."
+		},
+		{
+			"dataset_id": "idf-ds-fixed-wing-uav-telemetry",
+			"display_name": "IDF-DS fixed-wing UAS telemetry benchmark",
+			"source_url": "https://www.nature.com/articles/s41597-026-06716-3",
+			"citation": "García-Gascón et al. An open benchmark dataset for machine learning and intelligent trajectory optimization in fixed-wing unmanned aerial systems. Scientific Data 13, 364, 2026.",
+			"access_status": "open_manual_download",
+			"license_status": "open_license_reported_verify_zenodo_before_use",
+			"product_level": "fixed_wing_telemetry_not_radar",
+			"radar_band_modality": [
+				"not_radar",
+				"telemetry",
+				"GNSS",
+				"IMU",
+				"airspeed"
+			],
+			"target_classes": ["fixed-wing UAV flight"],
+			"confuser_classes": [],
+			"phase_relevance": [
+				"takeoff_climb_cruise_kinematic_priors",
+				"fixed_wing_phase_lifecycle"
+			],
+			"retrieval": {
+				"method": "manual_zenodo",
+				"url": "https://doi.org/10.5281/zenodo.16992975",
+				"network_default": "disabled"
+			},
+			"adapter_name": "idf_ds_kinematics_v1",
+			"allowed_claim_level": "kinematic_prior_only",
+			"claim_boundary": "Not a radar validation source; use only for broad public fixed-wing kinematic phase priors.",
+			"priority": "primary_v1_kinematic",
+			"reference_features": [
+				"takeoff_speed_profile",
+				"climb_rate",
+				"cruise_groundspeed"
+			],
+			"notes": "Useful for public-proxy fixed-wing phase priors, not radar measured-anchor promotion."
+		},
+		{
+			"dataset_id": "radical-77ghz-fmcw-raw-adc",
+			"display_name": "RaDICaL synchronized 77GHz FMCW raw ADC dataset",
+			"source_url": "https://databank.illinois.edu/datasets/IDB-3289560",
+			"citation": "Lim, Markowitz, and Do. RaDICaL: A Synchronized FMCW Radar, Depth, IMU and RGB Camera Data Dataset with Low-Level FMCW Radar Signals. Illinois Data Bank, 2021. DOI: 10.13012/B2IDB-3289560_V1.",
+			"access_status": "open_large_manual_download",
+			"license_status": "CC-BY",
+			"product_level": "raw_adc_ros_bags",
+			"radar_band_modality": ["77GHz FMCW", "raw ADC", "RGB-D", "IMU"],
+			"target_classes": ["indoor humans", "controlled objects"],
+			"confuser_classes": ["controlled indoor clutter"],
+			"phase_relevance": [
+				"raw_adc_chain_validation",
+				"cfar_noise_clutter_checks"
+			],
+			"retrieval": {
+				"method": "manual_url_or_globus",
+				"url": "https://databank.illinois.edu/datasets/IDB-3289560",
+				"network_default": "disabled"
+			},
+			"adapter_name": "radical_raw_adc_v1",
+			"allowed_claim_level": "chain_validation_anchor",
+			"claim_boundary": "Automotive/indoor controlled anchor for raw signal-chain validation, not C-UAS performance truth.",
+			"priority": "secondary_chain_validation",
+			"reference_features": [
+				"raw_adc_power",
+				"range_doppler_response",
+				"noise_floor"
+			],
+			"notes": "Large downloads; valuable once raw ADC processing support is in scope."
+		},
+		{
+			"dataset_id": "uw-raw-adc-automotive-77ghz",
+			"display_name": "Raw ADC data of 77GHz mmWave radar for automotive object detection",
+			"source_url": "https://github.com/Xiangyu-Gao/Raw_ADC_radar_dataset_for_automotive_object_detection",
+			"citation": "Gao et al. Raw ADC Data of 77GHz MMWave Radar for Automotive Object Detection. IEEE Dataport, 2022.",
+			"access_status": "manual_download",
+			"license_status": "repo_MIT_dataset_terms_verify_from_drive_or_ieee_dataport",
+			"product_level": "raw_adc_mat",
+			"radar_band_modality": ["77GHz mmWave", "raw ADC", "camera labels"],
+			"target_classes": [
+				"pedestrian",
+				"cyclist",
+				"car",
+				"motorbike",
+				"bus",
+				"truck"
+			],
+			"confuser_classes": ["automotive road users"],
+			"phase_relevance": ["raw_adc_processing_chain", "cfar_behavior"],
+			"retrieval": {
+				"method": "manual_drive_or_ieee_dataport",
+				"url": "https://github.com/Xiangyu-Gao/Raw_ADC_radar_dataset_for_automotive_object_detection",
+				"network_default": "disabled"
+			},
+			"adapter_name": "uw_raw_adc_automotive_v1",
+			"allowed_claim_level": "chain_validation_anchor_after_dataset_terms_review",
+			"claim_boundary": "Use for automotive raw ADC chain checks only after data terms are verified.",
+			"priority": "secondary_chain_validation",
+			"reference_features": [
+				"raw_adc_power",
+				"range_doppler_response",
+				"range_angle_response"
+			],
+			"notes": "Repository code is MIT; dataset license must be checked at the download source before use."
+		},
+		{
+			"dataset_id": "radial-hd-raw-radar",
+			"display_name": "RADIal raw high-definition radar dataset",
+			"source_url": "https://github.com/valeoai/RADIal",
+			"citation": "Rebut et al. Raw High-Definition Radar for Multi-Task Learning. CVPR, 2022.",
+			"access_status": "open_manual_download",
+			"license_status": "license_verify_before_use",
+			"product_level": "raw_hd_radar_adc_and_processed_products",
+			"radar_band_modality": [
+				"HD automotive radar",
+				"raw ADC",
+				"range-azimuth",
+				"point cloud"
+			],
+			"target_classes": ["vehicles"],
+			"confuser_classes": ["traffic scenes"],
+			"phase_relevance": ["raw_adc_chain_validation", "large_scene_clutter"],
+			"retrieval": {
+				"method": "manual_url",
+				"url": "https://github.com/valeoai/RADIal",
+				"network_default": "disabled"
+			},
+			"adapter_name": "radial_hd_raw_v1",
+			"allowed_claim_level": "chain_validation_anchor_after_license_review",
+			"claim_boundary": "Automotive raw radar anchor; do not infer C-UAS target fidelity.",
+			"priority": "secondary_chain_validation",
+			"reference_features": [
+				"power_spectrum",
+				"point_cloud",
+				"range_azimuth_map"
+			],
+			"notes": "Strong raw radar benchmark; license status must be verified before local use."
+		},
+		{
+			"dataset_id": "raddet-range-azimuth-doppler",
+			"display_name": "RADDet range-azimuth-Doppler radar object detection dataset",
+			"source_url": "https://github.com/ZhangAoCanada/RADDet",
+			"citation": "Zhang et al. RADDet: Range-Azimuth-Doppler Based Radar Object Detection for Dynamic Road Users. CRV, 2021.",
+			"access_status": "manual_download_links_may_change",
+			"license_status": "CC-BY-4.0_dataset",
+			"product_level": "range_azimuth_doppler_tensors",
+			"radar_band_modality": ["stationary automotive radar", "RAD tensors"],
+			"target_classes": ["dynamic road users"],
+			"confuser_classes": ["automotive road users"],
+			"phase_relevance": ["tensor_chain_validation", "cfar_detector_inputs"],
+			"retrieval": {
+				"method": "manual_url",
+				"url": "https://github.com/ZhangAoCanada/RADDet",
+				"network_default": "disabled"
+			},
+			"adapter_name": "raddet_tensor_v1",
+			"allowed_claim_level": "chain_validation_anchor",
+			"claim_boundary": "Use for tensor processing validation; not an airborne target realism claim.",
+			"priority": "secondary_tensor_validation",
+			"reference_features": [
+				"range_azimuth_doppler_tensor",
+				"cfar_detection_patch"
+			],
+			"notes": "Download links have changed historically, so retrieval remains explicit/manual."
+		},
+		{
+			"dataset_id": "carrada-rad-tensors",
+			"display_name": "CARRADA camera and automotive radar with range-angle-Doppler annotations",
+			"source_url": "https://github.com/valeoai/carrada_dataset",
+			"citation": "Ouaknine et al. CARRADA Dataset: Camera and Automotive Radar with Range-Angle-Doppler Annotations. ICPR, 2020.",
+			"access_status": "open_large_manual_download",
+			"license_status": "CC-BY-NC-SA-4.0_dataset_repo_GPL-3.0",
+			"product_level": "raw_radar_and_rad_tensors",
+			"radar_band_modality": ["automotive radar", "range-angle-Doppler"],
+			"target_classes": ["automotive objects"],
+			"confuser_classes": ["traffic scenes"],
+			"phase_relevance": [
+				"tensor_validation",
+				"range_angle_doppler_processing"
+			],
+			"retrieval": {
+				"method": "manual_url",
+				"url": "https://github.com/valeoai/carrada_dataset",
+				"network_default": "disabled"
+			},
+			"adapter_name": "carrada_rad_v1",
+			"allowed_claim_level": "chain_validation_anchor_noncommercial",
+			"claim_boundary": "Non-commercial share-alike dataset; use only for tensor processing validation and never commit derived measured tensors.",
+			"priority": "secondary_tensor_validation",
+			"reference_features": [
+				"range_doppler",
+				"range_angle",
+				"angle_doppler",
+				"rad_tensor"
+			],
+			"notes": "Large dataset and RAD tensor downloads; not first-priority for C-UAS takeoff realism."
+		},
+		{
+			"dataset_id": "k-radar-4d-weather",
+			"display_name": "K-Radar 4D radar object detection in various weather conditions",
+			"source_url": "https://github.com/kaist-avelab/K-Radar",
+			"citation": "Paek et al. K-Radar: 4D Radar Object Detection for Autonomous Driving in Various Weather Conditions. NeurIPS Datasets and Benchmarks, 2022.",
+			"access_status": "large_manual_or_physical_delivery",
+			"license_status": "CC-BY-NC-ND_dataset_code_Apache-2.0",
+			"product_level": "4d_radar_tensors",
+			"radar_band_modality": [
+				"4D radar tensor",
+				"range",
+				"azimuth",
+				"elevation",
+				"Doppler"
+			],
+			"target_classes": ["road objects"],
+			"confuser_classes": ["weather", "traffic"],
+			"phase_relevance": [
+				"weather_clutter_domain_anchor",
+				"large_scene_4d_tensor_validation"
+			],
+			"retrieval": {
+				"method": "manual_registration_or_physical_media",
+				"url": "https://github.com/kaist-avelab/K-Radar",
+				"network_default": "disabled"
+			},
+			"adapter_name": "k_radar_weather_v1",
+			"allowed_claim_level": "later_environmental_anchor_noncommercial_no_derivatives",
+			"claim_boundary": "Later adverse-weather domain anchor only; ND license blocks adapted measured outputs from being shared.",
+			"priority": "later_environmental_domain",
+			"reference_features": [
+				"4d_radar_power",
+				"weather_condition",
+				"range_azimuth_elevation_doppler"
+			],
+			"notes": "Very large, weather-rich automotive anchor; not first-priority for C-UAS takeoff."
+		},
+		{
+			"dataset_id": "radiate-adverse-weather-radar",
+			"display_name": "RADIATE radar dataset in adverse weather",
+			"source_url": "https://pro.hw.ac.uk/radiate/",
+			"citation": "Sheeny et al. RADIATE: A Radar Dataset for Automotive Perception. arXiv:2010.09076, 2020.",
+			"access_status": "registration_required",
+			"license_status": "CC-BY-NC-SA-4.0",
+			"product_level": "annotated_radar_images_multimodal",
+			"radar_band_modality": [
+				"high-resolution radar images",
+				"camera",
+				"LiDAR",
+				"GPS/IMU"
+			],
+			"target_classes": [
+				"cars",
+				"vans",
+				"trucks",
+				"buses",
+				"motorbikes",
+				"bicycles",
+				"pedestrians"
+			],
+			"confuser_classes": ["fog", "rain", "snow", "night", "urban traffic"],
+			"phase_relevance": [
+				"adverse_weather_clutter",
+				"large_scene_false_alarm_behavior"
+			],
+			"retrieval": {
+				"method": "manual_registration",
+				"url": "https://pro.hw.ac.uk/radiate/",
+				"network_default": "disabled"
+			},
+			"adapter_name": "radiate_weather_v1",
+			"allowed_claim_level": "later_environmental_anchor_noncommercial_sharealike",
+			"claim_boundary": "Later adverse-weather robustness anchor; not an airborne object signature source.",
+			"priority": "later_environmental_domain",
+			"reference_features": [
+				"radar_image_power",
+				"weather_condition",
+				"false_alarm_context"
+			],
+			"notes": "Weather and large-scene clutter anchor after first C-UAS measured-anchor support exists."
+		}
+	]
+}

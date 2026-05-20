@@ -20,6 +20,7 @@ from detection.pipeline_contracts.core import (
 )
 from detection.pipeline_contracts.metrics import pr_auc, roc_auc
 from detection.pipeline_contracts.validation import validate_dataset_inputs
+from detection.real_data.realism_gate import evaluate_realism_gate
 from detection.reports.builders import whitepaper_trace
 from detection.sources.dataset import load_features, load_records
 
@@ -61,7 +62,9 @@ REFERENCES = [
 ]
 
 
-def _join_rows(records: list[dict[str, str]], features: list[dict[str, str]]) -> list[dict[str, str]]:
+def _join_rows(
+    records: list[dict[str, str]], features: list[dict[str, str]]
+) -> list[dict[str, str]]:
     feature_by_record = {row["record_id"]: row for row in features}
     joined = []
     for record in records:
@@ -77,14 +80,13 @@ def _smoke_subset(rows: list[dict[str, str]], smoke: bool) -> list[dict[str, str
 
 
 def _labels(rows: Iterable[dict[str, str]]) -> list[float]:
-    return [1.0 if row.get("is_public_proxy_positive", "").lower() == "true" else 0.0 for row in rows]
+    return [
+        1.0 if row.get("is_public_proxy_positive", "").lower() == "true" else 0.0 for row in rows
+    ]
 
 
 def _scores(rows: Iterable[dict[str, str]]) -> list[float]:
-    return [
-        0.55 * tensor_score(row) + 0.45 * physics_score(row)
-        for row in rows
-    ]
+    return [0.55 * tensor_score(row) + 0.45 * physics_score(row) for row in rows]
 
 
 def _phase_auc(rows: list[dict[str, str]]) -> list[dict[str, float | str]]:
@@ -175,7 +177,9 @@ def _roc_pr_payload(labels: list[float], scores: list[float]) -> dict[str, objec
     return {"roc_points": points}
 
 
-def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_dir: Path) -> PipelineResult:
+def _build_result(
+    context: PipelineContext, rows: list[dict[str, str]], output_dir: Path
+) -> PipelineResult:
     labels = _labels(rows)
     scores = _scores(rows)
     calibration = calibration_report(labels, scores, bins=10)
@@ -192,6 +196,15 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
         "export_ready": True,
         "calibration_report": calibration,
     }
+    realism_gate = evaluate_realism_gate(
+        {
+            "overall": metrics["overall"],
+            "calibration_anchor_status": "reference_only",
+            "domain_holdout_status": "unknown",
+            "missed_track_rate": metrics["missed_track_rate"],
+        }
+    )
+    metrics["realism_gate"] = realism_gate
     manifest = _tensor_manifest(rows, context.data_root)
     training_curves = _training_curves(len(rows), metrics["overall"]["roc_auc"])
     roc_pr = _roc_pr_payload(labels, scores)
@@ -216,7 +229,12 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
     write_json(output_dir / "hard_negative_breakdown.json", metrics["hard_negative_breakdown"])
     write_json(output_dir / "calibration_report.json", calibration)
     (output_dir / "whitepaper_trace.md").write_text(
-        whitepaper_trace("Tensor Micro-Doppler Fusion", PIPELINE_SPEC.id, REFERENCES, PIPELINE_SPEC.output_contract),
+        whitepaper_trace(
+            "Tensor Micro-Doppler Fusion",
+            PIPELINE_SPEC.id,
+            REFERENCES,
+            PIPELINE_SPEC.output_contract,
+        ),
         encoding="utf-8",
     )
 
@@ -233,7 +251,9 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
             ArtifactRecord("metrics", "metrics", "metrics.json"),
             ArtifactRecord("roc_pr", "roc_pr", "roc_pr.json"),
             ArtifactRecord("phase_auc", "phase_auc", "phase_auc.json"),
-            ArtifactRecord("hard_negative_breakdown", "hard_negative_breakdown", "hard_negative_breakdown.json"),
+            ArtifactRecord(
+                "hard_negative_breakdown", "hard_negative_breakdown", "hard_negative_breakdown.json"
+            ),
             ArtifactRecord("whitepaper_trace", "whitepaper_trace", "whitepaper_trace.md"),
         ],
         metrics=metrics,
@@ -252,6 +272,11 @@ def _build_result(context: PipelineContext, rows: list[dict[str, str]], output_d
                 "gate": "export_readiness",
                 "status": "pass",
                 "detail": "optional ONNX export is not required for smoke evidence",
+            },
+            {
+                "gate": "radar_realism_operating_metrics",
+                "status": realism_gate["status"],
+                "detail": realism_gate["policy"],
             },
         ],
         notes=[

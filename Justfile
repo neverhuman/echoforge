@@ -50,6 +50,7 @@ web-smoke:
     rtk bash ops/run-lane.sh web-smoke
 
 science-smoke:
+    rtk python3 -m unittest discover -s detection/real_data/tests -p 'test_*.py'
     rtk cargo test -p echoforge-sig --locked
     rtk cargo test -p echoforge-radar --locked
     rtk cargo test -p echoforge-dataset --locked

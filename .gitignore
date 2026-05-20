@@ -44,10 +44,24 @@ debug/
 # Scientific and generated artifacts
 artifacts/
 outputs/
+real-data/
+.cache/echoforge/real-data/
 *.zarr
 *.parquet
 *.npy
 *.npz
+*.mat
+*.bag
+*.rosbag
+*.ulg
+*.pcap
+*.h5
+*.hdf5
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.rar
 *.pt
 *.pth
 *.onnx
