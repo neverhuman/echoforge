@@ -6,16 +6,18 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
-axum = "0.8"
+axum = { version = "0.8", features = ["ws"] }
 echoforge-core = { path = "../echoforge-core" }
+echoforge-radar = { path = "../echoforge-radar" }
 echoforge-validate = { path = "../echoforge-validate" }
 echoforge-world = { path = "../echoforge-world" }
+futures-util = "0.3"
 serde_yaml = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "net", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync", "time"] }
 tower-http = { version = "0.6", features = ["fs"] }
 opentelemetry = { version = "0.32", features = ["trace", "metrics"] }
 opentelemetry_sdk = { version = "0.32", features = ["metrics"] }
@@ -26,3 +28,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 tower = "0.5"
+tokio-tungstenite = "0.28"

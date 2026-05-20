@@ -14,6 +14,7 @@ use tokio::net::TcpListener;
 use tower_http::services::{ServeDir, ServeFile};
 
 mod mesh_serve;
+pub mod stream;
 mod traceability;
 
 pub const DEFAULT_SERVICE_NAME: &str = "echoforge-studio";
@@ -80,6 +81,27 @@ pub struct StudioConfig {
     pub catalog_path: PathBuf,
     pub bundle_path: PathBuf,
     pub web_dist: PathBuf,
+    pub sim: stream::control::SimSettings,
+}
+
+fn env_parse<T: std::str::FromStr>(key: &str, default: T) -> T {
+    std::env::var(key)
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(default)
+}
+
+fn sim_settings_from_env() -> stream::control::SimSettings {
+    let d = stream::control::SimSettings::default();
+    stream::control::SimSettings {
+        default_frame_rate_hz: env_parse("ECHOFORGE_SIM_FRAME_RATE_HZ", d.default_frame_rate_hz),
+        broadcast_capacity: env_parse("ECHOFORGE_SIM_BROADCAST_CAPACITY", d.broadcast_capacity),
+        rd_range_bins: env_parse("ECHOFORGE_SIM_RD_RANGE_BINS", d.rd_range_bins),
+        spectrogram_bins: env_parse("ECHOFORGE_SIM_SPECTROGRAM_BINS", d.spectrogram_bins),
+        default_scenario: std::env::var("ECHOFORGE_SIM_DEFAULT_SCENARIO")
+            .unwrap_or(d.default_scenario),
+        autostart: env_parse("ECHOFORGE_SIM_AUTOSTART", d.autostart),
+    }
 }
 
 impl StudioConfig {
@@ -123,6 +145,7 @@ impl StudioConfig {
             catalog_path,
             bundle_path,
             web_dist,
+            sim: sim_settings_from_env(),
         })
     }
 }
@@ -150,6 +173,7 @@ pub struct StudioState {
     pub mode: String,
     pub catalog: CatalogResponse,
     pub validation: ValidateReport,
+    pub sim_engine: Arc<stream::engine::SimEngine>,
 }
 
 impl StudioState {
@@ -183,6 +207,7 @@ impl StudioState {
             mode: "rust-studio".to_string(),
             catalog,
             validation,
+            sim_engine: stream::engine::SimEngine::new(config.sim.clone()),
         })
     }
 
@@ -239,6 +264,7 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
     let health_state = state.clone();
     let catalog_state = state.clone();
     let validation_state = state.clone();
+    let stream_router = stream::stream_router(state.sim_engine.clone());
     let contracts_state = state;
     let index = web_dist.join("index.html");
     let static_files = ServeDir::new(&web_dist).not_found_service(ServeFile::new(index));
@@ -284,6 +310,7 @@ pub fn build_router(state: Arc<StudioState>, web_dist: PathBuf) -> Router {
         )
         .merge(mesh_serve::mesh_router())
         .merge(traceability_router)
+        .merge(stream_router)
         .fallback_service(static_files)
 }
 
@@ -296,6 +323,7 @@ pub async fn serve_from_env() -> Result<(), StudioError> {
 #[tracing::instrument(name = "studio.serve", fields(host = %config.host, port = %config.port))]
 pub async fn serve(config: StudioConfig) -> Result<(), StudioError> {
     let state = Arc::new(StudioState::load(&config)?);
+    state.sim_engine.autostart_if_configured().await;
     let router = build_router(state, config.web_dist.clone());
     let listener = TcpListener::bind((config.host.as_str(), config.port)).await?;
     axum::serve(listener, router.into_make_service()).await?;

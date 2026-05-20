@@ -17,6 +17,10 @@
             catalog_path: workspace_root.join("contracts/schema_catalog.json"),
             bundle_path: workspace_root.join("tests/science/fixtures/bundles/v1_pass"),
             web_dist,
+            sim: crate::stream::control::SimSettings {
+                autostart: false,
+                ..crate::stream::control::SimSettings::default()
+            },
         }
     }
 
