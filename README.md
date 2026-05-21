@@ -60,15 +60,46 @@ rtk bash ops/run-lane.sh studio-sync
 
 ## Modeling Results
 
+The tables below cover the published ML results in this repo. Method names link
+to their implementing scripts so the score table stays readable and navigable.
+
 The current detection lane is the three-method `detection/run_all.sh` orchestrator over the standard synthetic public-proxy benchmark. The leaderboard below ranks the current lane by mean holdout AUC.
 
 | method | 5 s holdout AUC | 15 s holdout AUC | 45 s holdout AUC | mean holdout AUC |
 | --- | ---: | ---: | ---: | ---: |
-| `lightgbm_window_gbdt` | 0.939756 | 0.942676 | 0.944569 | 0.942334 |
-| `catboost_ordered_boosting` | 0.931495 | 0.931396 | 0.938359 | 0.933750 |
-| `cfar_tbd_fusion` | 0.851080 | 0.858492 | 0.871792 | 0.860455 |
+| [`lightgbm_window_gbdt`](./detection/02_lightgbm_window_gbdt.py) | 0.939756 | 0.942676 | 0.944569 | 0.942334 |
+| [`catboost_ordered_boosting`](./detection/03_catboost_ordered_boosting.py) | 0.931495 | 0.931396 | 0.938359 | 0.933750 |
+| [`cfar_tbd_fusion`](./detection/01_cfar_tbd_fusion.py) | 0.851080 | 0.858492 | 0.871792 | 0.860455 |
 
 Synthetic public-proxy benchmark evidence only; these numbers are not measured truth or field-performance claims.
+
+### Shahed-136/Geran-2 Main-Run Example
+
+The `runit` main run is a 10,000-scenario-group, 30,000-phase-record
+Shahed-136/Geran-2 public-proxy detection example. It writes generated streams
+and reports under `outputs/`; see [docs/main_run.md](./docs/main_run.md) for
+the full split, leakage, and claim-boundary protocol.
+
+```bash
+rtk python3 detection/generate_main_run.py --out-root outputs/training-data/runit-shahed136-main-run-v1 --scenario-groups 10000 --positive-groups 250 --seed 202605210136 --force
+rtk python3 detection/run_main_run_detectors.py --data-root outputs/training-data/runit-shahed136-main-run-v1 --out-root outputs/detection/runit-shahed136-main-run-v1 --folds 5 --seed 202605210136 --force
+```
+
+Full-run holdout performance, all phases combined. Thresholds are selected on
+train/CV only, then applied to the blind holdout.
+
+| method | holdout ROC AUC | holdout AP | accuracy | precision | recall | FPR | F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [`layered_fusion_c2`](./detection/main_run_detectors.py) | 0.914031 | 0.254743 | 0.966222 | 0.344262 | 0.368421 | 0.018240 | 0.355932 |
+| [`tabular_ml_baseline`](./detection/main_run_detectors.py) | 0.908963 | 0.227212 | 0.955333 | 0.251429 | 0.385965 | 0.029868 | 0.304498 |
+| [`sequence_ml_proxy`](./detection/main_run_detectors.py) | 0.898339 | 0.201708 | 0.932667 | 0.188119 | 0.500000 | 0.056088 | 0.273381 |
+| [`tactical_s_band_aesa`](./detection/main_run_detectors.py) | 0.886095 | 0.148732 | 0.923333 | 0.174648 | 0.543860 | 0.066803 | 0.264392 |
+| [`gbad_3d4d_cueing`](./detection/main_run_detectors.py) | 0.880495 | 0.129558 | 0.937556 | 0.180077 | 0.412281 | 0.048792 | 0.250667 |
+| [`high_resolution_xku_cuas`](./detection/main_run_detectors.py) | 0.880185 | 0.221105 | 0.966000 | 0.327434 | 0.324561 | 0.017328 | 0.325991 |
+| [`distributed_acoustic_cue`](./detection/main_run_detectors.py) | 0.820985 | 0.148669 | 0.951778 | 0.176101 | 0.245614 | 0.029868 | 0.205128 |
+
+The complete generated table is `outputs/detection/runit-shahed136-main-run-v1/performance_metrics.csv`;
+the JSON summary is `outputs/detection/runit-shahed136-main-run-v1/performance_summary.json`.
 
 ## Scenarios and Weather
 
