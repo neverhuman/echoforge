@@ -6,7 +6,7 @@
 		"server": "studio",
 		"sim_autostart": false,
 		"screenshot_scale": 2,
-		"gif_frames": ["live-radar-run 24 frames at 4 fps"]
+		"gif_frames": ["live-radar-run 18 frames at 3 fps"]
 	},
 	"strict_open_note": "README media is deterministic documentation capture from Playwright-rendered Studio states; it is not measured truth, proprietary-equivalent behavior, or field-performance evidence.",
 	"assets": [
@@ -19,7 +19,7 @@
 		{
 			"kind": "gif",
 			"path": "assets/readme/studio/studio-demo.gif",
-			"viewport": "1440x810 radar-console live run fit to 960x540",
+			"viewport": "1600x900@2x radar-console live run fit to 1280x720",
 			"route": "/",
 			"source": "6s-playwright-live-radar-run"
 		},
