@@ -18,8 +18,6 @@ const READY_TIMEOUT_MS = Number(
 const HI_DPI_SCALE = Number(process.env.STUDIO_CAPTURE_SCALE || "2");
 const GIF_WIDTH = 1280;
 const GIF_HEIGHT = 720;
-const GIF_CAPTURE_WIDTH = 1600;
-const GIF_CAPTURE_HEIGHT = 900;
 const GIF_FPS = Number(process.env.STUDIO_CAPTURE_GIF_FPS || "3");
 const GIF_SECONDS = Number(process.env.STUDIO_CAPTURE_GIF_SECONDS || "6");
 const GIF_FRAME_COUNT = Math.max(12, Math.round(GIF_FPS * GIF_SECONDS));
@@ -204,7 +202,9 @@ function buildStudioGifPalette() {
 	);
 
 	if (palette.length !== 256) {
-		throw new Error(`studio GIF palette must contain 256 colors, got ${palette.length}`);
+		throw new Error(
+			`studio GIF palette must contain 256 colors, got ${palette.length}`,
+		);
 	}
 
 	return { palette, bands };
@@ -519,7 +519,10 @@ function rgbToHsv(r, g, b) {
 }
 
 function rampIndex(base, count, value) {
-	return base + Math.max(0, Math.min(count - 1, Math.round((value * (count - 1)) / 255)));
+	return (
+		base +
+		Math.max(0, Math.min(count - 1, Math.round((value * (count - 1)) / 255)))
+	);
 }
 
 function quantizeStudioGif(r, g, b) {
@@ -549,39 +552,14 @@ function quantizeStudioGif(r, g, b) {
 	return rampIndex(STUDIO_GIF.bands.warm, 16, value);
 }
 
-function fitAndQuantize(image, outputWidth, outputHeight) {
-	const backgroundIndex = quantizeStudioGif(...GIF_BACKGROUND);
-	const scale = Math.min(
-		outputWidth / image.width,
-		outputHeight / image.height,
-	);
-	const fittedWidth = Math.max(1, Math.round(image.width * scale));
-	const fittedHeight = Math.max(1, Math.round(image.height * scale));
-	const offsetX = Math.floor((outputWidth - fittedWidth) / 2);
-	const offsetY = Math.floor((outputHeight - fittedHeight) / 2);
-	const indices = new Uint8Array(outputWidth * outputHeight);
-	indices.fill(backgroundIndex);
-	for (let y = 0; y < outputHeight; y += 1) {
-		const targetY = y - offsetY;
-		if (targetY < 0 || targetY >= fittedHeight) continue;
-		const sy = Math.min(
-			image.height - 1,
-			Math.floor((targetY * image.height) / fittedHeight),
-		);
-		for (let x = 0; x < outputWidth; x += 1) {
-			const targetX = x - offsetX;
-			if (targetX < 0 || targetX >= fittedWidth) continue;
-			const sx = Math.min(
-				image.width - 1,
-				Math.floor((targetX * image.width) / fittedWidth),
-			);
-			const source = (sy * image.width + sx) * 4;
-			const alpha = image.rgba[source + 3];
-			const r = blendChannel(image.rgba[source], alpha, GIF_BACKGROUND[0]);
-			const g = blendChannel(image.rgba[source + 1], alpha, GIF_BACKGROUND[1]);
-			const b = blendChannel(image.rgba[source + 2], alpha, GIF_BACKGROUND[2]);
-			indices[y * outputWidth + x] = quantizeStudioGif(r, g, b);
-		}
+function quantizeFrame(image) {
+	const indices = new Uint8Array(image.width * image.height);
+	for (let i = 0, p = 0; i < indices.length; i += 1, p += 4) {
+		const alpha = image.rgba[p + 3];
+		const r = blendChannel(image.rgba[p], alpha, GIF_BACKGROUND[0]);
+		const g = blendChannel(image.rgba[p + 1], alpha, GIF_BACKGROUND[1]);
+		const b = blendChannel(image.rgba[p + 2], alpha, GIF_BACKGROUND[2]);
+		indices[i] = quantizeStudioGif(r, g, b);
 	}
 	return indices;
 }
@@ -704,8 +682,8 @@ async function openLiveRadarRun(page) {
 		name: "live-radar-run",
 		testId: "tab-radar",
 		waitTestId: "radar-console",
-		width: GIF_CAPTURE_WIDTH,
-		height: GIF_CAPTURE_HEIGHT,
+		width: GIF_WIDTH,
+		height: GIF_HEIGHT,
 		delayMs: 500,
 	});
 	const startButton = page.getByTestId("sim-start");
@@ -722,19 +700,18 @@ async function openLiveRadarRun(page) {
 
 async function captureGif(browser) {
 	const context = await browser.newContext({
-		deviceScaleFactor: HI_DPI_SCALE,
-		viewport: { width: GIF_CAPTURE_WIDTH, height: GIF_CAPTURE_HEIGHT },
+		deviceScaleFactor: 1,
+		viewport: { width: GIF_WIDTH, height: GIF_HEIGHT },
 	});
 	const page = await context.newPage();
 	const frames = [];
 	await openLiveRadarRun(page);
-	const radarConsole = page.getByTestId("radar-console");
 	for (let frame = 0; frame < GIF_FRAME_COUNT; frame += 1) {
-		const png = await radarConsole.screenshot({
+		const png = await page.screenshot({
 			animations: "allow",
 			caret: "hide",
 		});
-		frames.push(fitAndQuantize(decodePng(png), GIF_WIDTH, GIF_HEIGHT));
+		frames.push(quantizeFrame(decodePng(png)));
 		await page.waitForTimeout(GIF_FRAME_INTERVAL_MS);
 	}
 	await context.close();
@@ -762,7 +739,7 @@ async function capture() {
 		assets.unshift({
 			kind: "gif",
 			path: "assets/readme/studio/studio-demo.gif",
-			viewport: `${GIF_CAPTURE_WIDTH}x${GIF_CAPTURE_HEIGHT}@${HI_DPI_SCALE}x radar-console live run fit to ${GIF_WIDTH}x${GIF_HEIGHT}`,
+			viewport: `${GIF_WIDTH}x${GIF_HEIGHT}@1x full-page`,
 			route: "/",
 			source: `${GIF_SECONDS}s-playwright-live-radar-run`,
 		});
