@@ -241,6 +241,7 @@ fn build_scene_entities(
 /// entities (e.g. `multipath_ghost` wants a parent + ghost pair) we
 /// document the gap as a Lane J pending item and recover to a single-entity
 /// scene with the closest static-confuser variant. Lane J reconciles.
+#[expect(dead_code)]
 pub(super) fn confuser_class_for_family(family: &str, is_positive: bool) -> TargetClass {
     if is_positive {
         return TargetClass::ShahedClassPiston;
@@ -303,8 +304,8 @@ pub(super) fn build_scene_descriptor(
 /// and the test helper so both use identical physics parameters.
 pub(super) fn build_noise_profile(envelope: &MlEnvelope) -> NoiseProfile {
     let mut noise = NoiseProfile::real_world_proxy_v1();
-    noise.awgn_sigma = (0.035 + 0.05 * envelope.clutter_pressure) as f32;
-    noise.clutter_sigma = (0.02 + 0.09 * envelope.clutter_pressure) as f32;
+    noise.awgn_sigma = 0.035 + 0.05 * envelope.clutter_pressure;
+    noise.clutter_sigma = 0.02 + 0.09 * envelope.clutter_pressure;
     noise.rfi_probability = (0.004 + 0.045 * envelope.rfi_pressure).min(0.12);
     noise.rfi_amplitude = 0.55 + 1.35 * envelope.rfi_pressure;
     noise.amplitude_scintillation_sigma = envelope.amplitude_impairment.max(0.01);

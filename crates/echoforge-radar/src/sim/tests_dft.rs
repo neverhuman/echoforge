@@ -70,11 +70,11 @@ fn slow_time_complex_dft_preserves_phase() {
     }
 
     // Empty range bins should hold all zeros.
-    for range in 0..range_len {
+    for (range, row) in grid.iter().enumerate().take(range_len) {
         if range == target_range_bin {
             continue;
         }
-        for cell in &grid[range] {
+        for cell in row {
             assert!(cell.norm() < 1e-6, "spurious energy in empty range bin");
         }
     }
@@ -108,8 +108,8 @@ fn slow_time_complex_dft_magnitude_matches_prior() {
     // form (the pre-Lane-B inlined implementation, kept here as the
     // ground truth).
     let mut reference = vec![vec![0.0f32; RANGE_LEN]; N];
-    for doppler in 0..N {
-        for range in 0..RANGE_LEN {
+    for (doppler, reference_row) in reference.iter_mut().enumerate().take(N) {
+        for (range, reference_cell) in reference_row.iter_mut().enumerate().take(RANGE_LEN) {
             let mut re = 0.0f32;
             let mut im = 0.0f32;
             for (pulse, profile) in profiles.iter().enumerate() {
@@ -118,7 +118,7 @@ fn slow_time_complex_dft_magnitude_matches_prior() {
                 re += value * angle.cos();
                 im += value * angle.sin();
             }
-            reference[doppler][range] = (re * re + im * im).sqrt() / N as f32;
+            *reference_cell = (re * re + im * im).sqrt() / N as f32;
         }
     }
 

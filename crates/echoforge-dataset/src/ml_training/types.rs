@@ -232,9 +232,11 @@ pub(super) struct MlEnvelope {
     pub altitude_m: f64,
     pub base_snr_db: f32,
     pub micro_peak_hz: f32,
+    #[expect(dead_code)]
     pub micro_bandwidth_hz: f32,
     pub clutter_pressure: f32,
     pub rfi_pressure: f32,
+    #[expect(dead_code)]
     pub dropout_probability: f32,
     pub phase_impairment_rad: f32,
     pub amplitude_impairment: f32,

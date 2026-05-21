@@ -171,7 +171,7 @@ pub(super) fn validate_config(config: &MlTrainingDataConfig) -> Result<(), Datas
             "generated-at must be an RFC3339-like UTC timestamp ending in Z",
         ),
         (
-            config.workers.map_or(true, |w| w > 0),
+            config.workers.is_none_or(|w| w > 0),
             "workers must be at least 1",
         ),
     ];

@@ -11,30 +11,32 @@
 | `cargo test` failure | fast | `cargo test -p <crate> -- <test_name> --nocapture` |
 | `cargo deny` advisory | security | `cargo deny list` → update dep version |
 | Playwright E2E failure | web-e2e | `cd apps/web && npx playwright test --ui` for interactive mode |
+| README media drift | studio-sync | `rtk bash ops/run-lane.sh studio-sync` |
 | `jankurai audit` cap | score | `jankurai explain <HLT-XXX>` → follow agent_fix |
 
 ## Telemetry Signals
 
 Every lane writes structured output:
-- `bash ops/run-lane.sh fast` → exit 0 = all tests pass, stderr = failure details
-- `bash ops/run-lane.sh vendor-scrub` → `target/jankurai/vendor-scrub.jsonl` (machine-readable)
-- `bash ops/run-lane.sh receipts` → exit 0 = 0 failing, lists each failing file on failure
+- `rtk bash ops/run-lane.sh fast` → exit 0 = all tests pass, stderr = failure details
+- `rtk bash ops/run-lane.sh vendor-scrub` → `target/jankurai/vendor-scrub.jsonl` (machine-readable)
+- `rtk bash ops/run-lane.sh receipts` → exit 0 = 0 failing, lists each failing file on failure
+- `rtk bash ops/run-lane.sh studio-sync` → `assets/readme/studio/` badge/media plus README guarded block
 - `jankurai audit` → `target/jankurai/repo-score.json` (full score breakdown)
 - `jankurai audit --format json` → stdout JSON for programmatic consumption
 
 ## Repair Loop
 
 Standard repair workflow for a failing CI run:
-1. `bash scripts/ci-local.sh` — reproduce locally
+1. `rtk bash scripts/ci-local.sh` — reproduce locally
 2. Check the failing lane output for specific file/line
 3. Fix the issue (rename, add section, etc.)
-4. Re-run the specific lane: `bash ops/run-lane.sh <lane>`
-5. Once passing, run `bash scripts/ci-local.sh` to confirm no regressions
+4. Re-run the specific lane: `rtk bash ops/run-lane.sh <lane>`
+5. Once passing, run `rtk bash scripts/ci-local.sh` to confirm no regressions
 6. Commit with a receipt in `.agents/receipts/<slice>/<timestamp>Z.md`
 
 ## Test Lane Overview
 
-All testing goes through `bash ops/run-lane.sh <lane>`. See `agent/proof-lanes.toml` for
+All testing goes through `rtk bash ops/run-lane.sh <lane>`. See `agent/proof-lanes.toml` for
 lane definitions and `AGENTS.md` for the full lane reference table.
 
 ### Fast Lane (`fast`)
@@ -42,7 +44,7 @@ lane definitions and `AGENTS.md` for the full lane reference table.
 Runs on every push via `jankurai.yml` CI and on every `git push` (pre-push hook).
 
 ```bash
-bash ops/run-lane.sh fast
+rtk bash ops/run-lane.sh fast
 # Runs: cargo test --workspace --locked
 # Output: test pass/fail counts, compiler warnings
 # Artifacts: target/ (excluded from git)
@@ -56,7 +58,7 @@ bash ops/run-lane.sh fast
 Blocking lane -- failures prevent merge. Runs in `strict-open.yml` CI.
 
 ```bash
-bash ops/run-lane.sh security
+rtk bash ops/run-lane.sh security
 # Runs: cargo deny check, cargo-cyclonedx, pip-licenses, secret scan
 # Output: sbom/ directory, deny violations list
 ```
@@ -67,7 +69,7 @@ bash ops/run-lane.sh security
 ### Vendor Scrub Lane (`vendor-scrub`)
 
 ```bash
-bash ops/run-lane.sh vendor-scrub
+rtk bash ops/run-lane.sh vendor-scrub
 # Runs: node tools/vendor_scrub.mjs
 # Output: target/jankurai/vendor-scrub.md (Markdown report)
 #         target/jankurai/vendor-scrub.jsonl (JSONL for machine consumption)
@@ -79,7 +81,7 @@ bash ops/run-lane.sh vendor-scrub
 ### Receipts Lane (`receipts`)
 
 ```bash
-bash ops/run-lane.sh receipts
+rtk bash ops/run-lane.sh receipts
 # Runs: node tools/receipt_guard.mjs --all
 # Output: pass/fail count, failing receipt paths with missing sections
 ```
@@ -90,7 +92,7 @@ bash ops/run-lane.sh receipts
 ### Web E2E Lane (`web-e2e`)
 
 ```bash
-bash ops/run-lane.sh web-e2e
+rtk bash ops/run-lane.sh web-e2e
 # Runs: cd apps/web && npx playwright test
 # Output: playwright-report/ with screenshots and traces on failure
 #         playwright-report/ux-qa-state.png (full-page UX QA screenshot)
@@ -98,12 +100,40 @@ bash ops/run-lane.sh web-e2e
 
 **Pass signal**: All tests passed
 **Fail signal**: Playwright prints failing test names; traces in `playwright-report/`
-**Flow**: post-merge/main-only full CI, not the PR gate
+**Flow**: browser gate after `web-smoke`; CI uploads `web-e2e-artifacts` from
+`apps/web/playwright-report/` and `apps/web/test-results/`.
+
+### Studio Sync Lane (`studio-sync`)
+
+```bash
+rtk bash ops/run-lane.sh studio-sync
+# Runs: score artifact validation/rendering, npm install, Playwright install,
+#       Rust Studio capture, README block writer
+# Output: assets/readme/studio/jankurai-score.svg
+#         assets/readme/studio/studio-demo.gif
+#         assets/readme/studio/*.png
+#         assets/readme/studio/manifest.json
+```
+
+**Pass signal**: README hero/title/badge layout guard passes and media manifest
+contains the GIF plus Command Center, Live Radar, and Monte Carlo screenshots.
+**Fail signal**: Missing score artifact, broken README layout, missing media
+asset, Playwright capture failure, or Rust Studio startup failure.
+**Flow**: local regeneration runs `score` first. The post-merge
+`studio-readme-sync` workflow sets `STUDIO_SYNC_SCORE_SOURCE=artifact` and uses
+the `jankurai-score` artifact downloaded from the completed `ci` workflow run.
+It pushes a bot commit to `main` only when `README.md` or
+`assets/readme/studio/` changed.
+
+**No-generated-output rule**: only the README media assets under
+`assets/readme/studio/` are tracked for this lane. Do not stage
+`apps/web/dist/`, `apps/web/playwright-report/`, `apps/web/test-results/`,
+`target/jankurai/`, `outputs/`, downloaded score artifacts, or solver data.
 
 ### Science Smoke Lane (`science-smoke`)
 
 ```bash
-bash ops/run-lane.sh science-smoke
+rtk bash ops/run-lane.sh science-smoke
 # Runs: Python pipeline smoke validation
 # Output: outputs/ directory with generated artifacts
 ```
@@ -157,6 +187,8 @@ under `${ECHOFORGE_REAL_DATA_ROOT}` and generated reports stay under
 | security | `sbom/` | CycloneDX JSON |
 | web-e2e | `apps/web/playwright-report/` | HTML + traces |
 | web-e2e | `apps/web/playwright-report/ux-qa-state.png` | Full-page UX screenshot |
+| studio-sync | `assets/readme/studio/manifest.json` | Deterministic README media manifest |
+| studio-sync | `assets/readme/studio/` | Tracked README GIF, PNGs, and score badge |
 
 ### Score History
 
@@ -205,6 +237,7 @@ All CI lanes are bounded by `timeout-minutes` in GitHub Actions. No lane runs un
 | `security` | 30 min max | Any cargo deny advisory | Cancel GitHub Actions run |
 | `web-smoke` | 20 min max | First Vitest failure | Cancel GitHub Actions run |
 | `web-e2e` | 30 min max | First Playwright failure | Cancel GitHub Actions run |
+| `studio-sync` | 90 min max | First score/media/README sync failure | Cancel GitHub Actions run |
 | `science-smoke` | 30 min max | Any test failure | Cancel GitHub Actions run |
 
 **Local kill-switch**: `Ctrl-C` on any `just <lane>` command. All lanes are idempotent — rerunnable without side effects.

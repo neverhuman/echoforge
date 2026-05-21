@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="216" height="28" viewBox="0 0 216 28" role="img" aria-labelledby="title desc">
+  <title id="title">Jankurai score 70 of 85</title>
+  <desc id="desc">1 hard finding; status blocked</desc>
+  <defs>
+    <clipPath id="clip">
+      <rect x="0" y="0" width="216" height="28" rx="14" ry="14" />
+    </clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <rect x="0" y="0" width="216" height="28" fill="#0f172a" />
+    <rect x="112" y="0" width="104" height="28" fill="#b91c1c" />
+  </g>
+  <g fill="#f8fafc" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="11" font-weight="700" text-anchor="middle">
+    <text x="56" y="18">Jankurai</text>
+    <text x="164" y="18">score 70/85</text>
+  </g>
+</svg>

@@ -206,7 +206,7 @@ fn run_episode_workers(
     worker_count: usize,
 ) -> Result<Vec<EpisodeOutcome>, DatasetError> {
     let worker_count = worker_count.max(1).min(config.episodes.max(1));
-    let chunk_size = (config.episodes + worker_count - 1) / worker_count;
+    let chunk_size = config.episodes.div_ceil(worker_count);
 
     thread::scope(|scope| -> Result<Vec<EpisodeOutcome>, DatasetError> {
         let mut handles = Vec::new();

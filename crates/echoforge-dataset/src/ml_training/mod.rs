@@ -28,7 +28,7 @@
 //! -----------
 //! - `config`   — [`MlTrainingDataConfig`], constants, validation helpers
 //! - `types`    — internal structs, [`MlTrainingDataReport`], [`PerTierMetrics`],
-//!               [`SplitMix64`]
+//!   [`SplitMix64`]
 //! - `envelope` — per-class envelope sampling
 //! - `scene`    — `build_scene_descriptor`, `confuser_class_for_family`
 //! - `pipeline` — worker orchestration, `build_frame_products`, artifact writers

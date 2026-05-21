@@ -76,13 +76,13 @@ pub(super) fn dolph_chebyshev(length: usize, sll_db_abs: f64) -> Vec<f32> {
     let n_f = n as f64;
     let center = (n as f64 - 1.0) / 2.0;
     let mut w_time = vec![0.0f64; n];
-    for n_idx in 0..n {
+    for (n_idx, time_weight) in w_time.iter_mut().enumerate().take(n) {
         let n_shift = (n_idx as f64) - center;
         let mut acc = 0.0f64;
-        for k in 0..n {
-            acc += w_freq[k] * (2.0 * PI * (k as f64) * n_shift / n_f).cos();
+        for (k, freq_weight) in w_freq.iter().enumerate().take(n) {
+            acc += *freq_weight * (2.0 * PI * (k as f64) * n_shift / n_f).cos();
         }
-        w_time[n_idx] = acc;
+        *time_weight = acc;
     }
 
     let max = w_time
@@ -102,7 +102,7 @@ fn chebyshev_t(n: usize, x: f64) -> f64 {
         ((n as f64) * theta).cosh()
     } else {
         let theta = (-x).ln_acosh();
-        let sign = if n % 2 == 0 { 1.0 } else { -1.0 };
+        let sign = if n.is_multiple_of(2) { 1.0 } else { -1.0 };
         sign * ((n as f64) * theta).cosh()
     }
 }

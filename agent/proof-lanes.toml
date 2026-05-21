@@ -19,6 +19,11 @@ name = "studio"
 purpose = "Validate the Rust studio service package."
 
 [[lane]]
+command = "rtk bash ops/run-lane.sh studio-sync"
+name = "studio-sync"
+purpose = "Regenerate Studio README media and publish the bot sync when needed."
+
+[[lane]]
 command = "rtk just web-smoke"
 name = "web-smoke"
 purpose = "Validate the API/catalog/web smoke surface."

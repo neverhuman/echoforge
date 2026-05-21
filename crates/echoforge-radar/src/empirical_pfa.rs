@@ -44,8 +44,8 @@ pub use empirical_pfa_render::{render_jsonl, render_markdown};
 
 /// One Pfa-trial request. The combination of `clutter_regime` + `cfar_variant`
 /// + `training_cells` + `guard_cells` + `nominal_pfa` + `trials` + `seed` is
-/// the deterministic input; the same tuple always yields the same
-/// `PfaObservation`.
+///   the deterministic input; the same tuple always yields the same
+///   `PfaObservation`.
 #[derive(Debug, Clone, Copy)]
 pub struct PfaTrial {
     /// Clutter regime used to draw target-free cell amplitudes.

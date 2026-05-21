@@ -60,7 +60,7 @@ pub(super) fn build_campaign_plan(
     let remainder = config.records - target_positive;
     let bucket_targets = weighted_remainder_counts(remainder);
     let mut assignments = Vec::with_capacity(config.records);
-    assignments.extend(std::iter::repeat(positive).take(target_positive));
+    assignments.extend(std::iter::repeat_n(positive, target_positive));
 
     for (bucket, count) in bucket_targets {
         let bucket_classes = classes

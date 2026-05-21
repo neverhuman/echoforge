@@ -27,7 +27,7 @@ fn wilson_ci_zero_successes_lower_bound_zero() {
     // exactly 0.0 or a non-negative ~ eps value.
     let (lo, _hi) = wilson_ci_95(0, 1000);
     assert!(
-        lo >= 0.0 && lo < 1e-12,
+        (0.0..1e-12).contains(&lo),
         "lower bound should clamp to ~0, got {lo}"
     );
 }

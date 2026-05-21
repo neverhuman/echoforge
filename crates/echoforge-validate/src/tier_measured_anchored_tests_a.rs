@@ -1,7 +1,5 @@
 use super::*;
 use crate::distribution_metrics::{ks_distance_1d_sorted, wasserstein_1d_sorted};
-use std::io::Write;
-use tempfile::NamedTempFile;
 
 fn baseline_thresholds() -> V4MetricThresholds {
     V4MetricThresholds {

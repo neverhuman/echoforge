@@ -36,7 +36,7 @@ pub(super) fn run_campaign_workers(
     worker_count: usize,
     progress_enabled: bool,
 ) -> Result<Vec<CampaignRecordOutput>, DatasetError> {
-    let chunk_size = (plans.len() + worker_count - 1) / worker_count;
+    let chunk_size = plans.len().div_ceil(worker_count);
     let progress_bar = if progress_enabled {
         let bar = ProgressBar::new(plans.len() as u64);
         let style = ProgressStyle::with_template(
@@ -136,10 +136,10 @@ fn generate_campaign_record(
         blade_length_m: None,
     };
     let mut noise = NoiseProfile::real_world_proxy_v1();
-    noise.awgn_sigma = (0.035 + 0.055 * envelope.clutter_profile.false_alarm_pressure()) as f32;
+    noise.awgn_sigma = 0.035 + 0.055 * envelope.clutter_profile.false_alarm_pressure();
     noise.rfi_probability = envelope.rfi_profile.burst_probability.min(0.12);
     noise.rfi_amplitude = envelope.rfi_profile.burst_amplitude;
-    noise.clutter_sigma = (0.025 + 0.12 * envelope.clutter_profile.false_alarm_pressure()) as f32;
+    noise.clutter_sigma = 0.025 + 0.12 * envelope.clutter_profile.false_alarm_pressure();
     noise.ground_glint_count =
         (2.0f32 + 12.0f32 * envelope.clutter_profile.false_alarm_pressure()).round() as usize;
 
@@ -147,7 +147,7 @@ fn generate_campaign_record(
         sim_config,
         profile,
         noise,
-        EpisodeSeed(plan.seed ^ 0x5eed_cafe_136),
+        EpisodeSeed(plan.seed ^ 0x05ee_dcaf_e136),
     );
     apply_campaign_stressors(&mut episode, &envelope, plan.seed);
     write_episode_tensors(&products_dir, &episode)?;

@@ -64,4 +64,55 @@ JANKURAI_FINDINGS='$finding_count'
 JANKURAI_HARD_FINDINGS='$hard_findings'
 JANKURAI_DECISION='$decision'
 JANKURAI_REPORT='${report_json}'
+JANKURAI_REPORT_MD='${report_md}'
 EOF
+
+node - "$report_json" "$report_md" <<'NODE' >&2
+const fs = require("node:fs");
+
+const [reportPath, reportMd] = process.argv.slice(2);
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+} catch (err) {
+  console.error(`[jankurai] unable to read ${reportPath}: ${err.message}`);
+  process.exit(0);
+}
+
+const decision = report.decision || {};
+const ratchet = decision.ratchet || {};
+const score = report.score ?? 0;
+const minimum = decision.minimum_score ?? report.minimum_score ?? 85;
+const hard = decision.hard_findings ?? report.hard_findings ?? 0;
+const findings = Array.isArray(report.findings) ? report.findings : [];
+const newCaps = Array.isArray(ratchet.new_caps) ? ratchet.new_caps : [];
+const newHard = Array.isArray(ratchet.new_hard_findings) ? ratchet.new_hard_findings : [];
+
+console.error(`[jankurai] score ${score}/${minimum}; hard findings ${hard}; findings ${findings.length}; report ${reportMd}`);
+
+if (newCaps.length > 0) {
+  console.error("[jankurai] new capability caps:");
+  for (const cap of newCaps.slice(0, 5)) {
+    console.error(`  - ${String(cap)}`);
+  }
+}
+
+if (newHard.length > 0) {
+  console.error("[jankurai] new hard findings:");
+  for (const finding of newHard.slice(0, 5)) {
+    console.error(`  - ${String(finding)}`);
+  }
+}
+
+if (findings.length > 0) {
+  console.error("[jankurai] top issues and repair hints:");
+  for (const finding of findings.slice(0, 5)) {
+    const severity = finding.severity || "unknown";
+    const check = finding.check_id || finding.id || "unknown-check";
+    const path = finding.path || finding.file || finding.scope || ".";
+    const fix = finding.agent_fix || finding.repair_hint || finding.fix || "see markdown report";
+    console.error(`  - ${severity} ${check} on ${path}`);
+    console.error(`    fix: ${fix}`);
+  }
+}
+NODE

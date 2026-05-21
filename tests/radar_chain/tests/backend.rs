@@ -1,5 +1,5 @@
 use echoforge_radar::{
-    ca_cfar_1d, ca_cfar_scale, magnitude, pulse_compress, ArrayBackend, CfarParams, CpuBackend,
+    ca_cfar_1d, ca_cfar_scale, magnitude, ArrayBackend, CfarParams, CpuBackend,
     GpuBackendUnavailable, LfmChirp,
 };
 
@@ -28,7 +28,7 @@ fn cpu_backend_matches_free_functions() {
 
 #[test]
 fn gpu_backend_is_explicitly_unavailable_and_has_a_cpu_fallback() {
-    let backend = GpuBackendUnavailable::default();
+    let backend = GpuBackendUnavailable;
 
     assert!(!backend.is_available());
     assert_eq!(backend.name(), "gpu-unavailable");

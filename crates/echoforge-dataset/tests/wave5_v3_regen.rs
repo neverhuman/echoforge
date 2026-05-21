@@ -76,8 +76,8 @@ fn binary_auc(scores: &[f32], labels: &[bool]) -> f64 {
         }
         // ranks are 1-indexed; this tie block spans i..=j
         let avg_rank = (i + 1) as f64 + (j - i) as f64 / 2.0;
-        for k in i..=j {
-            if indexed[k].1 {
+        for (_, is_positive) in indexed.iter().take(j + 1).skip(i) {
+            if *is_positive {
                 sum_ranks_pos += avg_rank;
             }
         }

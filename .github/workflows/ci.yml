@@ -91,6 +91,14 @@ jobs:
       - name: Web e2e lane
         shell: bash
         run: bash ops/ci/web-e2e.sh
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: web-e2e-artifacts
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
 
   score:
     runs-on: ubuntu-latest

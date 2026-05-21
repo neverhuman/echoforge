@@ -100,24 +100,29 @@ mod tests {
 
     #[test]
     fn v1_requires_all_five() {
-        let mut c = ValidateChecks::default();
+        let c = ValidateChecks::default();
         assert!(!promotion_gate(TierAchieved::V1, &c));
-        c.canonical_validation_present = true;
-        c.canonical_overall_pass = true;
-        c.polarization_complete = true;
-        c.determinism_pass = true;
-        c.units_frame_pass = true;
+        let c = ValidateChecks {
+            canonical_validation_present: true,
+            canonical_overall_pass: true,
+            polarization_complete: true,
+            determinism_pass: true,
+            units_frame_pass: true,
+            ..Default::default()
+        };
         assert!(promotion_gate(TierAchieved::V1, &c));
     }
 
     #[test]
     fn v2_requires_v1_plus_cross_and_conv() {
-        let mut c = ValidateChecks::default();
-        c.canonical_validation_present = true;
-        c.canonical_overall_pass = true;
-        c.polarization_complete = true;
-        c.determinism_pass = true;
-        c.units_frame_pass = true;
+        let mut c = ValidateChecks {
+            canonical_validation_present: true,
+            canonical_overall_pass: true,
+            polarization_complete: true,
+            determinism_pass: true,
+            units_frame_pass: true,
+            ..Default::default()
+        };
         assert!(!promotion_gate(TierAchieved::V2, &c));
         c.cross_solver_present = true;
         c.cross_solver_pass = true;

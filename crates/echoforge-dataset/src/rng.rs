@@ -10,7 +10,7 @@ pub(crate) fn child_seed(root: u64, index: u64) -> u64 {
 
 /// Fisher-Yates shuffle using SplitMix64.
 pub(crate) fn deterministic_shuffle<T>(items: &mut [T], seed: u64) {
-    let mut rng = SplitMix64::new(seed ^ 0x5368_7566_666c_65);
+    let mut rng = SplitMix64::new(seed ^ 0x0053_6875_6666_6c65);
     for index in (1..items.len()).rev() {
         let swap = rng.range_usize(0, index);
         items.swap(index, swap);

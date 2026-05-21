@@ -2,9 +2,27 @@
 
 # EchoForge
 
+![Jankurai score](./assets/readme/studio/jankurai-score.svg)
+
 EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. It publishes public-proxy object signatures, uncertainty-scored radar artifacts, and reproducible validation evidence so downstream work can be inspected, rerun, and compared without claiming measured truth or proprietary-equivalent sensor behavior.
 
 The claim boundary stays narrow: public-source priors only, explicit uncertainty, hard negatives treated as robustness work, and no classified, vendor-private, or exact field-performance claims.
+
+## Studio Preview
+
+![EchoForge Studio demo](./assets/readme/studio/studio-demo.gif)
+
+EchoForge Studio is a same-origin Rust + Vite interface for live radar playback, Monte Carlo campaign setup, run archive/restore/duplicate workflows, artifact review, and headless API usage. The UI keeps source cards, validation tier, uncertainty language, seed, and scenario hash visible before export.
+
+| Command Center | Live Radar | Monte Carlo Builder |
+| --- | --- | --- |
+| ![Command Center](./assets/readme/studio/command-center.png) | ![Live Radar](./assets/readme/studio/live-radar.png) | ![Monte Carlo Builder](./assets/readme/studio/monte-carlo-builder.png) |
+
+README media is tracked under [assets/readme/studio](./assets/readme/studio/) with a deterministic capture manifest at [assets/readme/studio/manifest.json](./assets/readme/studio/manifest.json). Regenerate after a Studio UI change with the same lane used by the post-merge sync:
+
+```bash
+rtk bash ops/run-lane.sh studio-sync
+```
 
 ## Value
 
@@ -64,7 +82,7 @@ Synthetic public-proxy benchmark evidence only; these numbers are not measured t
 ```bash
 rtk just fast
 rtk just demo
-HOST=127.0.0.1 PORT=8080 rtk cargo run -p echoforge-studio --locked
+rtk env HOST=127.0.0.1 PORT=8080 cargo run -p echoforge-studio --locked
 rtk npm run web:build
 rtk npm run web:smoke
 rtk python3 detection/generate_ml_training.py --out-root outputs/training-data/shahed136-public-proxy-ml-training-smoke --scenario-groups 24 --seed 136 --scale-name smoke --max-time-s 150 --force
@@ -72,6 +90,31 @@ rtk bash detection/run_all.sh --smoke
 ```
 
 Generated datasets, solver outputs, and benchmark artifacts stay under `outputs/` and out of Git.
+
+### Studio Web And Headless
+
+```bash
+rtk npm install
+rtk npm run web:build
+rtk env HOST=127.0.0.1 PORT=8080 cargo run -p echoforge-studio --locked
+rtk curl http://127.0.0.1:8080/api/runs
+```
+
+Current same-origin Studio endpoints:
+
+- `GET /api/runs`, `GET /api/runs/{id}`, `GET /api/runs/{id}/artifacts`
+- `POST /api/runs`, `POST /api/runs/{id}/replay`, `POST /api/runs/{id}/archive`, `POST /api/runs/{id}/restore`, `POST /api/runs/{id}/duplicate`
+- `GET /api/jobs`, `POST /api/jobs`, `POST /api/jobs/{id}/cancel`
+- `GET /api/contracts`, `GET /api/catalog`, `GET /api/validation/latest`
+- `WS /ws/radar`: JSON lifecycle/validation/artifact/backpressure/session frames plus quantized binary scan frames
+
+Example Monte Carlo request:
+
+```bash
+rtk curl -X POST http://127.0.0.1:8080/api/runs \
+  -H 'content-type: application/json' \
+  -d '{"scenario_id":"coastal-clutter","source_pack":"public-proxy-v1","object_pack":"airspace-objects-v1","hard_negatives":["bird_flock_dense","rain_cell"],"weather_profile":"uae_coastal_summer","detector_pipeline":"physics_cfar_track_fusion_v1","seed":2026052101,"run_count":12,"workers":4,"max_concurrent":2,"smoke":true,"validation_target":"V1 public-proxy"}'
+```
 
 ## Where to Start
 

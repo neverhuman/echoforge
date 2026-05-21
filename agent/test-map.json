@@ -144,6 +144,10 @@
 			"command": "rtk just fast",
 			"purpose": "verify static assets"
 		},
+		"assets/readme/studio/": {
+			"command": "rtk bash ops/run-lane.sh studio-sync",
+			"purpose": "verify Studio README media regeneration and bot sync output"
+		},
 		"benchmarks/": {
 			"command": "rtk just fast",
 			"purpose": "verify benchmark fixtures"
@@ -163,6 +167,10 @@
 		"crates/echoforge-studio/": {
 			"command": "rtk cargo test -p echoforge-studio --locked",
 			"purpose": "verify the same-origin Rust studio service"
+		},
+		".github/workflows/studio-readme-sync.yml": {
+			"command": "rtk bash ops/run-lane.sh studio-sync",
+			"purpose": "verify the post-merge Studio media sync workflow"
 		},
 		"crates/jankurai/src/audit/coverage.rs": {
 			"command": "jankurai coverage audit . --config agent/coverage-sources.toml --json target/jankurai/coverage/coverage-audit.json --md target/jankurai/coverage/coverage-audit.md && just score",
@@ -303,6 +311,18 @@
 		"tests/web/": {
 			"command": "rtk just web-smoke",
 			"purpose": "verify the API/catalog/web smoke surface"
+		},
+		"tools/capture_studio_media.mjs": {
+			"command": "rtk bash ops/run-lane.sh studio-sync",
+			"purpose": "verify Studio capture output stays in sync with the post-merge lane"
+		},
+		"tools/render_jankurai_score_badge.mjs": {
+			"command": "rtk bash ops/run-lane.sh studio-sync",
+			"purpose": "verify the local score badge renderer used by the sync lane"
+		},
+		"tools/sync_studio_readme.mjs": {
+			"command": "rtk bash ops/run-lane.sh studio-sync",
+			"purpose": "verify the README block writer used by the sync lane"
 		},
 		"tools/": {
 			"command": "rtk just fast",

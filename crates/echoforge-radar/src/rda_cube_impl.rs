@@ -131,9 +131,9 @@ pub(super) fn build_rda_cube_impl(
                 })
                 .collect();
             dft_in_place(&mut column);
-            for d in 0..n_doppler {
+            for (d, doppler_slice) in cube[angle_idx].iter_mut().enumerate().take(n_doppler) {
                 let power = column[d].norm_sqr() as f32;
-                cube[angle_idx][d][r] = power;
+                doppler_slice[r] = power;
             }
         }
     }

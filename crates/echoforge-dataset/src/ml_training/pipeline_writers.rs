@@ -101,6 +101,7 @@ fn synthetic_kinematic_state(
 }
 
 /// Resample the episode's per-pulse `TargetState` vector at a given frame time.
+#[expect(dead_code)]
 pub(super) fn sample_state_at_time(
     states: &[TargetState],
     time_s: f64,

@@ -102,7 +102,7 @@ pub fn run(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<u8, Str
         Command::Demo(args) => return run_demo(args),
         Command::Ml(args) => return run_ml(args),
         Command::Calibrate(args) => {
-            return run_calibrate(args).map(|code| code.clamp(0, 255) as u8);
+            return run_calibrate(args).map(|code| code.clamp(0, 255));
         }
         Command::Schema(args) => {
             let report = validate_inputs(&args.inputs);

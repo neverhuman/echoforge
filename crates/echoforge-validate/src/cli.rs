@@ -281,13 +281,7 @@ pub fn run(args: ValidateArgs) -> Result<i32, ValidateError> {
     let body = serde_json::to_string_pretty(&report)?;
     fs::write(&report_path, body)?;
 
-    let exit_code = if pass {
-        0
-    } else if overall_status == "fail" || args.strict {
-        1
-    } else {
-        1
-    };
+    let exit_code = if pass { 0 } else { 1 };
     Ok(exit_code)
 }
 

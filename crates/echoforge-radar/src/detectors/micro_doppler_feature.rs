@@ -108,9 +108,9 @@ impl Detector for MicroDopplerDetector {
             // Find lag with maximum autocorrelation in [min_lag, max_lag].
             let mut best_lag = min_lag;
             let mut best_val = acf[min_lag];
-            for lag in (min_lag + 1)..=max_lag {
-                if acf[lag] > best_val {
-                    best_val = acf[lag];
+            for (lag, value) in acf.iter().enumerate().take(max_lag + 1).skip(min_lag + 1) {
+                if *value > best_val {
+                    best_val = *value;
                     best_lag = lag;
                 }
             }
@@ -154,9 +154,9 @@ mod tests {
     /// from center via a periodic component `cos(2π k_bins / d * n)`.
     fn periodic_row(d: usize, k_bins: usize) -> Vec<f32> {
         let mut row = vec![0.0f32; d];
-        for n in 0..d {
+        for (n, slot) in row.iter_mut().enumerate().take(d) {
             let phase = 2.0 * std::f32::consts::PI * (k_bins as f32) * (n as f32) / d as f32;
-            row[n] = 1.0 + phase.cos();
+            *slot = 1.0 + phase.cos();
         }
         row
     }

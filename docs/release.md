@@ -39,11 +39,25 @@ Release gate checks run in two GitHub Actions workflow files:
 
 | Workflow file | Purpose |
 |---|---|
-| `.github/workflows/jankurai.yml` | Pre-merge validation (fast, contracts, web-smoke) plus advisory score |
+| `.github/workflows/ci.yml` | Fast, contracts, `web-smoke`, `web-e2e`, and score artifact publication |
 | `.github/workflows/strict-open.yml` | Security, vendor-scrub, receipts |
+| `.github/workflows/studio-readme-sync.yml` | Post-merge README score badge and Studio media refresh |
 
 A release is only cut from a commit where both workflows show green on `main`.
-`web-e2e` runs after merge on `push` to `main` as part of the full post-merge CI pass.
+`web-smoke` is the quick web gate; `web-e2e` is the browser gate and depends on
+`web-smoke` so the cheaper build/unit pass fails first.
+
+After a successful `ci` run on `main`, `studio-readme-sync` checks out the merged
+commit, downloads the `jankurai-score` artifact from that completed run, renders
+`assets/readme/studio/jankurai-score.svg`, regenerates the Playwright Studio
+media in `assets/readme/studio/`, rewrites only the guarded Studio block at the
+top of `README.md`, and pushes `chore: sync studio README media` back to `main`
+only when the README/media diff is non-empty.
+
+`ci` uploads `web-e2e-artifacts` from `apps/web/playwright-report/` and
+`apps/web/test-results/`; the score job uploads `jankurai-score` from
+`target/jankurai/**`. README/assets-only bot commits are ignored by the `ci`
+path filters to avoid a sync loop.
 
 ## Release Checklist
 
@@ -53,12 +67,13 @@ Before cutting a release:
 - [ ] `rtk cargo test -p echoforge-studio --locked`
 - [ ] `rtk just science-smoke`
 - [ ] `rtk jankurai adapters verify .`
-- [ ] `bash ops/run-lane.sh fast` — all Rust tests green
-- [ ] `bash ops/run-lane.sh contracts` — schema contracts validated
-- [ ] `bash ops/run-lane.sh vendor-scrub` — 0 banned term matches
-- [ ] `bash ops/run-lane.sh receipts` — 0 failing receipts
-- [ ] `bash ops/run-lane.sh security` — cargo deny clean, SBOM generated
-- [ ] `bash ops/run-lane.sh web-e2e` — Playwright E2E passes after merge, with UX QA screenshot
+- [ ] `rtk bash ops/run-lane.sh fast` — all Rust tests green
+- [ ] `rtk bash ops/run-lane.sh contracts` — schema contracts validated
+- [ ] `rtk bash ops/run-lane.sh vendor-scrub` — 0 banned term matches
+- [ ] `rtk bash ops/run-lane.sh receipts` — 0 failing receipts
+- [ ] `rtk bash ops/run-lane.sh security` — cargo deny clean, SBOM generated
+- [ ] `rtk bash ops/run-lane.sh web-e2e` — Playwright E2E passes with UX QA screenshot/artifacts
+- [ ] `rtk bash ops/run-lane.sh studio-sync` — README badge/media block regenerates without solver output noise
 - [ ] `CHANGELOG.md` updated with all changes since last release
 - [ ] Staged jankurai hook passes on the release commit before every push
 - [ ] Git tag created: `git tag -a v<VERSION> -m "Release v<VERSION>"`
@@ -114,7 +129,7 @@ EchoForge aims for reproducible builds:
 
 ```bash
 # Generate SBOM
-bash ops/run-lane.sh sbom
+rtk bash ops/run-lane.sh sbom
 # Outputs to sbom/ directory (CycloneDX JSON per crate + workspace rollup)
 ```
 

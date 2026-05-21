@@ -45,7 +45,7 @@ fn rollup_empty_input_returns_zeros() {
 
 #[test]
 fn rollup_counts_with_and_without_fidelity() {
-    let envs = vec![
+    let envs = [
         envelope("V0", None),
         envelope("V1", Some("F1")),
         envelope("V1", Some("F2")),
@@ -60,12 +60,12 @@ fn rollup_counts_with_and_without_fidelity() {
     assert_eq!(rollup.without_fidelity_class, 2);
     assert_eq!(rollup.by_fidelity.get("F1"), Some(&1));
     assert_eq!(rollup.by_fidelity.get("F2"), Some(&2));
-    assert!(rollup.by_fidelity.get("F0").is_none());
+    assert!(!rollup.by_fidelity.contains_key("F0"));
 }
 
 #[test]
 fn rollup_by_tier_x_fidelity_counts_pairs() {
-    let envs = vec![
+    let envs = [
         envelope("V1", Some("F2")),
         envelope("V1", Some("F2")),
         envelope("V2", Some("F2")),
@@ -98,7 +98,7 @@ fn rollup_by_tier_x_fidelity_counts_pairs() {
 
 #[test]
 fn rollup_preserves_unknown_fidelity_labels() {
-    let envs = vec![envelope("V1", Some("F9")), envelope("V1", Some("F9"))];
+    let envs = [envelope("V1", Some("F9")), envelope("V1", Some("F9"))];
     let refs: Vec<&ValidationInfo> = envs.iter().collect();
     let rollup = rollup_validation_envelopes(&refs);
     assert_eq!(rollup.by_fidelity.get("F9"), Some(&2));

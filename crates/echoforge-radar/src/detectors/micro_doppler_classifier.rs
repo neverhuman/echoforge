@@ -128,29 +128,24 @@ pub struct ReferenceSignature {
 
 fn sig(
     class: TargetClass,
-    rf_mean: f64,
-    rf_std: f64,
-    md_mean: f64,
-    md_std: f64,
-    hr_mean: f64,
-    hr_std: f64,
-    se_mean: f64,
-    se_std: f64,
-    bd_mean: f64,
-    bd_std: f64,
+    rotor_freq_hz: (f64, f64),
+    modulation_depth_db: (f64, f64),
+    harmonic_ratio: (f64, f64),
+    spectral_entropy: (f64, f64),
+    body_doppler_centroid_hz: (f64, f64),
 ) -> ReferenceSignature {
     ReferenceSignature {
         class,
-        rotor_freq_mean_hz: rf_mean,
-        rotor_freq_std_hz: rf_std,
-        modulation_depth_mean_db: md_mean,
-        modulation_depth_std_db: md_std,
-        harmonic_ratio_mean: hr_mean,
-        harmonic_ratio_std: hr_std,
-        spectral_entropy_mean: se_mean,
-        spectral_entropy_std: se_std,
-        body_doppler_centroid_mean_hz: bd_mean,
-        body_doppler_centroid_std_hz: bd_std,
+        rotor_freq_mean_hz: rotor_freq_hz.0,
+        rotor_freq_std_hz: rotor_freq_hz.1,
+        modulation_depth_mean_db: modulation_depth_db.0,
+        modulation_depth_std_db: modulation_depth_db.1,
+        harmonic_ratio_mean: harmonic_ratio.0,
+        harmonic_ratio_std: harmonic_ratio.1,
+        spectral_entropy_mean: spectral_entropy.0,
+        spectral_entropy_std: spectral_entropy.1,
+        body_doppler_centroid_mean_hz: body_doppler_centroid_hz.0,
+        body_doppler_centroid_std_hz: body_doppler_centroid_hz.1,
     }
 }
 
@@ -180,55 +175,35 @@ impl ReferenceSignature {
         vec![
             sig(
                 TargetClass::QuadcopterFourRotor,
-                400.0,
-                150.0,
-                -3.0,
-                1.5,
-                0.25,
-                0.10,
-                4.5,
-                0.5,
-                50.0,
-                30.0,
+                (400.0, 150.0),
+                (-3.0, 1.5),
+                (0.25, 0.10),
+                (4.5, 0.5),
+                (50.0, 30.0),
             ),
             sig(
                 TargetClass::FixedWingUav,
-                185.0,
-                35.0,
-                -8.0,
-                2.0,
-                0.10,
-                0.05,
-                3.2,
-                0.4,
-                970.0,
-                200.0,
+                (185.0, 35.0),
+                (-8.0, 2.0),
+                (0.10, 0.05),
+                (3.2, 0.4),
+                (970.0, 200.0),
             ),
             sig(
                 TargetClass::BirdFlapping,
-                5.0,
-                2.0,
-                -15.0,
-                3.0,
-                0.05,
-                0.03,
-                5.5,
-                0.6,
-                200.0,
-                100.0,
+                (5.0, 2.0),
+                (-15.0, 3.0),
+                (0.05, 0.03),
+                (5.5, 0.6),
+                (200.0, 100.0),
             ),
             sig(
                 TargetClass::Helicopter,
-                25.0,
-                8.0,
-                -2.0,
-                1.0,
-                0.35,
-                0.10,
-                5.8,
-                0.4,
-                400.0,
-                150.0,
+                (25.0, 8.0),
+                (-2.0, 1.0),
+                (0.35, 0.10),
+                (5.8, 0.4),
+                (400.0, 150.0),
             ),
         ]
     }
@@ -264,7 +239,7 @@ fn magnitude_spectrum(seq: &[f64], n_bins: usize) -> Vec<f64> {
         return spec;
     }
     let two_pi = std::f64::consts::TAU;
-    for k in 0..half {
+    for (k, slot) in spec.iter_mut().enumerate().take(half) {
         let mut re = 0.0f64;
         let mut im = 0.0f64;
         let omega = two_pi * (k as f64) / (n_bins as f64);
@@ -273,7 +248,7 @@ fn magnitude_spectrum(seq: &[f64], n_bins: usize) -> Vec<f64> {
             re += x * angle.cos();
             im -= x * angle.sin();
         }
-        spec[k] = re.hypot(im);
+        *slot = re.hypot(im);
     }
     spec
 }

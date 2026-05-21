@@ -128,6 +128,7 @@ impl TraceabilityConfig {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_root(root: impl Into<PathBuf>) -> Self {
         Self {
             campaign_roots: vec![root.into()],
