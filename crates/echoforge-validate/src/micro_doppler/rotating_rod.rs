@@ -261,13 +261,13 @@ mod tests {
         fft_radix2_inplace(&mut fft_out);
         // Naive DFT reference.
         let mut dft_out = vec![Complex::new(0.0, 0.0); n];
-        for k in 0..n {
+        for (k, slot) in dft_out.iter_mut().enumerate().take(n) {
             let mut s = Complex::new(0.0, 0.0);
             for (m, x) in input.iter().enumerate() {
                 let ang = -2.0 * std::f64::consts::PI * (k * m) as f64 / n as f64;
                 s += *x * Complex::new(ang.cos(), ang.sin());
             }
-            dft_out[k] = s;
+            *slot = s;
         }
         for (a, b) in fft_out.iter().zip(dft_out.iter()) {
             assert!((a - b).norm() < 1e-9);

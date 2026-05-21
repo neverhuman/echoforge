@@ -3,145 +3,228 @@
 // WebSocket in `radarSocket.ts`.
 
 import type {
-  JobComposeRequest,
-  JobDefaultsResponse,
-  JobSummary,
-  RadarParamPatch,
-  RunArtifact,
-  RunSummary,
-  ScenarioSummary,
-} from './radarContract';
+	JobComposeRequest,
+	JobDefaultsResponse,
+	JobSummary,
+	MonteCarloRunRequest,
+	RadarParamPatch,
+	RunArchiveRequest,
+	RunArtifact,
+	RunDuplicateRequest,
+	RunQueueSummary,
+	RunSummary,
+	ScenarioSummary,
+} from "./radarContract";
 
 async function postSim(path: string, body?: unknown): Promise<unknown> {
-  const res = await fetch(`/api/sim/${path}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body ?? {}),
-  });
-  if (!res.ok) {
-    throw new Error(`POST /api/sim/${path} failed: ${res.status}`);
-  }
-  return res.json();
+	const res = await fetch(`/api/sim/${path}`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(body ?? {}),
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/sim/${path} failed: ${res.status}`);
+	}
+	return res.json();
 }
 
 export interface StartOptions {
-  scenarioId?: string;
-  mode?: 'live' | 'replay';
-  bundlePath?: string;
+	scenarioId?: string;
+	mode?: "live" | "replay";
+	bundlePath?: string;
 }
 
 export function startSim(opts: StartOptions = {}): Promise<unknown> {
-  return postSim('start', {
-    scenario_id: opts.scenarioId,
-    mode: opts.mode ?? 'live',
-    bundle_path: opts.bundlePath,
-  });
+	return postSim("start", {
+		scenario_id: opts.scenarioId,
+		mode: opts.mode ?? "live",
+		bundle_path: opts.bundlePath,
+	});
 }
 
-export const stopSim = (): Promise<unknown> => postSim('stop');
-export const pauseSim = (): Promise<unknown> => postSim('pause');
-export const resumeSim = (): Promise<unknown> => postSim('resume');
+export const stopSim = (): Promise<unknown> => postSim("stop");
+export const pauseSim = (): Promise<unknown> => postSim("pause");
+export const resumeSim = (): Promise<unknown> => postSim("resume");
 export const setPlaybackSpeed = (speed: number): Promise<unknown> =>
-  postSim('speed', { speed });
+	postSim("speed", { speed });
 export const setRadarParams = (patch: RadarParamPatch): Promise<unknown> =>
-  postSim('params', patch);
+	postSim("params", patch);
 
 export async function fetchScenarios(): Promise<ScenarioSummary[]> {
-  const res = await fetch('/api/sim/scenarios');
-  if (!res.ok) {
-    throw new Error(`GET /api/sim/scenarios failed: ${res.status}`);
-  }
-  return (await res.json()) as ScenarioSummary[];
+	const res = await fetch("/api/sim/scenarios");
+	if (!res.ok) {
+		throw new Error(`GET /api/sim/scenarios failed: ${res.status}`);
+	}
+	return (await res.json()) as ScenarioSummary[];
 }
 
 export async function fetchRuns(): Promise<RunSummary[]> {
-  const res = await fetch('/api/runs');
-  if (!res.ok) {
-    throw new Error(`GET /api/runs failed: ${res.status}`);
-  }
-  return (await res.json()) as RunSummary[];
+	const res = await fetch("/api/runs");
+	if (!res.ok) {
+		throw new Error(`GET /api/runs failed: ${res.status}`);
+	}
+	return (await res.json()) as RunSummary[];
+}
+
+export async function fetchRun(runId: string): Promise<RunSummary> {
+	const res = await fetch(`/api/runs/${encodeURIComponent(runId)}`);
+	if (!res.ok) {
+		throw new Error(`GET /api/runs/${runId} failed: ${res.status}`);
+	}
+	return (await res.json()) as RunSummary;
+}
+
+export async function fetchRunQueueSummary(): Promise<RunQueueSummary> {
+	const res = await fetch("/api/runs/queue/summary");
+	if (!res.ok) {
+		throw new Error(`GET /api/runs/queue/summary failed: ${res.status}`);
+	}
+	return (await res.json()) as RunQueueSummary;
 }
 
 export async function fetchRunArtifacts(runId: string): Promise<RunArtifact[]> {
-  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/artifacts`);
-  if (!res.ok) {
-    throw new Error(`GET /api/runs/${runId}/artifacts failed: ${res.status}`);
-  }
-  return (await res.json()) as RunArtifact[];
+	const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/artifacts`);
+	if (!res.ok) {
+		throw new Error(`GET /api/runs/${runId}/artifacts failed: ${res.status}`);
+	}
+	return (await res.json()) as RunArtifact[];
 }
 
 export async function replayRun(runId: string): Promise<unknown> {
-  const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/replay`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ mode: 'exact_seed' }),
-  });
-  if (!res.ok) {
-    throw new Error(`POST /api/runs/${runId}/replay failed: ${res.status}`);
-  }
-  return res.json();
+	const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/replay`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ mode: "exact_seed" }),
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/runs/${runId}/replay failed: ${res.status}`);
+	}
+	return res.json();
+}
+
+export async function archiveRun(
+	runId: string,
+	request: RunArchiveRequest = {},
+): Promise<RunSummary> {
+	const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/archive`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(request),
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/runs/${runId}/archive failed: ${res.status}`);
+	}
+	return (await res.json()) as RunSummary;
+}
+
+export async function restoreRun(runId: string): Promise<RunSummary> {
+	const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/restore`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/runs/${runId}/restore failed: ${res.status}`);
+	}
+	return (await res.json()) as RunSummary;
+}
+
+export async function duplicateRun(
+	runId: string,
+	request: RunDuplicateRequest = {},
+): Promise<RunSummary> {
+	const res = await fetch(`/api/runs/${encodeURIComponent(runId)}/duplicate`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(request),
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/runs/${runId}/duplicate failed: ${res.status}`);
+	}
+	return (await res.json()) as RunSummary;
+}
+
+export async function createMonteCarloRun(
+	request: MonteCarloRunRequest,
+): Promise<RunSummary> {
+	const res = await fetch("/api/runs", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(request),
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/runs failed: ${res.status}`);
+	}
+	return (await res.json()) as RunSummary;
 }
 
 export async function fetchJobs(): Promise<JobSummary[]> {
-  const res = await fetch('/api/jobs');
-  if (!res.ok) {
-    throw new Error(`GET /api/jobs failed: ${res.status}`);
-  }
-  return (await res.json()) as JobSummary[];
+	const res = await fetch("/api/jobs");
+	if (!res.ok) {
+		throw new Error(`GET /api/jobs failed: ${res.status}`);
+	}
+	return (await res.json()) as JobSummary[];
 }
 
 export async function fetchJobDefaults(): Promise<JobDefaultsResponse> {
-  const res = await fetch('/api/jobs/defaults');
-  if (!res.ok) {
-    throw new Error(`GET /api/jobs/defaults failed: ${res.status}`);
-  }
-  return (await res.json()) as JobDefaultsResponse;
+	const res = await fetch("/api/jobs/defaults");
+	if (!res.ok) {
+		throw new Error(`GET /api/jobs/defaults failed: ${res.status}`);
+	}
+	return (await res.json()) as JobDefaultsResponse;
 }
 
 export function staticPreviewJobDefaults(): JobDefaultsResponse {
-  return {
-    request: {
-      job_type: 'ml_processing',
-      selection: 'pipeline',
-      pipeline_id: 'physics_cfar_track_fusion_v1',
-      suite_id: 'evidence-ladder-v1',
-      data_root: 'outputs/training-data/best-final-scenario-v1',
-      out_root: 'outputs/ml-pipelines',
-      workers_per_pipeline: 20,
-      max_concurrent: 3,
-      seed: 20260520390001,
-      smoke: true,
-      validation_tier: 'evidence_ladder_v1',
-    },
-    pipelines: [
-      { id: 'physics_cfar_track_fusion_v1', label: 'Physics CFAR Track Fusion' },
-      { id: 'tensor_microdoppler_fusion_v1', label: 'Tensor Micro-Doppler Fusion' },
-      { id: 'raw_iq_ssl_research_v1', label: 'Raw IQ SSL Research' },
-    ],
-    suites: [{ id: 'evidence-ladder-v1', label: 'Evidence Ladder Suite' }],
-    validation_tiers: ['evidence_ladder_v1'],
-  };
+	return {
+		request: {
+			job_type: "ml_processing",
+			selection: "pipeline",
+			pipeline_id: "physics_cfar_track_fusion_v1",
+			suite_id: "evidence-ladder-v1",
+			data_root: "outputs/training-data/best-final-scenario-v1",
+			out_root: "outputs/ml-pipelines",
+			workers_per_pipeline: 20,
+			max_concurrent: 3,
+			seed: 20260520390001,
+			smoke: true,
+			validation_tier: "evidence_ladder_v1",
+		},
+		pipelines: [
+			{
+				id: "physics_cfar_track_fusion_v1",
+				label: "Physics CFAR Track Fusion",
+			},
+			{
+				id: "tensor_microdoppler_fusion_v1",
+				label: "Tensor Micro-Doppler Fusion",
+			},
+			{ id: "raw_iq_ssl_research_v1", label: "Raw IQ SSL Research" },
+		],
+		suites: [{ id: "evidence-ladder-v1", label: "Evidence Ladder Suite" }],
+		validation_tiers: ["evidence_ladder_v1"],
+	};
 }
 
-export async function createJob(request: JobComposeRequest): Promise<JobSummary> {
-  const res = await fetch('/api/jobs', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  if (!res.ok) {
-    throw new Error(`POST /api/jobs failed: ${res.status}`);
-  }
-  return (await res.json()) as JobSummary;
+export async function createJob(
+	request: JobComposeRequest,
+): Promise<JobSummary> {
+	const res = await fetch("/api/jobs", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify(request),
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/jobs failed: ${res.status}`);
+	}
+	return (await res.json()) as JobSummary;
 }
 
 export async function cancelJob(jobId: string): Promise<JobSummary> {
-  const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-  });
-  if (!res.ok) {
-    throw new Error(`POST /api/jobs/${jobId}/cancel failed: ${res.status}`);
-  }
-  return (await res.json()) as JobSummary;
+	const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/cancel`, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+	});
+	if (!res.ok) {
+		throw new Error(`POST /api/jobs/${jobId}/cancel failed: ${res.status}`);
+	}
+	return (await res.json()) as JobSummary;
 }

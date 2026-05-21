@@ -71,6 +71,7 @@ pub struct FusedDetections {
 
 /// Runtime that owns a chain of detectors and runs them sequentially against
 /// a `RangeDoppler` input.
+#[derive(Default)]
 pub struct DetectorGraphRuntime {
     pub nodes: Vec<BoxedRdDetector>,
 }
@@ -140,12 +141,6 @@ impl DetectorGraphRuntime {
             events,
             per_detector,
         }
-    }
-}
-
-impl Default for DetectorGraphRuntime {
-    fn default() -> Self {
-        Self { nodes: Vec::new() }
     }
 }
 

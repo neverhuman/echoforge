@@ -100,8 +100,8 @@ pub fn apply_mti(
     //   output[k][r] = sum_{i=0..taps} coeffs[i] * input[k - (taps - 1) + i][r]
     // With taps = 2, coeffs = [-1, +1] → output[k] = -input[k-1] + input[k]
     // With taps = 3, coeffs = [+1, -2, +1] → output[k] = input[k-2] - 2 input[k-1] + input[k]
-    for k in (taps - 1)..n_pulses {
-        for r in 0..range_len {
+    for (k, output_row) in output.iter_mut().enumerate().take(n_pulses).skip(taps - 1) {
+        for (r, output_cell) in output_row.iter_mut().enumerate().take(range_len) {
             let mut acc = ComplexSample::new(0.0, 0.0);
             for (i, &c) in coeffs.iter().enumerate() {
                 let pulse_idx = k + 1 + i - taps; // k - (taps - 1) + i
@@ -111,7 +111,7 @@ pub fn apply_mti(
                     .unwrap_or(ComplexSample::new(0.0, 0.0));
                 acc += sample * c;
             }
-            output[k][r] = acc;
+            *output_cell = acc;
         }
     }
 

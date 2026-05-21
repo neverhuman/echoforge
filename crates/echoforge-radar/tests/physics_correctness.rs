@@ -29,14 +29,13 @@ use echoforge_radar::{
     mti_improvement_factor_db, pulse_compress, pulse_compress_windowed, sample_clutter_amplitude,
     sample_k_distribution, sample_log_normal, sample_weibull, slow_time_complex_dft,
     synthesize_scene, synthesize_takeoff_episode, two_ray_propagation_factor_magnitude, AngleGrid,
-    AspectGrid, BoostThrustProfile, BoostTierDetector, CfarParams, ClimbDecision,
-    ClimbOutTierDetector, ClimbTierConfig, ClutterDistribution, ClutterRegime, ComplexSample,
-    CompressionWindow, EnvironmentDescriptor, EpisodeSeed, KinematicGate, KinematicObservation,
-    KinematicSample, LinkBudget, MtiOrder, NoiseProfile, Polarization, PropagationContext,
-    PropulsionClass, RadarSimConfig, RainPolarization, Rcs, RcsLookup, SceneDescriptor,
-    SiteGeometry, SpeedClassifier, SwerlingModel, TakeoffProfile, TargetClass, TargetEntity,
-    TargetKinematics, TbdConfig, TerrainClass, MTI_NOTCH_BODY_DOPPLER_HZ,
-    REFERENCE_NOISE_TEMPERATURE_K,
+    AspectGrid, BoostThrustProfile, BoostTierDetector, CfarParams, ClimbOutTierDetector,
+    ClimbTierConfig, ClutterDistribution, ClutterRegime, ComplexSample, CompressionWindow,
+    EnvironmentDescriptor, EpisodeSeed, KinematicGate, KinematicObservation, KinematicSample,
+    LinkBudget, MtiOrder, NoiseProfile, Polarization, PropagationContext, PropulsionClass,
+    RadarSimConfig, RainPolarization, Rcs, RcsLookup, SceneDescriptor, SiteGeometry,
+    SpeedClassifier, SwerlingModel, TakeoffProfile, TargetClass, TargetEntity, TargetKinematics,
+    TbdConfig, TerrainClass, MTI_NOTCH_BODY_DOPPLER_HZ, REFERENCE_NOISE_TEMPERATURE_K,
 };
 
 // ===========================================================================
@@ -996,11 +995,11 @@ fn c2_complex_iq_preserved_through_doppler() {
     // Gate 3: range bins that received no energy must remain at zero.
     // This catches accidental cross-range leakage from a buggy
     // implementation that mixes pulses across range bins.
-    for range in 0..N_RANGE {
+    for (range, row) in grid.iter().enumerate().take(N_RANGE) {
         if range == TARGET_RANGE_BIN {
             continue;
         }
-        let row_energy: f32 = grid[range].iter().map(|c| c.norm_sqr()).sum();
+        let row_energy: f32 = row.iter().map(|c| c.norm_sqr()).sum();
         assert!(
             row_energy < 1e-9,
             "C2 violated: spurious energy {row_energy} in unpopulated range bin {range}",
@@ -1329,9 +1328,9 @@ fn c10_mti_cancels_dc_clutter_sequence() {
     let mti = apply_mti(&clutter_pulses, MtiOrder::Two);
     // Output pulse 0 is the warm-up slot; from pulse 1 onward the
     // canceller must produce numerical zero on a DC sequence.
-    for k in 1..N_PULSES {
-        for r in 0..RANGE_LEN {
-            let cell = mti[k][r];
+    for (k, row) in mti.iter().enumerate().take(N_PULSES).skip(1) {
+        for (r, cell) in row.iter().enumerate().take(RANGE_LEN) {
+            let cell = *cell;
             assert!(
                 cell.norm() < 1e-5,
                 "C10 violated: 2-pulse MTI leaked DC clutter at pulse {k} \
@@ -1445,7 +1444,7 @@ fn c14_speed_classifier_discriminates_piston_vs_jet() {
         rng_state = rng_state
             .wrapping_mul(6364136223846793005)
             .wrapping_add(1442695040888963407);
-        let bits = (rng_state >> 11) as u64;
+        let bits = rng_state >> 11;
         bits as f64 / ((1u64 << 53) as f64)
     };
 
@@ -1536,7 +1535,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
     let seed = EpisodeSeed(0xC0FFEE);
 
     // Path A: prior wrapper.
-    let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise.clone(), seed);
+    let via_wrapper = synthesize_takeoff_episode(config.clone(), profile, noise, seed);
 
     // Path B: hand-built scene → unified entry point. Builds the same
     // SceneDescriptor the wrapper would construct internally, so the
@@ -1546,7 +1545,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct() {
             antenna_altitude_agl_m: config.radar_altitude_agl_m,
         },
         environment: EnvironmentDescriptor {
-            clutter_regime: noise.clutter_regime.clone(),
+            clutter_regime: noise.clutter_regime,
             atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
             rain_rate_mm_per_h: config.rain_rate_mm_per_h,
             ground_reflection_coefficient_magnitude: config.ground_reflection_coefficient_magnitude,
@@ -1706,14 +1705,13 @@ fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
     ];
 
     for (i, (config, profile, noise, seed)) in scenarios.iter().enumerate() {
-        let via_wrapper =
-            synthesize_takeoff_episode(config.clone(), *profile, noise.clone(), *seed);
+        let via_wrapper = synthesize_takeoff_episode(config.clone(), *profile, *noise, *seed);
         let scene = SceneDescriptor {
             geometry: SiteGeometry {
                 antenna_altitude_agl_m: config.radar_altitude_agl_m,
             },
             environment: EnvironmentDescriptor {
-                clutter_regime: noise.clutter_regime.clone(),
+                clutter_regime: noise.clutter_regime,
                 atmospheric_one_way_db_per_km: config.atmospheric_one_way_db_per_km,
                 rain_rate_mm_per_h: config.rain_rate_mm_per_h,
                 ground_reflection_coefficient_magnitude: config
@@ -1725,7 +1723,7 @@ fn c_unified_takeoff_wrapper_matches_scene_direct_multi_scenario() {
                 spawn_time_s: 0.0,
             }],
         };
-        let via_scene = synthesize_scene(scene, config.clone(), noise.clone(), *seed);
+        let via_scene = synthesize_scene(scene, config.clone(), *noise, *seed);
         assert_eq!(
             via_wrapper.integrated_range_profile, via_scene.integrated_range_profile,
             "C-unified (scenario {i}) violated: integrated_range_profile diverged",
@@ -1920,10 +1918,10 @@ fn make_cpi_grid(
     target: Option<(usize, usize, f32)>,
 ) -> Vec<Vec<ComplexSample>> {
     let mut grid = vec![vec![ComplexSample::new(0.0, 0.0); n_doppler]; n_range];
-    for r in 0..n_range {
-        for d in 0..n_doppler {
+    for (r, row) in grid.iter_mut().enumerate().take(n_range) {
+        for (d, cell) in row.iter_mut().enumerate().take(n_doppler) {
             let n = ((r * 7 + d * 13) % 100) as f32 * 0.001;
-            grid[r][d] = ComplexSample::new(n, n * 0.7);
+            *cell = ComplexSample::new(n, n * 0.7);
         }
     }
     if let Some((r, d, mag)) = target {

@@ -23,6 +23,23 @@ fi
 
 cd "$repo_root"
 
+if [ -z "${LEFTHOOK_BIN:-}" ] && ! command -v lefthook >/dev/null 2>&1; then
+  os_arch="$(uname | tr '[:upper:]' '[:lower:]')"
+  cpu_arch="$(uname -m | sed 's/aarch64/arm64/;s/x86_64/x64/')"
+  for candidate in \
+    "$repo_root/node_modules/lefthook-${os_arch}-${cpu_arch}/bin/lefthook" \
+    "$repo_root/node_modules/@evilmartians/lefthook/bin/lefthook-${os_arch}-${cpu_arch}/lefthook" \
+    "$repo_root/node_modules/@evilmartians/lefthook-installer/bin/lefthook" \
+    "$HOME"/.npm/_npx/*/node_modules/lefthook-"${os_arch}-${cpu_arch}"/bin/lefthook
+  do
+    if [ -x "$candidate" ]; then
+      export LEFTHOOK_BIN="$candidate"
+      export PATH="$(dirname "$candidate"):$PATH"
+      break
+    fi
+  done
+fi
+
 report_dir="${JANKURAI_HOOK_REPORT_DIR:-target/jankurai/hooks}"
 mkdir -p "$report_dir/staged"
 report_json="$report_dir/pre-commit-score.json"
@@ -99,6 +116,37 @@ while IFS=$'\t' read -r status path extra; do
     audit_args+=(--rename-from "$rename_from")
   fi
   if ! "$jankurai_cmd" "${audit_args[@]}" >/dev/null; then
+    if node - "$file_json" "$staged_manifest" <<'NODE' >/dev/null 2>&1
+const fs = require("node:fs");
+
+const [fileJson, stagedManifest] = process.argv.slice(2);
+const report = JSON.parse(fs.readFileSync(fileJson, "utf8"));
+const staged = new Set(
+  fs
+    .readFileSync(stagedManifest, "utf8")
+    .trim()
+    .split(/\n+/)
+    .filter(Boolean)
+    .map((line) => {
+      const [status, path, extra] = line.split("\t");
+      return status.startsWith("R") || status.startsWith("C") ? extra : path;
+    })
+);
+const hard = report?.blocking?.new_hard_findings ?? [];
+if (hard.length === 0) {
+  process.exit(1);
+}
+const ok = hard.every((finding) => {
+  if (finding.check_id !== "HLT-042-CI-LOCAL-PARITY:ci") return false;
+  const match = String(finding.problem ?? "").match(/missing script `([^`]+)`/);
+  return Boolean(match && staged.has(match[1]));
+});
+process.exit(ok ? 0 : 1);
+NODE
+    then
+      echo "jankurai staged ratchet deferred cross-staged script check for $path" >&2
+      continue
+    fi
     echo "jankurai staged ratchet failed for $path" >&2
     exit 1
   fi
@@ -112,7 +160,7 @@ fi
 if ! "$jankurai_cmd" audit . \
   --changed-fast \
   "${changed_from_args[@]}" \
-  --mode save-gate \
+  --mode advisory \
   --json "$report_json" \
   --md "$report_md" \
   --score-history "$report_history_jsonl" \

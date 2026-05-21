@@ -303,7 +303,7 @@ fn for_terrain_open_sky_returns_rayleigh() {
 #[test]
 fn generate_clutter_sequence_returns_expected_length() {
     let regime = ClutterRegime::for_terrain(TerrainClass::Forest, 3.0);
-    let seq = generate_clutter_sequence(&regime, 16, 8, 0xc0ff_ee);
+    let seq = generate_clutter_sequence(&regime, 16, 8, 0x00c0_ffee);
     assert_eq!(seq.len(), 16 * 8);
     assert!(seq.iter().all(|v| v.is_finite()));
 

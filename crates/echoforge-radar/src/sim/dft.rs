@@ -47,8 +47,8 @@ pub fn slow_time_complex_dft(
     let mut output = vec![vec![ComplexSample::new(0.0, 0.0); n_doppler]; range_len];
 
     let n_pulses_f = n_pulses as f32;
-    for range in 0..range_len {
-        for doppler in 0..n_doppler {
+    for (range, output_row) in output.iter_mut().enumerate().take(range_len) {
+        for (doppler, output_cell) in output_row.iter_mut().enumerate().take(n_doppler) {
             let mut acc = ComplexSample::new(0.0, 0.0);
             for (pulse, profile) in compressed_pulses.iter().enumerate() {
                 let sample = profile
@@ -59,7 +59,7 @@ pub fn slow_time_complex_dft(
                 let phasor = ComplexSample::new(angle.cos(), angle.sin());
                 acc += sample * phasor;
             }
-            output[range][doppler] = acc;
+            *output_cell = acc;
         }
     }
     output

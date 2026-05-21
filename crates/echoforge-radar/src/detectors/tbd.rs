@@ -177,10 +177,10 @@ mod tests {
     ) -> Vec<Vec<ComplexSample>> {
         let mut grid = vec![vec![ComplexSample::new(0.0, 0.0); n_doppler]; n_range];
         // Add background noise (deterministic for test reproducibility).
-        for r in 0..n_range {
-            for d in 0..n_doppler {
+        for (r, row) in grid.iter_mut().enumerate().take(n_range) {
+            for (d, cell) in row.iter_mut().enumerate().take(n_doppler) {
                 let n = ((r * 7 + d * 13) % 100) as f32 * 0.001;
-                grid[r][d] = ComplexSample::new(n, n * 0.7);
+                *cell = ComplexSample::new(n, n * 0.7);
             }
         }
         if let Some((r, d, mag)) = target {

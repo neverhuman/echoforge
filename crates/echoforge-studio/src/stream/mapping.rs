@@ -143,12 +143,11 @@ pub fn episode_to_scan(
             .enumerate()
             .map(|(i, row)| (i, row.get(cropped).copied().unwrap_or(0.0)))
             .fold((0usize, 0.0f32), |a, b| if b.1 > a.1 { b } else { a });
-        let display_bin = if geom.sample_count > 0 {
-            (cropped * ctx.rd_range_bins / geom.sample_count)
-                .min(ctx.rd_range_bins.saturating_sub(1))
-        } else {
-            0
-        };
+        let display_bin = cropped
+            .checked_mul(ctx.rd_range_bins)
+            .and_then(|bin| bin.checked_div(geom.sample_count))
+            .unwrap_or(0)
+            .min(ctx.rd_range_bins.saturating_sub(1));
         let snr_db = if d.noise_estimate > 0.0 {
             db((d.statistic / d.noise_estimate) as f64)
         } else {

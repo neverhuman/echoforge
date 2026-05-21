@@ -53,14 +53,14 @@ pub(super) fn build_record_plan(
     for index in 0..(config.records - positive_count) {
         assignments.push(negative_classes[index % negative_classes.len()].clone());
     }
-    deterministic_shuffle(&mut assignments, config.seed ^ 0x4d4c_7472_6169_6e);
+    deterministic_shuffle(&mut assignments, config.seed ^ 0x004d_4c74_7261_696e);
 
     let mut plans = assignments
         .into_iter()
         .enumerate()
         .map(|(index, class)| plan_for_assignment(config, index, class, &sensors, &phases))
         .collect::<Vec<_>>();
-    assign_exact_splits(&mut plans, config.seed ^ 0x7370_6c69_74);
+    assign_exact_splits(&mut plans, config.seed ^ 0x0073_706c_6974);
     Ok(plans)
 }
 
@@ -93,7 +93,7 @@ fn build_exact_sensor_class_plan(
             ));
         }
     }
-    deterministic_shuffle(&mut assignments, config.seed ^ 0x4d4c_7472_6169_6e);
+    deterministic_shuffle(&mut assignments, config.seed ^ 0x004d_4c74_7261_696e);
 
     let mut plans = assignments
         .into_iter()
@@ -102,7 +102,7 @@ fn build_exact_sensor_class_plan(
             plan_for_exact_assignment(config, index, class, sensor, &phases)
         })
         .collect::<Vec<_>>();
-    assign_exact_splits(&mut plans, config.seed ^ 0x7370_6c69_74);
+    assign_exact_splits(&mut plans, config.seed ^ 0x0073_706c_6974);
     Ok(plans)
 }
 
@@ -357,6 +357,7 @@ pub(super) fn hann(index: usize, len: usize) -> f32 {
 // Seed / shuffle helpers
 // ---------------------------------------------------------------------------
 
+#[expect(dead_code)]
 pub(super) fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }

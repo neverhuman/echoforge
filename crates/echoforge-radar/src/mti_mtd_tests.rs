@@ -20,9 +20,9 @@ fn mti_two_pulse_cancels_constant_dc() {
     let out = apply_mti(&pulses, MtiOrder::Two);
     assert_eq!(out.len(), n_pulses);
     // Pulse 0 is the warm-up slot, always zero by construction.
-    for k in 1..n_pulses {
-        for r in 0..range_len {
-            let cell = out[k][r];
+    for (k, row) in out.iter().enumerate().take(n_pulses).skip(1) {
+        for (r, cell) in row.iter().enumerate().take(range_len) {
+            let cell = *cell;
             assert!(
                 cell.norm() < 1e-6,
                 "2-pulse MTI residue at pulse {k} range {r}: |{cell}| = {}",
@@ -45,10 +45,10 @@ fn mti_two_pulse_passes_high_doppler() {
         pulses.push(vec![ComplexSample::new(sign, 0.0); range_len]);
     }
     let out = apply_mti(&pulses, MtiOrder::Two);
-    for k in 1..n_pulses {
+    for (k, row) in out.iter().enumerate().take(n_pulses).skip(1) {
         // output[k] = input[k] - input[k-1]
         // alternating signs give magnitude exactly 2.
-        let mag = out[k][0].norm();
+        let mag = row[0].norm();
         assert!(
             (mag - 2.0).abs() < 1e-5,
             "2-pulse MTI gain at pulse {k}: expected 2.0, got {mag}"
@@ -67,9 +67,9 @@ fn mti_three_pulse_cancels_dc() {
     let out = apply_mti(&pulses, MtiOrder::Three);
     assert_eq!(out.len(), n_pulses);
     // First two pulses are warm-up; output starts at index 2.
-    for k in 2..n_pulses {
-        for r in 0..range_len {
-            let cell = out[k][r];
+    for (k, row) in out.iter().enumerate().take(n_pulses).skip(2) {
+        for (r, cell) in row.iter().enumerate().take(range_len) {
+            let cell = *cell;
             assert!(
                 cell.norm() < 1e-5,
                 "3-pulse MTI residue at pulse {k} range {r}: {cell}",
@@ -193,11 +193,11 @@ fn mtd_chain_pure_tone_lands_in_correct_bin() {
     );
 
     // Empty range bins must remain numerically zero.
-    for range in 0..RANGE_LEN {
+    for (range, row) in grid.iter().enumerate().take(RANGE_LEN) {
         if range == TARGET_RANGE {
             continue;
         }
-        for cell in &grid[range] {
+        for cell in row {
             assert!(
                 cell.norm() < 1e-4,
                 "spurious energy {} in empty range {range}",

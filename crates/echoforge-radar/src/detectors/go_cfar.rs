@@ -64,8 +64,8 @@ mod tests {
         let params = CfarParams::new(8, 2, 1e-3);
         // No injected target: just the clutter step.
         let mut p = vec![1.0f32; n];
-        for i in edge..n {
-            p[i] = 6.0;
+        for cell in p.iter_mut().take(n).skip(edge) {
+            *cell = 6.0;
         }
 
         let go = GoCfarDetector::new(params).detect(&p);

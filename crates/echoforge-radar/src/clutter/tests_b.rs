@@ -107,7 +107,7 @@ fn sea_spray_small_whitecaps_kurtosis_moderate() {
         .find(|r| r.name() == "SeaSpray_SmallWhitecaps")
         .expect("SeaSpray_SmallWhitecaps must be in library");
     let dist = small.distribution;
-    let xs = collect_many(0xc0ff_ee_dead_beef, 10_000, |s| {
+    let xs = collect_many(0x00c0_ffee_dead_beef, 10_000, |s| {
         sample_clutter_amplitude(&dist, s)
     });
     let k = kurtosis(&xs);

@@ -41,7 +41,7 @@ pub(super) fn run_record_workers(
     frame_count: usize,
     worker_count: usize,
 ) -> Result<Vec<RecordOutput>, DatasetError> {
-    let chunk_size = (plans.len() + worker_count - 1) / worker_count;
+    let chunk_size = plans.len().div_ceil(worker_count);
     thread::scope(|scope| {
         let handles: Vec<_> = plans
             .chunks(chunk_size.max(1))
@@ -93,7 +93,7 @@ fn generate_record(
         scene,
         sim_config,
         noise,
-        EpisodeSeed(plan.scenario_seed ^ 0x0dd5_136),
+        EpisodeSeed(plan.scenario_seed ^ 0x00dd_5136),
     );
     write_episode_tensors(&products_dir, &episode)?;
 

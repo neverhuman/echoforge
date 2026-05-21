@@ -25,6 +25,8 @@
 //! JSON loading lives in [`crate::tier_benchmarked_json`] to keep the
 //! two public entry points in separate compilation units.
 
+use std::cmp::Ordering;
+
 use serde::{Deserialize, Serialize};
 
 /// Outcome of a single V3 gate evaluation.
@@ -131,13 +133,31 @@ pub fn evaluate_v3_gate(
     thresholds: &V3MetricThresholds,
     observation: &V3MetricObservation,
 ) -> V3GateReport {
+    fn meets_min(value: f64, minimum: f64) -> bool {
+        matches!(
+            value.partial_cmp(&minimum),
+            Some(Ordering::Equal | Ordering::Greater)
+        )
+    }
+
+    fn meets_max(value: f64, maximum: f64) -> bool {
+        matches!(
+            value.partial_cmp(&maximum),
+            Some(Ordering::Equal | Ordering::Less)
+        )
+    }
+
     let failures: Vec<String> = [
-        (!(observation.pd >= thresholds.pd_min)).then_some("pd"),
-        (!(observation.pfa <= thresholds.pfa_max)).then_some("pfa"),
-        (!(observation.range_error_m <= thresholds.range_error_max_m)).then_some("range_error"),
-        (!(observation.doppler_error_mps <= thresholds.doppler_error_max_mps))
-            .then_some("doppler_error"),
-        (!(observation.ospa_distance <= thresholds.ospa_max)).then_some("ospa"),
+        (!meets_min(observation.pd, thresholds.pd_min)).then_some("pd"),
+        (!meets_max(observation.pfa, thresholds.pfa_max)).then_some("pfa"),
+        (!meets_max(observation.range_error_m, thresholds.range_error_max_m))
+            .then_some("range_error"),
+        (!meets_max(
+            observation.doppler_error_mps,
+            thresholds.doppler_error_max_mps,
+        ))
+        .then_some("doppler_error"),
+        (!meets_max(observation.ospa_distance, thresholds.ospa_max)).then_some("ospa"),
     ]
     .into_iter()
     .flatten()
@@ -160,6 +180,8 @@ pub fn evaluate_v3_gate(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    type ObservationMutator = Box<dyn Fn(&mut V3MetricObservation)>;
 
     fn baseline_thresholds() -> V3MetricThresholds {
         V3MetricThresholds::default_roadmap()
@@ -214,7 +236,7 @@ mod tests {
 
     #[test]
     fn evaluate_v3_fails_on_each_axis_individually() {
-        let cases: Vec<(&str, Box<dyn Fn(&mut V3MetricObservation)>)> = vec![
+        let cases: Vec<(&str, ObservationMutator)> = vec![
             ("pd", Box::new(|o: &mut V3MetricObservation| o.pd = 0.0)),
             ("pfa", Box::new(|o: &mut V3MetricObservation| o.pfa = 1.0)),
             (

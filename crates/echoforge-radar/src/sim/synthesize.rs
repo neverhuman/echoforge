@@ -321,14 +321,14 @@ pub fn synthesize_scene(
     // `episode.profile` don't blow up. The authoritative per-entity
     // state lives in `target_states` (first entity) and the per-class
     // SNR list in `per_target_snr_db`.
-    let first_profile = scene
-        .targets
-        .first()
-        .and_then(|first_entity| match &first_entity.kinematics {
-            TargetKinematics::FromTakeoffProfile(profile) => Some(*profile),
-            _ => None,
-        })
-        .unwrap_or_default();
+    let first_profile = if let Some(first_entity) = scene.targets.first() {
+        match &first_entity.kinematics {
+            TargetKinematics::FromTakeoffProfile(profile) => *profile,
+            _ => TakeoffProfile::default(),
+        }
+    } else {
+        TakeoffProfile::default()
+    };
 
     let mut rng = SplitMix64::new(seed.0);
 

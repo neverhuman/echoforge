@@ -1,0 +1,45 @@
+{
+	"generated_utc": "1970-01-01T00:00:00.000Z",
+	"tool": "tools/capture_studio_media.mjs",
+	"route": "/",
+	"capture": {
+		"server": "studio",
+		"sim_autostart": false,
+		"screenshot_scale": 2,
+		"gif_frames": ["command-center", "live-radar", "monte-carlo-builder"]
+	},
+	"strict_open_note": "README media is deterministic documentation capture from Playwright-rendered Studio states; it is not measured truth, proprietary-equivalent behavior, or field-performance evidence.",
+	"assets": [
+		{
+			"kind": "badge",
+			"path": "assets/readme/studio/jankurai-score.svg",
+			"viewport": "n/a",
+			"route": "/"
+		},
+		{
+			"kind": "gif",
+			"path": "assets/readme/studio/studio-demo.gif",
+			"viewport": "960x540",
+			"route": "/",
+			"source": "playwright-storyboard"
+		},
+		{
+			"kind": "screenshot",
+			"path": "assets/readme/studio/command-center.png",
+			"viewport": "1600x1000@2x",
+			"route": "/"
+		},
+		{
+			"kind": "screenshot",
+			"path": "assets/readme/studio/live-radar.png",
+			"viewport": "1600x1000@2x",
+			"route": "/"
+		},
+		{
+			"kind": "screenshot",
+			"path": "assets/readme/studio/monte-carlo-builder.png",
+			"viewport": "1600x1000@2x",
+			"route": "/"
+		}
+	]
+}

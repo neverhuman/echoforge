@@ -11,94 +11,17 @@ use axum::http::{header, HeaderValue, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use serde::{Deserialize, Serialize};
 
 use crate::stream::control::{builtin_scenarios, ControlCommand, SimMode};
 use crate::StudioState;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum RunMode {
-    Live,
-    Replay,
-    MonteCarlo,
-}
+mod types;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct RunConfig {
-    pub scenario_id: String,
-    pub scenario_label: String,
-    pub mode: RunMode,
-    pub seed: u64,
-    pub scenario_hash: String,
-    pub object_source_card: String,
-    pub material_assumption_card: String,
-    pub solver_chain_version: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct RunArtifact {
-    pub id: String,
-    pub kind: String,
-    pub label: String,
-    pub ready: bool,
-    pub download_path: String,
-    pub requires_validation: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct RunValidationSummary {
-    pub tier: String,
-    pub grade: String,
-    pub export_gate_passed: bool,
-    pub source_confidence: String,
-    pub uncertainty_statement: String,
-    pub known_limitations: Vec<String>,
-    pub leakage_guard_status: String,
-    pub reproducibility_metadata: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct RunSummary {
-    pub run_id: String,
-    pub created_utc: String,
-    pub status: String,
-    pub config: RunConfig,
-    pub validation: RunValidationSummary,
-    pub artifacts: Vec<RunArtifact>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-pub enum ReplayMode {
-    ExactSeed,
-    ModifiedParameters,
-    MonteCarloExpansion,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
-pub struct RunReplayRequest {
-    #[serde(default = "default_replay_mode")]
-    pub mode: ReplayMode,
-    #[serde(default)]
-    pub seed: Option<u64>,
-    #[serde(default)]
-    pub monte_carlo_count: Option<u32>,
-}
-
-fn default_replay_mode() -> ReplayMode {
-    ReplayMode::ExactSeed
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DownloadQuery {
-    #[serde(default = "default_download_kind")]
-    pub kind: String,
-}
-
-fn default_download_kind() -> String {
-    "bundle".to_string()
-}
+pub use types::{
+    DownloadQuery, MonteCarloRunRequest, RunArchiveRequest, RunArtifact, RunConfig,
+    RunDuplicateRequest, RunMode, RunQueueSummary, RunReplayRequest, RunSummary,
+    RunValidationSummary,
+};
 
 #[derive(Debug)]
 pub struct RunStore {
@@ -144,6 +67,31 @@ impl RunStore {
         self.runs.lock().expect("run store").clone()
     }
 
+    pub fn queue_summary(&self) -> RunQueueSummary {
+        let runs = self.runs.lock().expect("run store");
+        let mut validation_tiers = runs
+            .iter()
+            .map(|run| run.validation.tier.clone())
+            .collect::<Vec<_>>();
+        validation_tiers.sort();
+        validation_tiers.dedup();
+        RunQueueSummary {
+            total: runs.len(),
+            active: runs
+                .iter()
+                .filter(|run| run.status != "archived" && run.status != "completed")
+                .count(),
+            archived: runs.iter().filter(|run| run.status == "archived").count(),
+            export_ready: runs
+                .iter()
+                .filter(|run| run.validation.export_gate_passed && run.status != "archived")
+                .count(),
+            queued: runs.iter().filter(|run| run.status == "queued").count(),
+            newest_created_utc: runs.iter().map(|run| run.created_utc.clone()).max(),
+            validation_tiers,
+        }
+    }
+
     pub fn get(&self, run_id: &str) -> Option<RunSummary> {
         self.runs
             .lock()
@@ -152,19 +100,129 @@ impl RunStore {
             .find(|r| r.run_id == run_id)
             .cloned()
     }
+
+    pub fn archive(&self, run_id: &str, _request: RunArchiveRequest) -> Option<RunSummary> {
+        let mut runs = self.runs.lock().expect("run store");
+        let run = runs.iter_mut().find(|r| r.run_id == run_id)?;
+        run.status = "archived".to_string();
+        Some(run.clone())
+    }
+
+    pub fn restore(&self, run_id: &str) -> Option<RunSummary> {
+        let mut runs = self.runs.lock().expect("run store");
+        let run = runs.iter_mut().find(|r| r.run_id == run_id)?;
+        if run.status == "archived" {
+            run.status = "validated".to_string();
+        }
+        Some(run.clone())
+    }
+
+    pub fn duplicate(&self, run_id: &str, request: RunDuplicateRequest) -> Option<RunSummary> {
+        let mut runs = self.runs.lock().expect("run store");
+        let base = runs.iter().find(|r| r.run_id == run_id)?.clone();
+        let seed = request.seed.unwrap_or(base.config.seed.saturating_add(1));
+        let copy_index = runs
+            .iter()
+            .filter(|run| run.config.scenario_id == base.config.scenario_id)
+            .count();
+        let new_run_id = format!("run-{}-copy-{copy_index:02}", base.config.scenario_id);
+        let mut duplicated = base;
+        duplicated.run_id = unique_run_id(&runs, &new_run_id);
+        duplicated.created_utc = now_utc_compact();
+        duplicated.status = "queued".to_string();
+        duplicated.config.mode = request.mode.unwrap_or(RunMode::Replay);
+        duplicated.config.seed = seed;
+        duplicated.config.scenario_hash = scenario_hash(&duplicated.config.scenario_id, seed);
+        duplicated.artifacts = artifacts_for(&duplicated.run_id);
+        runs.push(duplicated.clone());
+        Some(duplicated)
+    }
+
+    pub fn create_monte_carlo(&self, request: MonteCarloRunRequest) -> RunSummary {
+        let mut runs = self.runs.lock().expect("run store");
+        let scenario = builtin_scenarios()
+            .into_iter()
+            .find(|scenario| scenario.id == request.scenario_id);
+        let scenario_label = scenario
+            .as_ref()
+            .map(|scenario| scenario.label.clone())
+            .unwrap_or_else(|| request.scenario_id.clone());
+        let copy_index = runs
+            .iter()
+            .filter(|run| run.config.scenario_id == request.scenario_id)
+            .count();
+        let run_id = unique_run_id(
+            &runs,
+            &format!("run-{}-mc-{copy_index:02}", request.scenario_id),
+        );
+        let mut validation = public_proxy_validation();
+        validation.tier = request.validation_target.clone();
+        validation.known_limitations.push(format!(
+            "Monte Carlo request uses {} synthetic draws with {} workers; review exported artifacts before reuse.",
+            request.run_count, request.workers
+        ));
+        validation.reproducibility_metadata.extend([
+            "run_count".to_string(),
+            "workers".to_string(),
+            "detector_pipeline".to_string(),
+            "weather_profile".to_string(),
+        ]);
+        let run = RunSummary {
+            run_id: run_id.clone(),
+            created_utc: now_utc_compact(),
+            status: "queued".to_string(),
+            config: RunConfig {
+                scenario_id: request.scenario_id.clone(),
+                scenario_label,
+                mode: RunMode::MonteCarlo,
+                seed: request.seed,
+                scenario_hash: scenario_hash(&request.scenario_id, request.seed),
+                object_source_card: format!("{} / {}", request.source_pack, request.object_pack),
+                material_assumption_card: format!(
+                    "{} with {} hard-negative packs",
+                    request.weather_profile,
+                    request.hard_negatives.len()
+                ),
+                solver_chain_version: format!(
+                    "echoforge-studio-0.2.0+{}+smoke-{}",
+                    request.detector_pipeline, request.smoke
+                ),
+            },
+            validation,
+            artifacts: artifacts_for(&run_id),
+        };
+        runs.push(run.clone());
+        run
+    }
 }
 
 pub fn runs_router() -> Router<std::sync::Arc<StudioState>> {
     Router::new()
-        .route("/api/runs", get(list_runs))
+        .route("/api/runs", get(list_runs).post(create_monte_carlo_run))
+        .route("/api/runs/queue/summary", get(queue_summary))
         .route("/api/runs/{id}", get(get_run))
         .route("/api/runs/{id}/replay", post(replay_run))
+        .route("/api/runs/{id}/archive", post(archive_run))
+        .route("/api/runs/{id}/restore", post(restore_run))
+        .route("/api/runs/{id}/duplicate", post(duplicate_run))
         .route("/api/runs/{id}/artifacts", get(list_artifacts))
         .route("/api/runs/{id}/download", get(download_run))
 }
 
 async fn list_runs(State(state): State<std::sync::Arc<StudioState>>) -> impl IntoResponse {
     Json(state.run_store.list())
+}
+
+async fn queue_summary(State(state): State<std::sync::Arc<StudioState>>) -> impl IntoResponse {
+    Json(state.run_store.queue_summary())
+}
+
+async fn create_monte_carlo_run(
+    State(state): State<std::sync::Arc<StudioState>>,
+    Json(req): Json<MonteCarloRunRequest>,
+) -> impl IntoResponse {
+    let run = state.run_store.create_monte_carlo(req);
+    (StatusCode::CREATED, Json(run)).into_response()
 }
 
 async fn get_run(
@@ -210,6 +268,38 @@ async fn replay_run(
         "status": status,
     });
     (StatusCode::OK, Json(body)).into_response()
+}
+
+async fn archive_run(
+    State(state): State<std::sync::Arc<StudioState>>,
+    Path(id): Path<String>,
+    Json(req): Json<RunArchiveRequest>,
+) -> impl IntoResponse {
+    match state.run_store.archive(&id, req) {
+        Some(run) => (StatusCode::OK, Json(run)).into_response(),
+        None => not_found("run_not_found", &id),
+    }
+}
+
+async fn restore_run(
+    State(state): State<std::sync::Arc<StudioState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    match state.run_store.restore(&id) {
+        Some(run) => (StatusCode::OK, Json(run)).into_response(),
+        None => not_found("run_not_found", &id),
+    }
+}
+
+async fn duplicate_run(
+    State(state): State<std::sync::Arc<StudioState>>,
+    Path(id): Path<String>,
+    Json(req): Json<RunDuplicateRequest>,
+) -> impl IntoResponse {
+    match state.run_store.duplicate(&id, req) {
+        Some(run) => (StatusCode::CREATED, Json(run)).into_response(),
+        None => not_found("run_not_found", &id),
+    }
 }
 
 async fn download_run(
@@ -281,6 +371,20 @@ fn scenario_hash(id: &str, seed: u64) -> String {
     id.hash(&mut hasher);
     seed.hash(&mut hasher);
     format!("{:016x}", hasher.finish())
+}
+
+fn unique_run_id(runs: &[RunSummary], prefix: &str) -> String {
+    if !runs.iter().any(|run| run.run_id == prefix) {
+        return prefix.to_string();
+    }
+    let mut suffix = 1usize;
+    loop {
+        let candidate = format!("{prefix}-{suffix}");
+        if !runs.iter().any(|run| run.run_id == candidate) {
+            return candidate;
+        }
+        suffix += 1;
+    }
 }
 
 fn object_card_for(scenario_id: &str) -> String {

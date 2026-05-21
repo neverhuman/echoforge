@@ -89,7 +89,7 @@ pub(super) fn build_frame_features(
         let time_s = frame_index as f64 / config.frame_rate_hz;
         let progress = (time_s / config.time_window_s).clamp(0.0, 1.0);
         let mut frame_rng =
-            SplitMix64::new(plan.seed ^ (frame_index as u64).wrapping_mul(0x1360_0d5));
+            SplitMix64::new(plan.seed ^ (frame_index as u64).wrapping_mul(0x0136_00d5));
         let clutter = sample_clutter_frame(envelope.clutter_profile, plan.seed, frame_index);
         let rfi = sample_rfi_frame(envelope.rfi_profile, plan.seed, frame_index, 128);
         let receiver =

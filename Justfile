@@ -49,6 +49,15 @@ drift:
 web-smoke:
     rtk bash ops/run-lane.sh web-smoke
 
+web-e2e:
+    rtk bash ops/run-lane.sh web-e2e
+
+studio:
+    rtk bash ops/run-lane.sh studio
+
+studio-sync:
+    rtk bash ops/run-lane.sh studio-sync
+
 science-smoke:
     rtk python3 -m unittest discover -s detection/real_data/tests -p 'test_*.py'
     rtk cargo test -p echoforge-sig --locked

@@ -80,7 +80,7 @@ fn single_channel_isotropic_matches_one_angle_rd_slice() {
     let total = n_range * n_doppler;
     let iq = synth_iq(total, 0.0); // DC tone
     let cube = build_rda_cube(
-        &[iq.clone()],
+        std::slice::from_ref(&iq),
         &isotropic_manifold(),
         &AngleGrid::azimuth_only(vec![0.0]),
         (n_range, n_doppler),
@@ -101,9 +101,9 @@ fn single_channel_isotropic_matches_one_angle_rd_slice() {
             })
             .collect();
         dft_in_place(&mut col);
-        for d in 0..n_doppler {
+        for (d, doppler_slice) in slice.iter().enumerate().take(n_doppler) {
             let expected = col[d].norm_sqr() as f32;
-            let actual = slice[d][r];
+            let actual = doppler_slice[r];
             assert!(
                 (actual - expected).abs() < 1e-3,
                 "(d={d},r={r}) cube={actual} ref={expected}",

@@ -84,7 +84,7 @@ pub fn build_frame_products(
             .copied()
             .unwrap_or(0.0);
         let snr_linear = (peak_value / lower_quartile).max(1e-6);
-        let snr_db = (10.0 * snr_linear.log10()) as f32;
+        let snr_db = 10.0 * snr_linear.log10();
         let local_noise_floor_db: f32 = 10.0 * lower_quartile.log10();
 
         let rd_row = range_doppler

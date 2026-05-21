@@ -27,7 +27,7 @@ lane="${1:-}"
 
 if [[ -z "$lane" ]]; then
   echo "usage: $0 <lane>" >&2
-  echo "known lanes: fast, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
+  echo "known lanes: fast, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, studio-sync, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
   exit 64
 fi
 
@@ -92,6 +92,40 @@ case "$lane" in
     cd apps/web
     run ../../node_modules/.bin/playwright test
     ;;
+  studio-sync)
+    require_node_at_least 26.1.0
+    mkdir -p target/jankurai
+    score_json="${STUDIO_SYNC_SCORE_JSON:-target/jankurai/repo-score.json}"
+    if [[ "${STUDIO_SYNC_SCORE_SOURCE:-local}" == "artifact" ]]; then
+      if [[ ! -s "$score_json" ]]; then
+        printf 'missing downloaded score artifact: %s\n' "$score_json" >&2
+        exit 1
+      fi
+    else
+      run_lane score
+      score_json="target/jankurai/repo-score.json"
+    fi
+    run node tools/render_jankurai_score_badge.mjs "$score_json" assets/readme/studio/jankurai-score.svg
+    run npm ci --no-fund --no-audit
+    if [[ "${CI:-}" == "true" ]]; then
+      run npx playwright install --with-deps chromium
+    else
+      run npx playwright install chromium
+    fi
+    run node tools/capture_studio_media.mjs
+    run node tools/sync_studio_readme.mjs --readme README.md --manifest assets/readme/studio/manifest.json --badge assets/readme/studio/jankurai-score.svg
+    if [[ "${CI:-}" == "true" ]]; then
+      if git diff --quiet -- README.md assets/readme/studio; then
+        echo "no README/media changes to publish" >&2
+      else
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add README.md assets/readme/studio
+        LEFTHOOK=0 git commit -m "chore: sync studio README media"
+        LEFTHOOK=0 git push origin HEAD:main
+      fi
+    fi
+    ;;
   ux-qa)
     require_node_at_least 26.1.0
     run npm ci --no-fund --no-audit
@@ -139,7 +173,7 @@ case "$lane" in
     ;;
   *)
     echo "unknown lane: $lane" >&2
-    echo "known lanes: fast, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
+    echo "known lanes: fast, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, studio-sync, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
     exit 64
     ;;
 esac

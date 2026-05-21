@@ -154,9 +154,11 @@ fn p676_x_band_two_way_loss() {
 /// `10·log10(32) ≈ 15.051 dB`. Tolerance 0.01 dB (analytic).
 #[test]
 fn coherent_integration_gain_matches_log10_n() {
-    let mut budget = LinkBudget::default();
-    budget.coherent_integration_pulses = 1;
-    budget.processing_loss_db = 0.0;
+    let mut budget = LinkBudget {
+        coherent_integration_pulses: 1,
+        processing_loss_db: 0.0,
+        ..Default::default()
+    };
     let prop = PropagationContext {
         range_m: 50_000.0,
         target_altitude_agl_m: 1000.0,

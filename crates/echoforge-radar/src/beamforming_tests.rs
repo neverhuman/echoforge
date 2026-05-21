@@ -24,6 +24,7 @@ fn channels_from_plane_wave(
 /// Channels carrying a sum of plane-wave sources. Each source has an
 /// azimuth, an amplitude, and a per-sample phase step so distinct
 /// sources decorrelate over the snapshot window.
+#[expect(dead_code)]
 fn plane_wave_channels_multi(
     n_channels: usize,
     n_samples: usize,
@@ -49,6 +50,7 @@ fn plane_wave_channels_multi(
 }
 
 /// Beam-pattern response `|wᴴ a|` for weights `w` and steering `a`.
+#[expect(dead_code)]
 fn beam_response(weights: &[Complex<f64>], steering: &[Complex<f64>]) -> f64 {
     let mut g = Complex::new(0.0, 0.0);
     for i in 0..weights.len().min(steering.len()) {

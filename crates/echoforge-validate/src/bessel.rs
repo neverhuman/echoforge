@@ -19,8 +19,8 @@
 //!     form for the e^{−iωt} time dependence used in Bohren-Huffman).
 //!   * Derivative identity: ψ_n'(x) = ψ_{n−1}(x) − (n/x)·ψ_n(x); same for ξ.
 //!   * PEC scattering coefficients (Bohren-Huffman eq. 4.56, m → ∞ limit):
-//!         a_n = ψ_n(x)        / ξ_n(x)
-//!         b_n = ψ_n'(x)       / ξ_n'(x)
+//!     a_n = ψ_n(x)        / ξ_n(x)
+//!     b_n = ψ_n'(x)       / ξ_n'(x)
 //!
 //! Upward recurrence is stable for ψ (regular Bessel) and χ (irregular Bessel).
 //! ψ alone is unstable upward, but the small-argument loss is hidden by ξ_n

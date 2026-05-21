@@ -40,7 +40,7 @@ fn synthesize_episode_for_test(
         scene,
         sim_config,
         noise,
-        EpisodeSeed(scenario_seed ^ 0x0dd5_136),
+        EpisodeSeed(scenario_seed ^ 0x00dd_5136),
     )
 }
 

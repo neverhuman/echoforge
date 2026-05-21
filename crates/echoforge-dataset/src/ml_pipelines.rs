@@ -275,6 +275,7 @@ pub fn run_pipeline(request: PipelineRunRequest) -> Result<PipelineRunResult, Ml
     Ok(serde_json::from_value(payload)?)
 }
 
+#[expect(clippy::too_many_arguments)]
 pub fn run_suite(
     suite: &str,
     repo_root: Option<PathBuf>,

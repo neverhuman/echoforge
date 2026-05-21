@@ -189,11 +189,13 @@ pub fn estimate_covariance(channel_iq: &[Vec<ComplexSample>]) -> Vec<Vec<Complex
         return r;
     }
     for t in 0..snapshots {
-        for i in 0..n {
-            let xi = Complex::new(channel_iq[i][t].re as f64, channel_iq[i][t].im as f64);
-            for j in 0..n {
-                let xj = Complex::new(channel_iq[j][t].re as f64, channel_iq[j][t].im as f64);
-                r[i][j] += xi * xj.conj();
+        let snapshot: Vec<Complex<f64>> = channel_iq
+            .iter()
+            .map(|channel| Complex::new(channel[t].re as f64, channel[t].im as f64))
+            .collect();
+        for (i, xi) in snapshot.iter().enumerate() {
+            for (j, xj) in snapshot.iter().enumerate() {
+                r[i][j] += *xi * xj.conj();
             }
         }
     }
@@ -232,18 +234,18 @@ pub fn hermitian_solve(r: &[Vec<Complex<f64>>], b: &[Complex<f64>]) -> Option<Ve
     let mut l = vec![vec![Complex::new(0.0, 0.0); n]; n];
     for j in 0..n {
         let mut diag = r[j][j].re;
-        for k in 0..j {
-            diag -= l[j][k].norm_sqr();
+        for value in l[j].iter().take(j) {
+            diag -= value.norm_sqr();
         }
-        if !(diag > 0.0) {
+        if !matches!(diag.partial_cmp(&0.0), Some(std::cmp::Ordering::Greater)) {
             return None;
         }
         let ljj = diag.sqrt();
         l[j][j] = Complex::new(ljj, 0.0);
         for i in (j + 1)..n {
             let mut s = r[i][j];
-            for k in 0..j {
-                s -= l[i][k] * l[j][k].conj();
+            for (l_ik, l_jk) in l[i].iter().take(j).zip(l[j].iter().take(j)) {
+                s -= *l_ik * l_jk.conj();
             }
             l[i][j] = s / ljj;
         }

@@ -3,6 +3,7 @@ use std::time::Instant;
 pub(super) use crate::rng::{child_seed, deterministic_shuffle, SplitMix64};
 
 /// Return nanoseconds elapsed since `start`, saturating to u64::MAX.
+#[expect(dead_code)]
 pub(super) fn elapsed_ns(start: Instant) -> u64 {
     start.elapsed().as_nanos().min(u128::from(u64::MAX)) as u64
 }

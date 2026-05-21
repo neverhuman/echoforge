@@ -108,6 +108,7 @@ fn synthesize_scene_allows_empty_target_roster() {
     let scene = SceneDescriptor::from_radar_config(&config, &noise, Vec::new());
     let episode = synthesize_scene(scene, config, noise, EpisodeSeed(2026));
 
+    assert_eq!(episode.profile, TakeoffProfile::default());
     assert!(episode.target_states.is_empty());
     assert!(episode.per_target_snr_db.is_empty());
     assert_eq!(episode.pulse_diagnostics.len(), 4);
@@ -128,7 +129,22 @@ fn synthesize_scene_single_target_matches_prior() {
         pulse_count: 6,
         ..RadarSimConfig::default()
     };
-    let profile = TakeoffProfile::default();
+    let profile = TakeoffProfile {
+        initial_range_m: 1_700.0,
+        runway_heading_deg: 24.0,
+        ground_speed_mps: 34.0,
+        acceleration_mps2: 0.8,
+        climb_rate_mps: 5.0,
+        max_altitude_m: 420.0,
+        radial_velocity_bias_mps: -15.0,
+        pitch_jitter_deg: 0.9,
+        yaw_jitter_deg: 1.1,
+        propulsor_hz: 88.0,
+        micro_doppler_hz: 36.0,
+        rcs_scalar: 1.2,
+        blade_count: None,
+        blade_length_m: None,
+    };
     let noise = NoiseProfile::real_world_proxy_v1();
     let seed = EpisodeSeed(2027);
 
@@ -145,6 +161,10 @@ fn synthesize_scene_single_target_matches_prior() {
     );
     let via_scene = synthesize_scene(scene, config, noise, seed);
 
+    assert_eq!(
+        via_scene.profile, profile,
+        "scene path must preserve the first target's TakeoffProfile"
+    );
     assert_eq!(
         via_wrapper.integrated_range_profile, via_scene.integrated_range_profile,
         "wrapper and unified path must produce byte-equal integrated profile"

@@ -1,6 +1,5 @@
 use super::*;
 use crate::clutter::{ClutterDistribution, ClutterRegime, TerrainClass};
-use crate::rcs::Polarization;
 
 // ---------------------------------------------------------------
 // Lane C — ClutterRegime wiring tests.

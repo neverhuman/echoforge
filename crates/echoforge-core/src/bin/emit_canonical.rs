@@ -43,11 +43,11 @@ fn run() -> Result<String, EmitError> {
 fn main() -> ExitCode {
     match run() {
         Ok(json) => {
-            print!("{json}\n");
+            println!("{json}");
             ExitCode::SUCCESS
         }
         Err(err) => {
-            eprint!("emit_canonical: {err}\n");
+            eprintln!("emit_canonical: {err}");
             ExitCode::FAILURE
         }
     }

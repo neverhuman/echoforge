@@ -49,7 +49,7 @@ mod tier_boost_impl;
 ///      thrust then plateau, ~1-3 s total duration.
 ///   2. **Separation transient** (`burn_duration_s` → `burn_duration_s
 ///      + separation_transient_s`): brief drop-and-decelerate as the
-///      booster physically decouples from the airframe.
+///        booster physically decouples from the airframe.
 ///   3. **Post-separation sustain** (`t > burn_duration_s +
 ///      separation_transient_s`): piston-engine thrust at a much
 ///      lower acceleration than the boost burn.

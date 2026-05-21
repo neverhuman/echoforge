@@ -217,3 +217,114 @@ async fn runs_endpoints_list_and_download() {
         .unwrap_or("");
     assert!(disposition.contains("run-shahed-ingress-00-bundle.json"));
 }
+
+#[tokio::test]
+async fn runs_endpoints_archive_restore_duplicate_and_queue_monte_carlo() {
+    let dist = tempfile::tempdir().expect("tempdir");
+    std::fs::write(
+        dist.path().join("index.html"),
+        "<!doctype html><div id=\"app\"></div>",
+    )
+    .expect("index");
+    let config = test_config(dist.path().to_path_buf());
+    let state = Arc::new(StudioState::load(&config).expect("state"));
+    let app = build_router(state, config.web_dist.clone());
+
+    let archived = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/runs/run-shahed-ingress-00/archive")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"reason":"operator review complete"}"#))
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(archived.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(archived.into_body(), usize::MAX)
+        .await
+        .expect("archive body");
+    let archived_json: serde_json::Value = serde_json::from_slice(&body).expect("archive json");
+    assert_eq!(archived_json["status"], "archived");
+
+    let restored = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/runs/run-shahed-ingress-00/restore")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(restored.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(restored.into_body(), usize::MAX)
+        .await
+        .expect("restore body");
+    let restored_json: serde_json::Value = serde_json::from_slice(&body).expect("restore json");
+    assert_eq!(restored_json["status"], "validated");
+
+    let duplicate = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/runs/run-shahed-ingress-00/duplicate")
+                .header("content-type", "application/json")
+                .body(Body::from(r#"{"seed":424242,"mode":"monte_carlo"}"#))
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(duplicate.status(), axum::http::StatusCode::CREATED);
+    let body = axum::body::to_bytes(duplicate.into_body(), usize::MAX)
+        .await
+        .expect("duplicate body");
+    let duplicate_json: serde_json::Value = serde_json::from_slice(&body).expect("duplicate json");
+    assert_eq!(duplicate_json["status"], "queued");
+    assert_eq!(duplicate_json["config"]["seed"], 424242);
+    assert_eq!(duplicate_json["config"]["mode"], "monte_carlo");
+
+    let monte_carlo = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/runs")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    r#"{"scenario_id":"coastal-clutter","source_pack":"public-proxy-v1","object_pack":"airspace-objects-v1","hard_negatives":["birds","rain_cell"],"weather_profile":"uae_coastal_summer","detector_pipeline":"physics_cfar_track_fusion_v1","seed":2026052101,"run_count":12,"workers":4,"max_concurrent":2,"smoke":true,"validation_target":"V1 public-proxy"}"#,
+                ))
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(monte_carlo.status(), axum::http::StatusCode::CREATED);
+    let body = axum::body::to_bytes(monte_carlo.into_body(), usize::MAX)
+        .await
+        .expect("monte carlo body");
+    let monte_carlo_json: serde_json::Value =
+        serde_json::from_slice(&body).expect("monte carlo json");
+    assert_eq!(monte_carlo_json["status"], "queued");
+    assert_eq!(monte_carlo_json["config"]["mode"], "monte_carlo");
+    assert_eq!(monte_carlo_json["validation"]["tier"], "V1 public-proxy");
+
+    let summary = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/runs/queue/summary")
+                .body(Body::empty())
+                .expect("request"),
+        )
+        .await
+        .expect("response");
+    assert_eq!(summary.status(), axum::http::StatusCode::OK);
+    let body = axum::body::to_bytes(summary.into_body(), usize::MAX)
+        .await
+        .expect("summary body");
+    let summary_json: serde_json::Value = serde_json::from_slice(&body).expect("summary json");
+    assert!(summary_json["queued"].as_u64().unwrap_or(0) >= 2);
+}
