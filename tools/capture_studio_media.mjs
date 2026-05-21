@@ -17,9 +17,14 @@ const READY_TIMEOUT_MS = Number(
 );
 const HI_DPI_SCALE = Number(process.env.STUDIO_CAPTURE_SCALE || "2");
 const GIF_WIDTH = 960;
-const GIF_HEIGHT = 720;
-const GIF_CAPTURE_WIDTH = 1600;
-const GIF_CAPTURE_HEIGHT = 1000;
+const GIF_HEIGHT = 540;
+const GIF_CAPTURE_WIDTH = 1440;
+const GIF_CAPTURE_HEIGHT = 810;
+const GIF_FPS = Number(process.env.STUDIO_CAPTURE_GIF_FPS || "4");
+const GIF_SECONDS = Number(process.env.STUDIO_CAPTURE_GIF_SECONDS || "6");
+const GIF_FRAME_COUNT = Math.max(12, Math.round(GIF_FPS * GIF_SECONDS));
+const GIF_FRAME_INTERVAL_MS = Math.max(100, Math.round(1000 / GIF_FPS));
+const GIF_FRAME_DELAY_CS = Math.max(4, Math.round(100 / GIF_FPS));
 
 const CAPTURES = [
 	{
@@ -43,27 +48,6 @@ const CAPTURES = [
 		waitTestId: "monte-carlo-builder",
 		width: 1600,
 		height: 1000,
-	},
-];
-
-const STORYBOARD = [
-	{
-		name: "command-center",
-		testId: null,
-		waitTestId: "command-center",
-		delayMs: 500,
-	},
-	{
-		name: "live-radar",
-		testId: "tab-radar",
-		waitTestId: "radar-console",
-		delayMs: 1200,
-	},
-	{
-		name: "monte-carlo-builder",
-		testId: "tab-builder",
-		waitTestId: "monte-carlo-builder",
-		delayMs: 500,
 	},
 ];
 
@@ -365,18 +349,21 @@ function decodePng(input) {
 	return { width, height, rgba };
 }
 
-function rgb332Palette() {
+function readmeGifPalette() {
+	const levels = [0, 51, 102, 153, 204, 255];
 	const palette = [];
-	for (let index = 0; index < 256; index += 1) {
-		const r = (index >> 5) & 0x07;
-		const g = (index >> 2) & 0x07;
-		const b = index & 0x03;
-		palette.push([
-			Math.round((r * 255) / 7),
-			Math.round((g * 255) / 7),
-			Math.round((b * 255) / 3),
-		]);
+	for (const r of levels) {
+		for (const g of levels) {
+			for (const b of levels) {
+				palette.push([r, g, b]);
+			}
+		}
 	}
+	for (let index = 0; index < 40; index += 1) {
+		const value = Math.round((index * 255) / 39);
+		palette.push([value, value, value]);
+	}
+	while (palette.length < 256) palette.push([0, 0, 0]);
 	return palette;
 }
 
@@ -384,16 +371,22 @@ function blendChannel(value, alpha, background) {
 	return Math.round((value * alpha + background * (255 - alpha)) / 255);
 }
 
-function quantizeRgb332(r, g, b) {
-	const ri = Math.max(0, Math.min(7, Math.round((r * 7) / 255)));
-	const gi = Math.max(0, Math.min(7, Math.round((g * 7) / 255)));
-	const bi = Math.max(0, Math.min(3, Math.round((b * 3) / 255)));
-	return (ri << 5) | (gi << 2) | bi;
+function quantizeReadmeGif(r, g, b) {
+	const max = Math.max(r, g, b);
+	const min = Math.min(r, g, b);
+	if (max - min <= 12) {
+		const gray = Math.round((r + g + b) / 3);
+		return 216 + Math.max(0, Math.min(39, Math.round((gray * 39) / 255)));
+	}
+	const ri = Math.max(0, Math.min(5, Math.round(r / 51)));
+	const gi = Math.max(0, Math.min(5, Math.round(g / 51)));
+	const bi = Math.max(0, Math.min(5, Math.round(b / 51)));
+	return ri * 36 + gi * 6 + bi;
 }
 
 function fitAndQuantize(image, outputWidth, outputHeight) {
 	const background = [5, 6, 7];
-	const backgroundIndex = quantizeRgb332(...background);
+	const backgroundIndex = quantizeReadmeGif(...background);
 	const scale = Math.min(
 		outputWidth / image.width,
 		outputHeight / image.height,
@@ -423,14 +416,14 @@ function fitAndQuantize(image, outputWidth, outputHeight) {
 			const r = blendChannel(image.rgba[source], alpha, background[0]);
 			const g = blendChannel(image.rgba[source + 1], alpha, background[1]);
 			const b = blendChannel(image.rgba[source + 2], alpha, background[2]);
-			indices[y * outputWidth + x] = quantizeRgb332(r, g, b);
+			indices[y * outputWidth + x] = quantizeReadmeGif(r, g, b);
 		}
 	}
 	return indices;
 }
 
 function writeStudioGif(path, frames) {
-	const palette = rgb332Palette();
+	const palette = readmeGifPalette();
 	const bytes = [];
 	pushAscii(bytes, "GIF89a");
 	pushWord(bytes, GIF_WIDTH);
@@ -445,7 +438,7 @@ function writeStudioGif(path, frames) {
 
 	for (const frame of frames) {
 		bytes.push(0x21, 0xf9, 0x04, 0x00);
-		pushWord(bytes, 120);
+		pushWord(bytes, GIF_FRAME_DELAY_CS);
 		bytes.push(0, 0);
 		bytes.push(0x2c);
 		pushWord(bytes, 0);
@@ -543,6 +536,27 @@ async function captureScreenshots(browser) {
 	return assets;
 }
 
+async function openLiveRadarRun(page) {
+	await openStudioState(page, {
+		name: "live-radar-run",
+		testId: "tab-radar",
+		waitTestId: "radar-console",
+		width: GIF_CAPTURE_WIDTH,
+		height: GIF_CAPTURE_HEIGHT,
+		delayMs: 500,
+	});
+	const startButton = page.getByTestId("sim-start");
+	if (await startButton.isVisible().catch(() => false)) {
+		await startButton.click();
+	}
+	await page.waitForFunction(
+		() => /scans\s+[1-9][0-9]*/.test(document.body.innerText),
+		null,
+		{ timeout: 15000 },
+	);
+	await page.waitForTimeout(750);
+}
+
 async function captureGif(browser) {
 	const context = await browser.newContext({
 		deviceScaleFactor: 1,
@@ -550,19 +564,33 @@ async function captureGif(browser) {
 	});
 	const page = await context.newPage();
 	const frames = [];
-	for (const step of STORYBOARD) {
-		await openStudioState(page, {
-			...step,
-			width: GIF_CAPTURE_WIDTH,
-			height: GIF_CAPTURE_HEIGHT,
-		});
+	await openLiveRadarRun(page);
+	const clipBox = await page.getByTestId("radar-console").boundingBox();
+	if (!clipBox) throw new Error("radar console clip target was not visible");
+	const clipX = Math.max(0, Math.floor(clipBox.x));
+	const clipY = Math.max(0, Math.floor(clipBox.y));
+	let clipWidth = Math.floor(
+		Math.min(clipBox.width, GIF_CAPTURE_WIDTH - Math.max(0, clipBox.x)),
+	);
+	let clipHeight = Math.floor(
+		Math.min(clipBox.height, GIF_CAPTURE_HEIGHT - Math.max(0, clipBox.y)),
+	);
+	const targetAspect = GIF_WIDTH / GIF_HEIGHT;
+	if (clipWidth / clipHeight > targetAspect) {
+		clipWidth = Math.floor(clipHeight * targetAspect);
+	} else {
+		clipHeight = Math.floor(clipWidth / targetAspect);
+	}
+	const clip = { x: clipX, y: clipY, width: clipWidth, height: clipHeight };
+	for (let frame = 0; frame < GIF_FRAME_COUNT; frame += 1) {
 		const png = await page.screenshot({
-			fullPage: true,
+			clip,
 			type: "png",
-			animations: "disabled",
+			animations: "allow",
 			caret: "hide",
 		});
 		frames.push(fitAndQuantize(decodePng(png), GIF_WIDTH, GIF_HEIGHT));
+		await page.waitForTimeout(GIF_FRAME_INTERVAL_MS);
 	}
 	await context.close();
 
@@ -589,9 +617,9 @@ async function capture() {
 		assets.unshift({
 			kind: "gif",
 			path: "assets/readme/studio/studio-demo.gif",
-			viewport: `${GIF_CAPTURE_WIDTH}x${GIF_CAPTURE_HEIGHT} full-page fit to ${GIF_WIDTH}x${GIF_HEIGHT}`,
+			viewport: `${GIF_CAPTURE_WIDTH}x${GIF_CAPTURE_HEIGHT} radar-console live run fit to ${GIF_WIDTH}x${GIF_HEIGHT}`,
 			route: "/",
-			source: "playwright-storyboard",
+			source: `${GIF_SECONDS}s-playwright-live-radar-run`,
 		});
 		if (existsSync(badgePath)) {
 			assets.unshift({
@@ -610,7 +638,9 @@ async function capture() {
 				server: SKIP_SERVER ? "external" : SERVER_MODE,
 				sim_autostart: SKIP_SERVER ? "external" : false,
 				screenshot_scale: HI_DPI_SCALE,
-				gif_frames: STORYBOARD.map((frame) => frame.name),
+				gif_frames: [
+					`live-radar-run ${GIF_FRAME_COUNT} frames at ${GIF_FPS} fps`,
+				],
 			},
 			strict_open_note:
 				"README media is deterministic documentation capture from Playwright-rendered Studio states; it is not measured truth, proprietary-equivalent behavior, or field-performance evidence.",
