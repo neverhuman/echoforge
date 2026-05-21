@@ -19,7 +19,7 @@
 		{
 			"kind": "gif",
 			"path": "assets/readme/studio/studio-demo.gif",
-			"viewport": "960x540",
+			"viewport": "1600x1000 full-page fit to 960x720",
 			"route": "/",
 			"source": "playwright-storyboard"
 		},

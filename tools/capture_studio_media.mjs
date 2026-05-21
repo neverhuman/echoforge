@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { inflateSync } from "node:zlib";
 import { chromium } from "@playwright/test";
@@ -17,7 +17,9 @@ const READY_TIMEOUT_MS = Number(
 );
 const HI_DPI_SCALE = Number(process.env.STUDIO_CAPTURE_SCALE || "2");
 const GIF_WIDTH = 960;
-const GIF_HEIGHT = 540;
+const GIF_HEIGHT = 720;
+const GIF_CAPTURE_WIDTH = 1600;
+const GIF_CAPTURE_HEIGHT = 1000;
 
 const CAPTURES = [
 	{
@@ -190,43 +192,12 @@ function writeSubBlocks(bytes, data) {
 function lzwEncode(indices, minCodeSize) {
 	const clear = 1 << minCodeSize;
 	const end = clear + 1;
-	let nextCode = end + 1;
 	let codeSize = minCodeSize + 1;
-	const maxCodeForSize = () => (1 << codeSize) - 1;
-	const dict = new Map();
-	for (let i = 0; i < clear; i += 1) dict.set(String(i), i);
-	const codes = [clear];
-	let phrase = String(indices[0] ?? 0);
-
-	for (let i = 1; i < indices.length; i += 1) {
-		const key = `${phrase},${indices[i]}`;
-		if (dict.has(key)) {
-			phrase = key;
-			continue;
-		}
-		codes.push(dict.get(phrase));
-		if (nextCode < 4096) {
-			dict.set(key, nextCode);
-			nextCode += 1;
-			if (nextCode > maxCodeForSize() && codeSize < 12) codeSize += 1;
-		} else {
-			codes.push(clear);
-			dict.clear();
-			for (let c = 0; c < clear; c += 1) dict.set(String(c), c);
-			nextCode = end + 1;
-			codeSize = minCodeSize + 1;
-		}
-		phrase = String(indices[i]);
-	}
-	codes.push(dict.get(phrase));
-	codes.push(end);
-
 	const packed = [];
 	let bitBuffer = 0;
 	let bitCount = 0;
-	nextCode = end + 1;
-	codeSize = minCodeSize + 1;
-	for (const code of codes) {
+
+	function emit(code) {
 		bitBuffer |= code << bitCount;
 		bitCount += codeSize;
 		while (bitCount >= 8) {
@@ -234,14 +205,23 @@ function lzwEncode(indices, minCodeSize) {
 			bitBuffer >>= 8;
 			bitCount -= 8;
 		}
-		if (code === clear) {
-			nextCode = end + 1;
-			codeSize = minCodeSize + 1;
-		} else if (code !== end) {
-			nextCode += 1;
-			if (nextCode > (1 << codeSize) - 1 && codeSize < 12) codeSize += 1;
-		}
 	}
+
+	// Literal runs trade compression for decoder compatibility. Clearing before
+	// the dictionary reaches 10-bit codes keeps every emitted code at 9 bits.
+	const maxLiteralRun = 250;
+	emit(clear);
+	let literalRun = 0;
+	for (const index of indices) {
+		if (literalRun >= maxLiteralRun) {
+			emit(clear);
+			codeSize = minCodeSize + 1;
+			literalRun = 0;
+		}
+		emit(index);
+		literalRun += 1;
+	}
+	emit(end);
 	if (bitCount > 0) packed.push(bitBuffer & 0xff);
 	return packed;
 }
@@ -411,18 +391,32 @@ function quantizeRgb332(r, g, b) {
 	return (ri << 5) | (gi << 2) | bi;
 }
 
-function resizeAndQuantize(image, outputWidth, outputHeight) {
+function fitAndQuantize(image, outputWidth, outputHeight) {
 	const background = [5, 6, 7];
+	const backgroundIndex = quantizeRgb332(...background);
+	const scale = Math.min(
+		outputWidth / image.width,
+		outputHeight / image.height,
+	);
+	const fittedWidth = Math.max(1, Math.round(image.width * scale));
+	const fittedHeight = Math.max(1, Math.round(image.height * scale));
+	const offsetX = Math.floor((outputWidth - fittedWidth) / 2);
+	const offsetY = Math.floor((outputHeight - fittedHeight) / 2);
 	const indices = new Uint8Array(outputWidth * outputHeight);
+	indices.fill(backgroundIndex);
 	for (let y = 0; y < outputHeight; y += 1) {
+		const targetY = y - offsetY;
+		if (targetY < 0 || targetY >= fittedHeight) continue;
 		const sy = Math.min(
 			image.height - 1,
-			Math.floor((y * image.height) / outputHeight),
+			Math.floor((targetY * image.height) / fittedHeight),
 		);
 		for (let x = 0; x < outputWidth; x += 1) {
+			const targetX = x - offsetX;
+			if (targetX < 0 || targetX >= fittedWidth) continue;
 			const sx = Math.min(
 				image.width - 1,
-				Math.floor((x * image.width) / outputWidth),
+				Math.floor((targetX * image.width) / fittedWidth),
 			);
 			const source = (sy * image.width + sx) * 4;
 			const alpha = image.rgba[source + 3];
@@ -466,6 +460,62 @@ function writeStudioGif(path, frames) {
 	writeFileSync(path, Buffer.from(bytes));
 }
 
+async function assertGifRenders(browser, gifPath) {
+	const gifData = readFileSync(gifPath).toString("base64");
+	const context = await browser.newContext({
+		deviceScaleFactor: 1,
+		viewport: { width: GIF_WIDTH, height: GIF_HEIGHT },
+	});
+	const page = await context.newPage();
+	try {
+		await page.setContent(
+			`<!doctype html><style>body{margin:0;background:#050607}img{display:block;width:${GIF_WIDTH}px;height:${GIF_HEIGHT}px}</style><img alt="Studio GIF check" src="data:image/gif;base64,${gifData}">`,
+		);
+		const result = await page.evaluate(async () => {
+			const img = document.querySelector("img");
+			if (!img) return { ok: false, reason: "missing image" };
+			await img.decode().catch(() => undefined);
+			const width = img.naturalWidth;
+			const height = img.naturalHeight;
+			if (width === 0 || height === 0) {
+				return { ok: false, reason: "image did not decode", width, height };
+			}
+			const canvas = document.createElement("canvas");
+			canvas.width = width;
+			canvas.height = height;
+			const ctx = canvas.getContext("2d");
+			if (!ctx)
+				return { ok: false, reason: "canvas unavailable", width, height };
+			ctx.drawImage(img, 0, 0);
+			const pixels = ctx.getImageData(0, 0, width, height).data;
+			let visibleSamples = 0;
+			for (let y = 0; y < height; y += 8) {
+				for (let x = 0; x < width; x += 8) {
+					const offset = (y * width + x) * 4;
+					const r = pixels[offset];
+					const g = pixels[offset + 1];
+					const b = pixels[offset + 2];
+					const a = pixels[offset + 3];
+					if (a > 0 && Math.max(r, g, b) > 24) visibleSamples += 1;
+				}
+			}
+			return { ok: true, width, height, visibleSamples };
+		});
+		if (
+			!result.ok ||
+			result.width !== GIF_WIDTH ||
+			result.height !== GIF_HEIGHT ||
+			result.visibleSamples < 500
+		) {
+			throw new Error(
+				`Studio GIF render check failed: ${JSON.stringify(result)}`,
+			);
+		}
+	} finally {
+		await context.close();
+	}
+}
+
 async function captureScreenshots(browser) {
 	const context = await browser.newContext({
 		deviceScaleFactor: HI_DPI_SCALE,
@@ -496,28 +546,29 @@ async function captureScreenshots(browser) {
 async function captureGif(browser) {
 	const context = await browser.newContext({
 		deviceScaleFactor: 1,
-		viewport: { width: GIF_WIDTH, height: GIF_HEIGHT },
+		viewport: { width: GIF_CAPTURE_WIDTH, height: GIF_CAPTURE_HEIGHT },
 	});
 	const page = await context.newPage();
 	const frames = [];
 	for (const step of STORYBOARD) {
 		await openStudioState(page, {
 			...step,
-			width: GIF_WIDTH,
-			height: GIF_HEIGHT,
+			width: GIF_CAPTURE_WIDTH,
+			height: GIF_CAPTURE_HEIGHT,
 		});
 		const png = await page.screenshot({
-			fullPage: false,
+			fullPage: true,
 			type: "png",
 			animations: "disabled",
 			caret: "hide",
 		});
-		frames.push(resizeAndQuantize(decodePng(png), GIF_WIDTH, GIF_HEIGHT));
+		frames.push(fitAndQuantize(decodePng(png), GIF_WIDTH, GIF_HEIGHT));
 	}
 	await context.close();
 
 	const gifPath = join(OUT_DIR, "studio-demo.gif");
 	writeStudioGif(gifPath, frames);
+	await assertGifRenders(browser, gifPath);
 }
 
 async function capture() {
@@ -538,7 +589,7 @@ async function capture() {
 		assets.unshift({
 			kind: "gif",
 			path: "assets/readme/studio/studio-demo.gif",
-			viewport: `${GIF_WIDTH}x${GIF_HEIGHT}`,
+			viewport: `${GIF_CAPTURE_WIDTH}x${GIF_CAPTURE_HEIGHT} full-page fit to ${GIF_WIDTH}x${GIF_HEIGHT}`,
 			route: "/",
 			source: "playwright-storyboard",
 		});
