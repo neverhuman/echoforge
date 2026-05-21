@@ -6,6 +6,14 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.9] - 2026-05-21
+
+### Changed
+- Added the Shahed-136/Geran-2 `runit` main-run generator, detector baseline, and regression test coverage.
+- Documented the main-run split policy, artifact layout, and detector outputs in `docs/main_run.md`.
+- Added the README main-run performance example and release-payload command pair for the public-proxy corpus.
+- Bumped the workspace release version to `0.2.9`.
+
 ## [0.2.8] - 2026-05-21
 
 ### Changed
