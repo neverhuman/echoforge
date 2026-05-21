@@ -16,15 +16,16 @@ const READY_TIMEOUT_MS = Number(
 	process.env.STUDIO_CAPTURE_READY_TIMEOUT_MS || "120000",
 );
 const HI_DPI_SCALE = Number(process.env.STUDIO_CAPTURE_SCALE || "2");
-const GIF_WIDTH = 960;
-const GIF_HEIGHT = 540;
-const GIF_CAPTURE_WIDTH = 1440;
-const GIF_CAPTURE_HEIGHT = 810;
-const GIF_FPS = Number(process.env.STUDIO_CAPTURE_GIF_FPS || "4");
+const GIF_WIDTH = 1280;
+const GIF_HEIGHT = 720;
+const GIF_CAPTURE_WIDTH = 1600;
+const GIF_CAPTURE_HEIGHT = 900;
+const GIF_FPS = Number(process.env.STUDIO_CAPTURE_GIF_FPS || "3");
 const GIF_SECONDS = Number(process.env.STUDIO_CAPTURE_GIF_SECONDS || "6");
 const GIF_FRAME_COUNT = Math.max(12, Math.round(GIF_FPS * GIF_SECONDS));
 const GIF_FRAME_INTERVAL_MS = Math.max(100, Math.round(1000 / GIF_FPS));
 const GIF_FRAME_DELAY_CS = Math.max(4, Math.round(100 / GIF_FPS));
+const GIF_BACKGROUND = [5, 6, 7];
 
 const CAPTURES = [
 	{
@@ -62,6 +63,154 @@ function formatManifestJson(manifest) {
 		.join(", ")}]`;
 	return `${pretty.replace(multilineFrames, inlineFrames)}\n`;
 }
+
+function clampByte(value) {
+	return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function lerpChannel(a, b, t) {
+	return clampByte(a + (b - a) * t);
+}
+
+function interpolateRgb(stops, t) {
+	if (stops.length === 1) return stops[0];
+	const scaled = t * (stops.length - 1);
+	const index = Math.min(stops.length - 2, Math.max(0, Math.floor(scaled)));
+	const localT = scaled - index;
+	const start = stops[index];
+	const end = stops[index + 1];
+	return [
+		lerpChannel(start[0], end[0], localT),
+		lerpChannel(start[1], end[1], localT),
+		lerpChannel(start[2], end[2], localT),
+	];
+}
+
+function makeRamp(stops, count) {
+	const ramp = [];
+	for (let i = 0; i < count; i += 1) {
+		const t = count === 1 ? 0 : i / (count - 1);
+		ramp.push(interpolateRgb(stops, t));
+	}
+	return ramp;
+}
+
+function appendRamp(palette, stops, count) {
+	const base = palette.length;
+	palette.push(...makeRamp(stops, count));
+	return base;
+}
+
+function buildStudioGifPalette() {
+	const palette = [];
+	const bands = {};
+
+	bands.gray = appendRamp(
+		palette,
+		[
+			[5, 6, 7],
+			[18, 20, 22],
+			[49, 58, 61],
+			[95, 106, 112],
+			[156, 169, 175],
+			[219, 228, 232],
+			[237, 244, 247],
+		],
+		64,
+	);
+	bands.cyan = appendRamp(
+		palette,
+		[
+			[6, 9, 16],
+			[18, 46, 54],
+			[31, 127, 158],
+			[53, 214, 197],
+			[159, 233, 255],
+		],
+		32,
+	);
+	bands.amber = appendRamp(
+		palette,
+		[
+			[16, 12, 8],
+			[43, 33, 15],
+			[88, 68, 28],
+			[184, 146, 74],
+			[232, 184, 107],
+			[255, 210, 122],
+			[255, 248, 222],
+		],
+		32,
+	);
+	bands.green = appendRamp(
+		palette,
+		[
+			[7, 19, 13],
+			[18, 49, 31],
+			[33, 87, 53],
+			[79, 149, 96],
+			[127, 207, 143],
+			[178, 242, 196],
+		],
+		32,
+	);
+	bands.red = appendRamp(
+		palette,
+		[
+			[22, 7, 7],
+			[58, 18, 18],
+			[104, 34, 34],
+			[165, 70, 70],
+			[239, 111, 108],
+			[255, 184, 182],
+		],
+		32,
+	);
+	bands.blue = appendRamp(
+		palette,
+		[
+			[8, 16, 29],
+			[17, 33, 56],
+			[28, 74, 117],
+			[60, 119, 178],
+			[142, 196, 255],
+			[207, 231, 255],
+		],
+		24,
+	);
+	bands.magenta = appendRamp(
+		palette,
+		[
+			[18, 8, 23],
+			[46, 15, 72],
+			[62, 18, 96],
+			[126, 44, 120],
+			[190, 54, 96],
+			[248, 162, 58],
+		],
+		24,
+	);
+	bands.warm = appendRamp(
+		palette,
+		[
+			[26, 19, 9],
+			[66, 49, 20],
+			[120, 90, 37],
+			[195, 156, 82],
+			[246, 210, 130],
+			[255, 248, 222],
+		],
+		16,
+	);
+
+	if (palette.length !== 256) {
+		throw new Error(`studio GIF palette must contain 256 colors, got ${palette.length}`);
+	}
+
+	return { palette, bands };
+}
+
+const STUDIO_GIF = buildStudioGifPalette();
 
 function runChecked(command, args) {
 	return new Promise((resolve, reject) => {
@@ -349,44 +498,59 @@ function decodePng(input) {
 	return { width, height, rgba };
 }
 
-function readmeGifPalette() {
-	const levels = [0, 51, 102, 153, 204, 255];
-	const palette = [];
-	for (const r of levels) {
-		for (const g of levels) {
-			for (const b of levels) {
-				palette.push([r, g, b]);
-			}
-		}
-	}
-	for (let index = 0; index < 40; index += 1) {
-		const value = Math.round((index * 255) / 39);
-		palette.push([value, value, value]);
-	}
-	while (palette.length < 256) palette.push([0, 0, 0]);
-	return palette;
-}
-
 function blendChannel(value, alpha, background) {
 	return Math.round((value * alpha + background * (255 - alpha)) / 255);
 }
 
-function quantizeReadmeGif(r, g, b) {
+function rgbToHsv(r, g, b) {
 	const max = Math.max(r, g, b);
 	const min = Math.min(r, g, b);
-	if (max - min <= 12) {
-		const gray = Math.round((r + g + b) / 3);
-		return 216 + Math.max(0, Math.min(39, Math.round((gray * 39) / 255)));
+	const delta = max - min;
+	let hue = 0;
+	if (delta > 0) {
+		if (max === r) hue = ((g - b) / delta) % 6;
+		else if (max === g) hue = (b - r) / delta + 2;
+		else hue = (r - g) / delta + 4;
+		hue *= 60;
+		if (hue < 0) hue += 360;
 	}
-	const ri = Math.max(0, Math.min(5, Math.round(r / 51)));
-	const gi = Math.max(0, Math.min(5, Math.round(g / 51)));
-	const bi = Math.max(0, Math.min(5, Math.round(b / 51)));
-	return ri * 36 + gi * 6 + bi;
+	const saturation = max === 0 ? 0 : delta / max;
+	return { hue, saturation, value: max };
+}
+
+function rampIndex(base, count, value) {
+	return base + Math.max(0, Math.min(count - 1, Math.round((value * (count - 1)) / 255)));
+}
+
+function quantizeStudioGif(r, g, b) {
+	const { hue, saturation, value } = rgbToHsv(r, g, b);
+	const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+	if (chroma < 18 || saturation < 0.16 || value < 40) {
+		return rampIndex(STUDIO_GIF.bands.gray, 64, Math.round((r + g + b) / 3));
+	}
+	if (hue >= 155 && hue < 220) {
+		return rampIndex(STUDIO_GIF.bands.cyan, 32, value);
+	}
+	if (hue >= 220 && hue < 265) {
+		return rampIndex(STUDIO_GIF.bands.blue, 24, value);
+	}
+	if (hue >= 265 && hue < 335) {
+		return rampIndex(STUDIO_GIF.bands.magenta, 24, value);
+	}
+	if (hue >= 335 || hue < 20) {
+		return rampIndex(STUDIO_GIF.bands.red, 32, value);
+	}
+	if (hue >= 20 && hue < 65) {
+		return rampIndex(STUDIO_GIF.bands.amber, 32, value);
+	}
+	if (hue >= 65 && hue < 155) {
+		return rampIndex(STUDIO_GIF.bands.green, 32, value);
+	}
+	return rampIndex(STUDIO_GIF.bands.warm, 16, value);
 }
 
 function fitAndQuantize(image, outputWidth, outputHeight) {
-	const background = [5, 6, 7];
-	const backgroundIndex = quantizeReadmeGif(...background);
+	const backgroundIndex = quantizeStudioGif(...GIF_BACKGROUND);
 	const scale = Math.min(
 		outputWidth / image.width,
 		outputHeight / image.height,
@@ -413,23 +577,22 @@ function fitAndQuantize(image, outputWidth, outputHeight) {
 			);
 			const source = (sy * image.width + sx) * 4;
 			const alpha = image.rgba[source + 3];
-			const r = blendChannel(image.rgba[source], alpha, background[0]);
-			const g = blendChannel(image.rgba[source + 1], alpha, background[1]);
-			const b = blendChannel(image.rgba[source + 2], alpha, background[2]);
-			indices[y * outputWidth + x] = quantizeReadmeGif(r, g, b);
+			const r = blendChannel(image.rgba[source], alpha, GIF_BACKGROUND[0]);
+			const g = blendChannel(image.rgba[source + 1], alpha, GIF_BACKGROUND[1]);
+			const b = blendChannel(image.rgba[source + 2], alpha, GIF_BACKGROUND[2]);
+			indices[y * outputWidth + x] = quantizeStudioGif(r, g, b);
 		}
 	}
 	return indices;
 }
 
 function writeStudioGif(path, frames) {
-	const palette = readmeGifPalette();
 	const bytes = [];
 	pushAscii(bytes, "GIF89a");
 	pushWord(bytes, GIF_WIDTH);
 	pushWord(bytes, GIF_HEIGHT);
 	bytes.push(0b11110111, 0, 0);
-	for (const [r, g, b] of palette) bytes.push(r, g, b);
+	for (const [r, g, b] of STUDIO_GIF.palette) bytes.push(r, g, b);
 	bytes.push(0x21, 0xff, 0x0b);
 	pushAscii(bytes, "NETSCAPE2.0");
 	bytes.push(0x03, 0x01);
@@ -559,33 +722,15 @@ async function openLiveRadarRun(page) {
 
 async function captureGif(browser) {
 	const context = await browser.newContext({
-		deviceScaleFactor: 1,
+		deviceScaleFactor: HI_DPI_SCALE,
 		viewport: { width: GIF_CAPTURE_WIDTH, height: GIF_CAPTURE_HEIGHT },
 	});
 	const page = await context.newPage();
 	const frames = [];
 	await openLiveRadarRun(page);
-	const clipBox = await page.getByTestId("radar-console").boundingBox();
-	if (!clipBox) throw new Error("radar console clip target was not visible");
-	const clipX = Math.max(0, Math.floor(clipBox.x));
-	const clipY = Math.max(0, Math.floor(clipBox.y));
-	let clipWidth = Math.floor(
-		Math.min(clipBox.width, GIF_CAPTURE_WIDTH - Math.max(0, clipBox.x)),
-	);
-	let clipHeight = Math.floor(
-		Math.min(clipBox.height, GIF_CAPTURE_HEIGHT - Math.max(0, clipBox.y)),
-	);
-	const targetAspect = GIF_WIDTH / GIF_HEIGHT;
-	if (clipWidth / clipHeight > targetAspect) {
-		clipWidth = Math.floor(clipHeight * targetAspect);
-	} else {
-		clipHeight = Math.floor(clipWidth / targetAspect);
-	}
-	const clip = { x: clipX, y: clipY, width: clipWidth, height: clipHeight };
+	const radarConsole = page.getByTestId("radar-console");
 	for (let frame = 0; frame < GIF_FRAME_COUNT; frame += 1) {
-		const png = await page.screenshot({
-			clip,
-			type: "png",
+		const png = await radarConsole.screenshot({
 			animations: "allow",
 			caret: "hide",
 		});
@@ -617,7 +762,7 @@ async function capture() {
 		assets.unshift({
 			kind: "gif",
 			path: "assets/readme/studio/studio-demo.gif",
-			viewport: `${GIF_CAPTURE_WIDTH}x${GIF_CAPTURE_HEIGHT} radar-console live run fit to ${GIF_WIDTH}x${GIF_HEIGHT}`,
+			viewport: `${GIF_CAPTURE_WIDTH}x${GIF_CAPTURE_HEIGHT}@${HI_DPI_SCALE}x radar-console live run fit to ${GIF_WIDTH}x${GIF_HEIGHT}`,
 			route: "/",
 			source: `${GIF_SECONDS}s-playwright-live-radar-run`,
 		});
