@@ -60,18 +60,27 @@ rtk bash ops/run-lane.sh studio-sync
 
 ## Modeling Results
 
-The tables below cover the published ML results in this repo. Method names link
-to their implementing scripts so the score table stays readable and navigable.
+The tables below cover the published detector and fusion results in this repo.
+Method names link to their implementing scripts so the score table stays
+readable and navigable.
 
-The current detection lane is the three-method `detection/run_all.sh` orchestrator over the standard synthetic public-proxy benchmark. The leaderboard below ranks the current lane by mean holdout AUC.
+The `runit` main run is the benchmark of record here: a 10,000-scenario-group,
+30,000-phase-record Shahed-136/Geran-2 public-proxy example with all detector
+branches plus the layered fusion branch. The leaderboard below ranks the full
+run by holdout ROC AUC.
 
-| method | 5 s holdout AUC | 15 s holdout AUC | 45 s holdout AUC | mean holdout AUC |
-| --- | ---: | ---: | ---: | ---: |
-| [`lightgbm_window_gbdt`](./detection/02_lightgbm_window_gbdt.py) | 1.000000 | 1.000000 | 1.000000 | 1.000000 |
-| [`catboost_ordered_boosting`](./detection/03_catboost_ordered_boosting.py) | 0.996914 | 0.998457 | 1.000000 | 0.998457 |
-| [`cfar_tbd_fusion`](./detection/01_cfar_tbd_fusion.py) | 0.924383 | 0.939815 | 0.950617 | 0.938272 |
+| method | holdout ROC AUC | holdout AP | accuracy | precision | recall | FPR | F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| [`layered_fusion_c2`](./detection/main_run_detectors.py) | 0.914031 | 0.254743 | 0.966222 | 0.344262 | 0.368421 | 0.018240 | 0.355932 |
+| [`tabular_ml_baseline`](./detection/main_run_detectors.py) | 0.908963 | 0.227212 | 0.955333 | 0.251429 | 0.385965 | 0.029868 | 0.304498 |
+| [`sequence_ml_proxy`](./detection/main_run_detectors.py) | 0.898339 | 0.201708 | 0.932667 | 0.188119 | 0.500000 | 0.056088 | 0.273381 |
+| [`tactical_s_band_aesa`](./detection/main_run_detectors.py) | 0.886095 | 0.148732 | 0.923333 | 0.174648 | 0.543860 | 0.066803 | 0.264392 |
+| [`gbad_3d4d_cueing`](./detection/main_run_detectors.py) | 0.880495 | 0.129558 | 0.937556 | 0.180077 | 0.412281 | 0.048792 | 0.250667 |
+| [`high_resolution_xku_cuas`](./detection/main_run_detectors.py) | 0.880185 | 0.221105 | 0.966000 | 0.327434 | 0.324561 | 0.017328 | 0.325991 |
+| [`distributed_acoustic_cue`](./detection/main_run_detectors.py) | 0.820985 | 0.148669 | 0.951778 | 0.176101 | 0.245614 | 0.029868 | 0.205128 |
 
-Synthetic public-proxy benchmark evidence only; these numbers are not measured truth or field-performance claims.
+Synthetic public-proxy benchmark evidence only; these numbers are not measured
+truth or field-performance claims.
 
 ### Shahed-136/Geran-2 Main-Run Example
 
