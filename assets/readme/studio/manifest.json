@@ -19,7 +19,7 @@
 		{
 			"kind": "gif",
 			"path": "assets/readme/studio/studio-demo.gif",
-			"viewport": "1600x900@2x radar-console live run fit to 1280x720",
+			"viewport": "1280x720@1x full-page",
 			"route": "/",
 			"source": "6s-playwright-live-radar-run"
 		},
