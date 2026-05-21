@@ -67,9 +67,9 @@ The current detection lane is the three-method `detection/run_all.sh` orchestrat
 
 | method | 5 s holdout AUC | 15 s holdout AUC | 45 s holdout AUC | mean holdout AUC |
 | --- | ---: | ---: | ---: | ---: |
-| [`lightgbm_window_gbdt`](./detection/02_lightgbm_window_gbdt.py) | 0.939756 | 0.942676 | 0.944569 | 0.942334 |
-| [`catboost_ordered_boosting`](./detection/03_catboost_ordered_boosting.py) | 0.931495 | 0.931396 | 0.938359 | 0.933750 |
-| [`cfar_tbd_fusion`](./detection/01_cfar_tbd_fusion.py) | 0.851080 | 0.858492 | 0.871792 | 0.860455 |
+| [`lightgbm_window_gbdt`](./detection/02_lightgbm_window_gbdt.py) | 1.000000 | 1.000000 | 1.000000 | 1.000000 |
+| [`catboost_ordered_boosting`](./detection/03_catboost_ordered_boosting.py) | 0.996914 | 0.998457 | 1.000000 | 0.998457 |
+| [`cfar_tbd_fusion`](./detection/01_cfar_tbd_fusion.py) | 0.924383 | 0.939815 | 0.950617 | 0.938272 |
 
 Synthetic public-proxy benchmark evidence only; these numbers are not measured truth or field-performance claims.
 
