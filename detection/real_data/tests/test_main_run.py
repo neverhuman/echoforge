@@ -2,12 +2,17 @@ from __future__ import annotations
 
 import csv
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 import numpy as np
 
+from detection.advanced_main_run_detectors import (
+    ADVANCED_METHOD_ID,
+    run_advanced_main_run_detectors,
+)
 from detection.main_run_detectors import run_main_run_detectors
 from detection.main_run_generation import build_main_run_dataset
 from detection.main_run_types import (
@@ -29,6 +34,7 @@ class MainRunDatasetTests(unittest.TestCase):
         root = Path(cls._tmp.name)
         cls.data_root = root / "training"
         cls.detector_root = root / "detection"
+        cls.advanced_root = root / "advanced_detection"
         cls.quality = build_main_run_dataset(
             cls.data_root,
             scenario_groups=120,
@@ -45,6 +51,17 @@ class MainRunDatasetTests(unittest.TestCase):
             folds=5,
             seed=202605210136,
             force=True,
+        )
+        cls.advanced_quality = run_advanced_main_run_detectors(
+            cls.data_root,
+            cls.advanced_root,
+            folds=5,
+            seed=202605210136,
+            force=True,
+            candidate_limit=96,
+            evolution_rounds=2,
+            search_profile="smoke",
+            evolution_sample_rows=900,
         )
         cls.scenarios = _read_csv(cls.data_root / "scenario_manifest.csv")
         cls.records = _read_csv(cls.data_root / "records.csv")
@@ -214,6 +231,245 @@ class MainRunDatasetTests(unittest.TestCase):
             self.assertEqual(row["threshold_source"], "train_cv_max_f1")
             self.assertNotEqual(row["roc_auc"], "")
             self.assertNotEqual(row["average_precision"], "")
+
+    def test_advanced_evolution_outputs_and_holdout_isolation(self) -> None:
+        required_outputs = {
+            "candidate_leaderboard.csv",
+            "selection_lock.json",
+            "advanced_feature_manifest.json",
+            "evolution_trace.jsonl",
+            "advanced_predictions.csv",
+            "performance_metrics.csv",
+            "performance_summary.json",
+            "fusion_quality_report.json",
+        }
+        for filename in required_outputs:
+            self.assertTrue((self.advanced_root / filename).exists(), filename)
+
+        quality = json.loads((self.advanced_root / "fusion_quality_report.json").read_text())
+        self.assertEqual(quality["status"], "pass")
+        self.assertEqual(quality["holdout_isolation_status"], "pass")
+        self.assertEqual(quality["selection_lock_status"], "written_before_holdout_scoring")
+        self.assertGreaterEqual(quality["candidate_count"], 96)
+        self.assertEqual(quality["candidate_selection_holdout_record_count"], 0)
+        self.assertEqual(quality["calibration_holdout_record_count"], 0)
+        self.assertEqual(quality["threshold_holdout_record_count"], 0)
+        self.assertEqual(quality["selected_holdout_evaluation_count"], 1)
+        self.assertLessEqual(
+            (self.advanced_root / "selection_lock.json").stat().st_mtime_ns,
+            (self.advanced_root / "advanced_predictions.csv").stat().st_mtime_ns,
+        )
+
+        manifest = json.loads((self.advanced_root / "advanced_feature_manifest.json").read_text())
+        isolation = manifest["split_isolation_policy"]
+        self.assertEqual(isolation["candidate_selection_split"], "train_cv")
+        self.assertEqual(isolation["calibration_split"], "train_cv")
+        self.assertEqual(isolation["threshold_split"], "train_cv")
+        self.assertEqual(isolation["holdout_rows_used_for_feature_selection"], 0)
+        self.assertEqual(isolation["holdout_rows_used_for_candidate_selection"], 0)
+        self.assertEqual(isolation["holdout_rows_used_for_calibration"], 0)
+        self.assertEqual(isolation["holdout_rows_used_for_threshold_selection"], 0)
+        self.assertFalse(set(manifest["feature_columns"]) & set(MODEL_FEATURE_DENYLIST))
+
+        leaderboard = _read_csv(self.advanced_root / "candidate_leaderboard.csv")
+        self.assertGreaterEqual(len(leaderboard), 96)
+        self.assertTrue(all(row["selection_split"] == "train_cv" for row in leaderboard))
+        self.assertTrue(all(row["holdout_rows_used_for_selection"] == "0" for row in leaderboard))
+        holdout_columns = {column for column in leaderboard[0] if column.startswith("holdout")}
+        self.assertEqual(holdout_columns, {"holdout_rows_used_for_selection"})
+        self.assertTrue(
+            all(
+                column.startswith("train_cv_")
+                or column
+                in {
+                    "candidate_id",
+                    "base_candidate_id",
+                    "candidate_type",
+                    "family",
+                    "subset_name",
+                    "head",
+                    "calibrator",
+                    "feature_count",
+                    "selection_split",
+                    "holdout_rows_used_for_selection",
+                    "objective",
+                    "initial_take_up_average_precision",
+                    "threshold",
+                    "calibration_info",
+                }
+                for column in leaderboard[0]
+            )
+        )
+        lock = json.loads((self.advanced_root / "selection_lock.json").read_text())
+        disallowed_lock_keys = {
+            key
+            for key in json.dumps(lock, sort_keys=True).split('"')
+            if key.startswith("holdout_")
+            and not key.startswith("holdout_rows_used_")
+            and key != "holdout_evaluation_policy"
+        }
+        self.assertEqual(disallowed_lock_keys, set())
+        self.assertEqual(lock["holdout_rows_used_for_selection"], 0)
+
+        summary = json.loads((self.advanced_root / "performance_summary.json").read_text())
+        self.assertEqual(
+            summary["advanced_selection"]["holdout_rows_used_for_selection"],
+            0,
+        )
+        self.assertIn(ADVANCED_METHOD_ID, summary["holdout"])
+
+    def test_advanced_evolution_determinism_on_smoke_data(self) -> None:
+        repeat_root = Path(self._tmp.name) / "advanced_detection_repeat"
+        repeat_quality = run_advanced_main_run_detectors(
+            self.data_root,
+            repeat_root,
+            folds=5,
+            seed=202605210136,
+            force=True,
+            candidate_limit=96,
+            evolution_rounds=2,
+            search_profile="smoke",
+            evolution_sample_rows=900,
+        )
+        self.assertEqual(
+            repeat_quality["selected_candidate_id"],
+            self.advanced_quality["selected_candidate_id"],
+        )
+        first = _read_csv(self.advanced_root / "candidate_leaderboard.csv")[:10]
+        second = _read_csv(repeat_root / "candidate_leaderboard.csv")[:10]
+        self.assertEqual(
+            [(row["candidate_id"], row["objective"]) for row in first],
+            [(row["candidate_id"], row["objective"]) for row in second],
+        )
+        predictions = _read_csv(self.advanced_root / "advanced_predictions.csv")
+        repeat_predictions = _read_csv(repeat_root / "advanced_predictions.csv")
+        self.assertEqual(
+            [row["advanced_score"] for row in predictions],
+            [row["advanced_score"] for row in repeat_predictions],
+        )
+
+    def test_advanced_feature_cache_reload_matches_fresh_scores(self) -> None:
+        cache_path = Path(self._tmp.name) / "advanced_features_smoke.npz"
+        fresh_root = Path(self._tmp.name) / "advanced_detection_cache_fresh"
+        cached_root = Path(self._tmp.name) / "advanced_detection_cache_reload"
+        fresh_quality = run_advanced_main_run_detectors(
+            self.data_root,
+            fresh_root,
+            folds=5,
+            seed=202605210136,
+            force=True,
+            candidate_limit=96,
+            evolution_rounds=1,
+            search_profile="smoke",
+            feature_cache=cache_path,
+            evolution_sample_rows=900,
+        )
+        cached_quality = run_advanced_main_run_detectors(
+            self.data_root,
+            cached_root,
+            folds=5,
+            seed=202605210136,
+            force=True,
+            candidate_limit=96,
+            evolution_rounds=1,
+            search_profile="smoke",
+            feature_cache=cache_path,
+            evolution_sample_rows=900,
+        )
+        self.assertEqual(
+            fresh_quality["selected_candidate_id"], cached_quality["selected_candidate_id"]
+        )
+        fresh_predictions = _read_csv(fresh_root / "advanced_predictions.csv")
+        cached_predictions = _read_csv(cached_root / "advanced_predictions.csv")
+        self.assertEqual(
+            [row["advanced_score"] for row in fresh_predictions],
+            [row["advanced_score"] for row in cached_predictions],
+        )
+
+    def test_advanced_selection_ignores_holdout_label_and_feature_perturbation(self) -> None:
+        perturbed_root = Path(self._tmp.name) / "training_holdout_perturbed"
+        shutil.copytree(self.data_root, perturbed_root)
+        records_path = perturbed_root / "records.csv"
+        records = _read_csv(records_path)
+        holdout_ids = {row["record_id"] for row in records if row["split_role"] == "holdout"}
+        for row in records:
+            if row["record_id"] in holdout_ids:
+                row["label_id"] = "0" if row["label_id"] == "1" else "1"
+        with records_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(records[0]))
+            writer.writeheader()
+            writer.writerows(records)
+
+        raw_index = _read_csv(perturbed_root / "raw_stream_index.csv")
+        first_holdout = next(row for row in raw_index if row["record_id"] in holdout_ids)
+        shard_path = perturbed_root / first_holdout["shard_path"]
+        with np.load(shard_path) as loaded:
+            payload = {name: loaded[name].copy() for name in loaded.files}
+        payload["iq"][int(first_holdout["row_offset"])] *= -1.0
+        np.savez_compressed(shard_path, **payload)
+
+        perturbed_out = Path(self._tmp.name) / "advanced_detection_perturbed_holdout"
+        perturbed_quality = run_advanced_main_run_detectors(
+            perturbed_root,
+            perturbed_out,
+            folds=5,
+            seed=202605210136,
+            force=True,
+            candidate_limit=96,
+            evolution_rounds=2,
+            search_profile="smoke",
+            evolution_sample_rows=900,
+        )
+        self.assertEqual(
+            perturbed_quality["selected_candidate_id"],
+            self.advanced_quality["selected_candidate_id"],
+        )
+        original = _read_csv(self.advanced_root / "candidate_leaderboard.csv")[:10]
+        perturbed = _read_csv(perturbed_out / "candidate_leaderboard.csv")[:10]
+        self.assertEqual(
+            [(row["candidate_id"], row["objective"]) for row in original],
+            [(row["candidate_id"], row["objective"]) for row in perturbed],
+        )
+
+    def test_advanced_feature_policy_and_clean_room_manifest(self) -> None:
+        v2_root = Path(self._tmp.name) / "advanced_detection_v2_manifest"
+        run_advanced_main_run_detectors(
+            self.data_root,
+            v2_root,
+            folds=5,
+            seed=202605210136,
+            force=True,
+            candidate_limit=128,
+            evolution_rounds=1,
+            search_profile="v2_aggressive",
+            evolution_sample_rows=900,
+        )
+        manifest = json.loads((v2_root / "advanced_feature_manifest.json").read_text())
+        self.assertEqual(manifest["candidate_generation_policy"]["search_profile"], "v2_aggressive")
+        self.assertIn("clean_room_inspiration", manifest)
+        self.assertIn("split_isolation_policy", manifest)
+        self.assertIn(
+            "wasserstein_style_prototype_distances",
+            manifest["clean_room_inspiration"]["implemented_families"],
+        )
+        self.assertFalse(set(manifest["feature_columns"]) & set(MODEL_FEATURE_DENYLIST))
+
+        source_paths = [
+            Path("detection/advanced_main_run_detectors.py"),
+            Path("detection/run_advanced_main_run_detectors.py"),
+            Path("detection/real_data/tests/test_main_run.py"),
+            Path("docs/main_run_advanced_evolution.md"),
+            Path("README.md"),
+        ]
+        external_project = "ve" + "ox"
+        forbidden = (
+            f"/home/ubuntu/{external_project}",
+            f"import {external_project}",
+            f"from {external_project}",
+        )
+        for source_path in source_paths:
+            text = source_path.read_text(encoding="utf-8").lower()
+            self.assertFalse(any(term in text for term in forbidden), source_path)
 
 
 if __name__ == "__main__":

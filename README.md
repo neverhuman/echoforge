@@ -87,6 +87,15 @@ train/CV only, then applied to the blind holdout.
 The complete generated table is `outputs/detection/runit-shahed136-main-run-v1/performance_metrics.csv`;
 the JSON summary is `outputs/detection/runit-shahed136-main-run-v1/performance_summary.json`.
 
+Advanced full-stream evolution ran against the same `outputs/training-data/runit-shahed136-main-run-v1`
+corpus and selected a locked meta-fusion winner after train/CV-only search.
+
+| selected candidate | train/CV rank | train/CV AP | train/CV ROC AUC | holdout ROC AUC | holdout AP | accuracy | precision | recall | FPR | F1 | gate |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `meta_fusion.top8.v2_aggressive.geodesic_odds` | 1 | 0.957622026 | 0.997433776 | 0.996928025 | 0.942983898 | 0.993556 | 0.947368 | 0.789474 | 0.001140 | 0.861244 | pass |
+
+The advanced-evolution outputs live under `outputs/detection/runit-shahed136-main-run-v1-advanced-evolution/`.
+
 Synthetic public-proxy benchmark evidence only; these numbers are not measured
 truth or field-performance claims.
 
