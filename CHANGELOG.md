@@ -6,6 +6,11 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.7] - 2026-05-21
+
+### Changed
+- Bumped the workspace release version to `0.2.7`.
+
 ## [0.2.6] - 2026-05-20
 
 ### Added
