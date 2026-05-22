@@ -89,9 +89,12 @@ def split_counts(
 ) -> tuple[int, int, int, int]:
     """Return holdout/train and positive allocations.
 
-    The default 10,000-group run intentionally locks to the requested
-    1,500-group holdout with 38 positive groups. Smaller smoke runs keep the
-    same 15 percent holdout ratio with a ceil-rounded positive quota.
+    The v1 10,000-group / 250-positive run intentionally locks to the
+    requested 1,500-group holdout with 38 positive groups. The v2
+    10,000-group / 50-positive run follows the same 15 percent holdout ratio
+    and rounds to 8 positive holdout groups and 42 train/CV positives.
+    Smaller smoke runs keep the same 15 percent holdout ratio with a
+    ceil-rounded positive quota.
     """
 
     if scenario_groups <= 0:
@@ -122,12 +125,48 @@ def build_scenario_manifest(
     positive_groups: int = DEFAULT_POSITIVE_GROUPS,
     seed: int = DEFAULT_SEED,
     folds: int = DEFAULT_FOLDS,
+    holdout_policy: str = "group_random",
+    holdout_value: str | None = None,
 ) -> list[dict[str, Any]]:
     holdout_count, _train_count, holdout_pos_count, train_pos_count = split_counts(
         scenario_groups, positive_groups
     )
     all_group_indices = list(range(scenario_groups))
-    holdout_indices = set(_stable_order(all_group_indices, seed, "holdout")[:holdout_count])
+    if holdout_policy == "group_random" or not holdout_value:
+        holdout_indices = set(_stable_order(all_group_indices, seed, "holdout")[:holdout_count])
+    else:
+        if holdout_policy not in {"site", "noise_regime", "hard_negative_role"}:
+            raise ValueError(
+                "holdout-policy must be one of group_random, site, noise_regime, hard_negative_role"
+            )
+        targeted: list[int] = []
+        for idx in all_group_indices:
+            scenario_site = SITE_ARCHETYPES[stable_seed(seed, idx, "site") % len(SITE_ARCHETYPES)]
+            scenario_noise = NOISE_REGIMES[stable_seed(seed, idx, "noise") % len(NOISE_REGIMES)]
+            scenario_role = NEGATIVE_ROLES[
+                stable_seed(seed, idx, "negative-role") % len(NEGATIVE_ROLES)
+            ]
+            scenario_value = {
+                "site": scenario_site,
+                "noise_regime": scenario_noise,
+                "hard_negative_role": scenario_role,
+            }[holdout_policy]
+            if scenario_value == holdout_value:
+                targeted.append(idx)
+        holdout_indices = set(
+            _stable_order(targeted, seed, f"holdout-{holdout_policy}-{holdout_value}")[
+                :holdout_count
+            ]
+        )
+        if len(holdout_indices) < holdout_count:
+            remaining = [idx for idx in all_group_indices if idx not in holdout_indices]
+            holdout_indices.update(
+                _stable_order(
+                    remaining,
+                    seed,
+                    f"holdout-topup-{holdout_policy}-{holdout_value}",
+                )[: holdout_count - len(holdout_indices)]
+            )
     train_indices = [idx for idx in all_group_indices if idx not in holdout_indices]
     holdout_positive = set(
         _stable_order(holdout_indices, seed, "holdout-positive")[:holdout_pos_count]
@@ -746,6 +785,9 @@ def build_main_run_dataset(
     shard_size: int = 512,
     force: bool = False,
     smoke: bool = False,
+    paper_profile: str = "fixed-wing-pusher-proxy-v1",
+    holdout_policy: str = "group_random",
+    holdout_value: str | None = None,
 ) -> dict[str, Any]:
     if out_root.exists():
         if not force:
@@ -766,6 +808,8 @@ def build_main_run_dataset(
         positive_groups=positive_groups,
         seed=seed,
         folds=folds,
+        holdout_policy=holdout_policy,
+        holdout_value=holdout_value,
     )
     records = build_records(scenarios, shard_size=shard_size)
     _write_csv(out_root / "scenario_manifest.csv", scenarios)
@@ -785,10 +829,13 @@ def build_main_run_dataset(
     )
     manifest = {
         "dataset_profile": DATASET_PROFILE,
+        "paper_profile": paper_profile,
         "seed": seed,
         "scenario_groups": scenario_groups,
         "positive_groups": positive_groups,
         "record_count": len(records),
+        "holdout_policy": holdout_policy,
+        "holdout_value": holdout_value or "",
         "phase_ids": [phase.phase_id for phase in PHASES],
         "phase_windows_s": {phase.phase_id: [phase.start_s, phase.end_s] for phase in PHASES},
         "model_labels": [POSITIVE_MODEL_LABEL, NEGATIVE_MODEL_LABEL],

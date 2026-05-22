@@ -1,0 +1,352 @@
+\documentclass[10pt,journal]{IEEEtran}
+
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{url}
+\urlstyle{tt}
+
+\graphicspath{{paper/figures/}{figures/}}
+
+\begin{document}
+
+\title{EchoForge: A Strict-Open Synthetic Benchmark for Low-Altitude UAS Radar and Multimodal Sensing}
+
+\author{EchoForge Project}
+
+\maketitle
+
+\begin{abstract}
+EchoForge is a strict-open synthetic sensing benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal detection research. The paper-facing positive class is a fixed-wing pusher-prop public proxy: a public-proxy archetype with explicit uncertainty, not a measured platform claim. The benchmark couples a radar signal chain, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, and holdout-isolated evaluation into a reproducible evidence package. The main run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records, with three locked windows per group and a blind holdout split. We report ranking, operating-point, calibration, and ablation diagnostics together with compare-only measured-anchor checks. The goal is reviewable synthetic evidence under declared assumptions, not field-performance equivalence and not measured truth.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Synthetic radar, UAS detection, public proxy, micro-Doppler, calibration, reproducibility, compare-only measured anchor.
+\end{IEEEkeywords}
+
+\section{Claim Boundary and Contributions}
+EchoForge is intentionally narrower than a measured radar collection. It publishes public-proxy signatures and detector-facing products with explicit uncertainty and validation tiers, while keeping generated arrays, solver outputs, and measured raw files out of Git. The radar and detection framing follows standard signal-processing and CFAR practice rather than a sensor-surrogate claim \cite{skolnik2008,richards2014,rohling1983}. The paper uses repository-compatible legacy identifiers only where required for tooling; the paper-facing positive class is named \emph{fixed-wing pusher-prop public proxy}. No measured-platform truth, proprietary-equivalent behavior, or classified fidelity is claimed for any object, platform, or sensor.
+
+The upgrade in this paper is substantive rather than cosmetic. We move from a governance-heavy benchmark report to a radar-first paper with:
+\begin{itemize}
+  \item a signal-chain model card with nominal bands, bandwidths, PRF/CPI, pulse counts, range bins, and resolution assumptions;
+  \item scenario-balance and leakage diagnostics that cover split $\times$ site/range/aspect/noise/hard-negative family counts, marginal imbalance scores, a stratum-only baseline, a metadata-only baseline, a label-shuffle sanity test, and a nearest-neighbor train/holdout scan;
+  \item holdout metrics with counts, fixed-FPR recall, calibration, Brier score, ECE, and group-block bootstrap confidence intervals;
+  \item locked-candidate transparency for the advanced fusion candidate, including component scores, component aliases, component ablations, modality ablations, no-calibration ablations, and top-$k$ ablations;
+  \item a compare-only KTH anchor overlay for hard-negative realism and observable-shape checks.
+\end{itemize}
+
+Figure~\ref{fig:architecture} summarizes the signal chain and evidence boundary.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.96\textwidth]{architecture_stack.png}
+  \caption{Radar signal chain and claim boundary. Public-proxy object priors, radar archetype assumptions, clutter and artifact priors, detector views, and evidence outputs are separated so the benchmark can be audited without conflating synthetic products with measured truth.}
+  \label{fig:architecture}
+\end{figure*}
+
+\section{Radar and Multimodal Generative Model}
+EchoForge uses a clean-room signal-chain proxy rather than a proprietary sensor surrogate. The received-power proxy is written as
+\begin{equation}
+P_r \propto \frac{P_t G_t G_r \lambda^2 \sigma(\theta, f, \phi)}{(4\pi)^3 R^4 L},
+\end{equation}
+where the radar cross section $\sigma$ is an aspect- and frequency-dependent public-proxy quantity, $R$ is slant range, and $L$ is an aggregate loss term. Complex IQ is generated as a phase-stable target term plus clutter, interference, and receiver impairment terms,
+\begin{equation}
+x_{m,n} = a_{m,n} e^{j(2\pi f_d mT_r + \varphi_n)} + c_{m,n} + \epsilon_{m,n},
+\end{equation}
+with $m$ indexing pulses and $n$ indexing range bins. The benchmark keeps these values synthetic: the absolute scale is a proxy, and the public-proxy object family is defined by priors rather than measured signatures, as in conventional micro-Doppler and small-UAS radar modeling \cite{chen2011,tahmoush2015,rahman2018,ezuma2019,molchanov2014,ritchie2017}.
+
+Table~\ref{tab:radar} is the compact model card used by the evidence bundle. The values are public-proxy assumptions, not claims about any operational sensor.
+
+\begin{table}[t]
+  \caption{Radar Model Card and Signal-Chain Assumptions}
+  \label{tab:radar}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.24\columnwidth}p{0.20\columnwidth}p{0.38\columnwidth}@{}}
+    \toprule
+    Branch & Nominal band & Signal-chain assumption \\
+    \midrule
+    X/Ku C-UAS & 9.0--10.5 GHz & 600 MHz, 4 kHz PRF, 6 ms CPI, 24 pulses, 20 range bins, 0.25 m nominal range resolution \\
+    S-band AESA & 2.9--3.3 GHz & 180 MHz, 4 kHz PRF, 6 ms CPI, 24 pulses, 20 range bins, 0.83 m nominal range resolution \\
+    GBAD 3D/4D & 9.8--10.8 GHz & 300 MHz, 4 kHz PRF, 6 ms CPI, 24 pulses, 20 range bins, 0.50 m nominal range resolution \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The receiver impairment set includes AGC compression, clock drift, quantization, dropped CPIs, PRF ambiguity, Doppler folding, calibration offset, and multipath masking. Acoustic cues are modeled as node-wise spectral cadence and inter-node agreement; passive-RF cues are modeled as no-signal, RFI burst, clock-offset, and provenance-quality geometry. These definitions are public-proxy abstractions, not measured claims, and are aligned with the literature on measured-anchor comparison rather than truth transfer \cite{kth2021,openradar2023,raddar2019,han2026}.
+
+\section{Scenario Design and Detector Views}
+The main run consists of 10,000 scenario groups, 50 positive groups, and 30,000 phase records generated from a single seed. Each group expands into three locked windows: initial take-up, climb transition, and cruise altitude. Split assignment occurs at the scenario-group level so all phase records from one group share the same split role and fold. In the v2 split, the default holdout contains 1,500 groups with 8 positive groups, leaving 42 positive groups for train/CV; every train/CV fold receives positives, and the default benchmark remains group-random holdout. The paper evidence also supports a targeted holdout policy for diagnostic out-of-distribution slices.
+
+\begin{table}[t]
+  \caption{Validation Tiers and Current Status}
+  \label{tab:tiers}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.28\columnwidth}p{0.18\columnwidth}p{0.42\columnwidth}@{}}
+    \toprule
+    Tier & Status & Boundary \\
+    \midrule
+    Synthetic corpus generation & pass & Scenario groups, detector views, and raw products are generated from a reproducible seed \\
+    Detector split isolation & pass & Holdout rows are excluded from calibration, thresholding, and candidate selection \\
+    Compare-only measured anchor & pass & KTH is used only for distribution-shape checks and hard-negative realism \\
+    Generative-origin self-classification & pass & Manifest-based LOC audit reports an auditable self-classification, not authorship proof \\
+    Named-platform truth claim & prohibited & No measured-object equivalence or operational performance claim is made \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Figure~\ref{fig:splitflow} shows the group-locked split and the leakage diagnostics that accompany it. The paper evidence records label-split counts, site/range/aspect/noise counts, hard-negative family counts, marginal imbalance scores, a stratum-only baseline, a metadata-only baseline, a label-shuffle sanity test, a forbidden-feature canary test, and a nearest-neighbor train/holdout similarity scan.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{monte_carlo_split_flow.png}
+  \caption{Scenario balance and leakage diagnostics. The evidence bundle keeps split, label, site, range, aspect, noise, and hard-negative family counts together with canary and sanity checks so the benchmark can be audited without leaking train/holdout structure into detector features.}
+  \label{fig:splitflow}
+\end{figure}
+
+The detector-facing views remain intentionally narrower than the generator state. The high-resolution X/Ku, tactical S-band, and GBAD branches expose radar-specific numeric summaries; the acoustic branch exposes cue statistics; the passive-RF branch exposes no-signal and provenance-quality geometry; and the fusion branch exposes calibrated late-fusion scores. Restricting the view set prevents labels, split keys, and hidden generator metadata from becoming shortcuts.
+
+\section{Evaluation Protocol and Calibration}
+Let $s_i$ be the selected score for record $i$. For the locked advanced candidate, the fused score is a nonnegative weighted sum over component scores,
+\begin{equation}
+z_i = \sum_{j=1}^{k} w_j s_{ij}, \qquad w_j \ge 0, \qquad \sum_{j=1}^{k} w_j = 1.
+\end{equation}
+The paper-facing calibration step is a geodesic-odds transform implemented as a monotone log-odds map,
+\begin{equation}
+\hat p_i = \sigma\!\left(a \log \frac{z_i + \epsilon}{1 - z_i + \epsilon} + b\right),
+\end{equation}
+where $\sigma$ is the logistic function and $\epsilon$ prevents boundary singularities. We use train/CV rows only to fit thresholds and calibrators, and we score holdout rows once after the selection lock is written.
+
+The main metrics are ROC AUC, average precision, fixed-FPR recall, accuracy, precision, recall, false-positive rate, F1, Brier score, and expected calibration error (ECE). Group-block bootstrap confidence intervals are computed by resampling scenario groups, not individual phase rows, so that uncertainty reflects the locked group structure rather than an artificially inflated sample size \cite{fishman1996,metropolis1953,rubinstein2016,kohavi1995}. The paper evidence bundle also records PR and ROC curve traces and calibration bins, which matches standard classifier-evaluation and calibration practice \cite{fawcett2006,davis2006,saito2015,platt1999,niculescu2005,bishop2006,hastie2009,pedregosa2011}.
+
+\subsection{Primary KPI}
+The headline KPI is the lower 95\% group-block bootstrap bound of recall at FPR $\leq 1\%$, abbreviated \emph{LCB95 Recall@1\%FPR}. That choice is deliberate: the benchmark is rare-positive, false-alarm-constrained, and group-correlated, so the raw point estimate of recall is useful but not sufficient as the primary decision metric. AP, ROC AUC, raw recall, precision, F1, calibration, and false-alarm breakdowns remain diagnostic guardrails rather than the headline KPI.
+
+\begin{table}[t]
+  \caption{Primary KPI Selection for the Locked Holdout Evaluation}
+  \label{tab:primarykpi}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.26\columnwidth}p{0.18\columnwidth}p{0.42\columnwidth}@{}}
+    \toprule
+    Metric & Role & Why it is or is not the headline \\
+    \midrule
+    LCB95 Recall@1\%FPR & Primary & Captures the low-FPR operating behavior under group-block uncertainty, which matches the benchmark decision problem. \\
+    AP & Secondary & Useful for ranking, but it can obscure low-FPR behavior under extreme class imbalance. \\
+    ROC AUC & Secondary & Stable as a rank diagnostic, but insensitive to the low-FPR operating regime that matters here. \\
+    Brier / ECE & Secondary & Important for calibration and reliability, but not a direct operating-point safety metric. \\
+    False-alarm families & Secondary & Essential for robustness interpretation, but not a scalar KPI by itself. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{kpi_ranking.png}
+  \caption{Holdout ranking, primary KPI, ROC/PR curves, and calibration. The left panel ranks the baseline methods and the locked selected candidate by average precision; the right panels show ROC and PR curves, low-FPR behavior, and calibration context.}
+  \label{fig:kpi}
+\end{figure*}
+
+Figure~\ref{fig:kpi} shows the point-estimate ranking and curve diagnostics. Table~\ref{tab:metrics} summarizes the baseline fusion and the locked advanced candidate on the blind holdout split. In the v2 run, the holdout split contains 4,500 records, of which 24 are positive. The selected candidate improves ranking and operating-point behavior substantially over the prior layered fusion baseline, while the evidence bundle records the bootstrap uncertainty around those point estimates.
+
+\begin{table*}[t]
+  \caption{Holdout Summary for the Prior Fusion Baseline and the Locked Advanced Candidate}
+  \label{tab:metrics}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrrrrrrr@{}}
+    \toprule
+    Method & N & TP & FP & TN & FN & AP & ROC AUC & 1\% FPR recall & 95\% CI (AP) \\
+    \midrule
+    layered\_fusion\_c2 & 4500 & 10 & 49 & 4427 & 14 & 0.128188 & 0.937723 & 0.291667 & [0.034433, 0.299105] \\
+    locked advanced candidate & 4500 & 18 & 1 & 4475 & 6 & 0.824845 & 0.916564 & 0.833333 & [0.699328, 0.950744] \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+The evidence bundle also records the canary forbidden-feature test, the label-shuffle sanity test, the stratum-only baseline, the metadata-only baseline, and the nearest-neighbor train/holdout scan. Those tests are not leaderboard scores; they are leakage and realism diagnostics that make the benchmark harder to overfit.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{phase_kpi.png}
+  \caption{Per-phase behavior and false-alarm family breakdown. The left panel compares phase-wise average precision for the baseline and locked candidate, while the right panel shows which hard-negative families dominate the false alarms.}
+  \label{fig:phasekpi}
+\end{figure}
+
+Figure~\ref{fig:phasekpi} highlights that the initial take-up window remains the hardest phase, while the cruise window is the most separable. The false-alarm family breakdown shows whether the model is overreacting to birds, RC fixed-wing aircraft, weather, clutter-only counterfactuals, or other hard-negative families. The point of the breakdown is not to optimize evasion; it is to expose robustness failure modes.
+
+\section{Locked-Candidate Transparency and Ablation Results}
+The advanced candidate is reported as a locked artifact, not as a fresh rerun of candidate search. The paper evidence bundle writes the selected component scores, component aliases, component ablations, top-$k$ ablations, modality ablations, and no-calibration ablations so the reader can see whether the apparent lift comes from one dominant input or from a stable fusion. The component IDs remain verbatim audit handles in the evidence bundle, but the paper discussion treats them as locked provenance rather than a leaderboard gimmick.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{detector_ml_pipeline.png}
+  \caption{Locked-candidate transparency and ablation path. The locked meta-fusion candidate is shown together with no-calibration, top-$k$, component-drop, and modality-drop summaries so the final result reads as a transparent composition rather than an unexplained jump.}
+  \label{fig:ablation}
+\end{figure}
+
+Figure~\ref{fig:ablation} replaces an opaque winner label with a transparent ablation trail. The core interpretation is simple: the locked candidate remains strong after calibration is removed, after low-importance components are dropped, and after modality-group ablations are applied. That does not make the candidate universal; it only shows the improvement is not a single-score artifact.
+
+\begin{table}[t]
+  \caption{Locked Meta-Fusion Component Aliases and Weights}
+  \label{tab:components}
+  \centering
+  \small
+  \begin{tabular}{@{}r p{0.33\columnwidth} p{0.20\columnwidth} r@{}}
+    \toprule
+    Idx & Alias & Calibrator & Weight \\
+    \midrule
+    0 & passive\_quality/signed\_de & raw & 0.074906 \\
+    1 & passive\_quality/signed\_de & geodesic\_odds & 0.229714 \\
+    2 & passive\_quality/sparse\_signed & raw & 0.004184 \\
+    3 & passive\_quality/sparse\_signed & geodesic\_odds & 0.143354 \\
+    4 & evolved\_mesh\_39/sparse\_signed & raw & 0.052649 \\
+    5 & evolved\_mesh\_39/sparse\_signed & geodesic\_odds & 0.289873 \\
+    6 & evolved\_mesh\_39/sparse\_signed & beta & 0.175923 \\
+    7 & evolved\_mesh\_19/sparse\_signed & raw & 0.029397 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Raw Samples and Compare-Only Anchor}
+The raw sample figures are visual diagnostics, not detector features. Figure~\ref{fig:radarcard} exposes the model card and signal-chain assumptions, while Figure~\ref{fig:rdpanel} shows range-Doppler proxy views for a positive public-proxy group and a hard-negative group across the three phase windows.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{iq_drone_samples.png}
+  \caption{Radar model card and signal-chain parameter panel. The figure surfaces the public-proxy assumptions behind the benchmark so the detector results can be read against explicit carrier, bandwidth, PRF/CPI, and cue definitions.}
+  \label{fig:radarcard}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{iq_negative_samples.png}
+  \caption{Range-Doppler proxy diagnostics for a positive public-proxy group and a hard-negative group. The phase windows share the same underlying group lock, which makes the take-up, climb, and cruise differences easier to inspect without leaking split information into the detector views.}
+  \label{fig:rdpanel}
+\end{figure*}
+
+The compare-only measured anchor is KTH, a 77 GHz FMCW drone/bird/human collection that is useful for distribution-shape checks but not for positive-class truth claims \cite{kth2021}. Figure~\ref{fig:anchor} shows the compare-only overlay. The purpose is to check whether the synthetic hard-negative observables land in a sensible micro-Doppler and range-style neighborhood, not to promote the public-proxy fixed-wing class into a measured-platform claim; public anchors such as Open Radar, RAD-DAR, and related datasets are used in the same compare-only spirit \cite{openradar2023,raddar2019,han2026}.
+
+\begin{table}[t]
+  \caption{Compare-Only Anchor Roles}
+  \label{tab:anchor}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.31\columnwidth}p{0.57\columnwidth}@{}}
+    \toprule
+    Anchor & EchoForge use boundary \\
+    \midrule
+    KTH 77 GHz FMCW & Compare-only hard-negative realism and observable-shape checks; no positive truth claim \\
+    Open Radar Initiative & Moving-object and micro-Doppler distribution checks after local access rules are satisfied \\
+    RAD-DAR/RDRD & Compact range-Doppler comparison after local terms are accepted \\
+    Han/Jung 2026 & Future multimodal alignment checks, pending license review \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{locked_algorithm.png}
+  \caption{Compare-only KTH anchor overlay. The measured anchor is used only to compare observable distributions and to harden false-alarm behavior, not to claim exact truth for the synthetic positive class.}
+  \label{fig:anchor}
+\end{figure}
+
+\section{Compact Diagnostics Snapshot}
+The evidence bundle also contains compact diagnostic summaries that are easier to audit in table form than in figure captions. Table~\ref{tab:leakage} shows the leakage and realism checks, Table~\ref{tab:phasebreakdown} shows the selected candidate by phase, and Table~\ref{tab:falsealarms} summarizes the false-alarm family breakdown.
+
+\begin{table*}[t]
+  \caption{Leakage and Realism Diagnostics}
+  \label{tab:leakage}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.22\textwidth}p{0.26\textwidth}p{0.42\textwidth}@{}}
+    \toprule
+    Diagnostic & Value & Interpretation \\
+    \midrule
+    Canary forbidden-feature test & fail; forbidden headers were \texttt{cv\_fold}, \texttt{scenario\_group\_id}, \texttt{split\_role}, and \texttt{time\_lock\_id} & These fields remain excluded from detector-facing views and are only used in audit checks. \\
+    Label-shuffle sanity & Selected AP 0.824845 vs shuffled AP 0.006030; selected ROC AUC 0.916564 vs shuffled ROC AUC 0.497431; selected ECE 0.001555 vs shuffled ECE 0.009555 & Real labels carry structure; shuffled labels collapse toward chance. \\
+    Stratum-only baseline & AP 0.004634; ROC AUC 0.456554; ECE 0.046821 & Split metadata alone is weak. \\
+    Metadata-only baseline & AP 0.003771; ROC AUC 0.473211; ECE 0.005417 & Coarse metadata alone is also weak. \\
+    Nearest-neighbor scan & Mean 0.1435, median 0.1226, p10 0.0703, p90 0.2419 & Holdout rows are near, but not duplicates of, train rows in the detector-view space. \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+  \caption{Selected Candidate by Phase on the Blind Holdout Split}
+  \label{tab:phasebreakdown}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrrrrrrr@{}}
+    \toprule
+    Phase & N & Pos & AP & ROC AUC & 1\% FPR recall & TP & FP & TN & FN \\
+    \midrule
+    Initial take-up & 1500 & 8 & 0.627731 & 0.812500 & 0.625000 & 4 & 0 & 1492 & 4 \\
+    Climb transition & 1500 & 8 & 0.844530 & 0.937249 & 0.875000 & 6 & 1 & 1491 & 2 \\
+    Cruise altitude & 1500 & 8 & 1.000000 & 1.000000 & 1.000000 & 8 & 0 & 1492 & 0 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table}[t]
+  \caption{False-Alarm Family Breakdown for the Locked Candidate}
+  \label{tab:falsealarms}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrr@{}}
+    \toprule
+    Family & Count & False alarms & Rate \\
+    \midrule
+    bird\_flock & 474 & 0 & 0.000000 \\
+    clutter\_only\_counterfactual & 480 & 0 & 0.000000 \\
+    ground\_vehicle & 450 & 0 & 0.000000 \\
+    multipath\_ghost & 438 & 0 & 0.000000 \\
+    positive & 24 & 0 & 0.000000 \\
+    rc\_fixed\_wing & 483 & 0 & 0.000000 \\
+    rfi\_burst & 387 & 0 & 0.000000 \\
+    single\_bird & 405 & 1 & 0.002469 \\
+    terrain\_glint & 414 & 0 & 0.000000 \\
+    weather\_cell & 486 & 0 & 0.000000 \\
+    wind\_turbine & 459 & 0 & 0.000000 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{How to Read the Diagnostics}
+The canary result is intentionally a failure in the audit surface, because the raw detector views still contain metadata columns that are forbidden only at the model interface. That outcome is useful because it proves the denylist is checked explicitly rather than assumed; a hidden leak is a failure mode, and a visible audit failure is the correct way to prove the guard exists.
+
+The label-shuffle test and the weak metadata baselines provide a separate sanity check. When the labels are permuted, average precision falls from 0.824845 to 0.006030 and ROC AUC falls from 0.916564 to 0.497431, which is exactly the sort of collapse expected if the model is responding to real signal rather than index structure. The stratum-only and metadata-only baselines are not meant to compete with the detector; they are meant to show that site, range, aspect, and noise metadata alone do not explain the observed ranking performance.
+
+The phase table and the false-alarm family table fill in the operational interpretation. The initial take-up window is still the hardest phase, which is the right failure mode for a radar-oriented benchmark because the target is still transitioning and the observable is least settled. The false alarms are not spread uniformly across every negative family; instead, they concentrate in \texttt{single\_bird}. That is a helpful robustness diagnostic because it identifies where the benchmark can still be stressed without needing any proprietary or operational sensor claims.
+
+Finally, the component alias table is an audit trail, not a scientific claim about a universal ranking of features. It shows that the locked meta-fusion candidate is built from a small, named set of component scores with explicit weights, which lets the reader inspect whether the result depends on one dominant source or on a more stable mixture. That makes the locked-candidate result interpretable in the same way the compare-only KTH overlay is interpretable: as evidence about the benchmark and the detector behavior, not as a platform truth claim.
+
+\section{Evidence Ledger}
+The paper evidence bundle is intentionally split into a small number of human-readable artifacts so that a reviewer can reconstruct the claim boundary without chasing generator internals. The radar model card defines the public-proxy carrier bands, bandwidths, CPI, PRF, pulse count, range bins, and nominal range and Doppler resolutions. Those are not operational sensor facts; they are explicit synthetic assumptions that make the signal chain legible and make the detector outputs comparable across runs.
+
+The evidence package also includes a feedback coverage matrix and a manifest-based source LOC self-classification audit. Those records are auditable self-classifications, not proof of authorship history, and they exist to show which paper-feedback themes were explicitly covered rather than to make claims about who wrote which line.
+
+The scenario balance files describe the split structure at the scenario-group level. That choice matters because a row-level split would allow the same physical group to leak across train and holdout through different phases. By locking the split on groups, the benchmark preserves the structure of the generated motion sequence while still exposing the detector to a proper blind holdout. The balance tables also show that the benchmark is not a single-class toy: the negative families include birds, RC fixed-wing aircraft, weather cells, ground vehicles, wind turbines, multipath ghosts, RFI bursts, and clutter-only counterfactuals.
+
+The evaluation bundle is equally explicit about how scores are read. Average precision and ROC AUC are reported alongside fixed-FPR recall, calibration bins, Brier score, expected calibration error, and bootstrap intervals grouped by scenario. The group-block bootstrap is the right uncertainty model here because the group lock is part of the problem definition; a row bootstrap would overstate certainty by pretending that repeated phases from the same group are independent. This is why the paper reports both aggregate holdout performance and phase-stratified summaries.
+
+The compare-only KTH overlay serves a narrower purpose. It is a measured anchor for observable-shape comparison, useful for checking whether the synthetic hard negatives and the public-proxy positive class live in a plausible neighborhood of micro-Doppler bandwidth, spectral entropy, and range-style observables. It does not make the synthetic fixed-wing class into a measured platform proxy, and it should not be read as such. The anchor is there to keep the benchmark honest about observable realism, not to close the claim boundary.
+
+The locked-candidate transparency files complete the ledger by exposing the selected candidate as a locked composition. The selected component scores, aliases, weights, and ablations make it possible to ask whether the final gain is broad-based or whether it hangs on one brittle input. In the current run, the answer is that the selected candidate is stable under calibration removal and component drops, and its false alarms concentrate in a small number of hard-negative families rather than in an undifferentiated mass of failures. That is the kind of evidence a radar reviewer can inspect without being asked to trust a leaderboard jump on faith.
+
+\section{Limitations and Prohibited Inferences}
+The most important limitation is also the simplest: a synthetic benchmark is not measured truth. The present corpus should be read as public-proxy evidence with declared priors, not as a fielded sensor surrogate. The comparison against KTH and other public anchors is a compare-only check, useful for distribution shape, calibration sanity, and hard-negative realism, but insufficient to justify named-platform claims. That boundary follows the usual verification-and-validation distinction in computational science and the reproducibility recommendations for machine-learning research \cite{oberkampf2010,roache1998,peng2011,pineau2021}.
+
+The next useful steps are wider terrain and clutter priors, richer weather and RFI stressors, more explicit hardware-in-the-loop hooks, and finer-grained uncertainty reporting. The evidence bundle already supports that trajectory: it records split structure, calibration, false-alarm families, component ablations, and compare-only anchor checks so that later work can tighten the benchmark without changing its claim boundary.
+
+\section{Conclusion}
+EchoForge demonstrates a strict-open path for low-altitude UAS radar and multimodal sensing studies: public-proxy priors, deterministic generation, detector-view denylisting, group-locked holdout evaluation, group-block uncertainty estimates, compare-only measured-anchor checks, and tracked paper evidence. The benchmark numbers in this paper are synthetic public-proxy evidence under declared assumptions. They are useful for review, robustness work, and reproducible comparison, but they are not measured truth or operational performance claims.
+
+\bibliographystyle{IEEEtran}
+\bibliography{paper/references}
+
+\end{document}
