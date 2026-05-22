@@ -362,6 +362,12 @@ def _load_context(roots: FigureRoots) -> FigureContext:
         component_scores = _read_csv_rows(
             roots.paper_evidence_root / "selected_component_scores.csv"
         )
+    if not component_scores:
+        component_transparency = evidence.get("component_transparency", {})
+        if isinstance(component_transparency, dict):
+            raw_component_scores = component_transparency.get("component_scores", [])
+            if isinstance(raw_component_scores, list):
+                component_scores = raw_component_scores
     component_ablations = _read_csv_rows(
         roots.paper_evidence_root / "selected_component_ablations.csv"
     )
@@ -1591,6 +1597,14 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
         component_rows = _selected_component_human_weights(context.component_scores)
         if component_rows:
             source_tags.append("advanced detector component scores")
+    if not component_rows:
+        component_transparency = context.evidence.get("component_transparency", {})
+        if isinstance(component_transparency, dict):
+            raw_component_scores = component_transparency.get("component_scores", [])
+            if isinstance(raw_component_scores, list) and raw_component_scores:
+                component_rows = _selected_component_human_weights(raw_component_scores)
+                if component_rows:
+                    source_tags.append("paper evidence component transparency")
     if not ablation_rows:
         ablation_rows = _read_csv_rows(
             context.roots.paper_evidence_root / "comparable_ablation_summary.csv"
