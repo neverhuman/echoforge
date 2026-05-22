@@ -20,7 +20,7 @@ done
 mkdir -p "$out_dir"
 cd "$repo_root"
 
-rtk python3 -m detection.paper_evidence_major_upgrade_v1 \
+python3 -m detection.paper_evidence_major_upgrade_v1 \
   --training-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
   --baseline-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
   --advanced-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
@@ -28,7 +28,7 @@ rtk python3 -m detection.paper_evidence_major_upgrade_v1 \
   --out-root outputs/paper-evidence/major-upgrade-v1 \
   --force
 
-rtk python3 paper/generate_figures.py \
+python3 paper/generate_figures.py \
   --training-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
   --baseline-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
   --advanced-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
@@ -36,7 +36,7 @@ rtk python3 paper/generate_figures.py \
   --anchor-root outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1 \
   --strict
 
-rtk latexmk \
+latexmk \
   -pdf \
   -bibtex \
   -interaction=nonstopmode \
@@ -45,7 +45,7 @@ rtk latexmk \
   -outdir="$out_dir" \
   paper/echoforge_ieee.tex
 
-rtk python3 paper/validate_paper.py \
+python3 paper/validate_paper.py \
   --tex paper/echoforge_ieee.tex \
   --bib paper/references.bib \
   --pdf "$out_dir/echoforge_ieee.pdf" \
@@ -53,5 +53,5 @@ rtk python3 paper/validate_paper.py \
   --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
 
 if [[ "$copy_tracked" -eq 1 ]]; then
-  rtk cp "$out_dir/echoforge_ieee.pdf" paper/echoforge_ieee.pdf
+  cp "$out_dir/echoforge_ieee.pdf" paper/echoforge_ieee.pdf
 fi
