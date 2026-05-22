@@ -13,6 +13,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from detection.paper_evidence_major_upgrade_v1 import (
+    _comparable_ablation_rows,
+    _selected_component_human_weights,
+)
+
 try:
     import numpy as np
 except Exception:  # pragma: no cover - import guard for minimal environments
@@ -1571,25 +1576,36 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
     manifest_ablation_rows = context.evidence.get("comparable_ablation_summary", [])
     component_rows = manifest_component_rows if isinstance(manifest_component_rows, list) else []
     ablation_rows = manifest_ablation_rows if isinstance(manifest_ablation_rows, list) else []
+    source_tags: list[str] = []
     if not component_rows:
         component_rows = _read_csv_rows(
             context.roots.paper_evidence_root / "selected_component_human_weights.csv"
         )
+        if component_rows:
+            source_tags.append("paper evidence CSV outputs for component weights")
+    if not component_rows:
+        component_rows = _selected_component_human_weights(context.component_scores)
+        if component_rows:
+            source_tags.append("advanced detector component scores")
     if not ablation_rows:
         ablation_rows = _read_csv_rows(
             context.roots.paper_evidence_root / "comparable_ablation_summary.csv"
         )
+        if ablation_rows:
+            source_tags.append("paper evidence CSV outputs for comparable ablations")
+    if not ablation_rows:
+        eval_summary = context.evidence.get("evaluation_summary", {})
+        modality_transparency = context.evidence.get("modality_transparency", {})
+        if isinstance(eval_summary, dict) and isinstance(modality_transparency, dict):
+            ablation_rows = _comparable_ablation_rows(eval_summary, modality_transparency)
+            if ablation_rows:
+                source_tags.append("paper evidence evaluation + modality transparency")
     if component_rows and ablation_rows:
         if manifest_component_rows and manifest_ablation_rows:
-            _note_source(
-                filename,
-                "paper evidence manifest rows for component weights and comparable ablation outputs",
+            source_tags.append(
+                "paper evidence manifest rows for component weights and comparable ablation outputs"
             )
-        else:
-            _note_source(
-                filename,
-                "paper evidence CSV outputs for component weights and comparable ablation outputs",
-            )
+        _note_source(filename, "; ".join(source_tags) if source_tags else "tracked evidence")
     else:
         _note_fallback(filename, "component/ablation evidence missing; using generic placeholders")
         if STRICT_MODE:
