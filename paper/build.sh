@@ -20,6 +20,16 @@ done
 mkdir -p "$out_dir"
 cd "$repo_root"
 
+if ! python3 - <<'PY'
+import importlib.util
+import sys
+
+sys.exit(0 if importlib.util.find_spec("numpy") is not None else 1)
+PY
+then
+  python3 -m pip install --user --quiet numpy
+fi
+
 python3 -m detection.paper_evidence_major_upgrade_v1 \
   --training-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
   --baseline-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
