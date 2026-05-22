@@ -47,6 +47,11 @@ jobs:
         uses: taiki-e/install-action@213ccc1a076163c093f914550b94feb90fab916d
         with:
           tool: nextest
+      - name: Install paper TeX toolchain
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-recommended texlive-publishers
       - name: Fast lane
         shell: bash
         env:

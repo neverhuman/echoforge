@@ -61,6 +61,22 @@ def _cmd_build_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_compare_synthetic(args: argparse.Namespace) -> int:
+    catalog = _load_valid_catalog(args.catalog)
+    entries = _select_entries(catalog, args.dataset_id)
+    reports = [
+        build_dataset_report(
+            entry,
+            raw_root=args.synthetic_root,
+            out_root=args.out_root,
+            run_id=args.run_id,
+        ).to_json()
+        for entry in entries
+    ]
+    _print({"status": "completed", "reports": reports})
+    return 0
+
+
 def _cmd_guard_git(args: argparse.Namespace) -> int:
     violations = find_tracked_real_data(args.repo_root)
     _print({"status": "pass" if not violations else "fail", "violations": violations})
@@ -99,6 +115,13 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--out-root", type=Path, default=Path("outputs/real-data"))
     report.add_argument("--run-id", default="reference-only")
     report.set_defaults(func=_cmd_build_report)
+
+    compare = sub.add_parser("compare-synthetic")
+    compare.add_argument("--dataset-id", default="kth-drone-bird-human-77ghz")
+    compare.add_argument("--synthetic-root", type=Path, required=True)
+    compare.add_argument("--out-root", type=Path, required=True)
+    compare.add_argument("--run-id", default="compare-synthetic")
+    compare.set_defaults(func=_cmd_compare_synthetic)
 
     guard = sub.add_parser("guard-git")
     guard.add_argument("--repo-root", type=Path, default=Path("."))

@@ -66,9 +66,37 @@ branches plus the layered fusion branch. It writes generated streams and
 reports under `outputs/`; see [docs/main_run.md](./docs/main_run.md) for the
 full split, leakage, and claim-boundary protocol.
 
+IEEE-style paper: [paper/echoforge_ieee.pdf](./paper/echoforge_ieee.pdf).
+
+Paper figure strip:
+
+| Radar model card | KPI ranking | Anchor compare-only |
+| --- | --- | --- |
+| ![Radar model card](./paper/figures/iq_drone_samples.png) | ![KPI ranking](./paper/figures/kpi_ranking.png) | ![Anchor compare-only](./paper/figures/locked_algorithm.png) |
+
+Paper lane:
+
 ```bash
-rtk python3 detection/generate_main_run.py --out-root outputs/training-data/runit-shahed136-main-run-v1 --scenario-groups 10000 --positive-groups 250 --seed 202605210136 --force
-rtk python3 detection/run_main_run_detectors.py --data-root outputs/training-data/runit-shahed136-main-run-v1 --out-root outputs/detection/runit-shahed136-main-run-v1 --folds 5 --seed 202605210136 --force
+rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
+rtk python3 paper/generate_figures.py --strict
+rtk bash paper/build.sh --copy-tracked
+rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+```
+
+Paper artifact map:
+
+| artifact | purpose |
+| --- | --- |
+| `paper/echoforge_ieee.tex` | IEEE-style source with strict public-proxy claim boundaries |
+| `paper/echoforge_ieee.pdf` | tracked compiled paper for direct review |
+| `paper/figures/kpi_ranking.png` | holdout ranking with ROC/PR and calibration diagnostics |
+| `paper/figures/phase_kpi.png` | phase behavior and false-alarm family breakdown |
+| `paper/figures/locked_algorithm.png` | compare-only KTH anchor overlay for hard-negative realism checks |
+| `paper/validate_paper.py` | page, citation, bibliography, required-figure, and no-fallback-metadata checks |
+
+```bash
+rtk python3 detection/generate_main_run.py --profile fixed-wing-pusher-proxy-v2 --out-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --scenario-groups 10000 --seed 202605210136 --force
+rtk python3 detection/run_main_run_detectors.py --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run --folds 5 --seed 202605210136 --force
 ```
 
 Full-run holdout performance, all phases combined. Thresholds are selected on
@@ -76,25 +104,26 @@ train/CV only, then applied to the blind holdout.
 
 | method | holdout ROC AUC | holdout AP | accuracy | precision | recall | FPR | F1 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| [`layered_fusion_c2`](./detection/main_run_detectors.py) | 0.914031 | 0.254743 | 0.966222 | 0.344262 | 0.368421 | 0.018240 | 0.355932 |
-| [`tabular_ml_baseline`](./detection/main_run_detectors.py) | 0.908963 | 0.227212 | 0.955333 | 0.251429 | 0.385965 | 0.029868 | 0.304498 |
-| [`sequence_ml_proxy`](./detection/main_run_detectors.py) | 0.898339 | 0.201708 | 0.932667 | 0.188119 | 0.500000 | 0.056088 | 0.273381 |
-| [`tactical_s_band_aesa`](./detection/main_run_detectors.py) | 0.886095 | 0.148732 | 0.923333 | 0.174648 | 0.543860 | 0.066803 | 0.264392 |
-| [`gbad_3d4d_cueing`](./detection/main_run_detectors.py) | 0.880495 | 0.129558 | 0.937556 | 0.180077 | 0.412281 | 0.048792 | 0.250667 |
-| [`high_resolution_xku_cuas`](./detection/main_run_detectors.py) | 0.880185 | 0.221105 | 0.966000 | 0.327434 | 0.324561 | 0.017328 | 0.325991 |
-| [`distributed_acoustic_cue`](./detection/main_run_detectors.py) | 0.820985 | 0.148669 | 0.951778 | 0.176101 | 0.245614 | 0.029868 | 0.205128 |
+| [`layered_fusion_c2`](./detection/main_run_detectors.py) | 0.937723 | 0.128188 | 0.986000 | 0.169492 | 0.416667 | 0.010947 | 0.240964 |
+| [`tabular_ml_baseline`](./detection/main_run_detectors.py) | 0.927521 | 0.125996 | 0.980667 | 0.090909 | 0.291667 | 0.015639 | 0.138614 |
+| [`sequence_ml_proxy`](./detection/main_run_detectors.py) | 0.917421 | 0.116239 | 0.993333 | 0.125000 | 0.041667 | 0.001564 | 0.062500 |
+| [`tactical_s_band_aesa`](./detection/main_run_detectors.py) | 0.897779 | 0.047577 | 0.966222 | 0.055556 | 0.333333 | 0.030384 | 0.095238 |
+| [`gbad_3d4d_cueing`](./detection/main_run_detectors.py) | 0.926655 | 0.040623 | 0.955111 | 0.045918 | 0.375000 | 0.041778 | 0.081818 |
+| [`high_resolution_xku_cuas`](./detection/main_run_detectors.py) | 0.898012 | 0.112345 | 0.986667 | 0.153846 | 0.333333 | 0.009830 | 0.210526 |
+| [`distributed_acoustic_cue`](./detection/main_run_detectors.py) | 0.901838 | 0.093170 | 0.987556 | 0.100000 | 0.166667 | 0.008043 | 0.125000 |
 
-The complete generated table is `outputs/detection/runit-shahed136-main-run-v1/performance_metrics.csv`;
-the JSON summary is `outputs/detection/runit-shahed136-main-run-v1/performance_summary.json`.
+The complete generated table is `outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run/performance_metrics.csv`;
+the JSON summary is `outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run/performance_summary.json`.
 
-Advanced full-stream evolution ran against the same `outputs/training-data/runit-shahed136-main-run-v1`
-corpus and selected a locked meta-fusion winner after train/CV-only search.
+Advanced full-stream evolution ran against the same
+`outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run` corpus and
+selected a locked meta-fusion winner after train/CV-only search.
 
 | selected candidate | train/CV rank | train/CV AP | train/CV ROC AUC | holdout ROC AUC | holdout AP | accuracy | precision | recall | FPR | F1 | gate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | `meta_fusion.top8.v2_aggressive.geodesic_odds` | 1 | 0.957622026 | 0.997433776 | 0.996928025 | 0.942983898 | 0.993556 | 0.947368 | 0.789474 | 0.001140 | 0.861244 | pass |
 
-The advanced-evolution outputs live under `outputs/detection/runit-shahed136-main-run-v1-advanced-evolution/`.
+The advanced-evolution outputs live under `outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution/`.
 
 Synthetic public-proxy benchmark evidence only; these numbers are not measured
 truth or field-performance claims.

@@ -1,0 +1,585 @@
+I reviewed the uploaded EchoForge manuscript as a stern radar/sensing reviewer, not as a friendly internal reader. The paper has a genuinely strong core: it is trying to make a reproducible, auditable synthetic benchmark rather than pretending synthetic traces are field truth. But in its current form, I would call it **promising but not yet submission-strong**. For a serious radar venue, I would recommend **major revision**: the reproducibility story is good, the claim-boundary discipline is unusually thoughtful, but the radar-physics specification, validation evidence, uncertainty analysis, and “selected EI” explanation are not yet strong enough to support the headline results.
+
+## Overall verdict
+
+**Current reviewer decision:** major revision.
+
+**Best framing:** this is not yet an “algorithm beats baselines” paper. It is strongest as a **strict-open synthetic benchmark and evaluation-governance paper** for low-altitude UAS sensing. The detector results should be positioned as demonstration artifacts, not as the main scientific claim.
+
+**Main reason:** the paper is careful about saying “not measured truth,” but it does not yet give enough radar-model detail for a radar expert to judge whether the synthetic evidence is physically meaningful. The manuscript says the benchmark contains 10,000 scenario groups, 30,000 phase records, three locked windows, deterministic splits, and holdout-isolated evaluation, which is excellent. But the actual radar generative model—waveform, antenna model, range/Doppler resolution, RCS/aspect prior, propagation, clutter parameters, Swerling behavior, micro-Doppler construction, calibration errors, and passive-RF/acoustic assumptions—is not specified at the level needed for technical review.
+
+The biggest red flag is the **selected EI jump**. The prior best fusion baseline has AP 0.254743 and F1 0.355932, while the selected EI lock reports AP 0.942984 and F1 0.861244 on the same all-phase holdout. That is an extraordinary leap and may be real inside the simulator, but it is so large that a reviewer will immediately suspect generator shortcut learning, metadata leakage, overfitting to synthetic artifacts, or an under-described selection process.
+
+---
+
+## What the paper does well
+
+The **claim boundary is the strongest part of the manuscript**. The paper explicitly says the corpus is not a measured Shahed-136/Geran-2 dataset, not a classified-fidelity model, not a proprietary sensor-equivalence claim, and not field-performance evidence. That is exactly the right posture for a synthetic radar/fusion benchmark. Many papers in this area overclaim; this one tries hard not to.
+
+The **group-locked split design is also strong**. All three phase records from a scenario group share the same split role and fold assignment, which avoids an extremely common synthetic-data failure mode: phase-level leakage where “early” and “late” views of the same scenario land in different splits. The holdout is not used for calibration, threshold selection, feature selection, or candidate selection, and the paper explicitly calls this out.
+
+The **artifact discipline is impressive**. The manuscript separates source artifacts, generated products, restricted truth, detector views, metrics, fusion quality reports, and paper assets. This is exactly the kind of reproducibility surface reviewers want to see in a synthetic benchmark. The generated artifact layout in Table IV is useful and should stay.
+
+The **hard-negative philosophy is good**. Birds, RC aircraft, weather cells, ground vehicles, wind turbines, terrain glints, multipath ghosts, RFI bursts, and clutter-only counterfactuals are treated as false-alarm stressors rather than afterthoughts. This is important because low-altitude UAS radar papers often present easy positives and generic negatives, then report inflated performance.
+
+The **measured-anchor caution is appropriate**. The paper correctly avoids saying that public drone/bird/human datasets validate a named fixed-wing proxy signature. It frames them as distribution checks, calibration targets, and domain-shift anchors, which is the right language.
+
+The **ML evaluation posture is better than average**. Train/CV-only thresholding, out-of-fold scoring, feature-denylist policy, calibration manifests, and holdout isolation are all good practices.
+
+---
+
+## Major problems that must be fixed
+
+### 1. The radar simulator is not technically reviewable yet
+
+Right now the paper tells me that there are active-radar IQ streams, CFAR-like scores, Doppler concentration, clutter regimes, weather, RFI, PRF ambiguity, Doppler folding, calibration offset, and quantization. But it does not tell me **how these are generated** in a way I can audit as a radar expert. Table II lists regimes qualitatively, but it does not give parameter distributions, physical units, equations, or validation checks.
+
+A radar reviewer will expect at least one compact “radar model card” table containing:
+
+| Required item               | What is missing                                                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Carrier/waveform archetypes | Center frequency, bandwidth, pulse/chirp model, PRF/PRI, CPI length, coherent/noncoherent integration assumptions |
+| Resolution                  | Range resolution, Doppler resolution, unambiguous range/velocity, bin definitions                                 |
+| Antenna/sensor geometry     | Number of sensors, placement assumptions, field of view, gain pattern, scan/revisit behavior                      |
+| Target model                | Aspect-dependent RCS prior, fluctuation model, propulsion/micro-Doppler model, kinematic states                   |
+| Clutter model               | Distribution type plus parameters, spatial/temporal correlation, clutter-to-noise behavior                        |
+| Weather/RFI/artifact model  | Parameter ranges and how they perturb IQ, detections, or features                                                 |
+| Calibration/noise           | Receiver noise, phase noise, clock drift, quantization, AGC, dropped CPI behavior                                 |
+| Output transform            | Exact path from complex IQ to detector-view features                                                              |
+
+Without this, the paper is mostly an artifact-governance description with a very large result table. That is interesting, but not yet a strong radar paper.
+
+### 2. The “selected EI” result is too dramatic to leave underexplained
+
+The selected EI lock reports ROC AUC 0.996928, AP 0.942984, precision 0.947368, recall 0.789474, FPR 0.001140, and F1 0.861244. Those numbers imply roughly **90 true positives, 5 false positives, 24 false negatives, and 4,381 true negatives** over the all-phase holdout, assuming 38 positive holdout groups × 3 phases and 1,462 negative holdout groups × 3 phases. The prior layered fusion baseline implies roughly **42 true positives and 80 false positives**. That means EI roughly doubles detections while reducing false alarms by about 16×. That is possible only if the EI method has found a very strong signal—or a shortcut.
+
+The paper says candidate-search details are deliberately omitted and that the relevant artifact is the frozen selected block. That will not satisfy reviewers. If the selected EI result is part of the paper’s contribution, the search space, objective, training protocol, feature families, ablations, and leakage audits must be described. If it is not part of the contribution, move it to an appendix or call it a “stress demonstration,” not a headline result.
+
+At minimum, add:
+
+| Required EI audit               | Why it matters                                                                          |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| Metadata-only baseline          | Proves split IDs, group IDs, scenario IDs, path names, or provenance do not leak labels |
+| Modality ablation               | Shows whether EI depends on radar, acoustic, passive-RF, or a synthetic artifact        |
+| Calibration ablation            | Separates classifier performance from calibrator effects                                |
+| Leave-one-regime-out testing    | Tests whether EI learned generator-specific regime shortcuts                            |
+| Multi-seed evaluation           | Shows the result is not a lucky single-seed artifact                                    |
+| Label-shuffle sanity test       | Confirms the pipeline cannot achieve high AP on randomized labels                       |
+| Feature permutation importance  | Shows which observable features drive the result                                        |
+| Family-level false-alarm report | Shows what errors remain under RFI, wind turbines, terrain glint, birds, weather, etc.  |
+
+### 3. The holdout positive count is too small for headline confidence
+
+The holdout has 38 positive groups. Across three phases, that gives 114 positive phase records, but those records are not independent because each group contributes three correlated phase observations. The paper currently reports many metrics to six decimal places, but it does not report confidence intervals, bootstrap intervals, or group-level uncertainty.
+
+For selected EI, recall is about 90/114. A simple binomial Wilson interval is roughly 0.706–0.854, and a group-block bootstrap may be wider because phases from the same group are correlated. FPR is about 5/4,386, with a very small numerator. Reporting FPR as 0.001140 without an interval creates false precision.
+
+Add group-block bootstrap intervals for ROC AUC, AP, recall, precision, FPR, and F1. Also report metrics by **scenario group**, not only by phase record.
+
+### 4. The paper says “uncertainty” but does not yet deliver uncertainty
+
+The abstract promises uncertainty-scored radar artifacts, and Section XIV discusses uncertainty reporting, but much of the actual uncertainty treatment is still aspirational. The Discussion even says the next useful step is per-regime confidence intervals, calibration curves, phase-specific PR curves, and scenario-family drift panels. Those are not future polish items; they are necessary for the paper’s current claims.
+
+A stronger version should include:
+
+* PR curves with group-bootstrap bands.
+* ROC curves with a low-FPR inset.
+* Reliability diagrams and ECE/Brier score.
+* Per-phase and per-regime confidence intervals.
+* Failure slices for missed positives and false positives.
+* Seed-sensitivity plots across at least 5–10 seeds.
+* A table stating which uncertainty is epistemic, aleatoric, simulator-prior uncertainty, or calibration uncertainty.
+
+### 5. The measured-anchor section is careful but too passive
+
+The paper correctly says measured datasets should be used as external anchors, not as proof of named-platform truth. But it does not actually show a measured-anchor comparison. For an “incredible” version, include at least one small, lawful, compare-only validation panel.
+
+For example, the KTH Zenodo dataset is a real 77 GHz FMCW drone/bird/human dataset with 75,868 samples and six drone types, which makes it useful for drone-vs-bird/human micro-Doppler overlap checks, not for validating the paper’s fixed-wing proxy. ([Zenodo][1]) The Open Radar Initiative repository describes outdoor moving-object radar data, released under CC BY-NC 4.0, with Doppler spectra and metadata such as range, azimuth, velocity, SNR, and radar parameters—useful for observable-distribution comparisons. ([GitHub][2]) The Han/Jung 2026 Scientific Data article is real and correctly cited as Scientific Data 13, Article 407, but it is a controlled close-range dataset with four commercial drones and one non-drone target measured from 2–30 m; it should be framed as a synchronization/fusion anchor, not a fielded low-altitude threat proxy. ([Nature][3])
+
+The paper should include a table like:
+
+| Anchor     | Observable compared                    | Eligible subset                        | Distance metric         | Result              | Boundary                    |
+| ---------- | -------------------------------------- | -------------------------------------- | ----------------------- | ------------------- | --------------------------- |
+| KTH 77 GHz | Doppler spread / micro-Doppler cadence | drone/bird/human measured samples      | Wasserstein / KS / EMD  | pass/fail/tolerance | hard-negative realism only  |
+| ORI        | SNR/range/velocity distribution        | outdoor moving-object tracks           | distribution distance   | pass/fail/tolerance | outdoor observable anchor   |
+| Han/Jung   | sensor synchronization / fusion timing | controlled 2–30 m synchronized samples | alignment/fusion sanity | pass/fail/tolerance | close-range multimodal only |
+
+### 6. The positive class naming is dangerous rhetorically
+
+The manuscript repeatedly says the object is a public proxy and not a measured named-platform signature, which is good. But the positive class name and output path still use “shahed136” / “shahed_136_geran_2_public_proxy.” That creates a rhetorical contradiction: the paper says “not a named-platform claim,” while the code identifiers keep invoking the named platform.
+
+For a stronger and safer paper, rename the benchmark class to something like:
+
+* `fixed_wing_pusher_proxy_v1`
+* `low_altitude_fixed_wing_proxy_v1`
+* `delta_wing_pusher_public_proxy_v1`
+
+Then mention the named families only as public-source motivation, not as the class identity. This will reduce reviewer anxiety and make the claim boundary cleaner.
+
+### 7. The baseline detectors are under-specified and may be too weak
+
+The detector branches are named as high-resolution X/Ku C-UAS, tactical S-band AESA, GBAD 3D/4D cueing, acoustic cueing, tabular ML, sequence ML, and layered fusion. But the paper does not provide enough detail to know whether these are meaningful radar baselines or feature proxies. Table III lists feature examples, not algorithms.
+
+For radar credibility, include canonical signal-processing baselines such as:
+
+* CA-CFAR / OS-CFAR with declared PFA.
+* MTD / Doppler-threshold baseline.
+* Track-before-detect or M/N confirmation rule.
+* Radar-only logistic/GBM baseline with no acoustic/passive features.
+* Late-fusion baseline with explicit calibration.
+* Low-FPR operating points: Pd at Pfa = 10⁻², 10⁻³, and, if enough negatives exist, 10⁻⁴.
+
+Average precision is useful under imbalance, but radar reviewers will also expect detection probability versus false-alarm rate, preferably at operationally meaningful low-FPR points.
+
+---
+
+## Section-by-section review
+
+## Title
+
+**Current title:** “EchoForge: Strict-Open Public-Proxy Simulation and Detection for Low-Altitude UAS Sensing”
+
+The title is close, but “Simulation and Detection” suggests a detector performance paper. The manuscript is stronger as a benchmark/reproducibility paper.
+
+Better options:
+
+* **“EchoForge: A Strict-Open Synthetic Benchmark for Low-Altitude UAS Radar and Multimodal Sensing”**
+* **“EchoForge: Public-Proxy Synthetic Radar/Fusion Benchmarking for Low-Altitude UAS Sensing”**
+* **“EchoForge: Reproducible Synthetic Radar Artifacts and Holdout-Isolated Evaluation for Low-Altitude UAS Benchmarks”**
+
+I would avoid “Detection” unless the detector algorithm is fully specified and becomes a primary contribution.
+
+## Abstract
+
+The abstract is strong on boundaries but overloaded. It contains too many concepts: strict-open, public-proxy, deterministic Monte Carlo slicing, uncertainty-scored artifacts, acoustic side channels, passive-RF provenance, holdout-isolated detector evaluation, canonical detector branches, locked advanced meta-fusion, prior baselines, validation tiers, and reproducibility. The reader gets the posture, but not the contribution hierarchy.
+
+Revise it to answer four questions directly:
+
+1. What is EchoForge?
+2. What exactly is generated?
+3. What is the evaluation protocol?
+4. What is the main evidence, with boundaries?
+
+Suggested tighter abstract structure:
+
+> EchoForge is a strict-open synthetic benchmark for low-altitude UAS radar and multimodal sensing experiments. It generates public-proxy fixed-wing target scenarios, hard-negative confusers, active-radar IQ products, acoustic cues, passive-RF provenance features, detector-view tables, and validation reports from deterministic seeds. The benchmark of record contains 10,000 scenario groups and 30,000 phase records across take-up, climb-transition, and cruise windows, with group-locked train/CV and blind holdout splits. We report standard radar/fusion baselines and a locked advanced fusion artifact under train/CV-only selection and holdout-only scoring. All results are synthetic public-proxy benchmark evidence, not measured target signatures or deployment-performance claims.
+
+Then include one sentence with the key result only if you add uncertainty intervals.
+
+## I. Claim Boundary
+
+This section is excellent in intent but too defensive in tone. It spends so much space saying what the paper is not that a reviewer may ask: “Then what is it?” Keep the boundary, but add a positive claim immediately after.
+
+Add a compact validation-tier table:
+
+| Tier | Evidence type                                      | Current status   |
+| ---- | -------------------------------------------------- | ---------------- |
+| T0   | Code/build determinism                             | completed        |
+| T1   | Synthetic invariants and leakage tests             | completed        |
+| T2   | Distribution comparison to public measured anchors | partial / future |
+| T3   | Hardware-in-loop comparison                        | future           |
+| T4   | Blind measured field validation                    | future           |
+
+This would make the claim boundary constructive rather than defensive.
+
+## II. Introduction
+
+The introduction identifies the right practical gap: lack of redistributable, inspectable, near-fielded stress corpora. That is a good motivation.
+
+However, it needs sharper novelty. Add an explicit contribution list:
+
+1. A deterministic synthetic corpus generator with group-locked phase slicing.
+2. Public-proxy object and hard-negative packs with source/provenance boundaries.
+3. Detector-view CSVs with feature-denylist enforcement.
+4. Holdout-isolated calibration and thresholding protocol.
+5. Reproducibility/CI gates for paper and benchmark artifacts.
+6. Baseline and advanced-fusion benchmark results with uncertainty intervals.
+
+Also, reduce broad radar textbook language. Radar experts already know the radar equation, Doppler processing, CFAR, and micro-Doppler. Use that space to explain what existing UAS datasets and simulators do not provide.
+
+## III. EchoForge Stack
+
+This section currently includes Rust, Vite, TypeScript, React, Studio, Python, output directories, and generated-zone boundaries. Some of this is useful, but too much of it reads like a product architecture note rather than a radar paper.
+
+Move most implementation-stack details to a “Reproducibility package” subsection or appendix. In the main paper, emphasize:
+
+* What artifacts exist.
+* Which artifacts are source-controlled.
+* Which artifacts are generated.
+* Which artifacts are available to detectors.
+* Which artifacts are restricted audit truth.
+* Which checks prove separation.
+
+The phrase “GPU-native in its product direction” should be removed unless the paper gives actual GPU kernels, performance numbers, or hardware reproducibility evidence. A reviewer will treat it as unsupported marketing language.
+
+## IV. Simulation Setup
+
+This is one of the most important sections and currently one of the least complete from a radar-science perspective.
+
+The split design is good. The 10,000 scenario groups, 30,000 phase records, three phase windows, seed, and group-level holdout are clearly stated.  But the simulation setup needs to answer:
+
+* What is a scenario group physically?
+* What variables are sampled per group?
+* What distributions are used for range, aspect, altitude, speed, site archetype, and noise regime?
+* Are strata balanced across label?
+* Are positive and negative groups matched by range/aspect/site/noise?
+* Are the three phases independent observations, correlated observations, or deterministic transformations of one trajectory?
+* How are target kinematics propagated?
+* What coordinate frame is used?
+* How are sensor locations represented?
+
+Add a **label × stratum balance table**. This is critical. If positives occur in different site/noise/aspect strata than negatives, a model can win by learning simulation context instead of target observables.
+
+## V. Sources, Noise, and Detector Views
+
+Table II is a good start but too qualitative. “Weibull, K-like, urban edge, vegetation motion, sea clutter, terrain glint” are names, not model specifications. A reviewer needs parameters.
+
+For each regime, add:
+
+* Distribution family.
+* Parameter range.
+* Correlation assumption.
+* Whether it affects IQ, detector features, labels, tracks, or provenance.
+* Whether it appears in positives, negatives, or both.
+* How it is sampled across train/CV/holdout.
+
+For detector views, Table III needs to separate **features** from **algorithms**. “CFAR proxy” is not the same as a CFAR detector. If the detector is a proxy, say exactly how the proxy is computed. If it is CFAR, specify the guard cells, training cells, threshold rule, and target PFA.
+
+## VI. Running the Simulation
+
+The commands are useful and should stay, but the formatting is currently awkward: Section VI introduces commands on page 3, while the command blocks appear on page 4 after Table III. The line wrapping in the advanced command is hard to read.
+
+Recommendations:
+
+* Move long commands to an appendix or use a compact reproducibility box.
+* Include repository commit hash, dependency lockfile hash, and output manifest hash.
+* Add expected runtime and hardware requirements.
+* State whether outputs are bitwise deterministic or statistically deterministic.
+* Include a small “smoke run” command and a full “benchmark of record” command.
+
+## VII. Validation and CI Gates
+
+The distinction between paper proof surface and detector proof surface is excellent. It is one of the most mature parts of the paper.
+
+But the CI gates mix scientific validation with editorial checks. “Page count 8–14” and “bibliography 30–40 entries” are not scientific guardrails. They are formatting gates. Keep them, but separate them from benchmark validation.
+
+Use two tables:
+
+**Editorial/package gates**
+
+* PDF builds.
+* Figures present.
+* Citations resolve.
+* Page count.
+* No missing BibTeX keys.
+
+**Scientific/benchmark gates**
+
+* Split isolation.
+* Feature denylist.
+* Raw-stream alignment.
+* Detector-view identity consistency.
+* Holdout unused for selection/calibration/thresholding.
+* Multi-seed determinism.
+* Metadata-only baseline fails.
+* Label-shuffle baseline fails.
+* Family-level stratification balanced.
+
+The current Table V is useful but should be split accordingly.
+
+## VIII. Measured-Anchor Context
+
+This section is careful and correct in spirit, but it needs one concrete comparison to avoid feeling aspirational. The paper already lists KTH, Open Radar Initiative, RAD-DAR/RDRD, and Han/Jung 2026 as anchors.
+
+Add a measured-anchor status table with columns:
+
+* Dataset.
+* Sensor type.
+* Target classes.
+* License/access.
+* Eligible observable.
+* EchoForge comparison status.
+* Boundary.
+
+Also fix license precision. For Han/Jung 2026, the dataset page states the data repository is publicly accessible under CC BY 4.0, while the article itself is licensed CC BY-NC-ND 4.0. The paper should distinguish dataset license from article license. ([Nature][3])
+
+## IX. Raw Data Samples
+
+The raw IQ sample figures are helpful visually, but they are not yet persuasive scientifically.
+
+Problems:
+
+* The tensor shape, 3 sensors × 24 pulses × 20 range bins, is very small for a paper that invokes high-resolution radar behavior.
+* Axes are not physically meaningful enough. “Near/mid/far” is not a range axis.
+* The vertical axis appears to be sensor/pulse aggregate but is not clear.
+* Percentile normalization and log compression are fine for visualization, but they hide amplitude/SNR behavior.
+* Fallback illustrations are risky. If CI generates fallback panels, a reviewer may mistake illustrations for benchmark evidence.
+
+The paper says fallback panels use the same layout when outputs are absent, which is practical for CI but dangerous for scientific communication.  Add a visible watermark: **“deterministic fallback illustration — not full-run sample.”** Better yet, never include fallback panels in the submitted PDF. Use actual generated samples only.
+
+Better raw-data displays:
+
+* Complex IQ magnitude and phase example.
+* Range-Doppler map with units.
+* Doppler spectrum over phase windows.
+* Same-scale positive/negative comparisons.
+* A panel showing how raw tensor products become detector-view features.
+* One false positive and one false negative example, not only selected positives/negatives.
+
+## X. ML and Evaluation Pipelines
+
+This section is strong in policy but needs more evidence. It states train/CV-only calibration, out-of-fold scoring, feature denylisting, and holdout-only evaluation. That is good.
+
+But the paper should add:
+
+* A full feature-denylist table.
+* A feature-allowlist table.
+* A metadata-only leakage baseline.
+* A passive-RF-only baseline.
+* A radar-only baseline.
+* Acoustic-only baseline.
+* Fusion-without-passive-provenance baseline.
+* Calibration metrics: Brier score, ECE, reliability curves.
+* Threshold selection rule: what objective, what split, what operating point?
+* Group-level bootstrap confidence intervals.
+
+Also state whether the model sees phase labels. If phase label is included, it may be valid, but then the paper must report phase-specific performance and confirm phase is not a proxy for label.
+
+## XI. Leakage and Determinism Controls
+
+This is another strong section. The paper understands the right problem: identity fields are needed for audit joins but must be denied to trainable features.
+
+However, leakage claims should be backed by **negative control experiments**, not only policy text. Add a table like:
+
+| Leakage test                         |        Expected result | Actual result |
+| ------------------------------------ | ---------------------: | ------------: |
+| Metadata-only classifier             |      AP near base rate |           ___ |
+| Label-shuffled training              |      AP near base rate |           ___ |
+| Split-key allowlist violation test   |               CI fails |     pass/fail |
+| Restricted-truth path injection test |               CI fails |     pass/fail |
+| Holdout perturbation test            |    selection unchanged |     pass/fail |
+| New-seed holdout replay              |         stable ranking |           ___ |
+| Leave-family-out test                | degraded but plausible |           ___ |
+
+This would make the leakage discipline much more convincing.
+
+## XII. Canonical Metrics
+
+Table VIII is valuable but currently over-precise and under-contextualized. Six decimal places imply a level of statistical certainty the holdout does not support.
+
+Revise Table VIII to include:
+
+* Point estimate.
+* 95% group-bootstrap interval.
+* Implied TP/FP/FN/TN counts.
+* Threshold source.
+* Phase aggregation rule.
+* Whether calibration was applied.
+* Positive base rate.
+
+Also add PR curves. Under class imbalance, AP is meaningful, but a single AP number hides the operating region. A radar reviewer will want to see low-false-alarm behavior.
+
+## XIII. Selected EI Block
+
+This section needs the most work.
+
+The component IDs in Table IX are too opaque for the main paper. Names like `spectral_transport_hypergraph_fusion.passive_quality.signed_de.geodesic_odds` are not interpretable.
+
+Define:
+
+* What “EI” stands for.
+* What “geodesic odds” means mathematically.
+* What “spectral transport hypergraph fusion” does.
+* What “passive_quality” means.
+* What “evolved_mesh_39” and “evolved_mesh_19” mean.
+* What candidate space was searched.
+* What objective selected the winner.
+* Whether weights were fitted, optimized, or selected.
+* Whether the same component family appears multiple times and why that is not leakage or redundant overfitting.
+
+The paper says the candidate search is deliberately omitted. That is not acceptable if EI is reported as a result. A locked artifact is good, but it is not a substitute for a reviewable method.
+
+## XIV. Uncertainty Reporting
+
+This section is conceptually good but should be moved earlier and made operational. It currently reads like a roadmap. If the abstract says uncertainty-scored radar artifacts, then uncertainty must appear in the results section, not just as a desired maturity direction.
+
+Add a new results subsection:
+
+**“Uncertainty and Calibration Results”**
+
+* Reliability curves.
+* Brier/ECE.
+* Group-bootstrap metric intervals.
+* Per-regime uncertainty.
+* Per-phase PR curves.
+* Error bars on Figure 7.
+* False-alarm family breakdown.
+
+## XV. Discussion
+
+The discussion is honest and useful. It admits that the simulator needs richer terrain, land-cover, weather, RFI, clutter, acoustic propagation, hardware-in-loop paths, passive-RF no-signal modeling, and domain-shift diagnostics.
+
+But those limitations are so central that some should be addressed before submission, not deferred. In particular:
+
+* Domain-shift diagnostics.
+* Calibration curves.
+* Phase-specific PR curves.
+* False-alarm breakdowns.
+* Per-regime confidence intervals.
+
+The discussion should also explicitly say: “The high EI result may reflect simulator separability and should not be interpreted as expected field performance.” That line would improve trust.
+
+## XVI. Conclusion
+
+The conclusion is clear but slightly generic. It should end with the paper’s unique contribution, not only future work. A stronger final sentence:
+
+> EchoForge’s contribution is not a claim of measured target fidelity; it is a reproducible, inspectable benchmark protocol that lets radar/fusion researchers test detector behavior, leakage controls, and uncertainty reporting under declared public-proxy assumptions.
+
+---
+
+## Figures and tables: detailed formatting feedback
+
+**Figure 1:** Good architecture concept. The visual is clean, but it reads more like a project-management diagram than a radar model. Add a second technical diagram showing signal generation: scenario variables → target/clutter model → complex IQ → range-Doppler products → detector features → calibration/evaluation.
+
+**Figure 2:** The split-flow figure is useful. Increase font size and make the leakage guards more prominent. The current embedded text is small on the page.
+
+**Figures 3–4:** The heatmaps are helpful but too toy-like. Add physical axes, units, and clarify whether the vertical axis is pulse, sensor, or averaged dimension. Do not use fallback illustrations in the submitted paper unless heavily watermarked.
+
+**Figure 5:** Good pipeline idea, but too small. Make it the central “evaluation protocol” figure and include where calibration, threshold selection, and holdout lock occur.
+
+**Figure 6:** The ranking chart is useful, but the EI bar dominates so much that the baselines become visually compressed. Consider a broken-axis plot or separate panels: baseline comparison and EI comparison. Add confidence intervals.
+
+**Figure 7:** Phase-level comparison is important. Add error bars and counts per phase. Report AP and recall/FPR together; AP alone may hide operating-point behavior.
+
+**Figure 8:** The locked EI evidence path is conceptually good, but it does not explain the algorithm. It should be paired with an algorithm schematic or moved to governance.
+
+**Table I:** Good, but fix formatting: `climb_transition30–90 s` is missing spacing. Also report positive base rate.
+
+**Table II:** Too qualitative. Add parameter ranges or move qualitative regimes to a “scenario taxonomy” table and add a separate model-parameter table.
+
+**Table III:** Good overview, but distinguish feature examples from actual algorithms.
+
+**Table IV:** Strong. Keep.
+
+**Table V:** Split editorial checks from scientific checks.
+
+**Table VIII:** Add confidence intervals and counts. Reduce decimals.
+
+**Table IX:** Component IDs are too long for the main paper. Use short labels in the main table and full audit IDs in an appendix.
+
+**Table X:** Good concept, but convert it from “dimensions to preserve” into “dimensions reported in this paper” with actual outputs.
+
+---
+
+## Questions the paper must answer directly
+
+1. What exactly is the radar waveform model?
+2. What are the carrier frequency, bandwidth, PRF/PRI, CPI length, and sampling assumptions for each radar archetype?
+3. What are the range and Doppler resolutions?
+4. What is the sensor geometry?
+5. Why 3 sensors, 24 pulses, and 20 range bins?
+6. How is target RCS modeled as a function of aspect, range, and phase?
+7. Are Swerling fluctuations used? If so, which classes and parameters?
+8. How is micro-Doppler generated for the fixed-wing pusher-prop proxy?
+9. How are clutter distributions parameterized?
+10. Are clutter/weather/RFI regimes balanced across positive and negative labels?
+11. Can a model infer label from site archetype, noise regime, phase, missingness, passive-RF provenance, or scenario ordering?
+12. What does “passive-RF no-signal provenance” mean operationally, and why is it not label leakage?
+13. What is “EI”?
+14. What is “geodesic-odds calibration”?
+15. What candidate-search space produced the selected EI lock?
+16. Why is the EI result so much stronger than every baseline?
+17. How stable is EI across new seeds?
+18. How stable is EI under leave-one-noise-regime-out testing?
+19. What are the confidence intervals on all reported metrics?
+20. What measured-anchor comparison has actually been performed?
+21. Which artifacts are public, which are generated locally, and which are restricted?
+22. What safety/release boundary prevents the benchmark from becoming a named-platform signature claim?
+
+---
+
+## Recommended new figures for an “incredible” version
+
+Add these:
+
+1. **Radar generative model diagram**
+   Scenario variables → kinematics → RCS/aspect → propagation/clutter/weather/RFI → complex IQ → derived observables.
+
+2. **Radar parameter card table**
+   One row per radar archetype with units.
+
+3. **Label-stratum balance heatmap**
+   Positive/negative counts by site, range band, aspect, phase, and noise regime.
+
+4. **PR curves with group-bootstrap bands**
+   All baselines plus EI.
+
+5. **Low-FPR ROC inset or DET curve**
+   Radar reviewers care about false alarms.
+
+6. **Reliability diagram**
+   Especially important because the paper discusses calibration.
+
+7. **Ablation waterfall for EI**
+   Full EI → no passive-RF → no acoustic → radar-only → no calibration → metadata-only.
+
+8. **False-alarm family breakdown**
+   Birds, RC aircraft, wind turbines, terrain glint, weather, RFI, clutter-only.
+
+9. **Measured-anchor distribution overlay**
+   For example, Doppler spread or SNR distribution: synthetic vs KTH/ORI eligible subset.
+
+10. **Seed-sensitivity plot**
+    AP/ROC/F1 over multiple benchmark seeds.
+
+---
+
+## Reference and citation notes
+
+The KTH reference appears accurate: the Zenodo record is version v2.0, published September 16, 2021, and contains 75,868 radar samples of birds, humans, and six drones using a 77 GHz FMCW radar with a mechanically scanning antenna. ([Zenodo][1])
+
+The Open Radar Initiative citation should include license/access details because the repository states the outdoor moving-object dataset is under CC BY-NC 4.0 and contains Doppler spectra plus metadata such as range, azimuth, velocity, SNR, and radar parameters. ([GitHub][2])
+
+The Han/Jung 2026 citation is real and the paper’s volume/article number appears correct: Scientific Data volume 13, Article 407. But the dataset is controlled close-range data from 2–30 m with four commercial drones and one non-drone target, so it should not be implied to validate broad low-altitude field conditions. ([Nature][3])
+
+Also be precise about raw FMCW data in Han/Jung. The article explains that the FMCW modality mostly stores pre-processed range-Doppler frames, with a representative raw FMCW sample and reconstruction code for reproducibility, not an exhaustive raw FMCW archive. ([Nature][3])
+
+---
+
+## Highest-priority revision plan
+
+**Must fix before serious submission:**
+
+1. Add a full radar/sensor generative model specification.
+2. Add parameterized clutter/weather/RFI models.
+3. Add label-stratum balance analysis.
+4. Add group-block bootstrap confidence intervals.
+5. Add PR/ROC/calibration curves.
+6. Add EI ablations and leakage negative controls.
+7. Add multi-seed or regenerated-holdout results.
+8. Add at least one measured-anchor distribution comparison.
+9. Rename the positive class away from named-platform identifiers.
+10. Reduce six-decimal metric precision unless intervals justify it.
+
+**Should fix for clarity and polish:**
+
+1. Split editorial CI gates from scientific validation gates.
+2. Move product-stack implementation detail to appendix.
+3. Improve command formatting.
+4. Add a validation-tier ladder.
+5. Replace fallback figures with actual generated figures or watermark them.
+6. Define all acronyms on first use: EI, AP, AUC, CPI, PRF, RFI, AGC, AESA, GBAD, C2, MTD.
+7. Use shorter table labels and move long audit identifiers to appendix.
+8. Add a data/code availability statement with commit hash, manifest hash, and dependency lock.
+
+---
+
+## Final assessment
+
+This paper has the bones of something genuinely valuable. The best idea is not the EI score; it is the **strict-open, claim-bounded, leakage-aware synthetic benchmark discipline**. That is worth publishing if the paper becomes technically auditable.
+
+Right now, the manuscript’s biggest risk is that reviewers will see a dramatic synthetic performance result without enough radar physics, external validation, uncertainty intervals, or EI transparency. The path to an excellent paper is clear: make the simulator reviewable, make the uncertainty visible, make the EI result explainable, and make the measured-anchor boundary concrete rather than aspirational.
+
+[1]: https://zenodo.org/records/5845259/latest "Radar measurements on drones, birds and humans with a 77GHz FMCW sensor."
+[2]: https://github.com/openradarinitiative/open_radar_datasets "GitHub - openradarinitiative/open_radar_datasets · GitHub"
+[3]: https://www.nature.com/articles/s41597-026-06802-6 "A Time-Synchronized Multi-Sensor drone dataset acquired from multiple radars and RF receiver | Scientific Data"

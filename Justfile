@@ -12,6 +12,7 @@ bootstrap:
 fast:
     rtk cargo nextest run --workspace --locked --jobs $(nproc 2>/dev/null || echo 4) 2>/dev/null || rtk cargo test --workspace --locked
     rtk jankurai adapters verify .
+    rtk just paper
 
 # Accelerated test run using nextest (faster parallel execution; falls back to cargo test if nextest is absent)
 fast-nx:
@@ -51,6 +52,9 @@ web-smoke:
 
 web-e2e:
     rtk bash ops/run-lane.sh web-e2e
+
+paper:
+    rtk bash ops/run-lane.sh paper
 
 studio:
     rtk bash ops/run-lane.sh studio

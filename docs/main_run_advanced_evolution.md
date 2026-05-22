@@ -1,9 +1,9 @@
 # Main Run Advanced Evolution Lane
 
 This page documents the separate advanced detector evolution lane for the
-`runit-shahed136-main-run-v1` synthetic public-proxy corpus. It does not replace
-or overwrite the canonical main-run detector outputs under
-`outputs/detection/runit-shahed136-main-run-v1/`.
+`runit-fixed-wing-pusher-proxy-v2-main-run` synthetic public-proxy corpus. It
+does not replace or overwrite the canonical main-run detector outputs under
+`outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run/`.
 
 The lane is strict-open synthetic evidence only. It does not claim measured
 truth, proprietary-equivalent behavior, classified fidelity, deployment
@@ -13,15 +13,15 @@ performance, or guaranteed real-world transfer for any platform or sensor.
 
 ```bash
 rtk python3 detection/run_advanced_main_run_detectors.py \
-  --data-root outputs/training-data/runit-shahed136-main-run-v1 \
-  --out-root outputs/detection/runit-shahed136-main-run-v1-advanced-evolution \
+  --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
   --folds 5 \
   --seed 202605210136 \
   --search-profile v2_aggressive \
   --candidate-limit 512 \
   --evolution-rounds 10 \
   --evolution-sample-rows 12000 \
-  --feature-cache outputs/detection/runit-shahed136-main-run-v1-advanced-evolution-feature-cache/v2_features.npz \
+  --feature-cache outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution-feature-cache/v2_features.npz \
   --force
 ```
 
@@ -84,7 +84,7 @@ The current canonical target to beat is `layered_fusion_c2`:
 | split | AP | ROC AUC | F1 |
 | --- | ---: | ---: | ---: |
 | train/CV | 0.314444 | 0.924003 | 0.402888 |
-| holdout | 0.254743 | 0.914031 | 0.355932 |
+| holdout | 0.128188 | 0.937723 | 0.240964 |
 
 The advanced lane is promoted only if the selected winner beats train/CV AP and
 blind holdout AP, with holdout AUC non-regression.
@@ -93,7 +93,7 @@ Full-stream result:
 
 | selected candidate | train/CV rank | train/CV AP | train/CV ROC AUC | holdout ROC AUC | holdout AP | accuracy | precision | recall | FPR | F1 | gate |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| `meta_fusion.top8.v2_aggressive.geodesic_odds` | 1 | 0.957622026 | 0.997433776 | 0.996928025 | 0.942983898 | 0.993556 | 0.947368 | 0.789474 | 0.001140 | 0.861244 | pass |
+| `meta_fusion.top8.v2_aggressive.geodesic_odds` | 1 | 0.841459 | 0.948087 | 0.958147 | 0.893817 | 0.998444 | 0.947368 | 0.750000 | 0.000223 | 0.837209 | pass |
 
 The gate passed on the full 30,000-record stream, so the result is a promoted
 advanced experiment rather than a negative-only run.

@@ -27,7 +27,7 @@ lane="${1:-}"
 
 if [[ -z "$lane" ]]; then
   echo "usage: $0 <lane>" >&2
-  echo "known lanes: fast, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, studio-sync, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
+  echo "known lanes: fast, paper, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, studio-sync, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
   exit 64
 fi
 
@@ -43,6 +43,10 @@ case "$lane" in
     else
       printf 'skip: jankurai not installed, adapters verify unavailable here\n' >&2
     fi
+    run bash paper/build.sh
+    ;;
+  paper)
+    run bash paper/build.sh
     ;;
   security)
     security_lane
@@ -173,7 +177,7 @@ case "$lane" in
     ;;
   *)
     echo "unknown lane: $lane" >&2
-    echo "known lanes: fast, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, studio-sync, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
+    echo "known lanes: fast, paper, security, vendor-scrub, banlist-audit, receipts, contracts, drift, demo, studio, studio-sync, web-smoke, web-e2e, science-smoke, gpu-smoke, dataset-smoke, doctor, score, licenses, validate-schemas, science-validate, sbom" >&2
     exit 64
     ;;
 esac

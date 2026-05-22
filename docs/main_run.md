@@ -11,11 +11,11 @@ platform behavior, classified-fidelity behavior, or deployment performance.
 - Negative class: `confuser_or_sensor_artifact`.
 - Scenario groups: 10,000 in the full run.
 - Phase records: 30,000, because each group is sliced into three locked phases.
-- Positive scenario groups: 250 total.
-- Positive phase records: 250 in each phase.
+- Positive scenario groups: 50 total.
+- Positive phase records: 50 in each phase.
 - Negative scenario groups: 9,750 total.
-- Holdout: 1,500 scenario groups, including 38 positive groups.
-- Train/CV pool: 8,500 scenario groups, including 212 positive groups.
+- Holdout: 1,500 scenario groups, including 8 positive groups.
+- Train/CV pool: 8,500 scenario groups, including 42 positive groups.
 - CV folds: five folds assigned at scenario-group level.
 
 The phase windows are:
@@ -31,19 +31,19 @@ The phase windows are:
 Smoke generation:
 
 ```bash
-rtk python3 detection/generate_main_run.py --out-root outputs/training-data/runit-shahed136-main-run-smoke --scenario-groups 120 --positive-groups 12 --seed 202605210136 --force --smoke
+rtk python3 detection/generate_main_run.py --profile fixed-wing-pusher-proxy-v2 --out-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run-smoke --scenario-groups 120 --positive-groups 12 --seed 202605210136 --force --smoke
 ```
 
 Full generation:
 
 ```bash
-rtk python3 detection/generate_main_run.py --out-root outputs/training-data/runit-shahed136-main-run-v1 --scenario-groups 10000 --positive-groups 250 --seed 202605210136 --force
+rtk python3 detection/generate_main_run.py --profile fixed-wing-pusher-proxy-v2 --out-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --scenario-groups 10000 --seed 202605210136 --force
 ```
 
 Detector and fusion run:
 
 ```bash
-rtk python3 detection/run_main_run_detectors.py --data-root outputs/training-data/runit-shahed136-main-run-v1 --out-root outputs/detection/runit-shahed136-main-run-v1 --folds 5 --seed 202605210136
+rtk python3 detection/run_main_run_detectors.py --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run --folds 5 --seed 202605210136
 ```
 
 Validation:
@@ -92,7 +92,7 @@ Detector outputs are written separately under `outputs/detection/...`:
 
 Split assignment is deterministic from the run seed. Holdout groups are chosen
 first, then positive quotas are allocated inside holdout and train/CV. For the
-default full run this locks to 38 holdout positive groups and 212 train/CV
+default full run this locks to 8 holdout positive groups and 42 train/CV
 positive groups. The five CV folds are assigned by scenario group, with positive
 and negative groups distributed independently so every fold receives both label
 types in normal runs.

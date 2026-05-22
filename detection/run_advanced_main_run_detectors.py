@@ -19,12 +19,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("outputs/training-data/runit-shahed136-main-run-v1"),
+        default=Path("outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run"),
     )
     parser.add_argument(
         "--out-root",
         type=Path,
-        default=Path("outputs/detection/runit-shahed136-main-run-v1-advanced-evolution"),
+        default=Path(
+            "outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+        ),
     )
     parser.add_argument("--folds", type=int, default=DEFAULT_FOLDS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -40,6 +42,22 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Optional generated NumPy feature cache path under outputs/.",
+    )
+    parser.add_argument(
+        "--selection-lock",
+        type=Path,
+        default=None,
+        help="Optional selection-lock JSON path for locked diagnostics.",
+    )
+    parser.add_argument(
+        "--score-locked-only",
+        action="store_true",
+        help="Skip candidate search and score only the locked candidate.",
+    )
+    parser.add_argument(
+        "--write-component-scores",
+        action="store_true",
+        help="Emit selected component score and ablation reports.",
     )
     parser.add_argument(
         "--evolution-sample-rows",
@@ -63,6 +81,9 @@ def main() -> None:
         evolution_rounds=args.evolution_rounds,
         search_profile=args.search_profile,
         feature_cache=args.feature_cache,
+        selection_lock=args.selection_lock,
+        score_locked_only=args.score_locked_only,
+        write_component_scores=args.write_component_scores,
         evolution_sample_rows=args.evolution_sample_rows,
     )
     print(

@@ -19,12 +19,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("outputs/training-data/runit-shahed136-main-run-v1"),
+        default=Path("outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run"),
     )
     parser.add_argument(
         "--out-root",
         type=Path,
-        default=Path("outputs/detection/runit-shahed136-main-run-v1"),
+        default=Path("outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run"),
     )
     parser.add_argument("--folds", type=int, default=DEFAULT_FOLDS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)

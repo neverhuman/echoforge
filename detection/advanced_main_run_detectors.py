@@ -19,6 +19,7 @@ import hashlib
 import json
 import math
 import shutil
+from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -89,12 +90,18 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
     )
 
 
+def _read_json(path: Path) -> dict[str, Any]:
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return payload if isinstance(payload, dict) else {}
+
+
 ADVANCED_METHOD_ID = "spectral_transport_hypergraph_fusion"
-ADVANCED_OUTPUT_PROFILE = "runit-shahed136-main-run-v1-advanced-evolution"
+ADVANCED_OUTPUT_PROFILE = "runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
 BASELINE_TARGETS = {
     "layered_fusion_c2": {
-        "train_cv": {"average_precision": 0.314444, "roc_auc": 0.924003, "f1": 0.402888},
-        "holdout": {"average_precision": 0.254743, "roc_auc": 0.914031, "f1": 0.355932},
+        "train_cv": {"average_precision": 0.083745, "roc_auc": 0.918501, "f1": 0.184874},
+        "holdout": {"average_precision": 0.140272, "roc_auc": 0.939483, "f1": 0.215385},
     }
 }
 CALIBRATORS = ("raw", "beta", "geodesic_odds", "monotone_binning")
@@ -198,6 +205,67 @@ def _safe_float(value: object, default: float = 0.0) -> float:
     if math.isnan(parsed) or math.isinf(parsed):
         return default
     return parsed
+
+
+def _brier_score(y: np.ndarray, scores: np.ndarray) -> float:
+    labels = np.asarray(y, dtype=np.float64).reshape(-1)
+    values = np.asarray(scores, dtype=np.float64).reshape(-1)
+    if len(labels) == 0:
+        return float("nan")
+    return float(np.mean((values - labels) ** 2))
+
+
+def _expected_calibration_error(
+    y: np.ndarray,
+    scores: np.ndarray,
+    *,
+    bins: int = 10,
+) -> tuple[float, list[dict[str, float]]]:
+    labels = np.asarray(y, dtype=np.int8).reshape(-1)
+    values = np.asarray(scores, dtype=np.float64).reshape(-1)
+    if len(labels) == 0:
+        return float("nan"), []
+    edges = np.linspace(0.0, 1.0, bins + 1)
+    total = float(len(labels))
+    ece = 0.0
+    rows: list[dict[str, float]] = []
+    for idx in range(bins):
+        left = edges[idx]
+        right = edges[idx + 1]
+        if idx == bins - 1:
+            mask = (values >= left) & (values <= right)
+        else:
+            mask = (values >= left) & (values < right)
+        count = int(np.sum(mask))
+        if count == 0:
+            rows.append(
+                {
+                    "bin_index": float(idx),
+                    "bin_left": float(left),
+                    "bin_right": float(right),
+                    "count": 0.0,
+                    "mean_score": float("nan"),
+                    "empirical_positive_rate": float("nan"),
+                    "gap": float("nan"),
+                }
+            )
+            continue
+        mean_score = float(np.mean(values[mask]))
+        empirical = float(np.mean(labels[mask]))
+        gap = abs(empirical - mean_score)
+        ece += gap * (count / total)
+        rows.append(
+            {
+                "bin_index": float(idx),
+                "bin_left": float(left),
+                "bin_right": float(right),
+                "count": float(count),
+                "mean_score": mean_score,
+                "empirical_positive_rate": empirical,
+                "gap": gap,
+            }
+        )
+    return float(ece), rows
 
 
 def _entropy(values: np.ndarray) -> float:
@@ -1795,6 +1863,304 @@ def _score_selected_candidate(
     )
 
 
+def _resolve_component_candidate(
+    data: AdvancedData,
+    component_detail: dict[str, Any],
+    spec_by_id: dict[str, CandidateSpec],
+    meta_specs: dict[str, MetaFusionSpec],
+    candidate_train_raws: dict[str, np.ndarray],
+    *,
+    folds: int,
+    seed: int,
+    evolution_rounds: int,
+    evolution_sample_rows: int,
+) -> tuple[str, np.ndarray, dict[str, Any]]:
+    kind = str(component_detail.get("kind", "advanced_candidate"))
+    candidate_id = str(component_detail.get("candidate_id", ""))
+    if kind == "surface":
+        method = candidate_id.removeprefix("surface.").removesuffix(".raw")
+        return (
+            candidate_id,
+            _score_surface_all(data, method),
+            {
+                "candidate_id": candidate_id,
+                "group": method,
+                "kind": "surface",
+                "alias": method,
+            },
+        )
+
+    base_candidate_id = str(component_detail.get("base_candidate_id", "")).strip()
+    calibrator = str(component_detail.get("calibrator", "raw"))
+    if not base_candidate_id:
+        base_candidate_id = candidate_id.rsplit(".", 1)[0]
+    spec = spec_by_id[base_candidate_id]
+    scores = _score_candidate_all(
+        data,
+        spec,
+        calibrator,
+        folds=folds,
+        seed=seed,
+        evolution_rounds=evolution_rounds,
+        evolution_sample_rows=evolution_sample_rows,
+        train_raw=candidate_train_raws.get(base_candidate_id),
+    )
+    alias = base_candidate_id.removeprefix(f"{ADVANCED_METHOD_ID}.")
+    alias = alias.replace(".", "/")
+    return (
+        candidate_id,
+        scores,
+        {
+            "candidate_id": candidate_id,
+            "base_candidate_id": base_candidate_id,
+            "calibrator": calibrator,
+            "group": str(spec.subset_name),
+            "head": spec.head,
+            "kind": "advanced_candidate",
+            "alias": alias,
+        },
+    )
+
+
+def _build_selected_candidate_transparency(
+    data: AdvancedData,
+    selected: dict[str, Any],
+    selected_details: dict[str, Any],
+    spec_by_id: dict[str, CandidateSpec],
+    meta_specs: dict[str, MetaFusionSpec],
+    candidate_train_raws: dict[str, np.ndarray],
+    *,
+    folds: int,
+    seed: int,
+    evolution_rounds: int,
+    evolution_sample_rows: int,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    train_cv = data.split == "train_cv"
+    holdout = data.split == "holdout"
+    selected_kind = str(selected_details.get("selected_kind", "advanced_candidate"))
+    component_rows: list[dict[str, Any]] = []
+    ablation_rows: list[dict[str, Any]] = []
+    alias_rows: list[dict[str, Any]] = []
+
+    if selected_kind != "meta_fusion":
+        return (
+            component_rows,
+            ablation_rows,
+            {
+                "selected_kind": selected_kind,
+                "component_count": int(selected_details.get("component_count", 1)),
+                "notes": "component transparency not available for non-fusion selections",
+            },
+        )
+
+    meta = meta_specs[str(selected["base_candidate_id"])]
+    component_infos: list[dict[str, Any]] = []
+    component_arrays: list[np.ndarray] = []
+    for index, component_detail in enumerate(selected_details.get("components", [])):
+        candidate_id, scores, info = _resolve_component_candidate(
+            data,
+            component_detail,
+            spec_by_id,
+            meta_specs,
+            candidate_train_raws,
+            folds=folds,
+            seed=seed,
+            evolution_rounds=evolution_rounds,
+            evolution_sample_rows=evolution_sample_rows,
+        )
+        info["weight"] = float(meta.weights[index]) if index < len(meta.weights) else 0.0
+        info["component_index"] = index
+        component_infos.append(info)
+        component_arrays.append(scores)
+        alias_rows.append(
+            {
+                "component_id": candidate_id,
+                "alias": info["alias"],
+                "group": info["group"],
+                "kind": info["kind"],
+                "weight": float(meta.weights[index]) if index < len(meta.weights) else 0.0,
+            }
+        )
+
+    component_matrix = np.column_stack(component_arrays)
+    raw_scores = component_matrix @ np.asarray(meta.weights, dtype=np.float64)
+    calibration = _fit_calibration(
+        raw_scores[train_cv], data.y[train_cv], str(selected["calibrator"])
+    )
+    selected_scores = np.zeros(len(data.records), dtype=np.float64)
+    selected_scores[train_cv] = calibration.transform(raw_scores[train_cv])
+    selected_scores[holdout] = calibration.transform(raw_scores[holdout])
+
+    for row_index, record in enumerate(data.records):
+        for component_index, component_info in enumerate(component_infos):
+            component_rows.append(
+                {
+                    "record_id": record["record_id"],
+                    "scenario_group_id": record["scenario_group_id"],
+                    "phase_id": record["phase_id"],
+                    "split_role": record["split_role"],
+                    "label_id": int(record["label_id"]),
+                    "selected_candidate_id": selected["candidate_id"],
+                    "component_index": component_index,
+                    "component_id": component_info["candidate_id"],
+                    "component_alias": component_info["alias"],
+                    "component_group": component_info["group"],
+                    "component_kind": component_info["kind"],
+                    "component_weight": f"{component_info['weight']:.9f}",
+                    "component_score": f"{float(component_arrays[component_index][row_index]):.9f}",
+                    "selected_score": f"{float(selected_scores[row_index]):.9f}",
+                }
+            )
+
+    selected_threshold, _selected_threshold_metrics = _select_threshold(
+        data.y[train_cv], selected_scores[train_cv]
+    )
+    selected_holdout_scores = selected_scores[holdout]
+    selected_holdout_labels = data.y[holdout]
+
+    ablation_rows.append(
+        {
+            "variant_id": "selected",
+            "variant_type": "selected_fusion",
+            "component_scope": "all",
+            "component_ids": "|".join(meta.component_ids),
+            "calibrator": str(selected["calibrator"]),
+            "threshold": f"{selected_threshold:.9f}",
+            "holdout_average_precision": f"{_average_precision(selected_holdout_labels, selected_holdout_scores):.9f}",
+            "holdout_roc_auc": f"{_roc_auc(selected_holdout_labels, selected_holdout_scores):.9f}",
+            "holdout_f1": f"{_binary_metrics(selected_holdout_labels, selected_holdout_scores, selected_threshold)['f1']:.9f}",
+            "brier_score": f"{_brier_score(selected_holdout_labels, selected_holdout_scores):.9f}",
+            "ece": f"{_expected_calibration_error(selected_holdout_labels, selected_holdout_scores)[0]:.9f}",
+        }
+    )
+
+    raw_threshold, _ = _select_threshold(data.y[train_cv], raw_scores[train_cv])
+    raw_holdout = raw_scores[holdout]
+    ablation_rows.append(
+        {
+            "variant_id": "no_calibration",
+            "variant_type": "no_calibration",
+            "component_scope": "all",
+            "component_ids": "|".join(meta.component_ids),
+            "calibrator": "raw",
+            "threshold": f"{raw_threshold:.9f}",
+            "holdout_average_precision": f"{_average_precision(selected_holdout_labels, raw_holdout):.9f}",
+            "holdout_roc_auc": f"{_roc_auc(selected_holdout_labels, raw_holdout):.9f}",
+            "holdout_f1": f"{_binary_metrics(selected_holdout_labels, raw_holdout, raw_threshold)['f1']:.9f}",
+            "brier_score": f"{_brier_score(selected_holdout_labels, raw_holdout):.9f}",
+            "ece": f"{_expected_calibration_error(selected_holdout_labels, raw_holdout)[0]:.9f}",
+        }
+    )
+
+    top_k_values = sorted({1, 2, 4})
+    for top_k in top_k_values:
+        if top_k < 1:
+            continue
+        subset_weights = np.asarray(meta.weights[:top_k], dtype=np.float64)
+        subset_weights = subset_weights / max(float(np.sum(subset_weights)), 1e-9)
+        subset_scores = component_matrix[:, :top_k] @ subset_weights
+        calibration = _fit_calibration(
+            subset_scores[train_cv], data.y[train_cv], str(selected["calibrator"])
+        )
+        calibrated = np.zeros(len(data.records), dtype=np.float64)
+        calibrated[train_cv] = calibration.transform(subset_scores[train_cv])
+        calibrated[holdout] = calibration.transform(subset_scores[holdout])
+        threshold, _ = _select_threshold(data.y[train_cv], calibrated[train_cv])
+        ablation_rows.append(
+            {
+                "variant_id": f"top_k_{top_k}",
+                "variant_type": "top_k",
+                "component_scope": f"first_{top_k}",
+                "component_ids": "|".join(meta.component_ids[:top_k]),
+                "calibrator": str(selected["calibrator"]),
+                "threshold": f"{threshold:.9f}",
+                "holdout_average_precision": f"{_average_precision(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "holdout_roc_auc": f"{_roc_auc(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "holdout_f1": f"{_binary_metrics(selected_holdout_labels, calibrated[holdout], threshold)['f1']:.9f}",
+                "brier_score": f"{_brier_score(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "ece": f"{_expected_calibration_error(selected_holdout_labels, calibrated[holdout])[0]:.9f}",
+            }
+        )
+
+    for index, component_info in enumerate(component_infos):
+        keep = [i for i in range(len(component_infos)) if i != index]
+        if not keep:
+            continue
+        subset_weights = np.asarray([meta.weights[i] for i in keep], dtype=np.float64)
+        subset_weights = subset_weights / max(float(np.sum(subset_weights)), 1e-9)
+        subset_scores = component_matrix[:, keep] @ subset_weights
+        calibration = _fit_calibration(
+            subset_scores[train_cv], data.y[train_cv], str(selected["calibrator"])
+        )
+        calibrated = np.zeros(len(data.records), dtype=np.float64)
+        calibrated[train_cv] = calibration.transform(subset_scores[train_cv])
+        calibrated[holdout] = calibration.transform(subset_scores[holdout])
+        threshold, _ = _select_threshold(data.y[train_cv], calibrated[train_cv])
+        ablation_rows.append(
+            {
+                "variant_id": f"drop_{component_info['component_index']}",
+                "variant_type": "component_drop",
+                "component_scope": component_info["group"],
+                "component_ids": "|".join(meta.component_ids[i] for i in keep),
+                "calibrator": str(selected["calibrator"]),
+                "threshold": f"{threshold:.9f}",
+                "holdout_average_precision": f"{_average_precision(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "holdout_roc_auc": f"{_roc_auc(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "holdout_f1": f"{_binary_metrics(selected_holdout_labels, calibrated[holdout], threshold)['f1']:.9f}",
+                "brier_score": f"{_brier_score(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "ece": f"{_expected_calibration_error(selected_holdout_labels, calibrated[holdout])[0]:.9f}",
+            }
+        )
+
+    group_to_indices: dict[str, list[int]] = defaultdict(list)
+    for index, info in enumerate(component_infos):
+        group_to_indices[str(info["group"])].append(index)
+    for group, indices in sorted(group_to_indices.items()):
+        keep = [i for i in range(len(component_infos)) if i not in indices]
+        if not keep:
+            continue
+        subset_weights = np.asarray([meta.weights[i] for i in keep], dtype=np.float64)
+        subset_weights = subset_weights / max(float(np.sum(subset_weights)), 1e-9)
+        subset_scores = component_matrix[:, keep] @ subset_weights
+        calibration = _fit_calibration(
+            subset_scores[train_cv], data.y[train_cv], str(selected["calibrator"])
+        )
+        calibrated = np.zeros(len(data.records), dtype=np.float64)
+        calibrated[train_cv] = calibration.transform(subset_scores[train_cv])
+        calibrated[holdout] = calibration.transform(subset_scores[holdout])
+        threshold, _ = _select_threshold(data.y[train_cv], calibrated[train_cv])
+        ablation_rows.append(
+            {
+                "variant_id": f"drop_group_{group}",
+                "variant_type": "modality_drop",
+                "component_scope": group,
+                "component_ids": "|".join(meta.component_ids[i] for i in keep),
+                "calibrator": str(selected["calibrator"]),
+                "threshold": f"{threshold:.9f}",
+                "holdout_average_precision": f"{_average_precision(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "holdout_roc_auc": f"{_roc_auc(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "holdout_f1": f"{_binary_metrics(selected_holdout_labels, calibrated[holdout], threshold)['f1']:.9f}",
+                "brier_score": f"{_brier_score(selected_holdout_labels, calibrated[holdout]):.9f}",
+                "ece": f"{_expected_calibration_error(selected_holdout_labels, calibrated[holdout])[0]:.9f}",
+            }
+        )
+
+    return (
+        component_rows,
+        ablation_rows,
+        {
+            "selected_kind": selected_kind,
+            "component_count": len(component_infos),
+            "component_ids": list(meta.component_ids),
+            "weights": [float(value) for value in meta.weights],
+            "component_infos": component_infos,
+            "threshold": float(selected_threshold),
+            "selected_score_mean": float(np.mean(selected_holdout_scores)),
+            "selected_score_std": float(np.std(selected_holdout_scores)),
+        },
+    )
+
+
 def _metric_row(
     method: str,
     split_role: str,
@@ -1874,6 +2240,9 @@ def run_advanced_main_run_detectors(
     search_profile: str | SearchProfile = "balanced",
     feature_cache: Path | None = None,
     evolution_sample_rows: int = 4500,
+    selection_lock: Path | None = None,
+    score_locked_only: bool = False,
+    write_component_scores: bool = False,
 ) -> dict[str, Any]:
     profile = _resolve_search_profile(search_profile)
     if candidate_limit < profile.min_candidate_limit:
@@ -1984,6 +2353,20 @@ def run_advanced_main_run_detectors(
         )
     leaderboard = leaderboard[: len(leaderboard)]
     selected = leaderboard[0]
+    if selection_lock is not None:
+        if not selection_lock.exists():
+            raise FileNotFoundError(f"missing selection lock override: {selection_lock}")
+        lock_payload = _read_json(selection_lock)
+        override_id = str(lock_payload.get("selected_candidate_id", ""))
+        if override_id:
+            override = next(
+                (row for row in leaderboard if row["candidate_id"] == override_id), None
+            )
+            if override is None:
+                raise ValueError(
+                    f"selection lock requested candidate {override_id!r}, which is not on the leaderboard"
+                )
+            selected = override
     selected_base = str(selected["base_candidate_id"])
     selected_calibrator_name = str(selected["calibrator"])
 
@@ -2035,6 +2418,30 @@ def run_advanced_main_run_detectors(
         evolution_rounds=evolution_rounds,
         evolution_sample_rows=evolution_sample_rows,
     )
+
+    component_rows: list[dict[str, Any]] = []
+    ablation_rows: list[dict[str, Any]] = []
+    component_summary: dict[str, Any] = {
+        "selected_kind": selected_details.get("selected_kind", "advanced_candidate"),
+        "component_count": int(selected_details.get("component_count", 1)),
+    }
+    if (
+        write_component_scores
+        or selection_lock is not None
+        or selected_details.get("selected_kind") == "meta_fusion"
+    ):
+        component_rows, ablation_rows, component_summary = _build_selected_candidate_transparency(
+            data,
+            selected,
+            selected_details,
+            spec_by_id,
+            meta_specs,
+            candidate_train_raws,
+            folds=folds,
+            seed=seed,
+            evolution_rounds=evolution_rounds,
+            evolution_sample_rows=evolution_sample_rows,
+        )
 
     method_scores = {
         **data.surface_scores,
@@ -2221,6 +2628,14 @@ def run_advanced_main_run_detectors(
         },
         "status": "pass",
     }
+
+    if component_rows:
+        _write_csv(out_root / "selected_component_scores.csv", component_rows)
+        _write_csv(out_root / "selected_component_ablations.csv", ablation_rows)
+        _write_json(out_root / "selected_component_aliases.json", component_summary)
+        quality["outputs"]["selected_component_scores"] = "selected_component_scores.csv"
+        quality["outputs"]["selected_component_ablations"] = "selected_component_ablations.csv"
+        quality["outputs"]["selected_component_aliases"] = "selected_component_aliases.json"
 
     _write_json(out_root / "advanced_feature_manifest.json", feature_manifest)
     _write_csv(out_root / "advanced_predictions.csv", prediction_rows)

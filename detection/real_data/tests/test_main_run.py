@@ -15,6 +15,7 @@ from detection.advanced_main_run_detectors import (
 )
 from detection.main_run_detectors import run_main_run_detectors
 from detection.main_run_generation import build_main_run_dataset
+from detection.main_run_generation import split_counts
 from detection.main_run_types import (
     DETECTOR_VIEW_IDS,
     MODEL_FEATURE_DENYLIST,
@@ -97,6 +98,16 @@ class MainRunDatasetTests(unittest.TestCase):
         self.assertEqual(windows["initial_take_up"], (0.0, 30.0))
         self.assertEqual(windows["climb_transition"], (30.0, 90.0))
         self.assertEqual(windows["cruise_altitude"], (90.0, 150.0))
+
+    def test_v2_split_counts(self) -> None:
+        holdout_groups, train_groups, holdout_positives, train_positives = split_counts(
+            10_000,
+            50,
+        )
+        self.assertEqual(holdout_groups, 1_500)
+        self.assertEqual(train_groups, 8_500)
+        self.assertEqual(holdout_positives, 8)
+        self.assertEqual(train_positives, 42)
 
     def test_shahed_only_positive_labeling(self) -> None:
         positives = [row for row in self.scenarios if row["is_positive"] == "1"]

@@ -260,6 +260,10 @@
 			"command": "rtk just web-smoke",
 			"purpose": "verify npm package manifest and scripts"
 		},
+		"paper/": {
+			"command": "rtk just paper",
+			"purpose": "build and validate the IEEE-style paper package"
+		},
 		"pyproject.toml": {
 			"command": "rtk python3 -m unittest discover -s tests/schemas -p 'test_*.py'",
 			"purpose": "verify Python project manifest and tool configuration"
