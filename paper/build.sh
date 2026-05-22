@@ -39,6 +39,16 @@ then
   python3 -m pip install --user --quiet numpy
 fi
 
+if ! python3 - <<'PY'
+import importlib.util
+import sys
+
+sys.exit(0 if importlib.util.find_spec("matplotlib") is not None else 1)
+PY
+then
+  python3 -m pip install --user --quiet matplotlib
+fi
+
 # GitHub Actions starts from a clean checkout, so bootstrap the generated
 # evidence roots instead of depending on local outputs.
 if ! python3 - "$kth_cache_root" <<'PY'
