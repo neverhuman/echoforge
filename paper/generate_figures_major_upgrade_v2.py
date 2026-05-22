@@ -357,7 +357,11 @@ def _load_context(roots: FigureRoots) -> FigureContext:
     baseline_metrics = _read_csv_rows(roots.baseline_root / "performance_metrics.csv")
     advanced_metrics = _read_csv_rows(roots.advanced_root / "performance_metrics.csv")
     advanced_predictions = _read_csv_rows(roots.advanced_root / "advanced_predictions.csv")
-    component_scores = _read_csv_rows(roots.paper_evidence_root / "selected_component_scores.csv")
+    component_scores = _read_csv_rows(roots.advanced_root / "selected_component_scores.csv")
+    if not component_scores:
+        component_scores = _read_csv_rows(
+            roots.paper_evidence_root / "selected_component_scores.csv"
+        )
     component_ablations = _read_csv_rows(
         roots.paper_evidence_root / "selected_component_ablations.csv"
     )
