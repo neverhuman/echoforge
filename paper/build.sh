@@ -19,6 +19,8 @@ done
 
 mkdir -p "$out_dir"
 cd "$repo_root"
+advanced_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+advanced_lock="$advanced_root/selection_lock.json"
 
 if ! python3 - <<'PY'
 import importlib.util
@@ -28,6 +30,23 @@ sys.exit(0 if importlib.util.find_spec("numpy") is not None else 1)
 PY
 then
   python3 -m pip install --user --quiet numpy
+fi
+
+# The advanced detector lane writes the paper evidence lock and supporting
+# diagnostics. GitHub Actions starts from a clean checkout, so bootstrap it
+# here instead of depending on local generated outputs.
+if [[ ! -s "$advanced_lock" ]]; then
+  python3 -m detection.run_advanced_main_run_detectors \
+    --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
+    --out-root "$advanced_root" \
+    --folds 5 \
+    --seed 202605210136 \
+    --search-profile v2_aggressive \
+    --candidate-limit 128 \
+    --evolution-rounds 5 \
+    --evolution-sample-rows 4500 \
+    --write-component-scores \
+    --force
 fi
 
 python3 -m detection.paper_evidence_major_upgrade_v1 \
