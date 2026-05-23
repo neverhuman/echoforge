@@ -23,7 +23,8 @@ training_root="outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run"
 baseline_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run"
 advanced_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
 anchor_root="outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1"
-kth_cache_root="${ECHOFORGE_REAL_DATA_ROOT:-$HOME/.cache/echoforge/real-data}/kth-drone-bird-human-77ghz"
+real_data_root="${ECHOFORGE_REAL_DATA_ROOT:-$HOME/.cache/echoforge/real-data}"
+kth_cache_root="$real_data_root/kth-drone-bird-human-77ghz"
 training_records="$training_root/records.csv"
 baseline_summary="$baseline_root/performance_summary.json"
 advanced_lock="$advanced_root/selection_lock.json"
@@ -82,7 +83,7 @@ if [[ ! -s "$anchor_report" ]]; then
   python3 -m detection.real_data.cli build-report \
     --dataset-id kth-drone-bird-human-77ghz \
     --run-id kth-measured-v1 \
-    --raw-root "$kth_cache_root" \
+    --raw-root "$real_data_root" \
     --out-root outputs/real-data
 fi
 
