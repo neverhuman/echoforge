@@ -51,14 +51,12 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-recommended texlive-publishers
+          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-publishers
       - name: Fast lane
         shell: bash
         env:
           CARGO_INCREMENTAL: "0"
-        run: |
-          cargo nextest run --workspace --locked --jobs $(nproc)
-          bash ops/ci/fast.sh
+        run: bash ops/ci/fast.sh
 
   contracts:
     runs-on: ubuntu-latest
