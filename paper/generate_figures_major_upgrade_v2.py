@@ -39,7 +39,9 @@ try:
     warnings.filterwarnings("ignore", message="Unable to import Axes3D.*", category=UserWarning)
     import matplotlib.pyplot as plt
     from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
-    from matplotlib.patches import FancyArrowPatch, Rectangle
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import FancyArrowPatch, Patch, Rectangle
+    from matplotlib.ticker import MaxNLocator
 except Exception as exc:  # pragma: no cover - import guard for minimal environments
     raise SystemExit(
         "matplotlib is required to render paper figures; install matplotlib or run this script in the repository dev environment."
@@ -246,6 +248,61 @@ def _short_family_label(value: Any) -> str:
         "rc_fixed_wing": "RC fixed-wing",
     }
     return mapping.get(str(value), str(value).replace("_", " "))
+
+
+def _family_bucket(value: Any) -> str:
+    text = str(value)
+    bird_families = {
+        "single_bird",
+        "bird_flock",
+        "shorebird_wader",
+        "gull_tern",
+        "raptor_falcon",
+        "flamingo_large_bird",
+        "seabird_cormorant",
+        "seasonal_migratory_density",
+    }
+    if text in bird_families:
+        return "bird"
+    if text == "rc_fixed_wing":
+        return "rc_fixed_wing"
+    if text in {"weather_cell", "weather"}:
+        return "weather"
+    if text in {"clutter_only", "clutter_only_counterfactual"}:
+        return "clutter_only"
+    if text in {"rfi_burst", "passive_rf_rfi"}:
+        return "rfi"
+    if text in {"multipath_ghost", "multipath"}:
+        return "multipath"
+    if text in {"terrain_glint", "terrain"}:
+        return "terrain_glint"
+    if text in {"wind_turbine", "wind_turbine_large"}:
+        return "wind_turbine"
+    if text in {"ground_vehicle", "vehicle"}:
+        return "ground_vehicle"
+    return "other"
+
+
+def _family_label(value: Any) -> str:
+    labels = {
+        "bird": "Bird",
+        "rc_fixed_wing": "RC fixed-wing",
+        "weather": "Weather",
+        "clutter_only": "Clutter-only",
+        "rfi": "RFI",
+        "multipath": "Multipath",
+        "terrain_glint": "Terrain/glint",
+        "wind_turbine": "Wind turbine",
+        "ground_vehicle": "Ground vehicle",
+        "other": "Other",
+    }
+    return labels.get(str(value), str(value).replace("_", " "))
+
+
+def _format_relative_gain(current: float, baseline: float, *, digits: int = 0) -> str:
+    if not math.isfinite(current) or not math.isfinite(baseline) or baseline == 0.0:
+        return "n/a"
+    return f"{((current / baseline) - 1.0) * 100.0:+.{digits}f}%"
 
 
 def _short_feature_label(value: Any) -> str:
@@ -595,20 +652,24 @@ def _add_box(
     color: str = INK,
     weight: str = "normal",
     size: float = FONT_CARD,
+    wrap_width: int = 24,
+    linespacing: float = 1.15,
 ) -> None:
     rect = Rectangle((x, y), w, h, linewidth=1.0, edgecolor=edge, facecolor=face)
     ax.add_patch(rect)
-    ax.text(
+    text = ax.text(
         x + w / 2,
         y + h / 2,
-        _wrap_compact(text, 24),
+        _wrap_compact(text, wrap_width),
         ha="center",
         va="center",
         fontsize=size,
         color=color,
         weight=weight,
-        linespacing=1.15,
+        linespacing=linespacing,
+        clip_on=True,
     )
+    text.set_clip_path(rect)
 
 
 def _add_arrow(
@@ -1128,17 +1189,24 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         _note_fallback(filename, "scenario balance missing; using summary placeholders")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = _paper_fig(4.10, constrained=True)
-    gs = fig.add_gridspec(2, 3, width_ratios=[1.15, 1.15, 0.92], hspace=0.42, wspace=0.36)
-    fig.suptitle(
-        "Scenario balance and leakage diagnostics", fontsize=FONT_TITLE, weight="bold", y=0.995
+    fig = _paper_fig(4.86, constrained=False)
+    fig.subplots_adjust(left=0.07, right=0.98, top=0.86, bottom=0.14, hspace=0.58, wspace=0.42)
+    gs = fig.add_gridspec(2, 3, width_ratios=[1.18, 1.18, 0.88])
+    fig.text(
+        0.07,
+        0.94,
+        "Scenario balance and leakage diagnostics",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
     )
     fig.text(
-        0.02,
-        0.02,
-        "Scenario groups are locked before phase expansion. The paper evidence keeps label, site, range, aspect, noise, and hard-negative family counts together.",
+        0.07,
+        0.90,
+        "Scenario groups are locked before phase expansion; the evidence keeps label, site, range, aspect, noise, and hard-negative family counts together.",
         fontsize=FONT_TINY,
         color=MUTED,
+        ha="left",
     )
     marginal_counts = balance.get("marginal_counts", {})
     ordered_keys = [
@@ -1148,7 +1216,8 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         ("hard_negative_role", "Hard-negative"),
     ]
     for idx, (key, title) in enumerate(ordered_keys):
-        ax = fig.add_subplot(gs[idx // 2, idx % 2])
+        row_idx, col_idx = divmod(idx, 2)
+        ax = fig.add_subplot(gs[row_idx, col_idx])
         counts = marginal_counts.get(key, {})
         if not counts:
             counts = {"missing": 1}
@@ -1182,6 +1251,13 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         ax.set_yticklabels(display_names, fontsize=FONT_TICK)
         ax.set_title(title, fontsize=FONT_SUBTITLE, weight="bold")
         _clean_axes(ax, xgrid=True)
+        ax.xaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
+        ax.set_xlim(0.0, max(values) * 1.18 if values else 1.0)
+        ax.margins(x=0.06)
+        if row_idx == 1:
+            ax.set_xlabel("Scenario groups", fontsize=FONT_AXIS)
+        else:
+            ax.set_xlabel("")
         for i, value in enumerate(values):
             ax.text(value + max(values) * 0.01, i, f"{value}", va="center", fontsize=FONT_TINY)
 
@@ -1200,7 +1276,17 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
     ]
     for idx, line in enumerate(lines):
         _add_box(
-            ax, 0.03, 0.74 - idx * 0.16, 0.92, 0.12, line, face="white", edge=GRID, size=FONT_TINY
+            ax,
+            0.03,
+            0.74 - idx * 0.17,
+            0.92,
+            0.13,
+            line,
+            face="white",
+            edge=GRID,
+            size=FONT_TINY,
+            wrap_width=24,
+            linespacing=1.04,
         )
 
     ax = fig.add_subplot(gs[1:, 2])
@@ -1235,15 +1321,23 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         _note_fallback(filename, "evaluation summary missing; using deterministic defaults")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = _paper_fig(4.20, constrained=False)
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.16, wspace=0.78, hspace=0.66)
+    fig = _paper_fig(4.45, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.78, bottom=0.15, wspace=0.78, hspace=0.66)
     gs = fig.add_gridspec(2, 4, width_ratios=[1.30, 0.10, 0.86, 0.86])
     fig.text(
         0.08,
-        0.935,
-        "Holdout KPI and supporting diagnostics",
+        0.952,
+        "Holdout KPI: EI vs prior fusion",
         fontsize=FONT_TITLE,
         weight="bold",
+        ha="left",
+    )
+    fig.text(
+        0.08,
+        0.910,
+        "Primary KPI gain: +742% LCB95 vs prior fusion; point Recall@<=1%FPR +185%",
+        fontsize=FONT_SUBTITLE,
+        color=GREEN,
         ha="left",
     )
 
@@ -1280,15 +1374,28 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
     kpi_ax.set_yticklabels([label for label, _row, _color in methods], fontsize=FONT_AXIS)
     kpi_ax.set_xlim(0.0, 1.02)
     kpi_ax.set_xlabel("Recall at FPR <= 1%", fontsize=FONT_AXIS)
-    kpi_ax.set_title("Primary KPI: group-block LCB95", fontsize=FONT_SUBTITLE, weight="bold")
+    kpi_ax.set_title(
+        "Primary KPI: group-block LCB95 vs prior fusion", fontsize=FONT_SUBTITLE, weight="bold"
+    )
     _clean_axes(kpi_ax, xgrid=True)
     kpi_ax.text(
         0.02,
-        0.04,
+        0.05,
         f"{primary_label}: {primary_value:.3f}",
         fontsize=FONT_TINY,
         color=MUTED,
         transform=kpi_ax.transAxes,
+    )
+    kpi_handles = [
+        Patch(facecolor=GREEN, edgecolor="white", label=BASELINE_LABEL),
+        Patch(facecolor=INK, edgecolor="white", label=EI_SHORT),
+        Line2D([0], [0], color=RED, linewidth=2.3, label="LCB95 lower bound"),
+    ]
+    kpi_ax.legend(
+        handles=kpi_handles,
+        loc="lower right",
+        fontsize=FONT_TINY,
+        frameon=False,
     )
 
     rank_ax = fig.add_subplot(gs[0, 2])
@@ -1321,6 +1428,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         sel_curve = evaluation.get("curves", {}).get("selected", {}).get(metric, [])
         base_curve = evaluation.get("curves", {}).get("baseline", {}).get(metric, [])
         if metric == "roc":
+            ax2.axvspan(0.0, 0.01, facecolor=PALE_RED, alpha=0.55, zorder=0)
             ax2.plot(
                 [p["fpr"] for p in base_curve],
                 [p["tpr"] for p in base_curve],
@@ -1338,8 +1446,15 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
             ax2.set_xlabel("False-positive rate", fontsize=FONT_AXIS)
             ax2.set_ylabel("True-positive rate", fontsize=FONT_AXIS)
             ax2.set_title("ROC low-FPR inset", fontsize=FONT_SUBTITLE, weight="bold")
-            ax2.axvline(0.01, color=RED, linewidth=1.0, linestyle="--")
-            ax2.text(0.011, 0.07, "1% FPR", fontsize=FONT_TINY, color=RED)
+            ax2.axvline(0.01, color=RED, linewidth=2.2)
+            ax2.annotate(
+                "1% FPR operating cap",
+                xy=(0.01, 0.96),
+                xytext=(0.0128, 0.78),
+                arrowprops={"arrowstyle": "->", "color": RED, "linewidth": 0.9},
+                fontsize=FONT_TINY,
+                color=RED,
+            )
             ax2.set_xlim(0.0, 0.025)
             ax2.set_ylim(0.0, 1.02)
         else:
@@ -1422,12 +1537,12 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         _note_fallback(filename, "phase metrics missing; using deterministic defaults")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = _paper_fig(3.55, constrained=False)
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.82, bottom=0.20, wspace=0.42)
+    fig = _paper_fig(4.05, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.76, bottom=0.22, wspace=0.44)
     gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.0])
     fig.text(
         0.08,
-        0.92,
+        0.945,
         "Phase behavior and false-alarm burden",
         fontsize=FONT_TITLE,
         weight="bold",
@@ -1450,10 +1565,10 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         baseline.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
     ]
     series = [
-        ("Baseline AP", baseline_ap, PALE_GREEN, GREEN),
-        ("Baseline R@<=1%FPR", baseline_recall, PALE_BLUE, BLUE),
+        ("Prior AP", baseline_ap, PALE_GREEN, GREEN),
+        ("Prior Recall@<=1%FPR", baseline_recall, PALE_BLUE, BLUE),
         ("EI AP", selected_ap, INK, INK),
-        ("EI R@<=1%FPR", selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+        ("EI Recall@<=1%FPR", selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
     ]
     offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * width
     for offset, (label, values, face, edge) in zip(offsets, series):
@@ -1474,11 +1589,20 @@ def figure_phase_kpi(context: FigureContext) -> Path:
     ax.set_ylabel("Holdout metric value", fontsize=FONT_AXIS)
     ax.set_ylim(0.0, 1.02)
     _clean_axes(ax, ygrid=True)
-    ax.legend(loc="upper left", fontsize=FONT_TINY, frameon=False, ncol=2, columnspacing=0.8)
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.18),
+        fontsize=FONT_TINY,
+        frameon=False,
+        ncol=2,
+        columnspacing=0.8,
+        title="Phase legend",
+        title_fontsize=FONT_TINY,
+    )
     ax.set_title("Per-phase AP and low-FPR recall", fontsize=FONT_SUBTITLE, weight="bold")
     fig.text(
         0.08,
-        0.075,
+        0.06,
         "Each phase has n=8 positive holdout records from 8 positive groups; phase results are diagnostic.",
         fontsize=FONT_TINY,
         color=MUTED,
@@ -1495,8 +1619,8 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         family_rows = _fallback_false_alarm_rows()
         method_rows = [
             {
-                "method": "locked_candidate",
-                "method_label": "locked_candidate",
+                "method": "EI candidate",
+                "method_label": "EI candidate",
                 "rank": 1,
                 "selected_threshold_fp_count": 1,
                 "fp_per_1000_negatives": 0.2,
@@ -1506,27 +1630,17 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         ]
     method_rows = sorted(method_rows, key=lambda row: _safe_float(row.get("rank"), 99.0))[:5]
     selected_methods = [row.get("method", "") for row in method_rows if row.get("method")]
-    family_names = sorted(
-        {row.get("family", "") for row in family_rows if row.get("family")},
-        key=lambda name: (
-            -sum(
-                _safe_float(row.get("false_alarm_count"))
-                for row in family_rows
-                if row.get("family") == name
-            ),
-            name,
-        ),
-    )[:4]
     family_palette = {
-        "single_bird": RED,
-        "bird_flock": GOLD,
-        "shorebird_wader": BLUE,
-        "gull_tern": TEAL,
-        "raptor_falcon": GREEN,
-        "flamingo_large_bird": PALE_RED,
-        "seabird_cormorant": PALE_GOLD,
-        "seasonal_migratory_density": PALE_BLUE,
+        "bird": RED,
         "rc_fixed_wing": INK,
+        "weather": GOLD,
+        "clutter_only": PALE_BLUE,
+        "rfi": TEAL,
+        "multipath": PALE_GREEN,
+        "terrain_glint": PALE_GOLD,
+        "wind_turbine": NIGHT_GREEN,
+        "ground_vehicle": BLUE,
+        "other": SLATE,
     }
     method_to_family_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
     method_to_summary: dict[str, dict[str, str]] = {}
@@ -1536,34 +1650,71 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         method_to_summary[row.get("method", "")] = row
     y_positions = np.arange(len(method_rows))
     max_total = 0.0
-    seen_families: set[str] = set()
+    legend_handles = []
+    for bucket in [
+        "bird",
+        "rc_fixed_wing",
+        "weather",
+        "clutter_only",
+        "rfi",
+        "multipath",
+        "terrain_glint",
+        "wind_turbine",
+        "ground_vehicle",
+        "other",
+    ]:
+        legend_handles.append(
+            Patch(
+                facecolor=family_palette[bucket],
+                edgecolor="white",
+                label=_family_label(bucket),
+            )
+        )
+    legend_handles.append(
+        Patch(
+            facecolor=PALE_GREEN,
+            edgecolor=GREEN,
+            hatch="///",
+            alpha=0.30,
+            label="Near-threshold negatives",
+        )
+    )
     for idx, method in enumerate(selected_methods):
         summary = method_to_summary.get(method, {})
         near_total = sum(
             _safe_float(row.get("near_threshold_count"))
             for row in method_to_family_rows.get(method, [])
         )
-        total_fp = sum(
-            _safe_float(row.get("false_alarm_count"))
-            for row in method_to_family_rows.get(method, [])
-        )
-        max_total = max(max_total, near_total)
+        bucket_counts: dict[str, float] = defaultdict(float)
+        for row in method_to_family_rows.get(method, []):
+            bucket = _family_bucket(row.get("family", "other"))
+            bucket_counts[bucket] += _safe_float(row.get("false_alarm_count"))
+        total_fp = sum(bucket_counts.values())
+        max_total = max(max_total, near_total, total_fp)
         fa_ax.barh(
             idx,
             near_total,
             color=PALE_GREEN,
-            edgecolor=GRID,
+            edgecolor=GREEN,
             linewidth=0.8,
-            alpha=0.35,
+            alpha=0.30,
+            hatch="///",
             label=None,
         )
         left = 0.0
-        for family in family_names:
-            family_count = sum(
-                _safe_float(row.get("false_alarm_count"))
-                for row in method_to_family_rows.get(method, [])
-                if row.get("family") == family
-            )
+        for family in [
+            "bird",
+            "rc_fixed_wing",
+            "weather",
+            "clutter_only",
+            "rfi",
+            "multipath",
+            "terrain_glint",
+            "wind_turbine",
+            "ground_vehicle",
+            "other",
+        ]:
+            family_count = bucket_counts.get(family, 0.0)
             if family_count <= 0.0:
                 continue
             fa_ax.barh(
@@ -1577,11 +1728,10 @@ def figure_phase_kpi(context: FigureContext) -> Path:
             )
             left += family_count
             max_total = max(max_total, left)
-            seen_families.add(family)
         fa_ax.text(
             max(left, near_total) + 0.18,
             idx,
-            f"FP {int(total_fp)} | near {int(near_total)} | R@1% {_safe_float(summary.get('recall_at_leq_1pct_fpr')):.3f}",
+            f"FP {int(round(total_fp))} | near {int(round(near_total))} | R@1% {_safe_float(summary.get('recall_at_leq_1pct_fpr')):.3f}",
             va="center",
             fontsize=FONT_TINY,
             color=MUTED,
@@ -1596,8 +1746,21 @@ def figure_phase_kpi(context: FigureContext) -> Path:
     )
     fa_ax.set_xlabel("False-alarm count by top family", fontsize=FONT_AXIS)
     _clean_axes(fa_ax, xgrid=True)
-    fa_ax.set_xlim(0.0, max_total * 1.15 if max_total > 0 else 1.0)
+    fa_ax.xaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
+    fa_ax.set_xlim(0.0, max_total * 1.20 if max_total > 0 else 1.0)
     fa_ax.set_title("Cross-method false-alarm burden", fontsize=FONT_SUBTITLE, weight="bold")
+    fa_ax.legend(
+        handles=legend_handles,
+        title="Family legend",
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.16),
+        fontsize=FONT_TINY,
+        frameon=False,
+        ncol=3,
+        title_fontsize=FONT_TINY,
+        columnspacing=0.9,
+        handletextpad=0.6,
+    )
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -2203,7 +2366,7 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
     fig.text(
         0.12,
         0.07,
-        "Component handles and ablation CSVs remain evidence artifacts; this figure uses human labels and Table-IV-compatible holdout metrics.",
+        "Component handles and ablation CSVs remain evidence artifacts; this figure uses human labels and main holdout-table-compatible metrics.",
         fontsize=FONT_TINY,
         color=MUTED,
     )
@@ -2307,61 +2470,101 @@ def figure_ei_workflow(context: FigureContext) -> Path:
         if STRICT_MODE:
             _require_no_fallback(filename)
 
-    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.25), constrained_layout=False)
-    fig.subplots_adjust(left=0.02, right=0.98, top=0.88, bottom=0.08)
+    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.58), constrained_layout=False)
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.88, bottom=0.06)
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 6)
     ax.axis("off")
     ax.text(
         0.0,
-        5.72,
+        5.70,
         "Engineered Intelligence workflow and audit boundaries",
         fontsize=FONT_TITLE,
         weight="bold",
         ha="left",
         va="top",
     )
+    ax.text(
+        0.0,
+        5.32,
+        "What EI does: train/CV candidate discovery -> sparse fusion -> calibration -> locked holdout score",
+        fontsize=FONT_SUBTITLE,
+        color=GREEN,
+        ha="left",
+        va="top",
+    )
     stages = [
-        ("Detector\nviews", PALE_BLUE, BLUE),
-        ("Train/CV\ndiscovery", PALE_TEAL, TEAL),
-        ("Sparse\nnonnegative fusion", PALE_GOLD, GOLD),
-        ("Geodesic-odds\ncalibration", "white", GRID),
-        ("EI selection\nlock", NIGHT_GREEN_LIGHT, NIGHT_GREEN),
-        ("Holdout\nscoring", SLATE, INK),
+        ("Detector views", PALE_BLUE, BLUE),
+        ("Train/CV search", PALE_TEAL, TEAL),
+        ("Sparse fusion", PALE_GOLD, GOLD),
+        ("Odds calibration", "white", GRID),
+        ("Selection lock", NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+        ("Blind holdout", SLATE, INK),
     ]
-    x0 = 0.28
-    y0 = 3.42
-    box_w = 1.34
-    gap = 0.25
+    x0 = 0.22
+    y0 = 3.36
+    box_w = 1.40
+    gap = 0.14
     for idx, (label, face, edge) in enumerate(stages):
         x = x0 + idx * (box_w + gap)
-        _add_box(ax, x, y0, box_w, 1.10, label, face=face, edge=edge, weight="bold", size=FONT_TINY)
-        if idx < len(stages) - 1:
-            _add_arrow(ax, (x + box_w + 0.02, y0 + 0.55), (x + box_w + gap - 0.02, y0 + 0.55))
-
-    rails = [
-        ("Group-locked split", "train/CV rows only before final scoring"),
-        ("Feature denylist", "labels, split keys, group IDs, and audit headers blocked"),
-        ("Public-proxy boundary", "synthetic evidence, not measured truth"),
-        ("Code-disclosure boundary", "reviewable workflow; generated arrays stay out of Git"),
-    ]
-    for idx, (title, body) in enumerate(rails):
-        x = 0.40 + (idx % 2) * 4.70
-        y = 1.78 - (idx // 2) * 0.82
         _add_box(
             ax,
             x,
-            y,
-            4.20,
-            0.64,
-            f"{title}: {body}",
-            face="white",
-            edge=GRID,
+            y0,
+            box_w,
+            1.02,
+            label,
+            face=face,
+            edge=edge,
+            weight="bold",
             size=FONT_TINY,
+            wrap_width=16,
+            linespacing=1.02,
         )
+        if idx < len(stages) - 1:
+            _add_arrow(ax, (x + box_w + 0.02, y0 + 0.55), (x + box_w + gap - 0.02, y0 + 0.55))
+
+    def _rail_card(x: float, y: float, title: str, body: str) -> None:
+        rect = Rectangle((x, y), 4.24, 0.74, linewidth=1.0, edgecolor=GRID, facecolor="white")
+        ax.add_patch(rect)
+        title_artist = ax.text(
+            x + 0.12,
+            y + 0.59,
+            title,
+            ha="left",
+            va="top",
+            fontsize=FONT_TINY,
+            weight="bold",
+            color=INK,
+            clip_on=True,
+        )
+        title_artist.set_clip_path(rect)
+        body_artist = ax.text(
+            x + 0.12,
+            y + 0.35,
+            _wrap_compact(body, 32),
+            ha="left",
+            va="top",
+            fontsize=FONT_TINY,
+            color=MUTED,
+            linespacing=1.05,
+            clip_on=True,
+        )
+        body_artist.set_clip_path(rect)
+
+    rails = [
+        ("Group-locked split", "train/CV rows only; holdout scored once"),
+        ("Feature denylist", "labels, group IDs, split keys, and audit headers blocked"),
+        ("Claim boundary", "synthetic public-proxy evidence, not measured truth"),
+        ("Code boundary", "workflow reviewable; generated arrays stay out of Git"),
+    ]
+    for idx, (title, body) in enumerate(rails):
+        x = 0.36 + (idx % 2) * 4.60
+        y = 1.64 - (idx // 2) * 0.84
+        _rail_card(x, y, title, body)
     ax.text(
         0.30,
-        0.24,
+        0.18,
         "Raw component handles, selection_lock.json, and component CSVs remain evidence artifacts; reader-facing labels summarize their role.",
         fontsize=FONT_TINY,
         color=MUTED,

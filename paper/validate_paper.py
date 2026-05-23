@@ -37,6 +37,11 @@ LEGACY_FIGURES = ("locked_algorithm.pdf", "locked_algorithm.png")
 
 FORBIDDEN_FIGURE_METADATA = (b"fallback=", b"fallback source:")
 FORBIDDEN_PAPER_PATTERNS = (
+    r"NeverHumqn",
+    r"Table-IV-compatible",
+    r"Engineered Intelligence Transparency Summary",
+    r"\+743\\%",
+    r"\+186\\%",
     r"250 positive groups",
     r"38 positive groups",
     r"114 are positive",
@@ -55,6 +60,28 @@ FORBIDDEN_READER_TERMS = (
     r"\bselected AP\b",
 )
 PRIMARY_KPI_PATTERN = r"LCB95 Recall@\$\\leq\$1\\%FPR|lower 95\\% group-block bootstrap bound of recall at FPR <= 1\\%"
+REQUIRED_GAIN_PATTERNS = (
+    r"NeverHuman Research Group",
+    r"\\kpigain\{",
+    r"\+61\.6",
+    r"\+54\.1",
+    r"8\.42",
+    r"2\.85",
+    r"\+742\\%",
+    r"\+185\\%",
+    r"49 to 1",
+    r"98\.0",
+    r"EI gain vs prior",
+)
+REQUIRED_AP_GAIN_PATTERN = r"\+545\\%|\+544\\%"
+REQUIRED_COMPARATOR_PATTERN = (
+    r"human-engineered prior fusion|accepted human-engineered prior fusion|best-practice comparator"
+)
+REQUIRED_FIGURE_PHRASES = (
+    r"1\\% FPR operating cap",
+    r"Stacked colors",
+    r"near-threshold",
+)
 
 CITE_RE = re.compile(
     r"\\(?:cite|citep|citet|citealp|citeauthor|citeyear|nocite)"
@@ -182,6 +209,22 @@ def validate_paper_text(tex_path: Path) -> None:
         fail("paper text contains banned reader-facing EI terminology: " + ", ".join(reader_terms))
     if not re.search(PRIMARY_KPI_PATTERN, text):
         fail("paper text is missing the primary KPI statement")
+    missing_gain_patterns = [
+        pattern for pattern in REQUIRED_GAIN_PATTERNS if not re.search(pattern, text)
+    ]
+    if missing_gain_patterns:
+        fail("paper text is missing gain/result phrasing: " + ", ".join(missing_gain_patterns))
+    if not re.search(REQUIRED_AP_GAIN_PATTERN, text):
+        fail("paper text is missing the AP gain phrasing")
+    if not re.search(REQUIRED_COMPARATOR_PATTERN, text, flags=re.IGNORECASE):
+        fail("paper text is missing the human-engineered prior fusion comparator language")
+    missing_figure_phrases = [
+        pattern
+        for pattern in REQUIRED_FIGURE_PHRASES
+        if not re.search(pattern, text, flags=re.IGNORECASE)
+    ]
+    if missing_figure_phrases:
+        fail("paper text is missing figure phrasing: " + ", ".join(missing_figure_phrases))
     if "Engineered Intelligence" not in text:
         fail("paper text is missing the Engineered Intelligence section")
     if "Fixed-Wing Pusher-Prop Public-Proxy Appendix" not in text:

@@ -4,6 +4,7 @@
 \usepackage{booktabs}
 \usepackage{cite}
 \usepackage{graphicx}
+\usepackage{xcolor}
 \usepackage{amsmath}
 \usepackage{tabularx}
 \usepackage{makecell}
@@ -21,6 +22,11 @@
   round-precision=3,
   table-number-alignment=center
 }
+\definecolor{EchoGain}{RGB}{22,115,72}
+\definecolor{EchoWarn}{RGB}{171,52,42}
+\definecolor{EchoMuted}{RGB}{84,94,106}
+\newcommand{\kpigain}[1]{\textbf{\textcolor{EchoGain}{#1}}}
+\newcommand{\kpicaveat}[1]{\textbf{\textcolor{EchoWarn}{#1}}}
 
 \graphicspath{{paper/figures/}{figures/}}
 
@@ -29,12 +35,12 @@
 \title{EchoForge: A Strict-Open Synthetic Benchmark for Low-Altitude UAS Radar and Multimodal Sensing}
 
 \author{Jeppson Taylor, Lead Author\\
-NeverHumqn Research Group}
+NeverHuman Research Group}
 
 \maketitle
 
 \begin{abstract}
-EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal sensing research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty; it is not a measured-platform claim and is not a fielded-sensor surrogate. EchoForge combines a radar signal-chain model card, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, hard-negative false-alarm analysis, compare-only measured-anchor checks, and holdout-isolated evaluation into a reproducible evidence package. The v2 single-seed run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records. On the 4,500-record blind holdout, with 24 positive records from eight positive scenario groups, the Engineered Intelligence (EI) candidate reaches point Recall@$\leq$1\%FPR of 0.833 and LCB95 Recall@$\leq$1\%FPR of 0.699; the prior fusion baseline reaches 0.292 and 0.083, respectively. EI improves average precision, selected-threshold false-positive control, and low-FPR recall for this synthetic public-proxy benchmark, while its ROC AUC is lower than the prior fusion baseline. These results should be read as reproducible benchmark evidence under declared assumptions, not as measured truth, named-platform equivalence, or operational performance.
+EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal sensing research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty; it is not a measured-platform claim and is not a fielded-sensor surrogate. The benchmark run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records, with a blind group-locked holdout scored once after train/CV selection lock. Primary KPI: LCB95 Recall@$\leq$1\%FPR. The accepted human-engineered prior fusion baseline is the comparator. On the 4,500-record blind holdout, with 24 positive records from eight positive scenario groups, the Engineered Intelligence (EI) candidate reaches point Recall@$\leq$1\%FPR of \kpigain{0.833 vs 0.292} (\kpigain{+54.1 pp}, \kpigain{+185\%}, \kpigain{2.85x}) and LCB95 Recall@$\leq$1\%FPR of \kpigain{0.699 vs 0.083} (\kpigain{+61.6 pp}, \kpigain{+742\%}, \kpigain{8.42x}). EI also raises average precision from \kpigain{0.128} to \kpigain{0.825} (\kpigain{+0.697}, about \kpigain{+545\%}) and cuts selected-threshold false positives from \kpigain{49 to 1} (\kpigain{98.0\% fewer false alarms}). \kpicaveat{EI ROC AUC is 0.917, below prior fusion's 0.938}, so the claim is improved low-FPR operating behavior for this synthetic public-proxy benchmark, not universal rank dominance. These results should be read as reproducible benchmark evidence under declared assumptions, not as measured truth, named-platform equivalence, or operational performance.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -53,6 +59,9 @@ The upgrade in this paper is substantive rather than cosmetic. We move from a go
   \item public-source detector archetype cards and a regional bird/RC hard-negative taxonomy for low-FPR false-alarm analysis;
   \item a compare-only KTH anchor overlay for hard-negative realism and observable-shape checks.
 \end{itemize}
+
+\subsection{Core Experiment}
+The core experiment compares classical radar and cue detector branches, tabular and sequence ML baselines, an accepted human-engineered prior fusion baseline, and an EI sparse calibrated late-fusion candidate. Scenario groups are locked before phase expansion, train/CV rows are used for candidate discovery and calibration, and the blind holdout is scored once after selection lock. The benchmark output remains synthetic public-proxy evidence only.
 
 Benchmark positioning is deliberately compare-only. KTH provides a public 77~GHz FMCW measured anchor for drone/bird/human observable-shape checks; Open Radar and RAD-DAR/RDRD provide public radar and range-Doppler reference points; and public UAS micro-Doppler studies bound the observable families used for small aerial objects \cite{kth2021,openradar2023,raddar2019,han2026,rahman2018,molchanov2014,ritchie2017}. EchoForge does not replace those measured collections. It provides a strict-open synthetic lane for controlled hard negatives, leakage checks, and low-FPR detector comparison when measured positive-class truth is not available.
 
@@ -148,7 +157,7 @@ Figure~\ref{fig:splitflow} shows the group-locked split and the leakage diagnost
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{monte_carlo_split_flow.pdf}
-  \caption{Scenario balance and leakage diagnostics. The evidence bundle keeps split, label, site, range, aspect, noise, and hard-negative family counts together with canary and sanity checks. Audit-only split/group headers are reported as detected and blocked by the model-facing schema rather than as detector features.}
+  \caption{Scenario balance and leakage diagnostics. Scenario groups are locked before phase expansion, and the evidence bundle keeps split, label, site, range, aspect, noise, and hard-negative family counts together with canary and sanity checks. Audit-only split/group headers are reported as detected and blocked by the model-facing schema rather than as detector features.}
   \label{fig:splitflow}
 \end{figure*}
 
@@ -212,11 +221,11 @@ The headline KPI is the lower 95\% group-block bootstrap bound of recall at FPR 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{kpi_ranking.pdf}
-  \caption{Holdout primary KPI, ranking diagnostics, low-FPR ROC/PR behavior, and calibration. Recall@$\leq$1\%FPR and its LCB95 are the headline quantities; AP, ROC AUC, PR shape, and calibration bins are supporting diagnostics.}
+  \caption{Holdout primary KPI, ranking diagnostics, low-FPR ROC/PR behavior, and calibration. Red ticks mark the LCB95 lower bounds, and the pale red shaded zone with the thick red line marks the 1\% FPR operating cap. Recall@$\leq$1\%FPR and its LCB95 are the headline quantities; AP, ROC AUC, PR shape, and calibration bins are supporting diagnostics.}
   \label{fig:kpi}
 \end{figure*}
 
-Figure~\ref{fig:kpi} shows the primary KPI first and keeps AP, ROC/PR curves, and calibration as supporting diagnostics. Table~\ref{tab:metrics} summarizes the prior fusion baseline and the EI candidate on the blind holdout split. In the v2 run, the holdout split contains 4,500 records, of which only 24 records from 8 positive scenario groups are positive. The EI candidate improves AP, selected-threshold precision, false-positive control, and swept Recall@$\leq$1\%FPR over the prior layered fusion baseline. Its ROC AUC is lower than the prior fusion baseline, so the result should be read as better low-FPR operating behavior for this benchmark rather than universal rank dominance. Because the positive holdout has $n=8$ groups, phase and family conclusions are diagnostic.
+Figure~\ref{fig:kpi} shows the primary KPI first and keeps AP, ROC/PR curves, and calibration as supporting diagnostics. Table~\ref{tab:metrics} summarizes the accepted human-engineered prior fusion baseline and the EI candidate on the blind holdout split. In the v2 run, the holdout split contains 4,500 records, of which only 24 records from 8 positive scenario groups are positive. The EI candidate improves AP, selected-threshold precision, false-positive control, and swept Recall@$\leq$1\%FPR over the prior fusion baseline. Its ROC AUC is lower than the prior fusion baseline, so the result should be read as better low-FPR operating behavior for this benchmark rather than universal rank dominance. Because the positive holdout has $n=8$ groups, phase and family conclusions are diagnostic.
 
 \begin{table*}[t]
   \caption{Holdout Summary Separating Ranking, Selected-Threshold Counts, and Swept Fixed-FPR Metrics}
@@ -227,18 +236,21 @@ Figure~\ref{fig:kpi} shows the primary KPI first and keeps AP, ROC/PR curves, an
     \toprule
     Method & AP & ROC AUC & F1 & ECE & Threshold source & TP/FP/FN & Sel. FPR & Recall@$\leq$1\%FPR & LCB95 \\
     \midrule
-    layered\_fusion\_c2 & 0.128 & 0.938 & 0.241 & 0.016 & train/CV max-F1 & 10/49/14 & 0.010947 & 0.292 & 0.083 \\
+    prior fusion baseline & 0.128 & 0.938 & 0.241 & 0.016 & train/CV max-F1 & 10/49/14 & 0.010947 & 0.292 & 0.083 \\
     EI candidate & 0.825 & 0.917 & 0.837 & 0.002 & EI selection lock & 18/1/6 & 0.000223 & 0.833 & 0.699 \\
+    EI gain vs prior & +0.697 & -0.021 & +0.596 & -0.014 & locked vs train/CV & +8/-48/-8 & -0.010724 & +0.541 & +0.616 \\
     \bottomrule
   \end{tabular}
 \end{table*}
+
+The gain row is the direct table interpretation: EI raises the primary LCB95 metric by +0.616, raises point Recall@$\leq$1\%FPR by +0.541, and reduces selected-threshold false positives from 49 to 1 while conceding ROC AUC.
 
 The evidence bundle also records the canary forbidden-feature test, the label-shuffle sanity test, the stratum-only baseline, the metadata-only baseline, and the nearest-neighbor train/holdout scan. Those tests are not leaderboard scores; they are leakage and realism diagnostics that make the benchmark harder to overfit.
 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{phase_kpi.pdf}
-  \caption{Per-phase behavior and cross-method false-positive burden. The left panel compares phase-wise AP and fixed-FPR recall for the baseline and EI candidate; the right panel sorts false alarms by family for the strongest methods together with near-threshold context. Each phase has only eight positive holdout records from eight positive groups, so phase conclusions are diagnostic.}
+  \caption{Per-phase behavior and cross-method false-positive burden. The left panel compares phase-wise AP and fixed-FPR recall for the prior fusion baseline and EI candidate; the phase legend is moved above the panel. Stacked colors are false-alarm families, pale/hatched bars are near-threshold negatives, and the FP, near, and R@1\% labels are diagnostic robustness context. Each phase has only eight positive holdout records from eight positive groups, so phase conclusions are diagnostic.}
   \label{fig:phasekpi}
 \end{figure*}
 
@@ -248,22 +260,23 @@ Figure~\ref{fig:phasekpi} highlights that the initial take-up window remains the
 The advanced lane is reported as engineered intelligence rather than as an opaque model handle. The reader-facing story is train/CV-only candidate discovery, evolved feature families, sparse calibrated fusion, and a single blind holdout score pass after the lock. The evidence bundle keeps the raw component handles and search traces in appendix artifacts, while the paper foregrounds the stage summaries that matter for review.
 
 \begin{table}[t]
-  \caption{Engineered Intelligence Transparency Summary}
+  \caption{Main Experiment Lanes}
   \label{tab:engineered}
   \centering
   \small
-  \begin{tabular}{@{}p{0.28\columnwidth}p{0.50\columnwidth}p{0.14\columnwidth}@{}}
+  \begin{tabular}{@{}p{0.25\columnwidth}p{0.52\columnwidth}p{0.16\columnwidth}@{}}
     \toprule
-    Stage & Reader-facing summary & Status \\
+    Lane & Reader-facing role & Boundary \\
     \midrule
-    Agentic decomposition & Multiple train/CV branches are explored before any holdout scoring occurs. & pass \\
-    Train/CV-only candidate discovery & Ranking, calibration, and thresholding stay on train/CV rows. & pass \\
-    Evolved feature families & Sparse radar, passive-RF, and transport-style families contribute to the lock. & pass \\
-    Sparse calibrated fusion & A small nonnegative weight vector is calibrated with a monotone odds map. & pass \\
-    Holdout-only final scoring & The blind holdout is scored once after the lock, with no further tuning. & pass \\
+    Accepted prior fusion baseline & Human-engineered best-practice comparator on the blind holdout. & Comparator baseline \\
+    EI sparse fusion change & Train/CV score search, sparse nonnegative late fusion, odds calibration, and selection lock. & No holdout tuning \\
+    Observed holdout result & Higher AP, lower false-positive burden, and higher Recall@$\leq$1\%FPR/LCB95 at the 1\% FPR operating cap. & One blind score pass \\
+    Non-claim & Synthetic public-proxy evidence under declared assumptions. & No measured truth, platform equivalence, or operational performance claim \\
     \bottomrule
   \end{tabular}
 \end{table}
+
+Mechanically, EI uses train/CV-only score search to choose component scores, sparse nonnegative late fusion to keep the lock interpretable, geodesic-odds calibration for monotone probability mapping, and a written selection lock before the single blind holdout score. The component weights and modality/control tables below are interpretability controls rather than separate main-claim evidence.
 
 \begin{figure*}[t]
   \centering
@@ -275,7 +288,7 @@ The advanced lane is reported as engineered intelligence rather than as an opaqu
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{detector_ml_pipeline.pdf}
-  \caption{EI component weights and comparable holdout controls. The left panel sorts human-readable component weights; the right panel reports AP and fixed-FPR recall deltas computed with the same holdout metric definitions as Table~\ref{tab:metrics}. Raw component handles and ablation-internal diagnostics remain in evidence artifacts.}
+  \caption{EI component weights and comparable holdout controls. The left panel sorts human-readable component weights; the right panel reports AP and fixed-FPR recall deltas computed with the same main holdout-table-compatible metric definitions as Table~\ref{tab:metrics}. Raw component handles and ablation-internal diagnostics remain in evidence artifacts.}
   \label{fig:ablation}
 \end{figure*}
 
@@ -464,7 +477,7 @@ The label-shuffle test and the weak metadata baselines provide a separate sanity
 
 The phase table and the false-alarm tables fill in the operational interpretation. The initial take-up window is still the hardest phase, which is the right failure mode for a radar-oriented benchmark because the target is still transitioning and the observable is least settled. The false alarms are not spread uniformly across every negative family; instead, they concentrate in \texttt{single\_bird} for the EI candidate and in the bird and RC families for the stronger baseline methods. That is a helpful robustness diagnostic because it identifies where the benchmark can still be stressed without needing any proprietary or operational sensor claims.
 
-Finally, the engineered-intelligence stage table, component weights, and comparable view-control rows are audit trails, not claims about a universal ranking of features. They show what the EI meta-fusion candidate uses and keep ablation-internal scores separate from Table-IV-compatible holdout metrics. That makes the EI result interpretable in the same way the compare-only KTH overlay is interpretable: as evidence about the benchmark and detector behavior, not as a platform truth claim.
+Finally, the main experiment lanes, component weights, and comparable view-control rows are audit trails, not claims about a universal ranking of features. They show what the EI meta-fusion candidate uses and keep ablation-internal scores separate from the main holdout-table-compatible metrics. That makes the EI result interpretable in the same way the compare-only KTH overlay is interpretable: as evidence about the benchmark and detector behavior, not as a platform truth claim.
 
 \section{Evidence Ledger}
 The paper evidence bundle is intentionally split into a small number of human-readable artifacts so that a reviewer can reconstruct the claim boundary without chasing generator internals. The radar model card and detail rows define the public-proxy carrier bands, bandwidths, CPI, PRF/CRF, chirp count, range span, range/Doppler/velocity resolutions, unambiguous-velocity proxy, clutter/noise/RFI priors, RCS prior, and cue definitions. Those are not operational sensor facts; they are explicit synthetic assumptions that make the signal chain legible and make the detector outputs comparable across runs.

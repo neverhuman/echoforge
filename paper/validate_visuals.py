@@ -70,7 +70,12 @@ def validate_png_readability(name: str) -> None:
             fail(f"{name} appears blank or near-monochrome")
 
 
-def validate_pdf_terms(name: str) -> None:
+def validate_pdf_terms(
+    name: str,
+    *,
+    required_terms: tuple[str, ...] = (),
+    forbidden_terms: tuple[str, ...] = (),
+) -> None:
     path = FIGURES_DIR / name
     try:
         result = subprocess.run(
@@ -83,9 +88,16 @@ def validate_pdf_terms(name: str) -> None:
         fail("missing pdftotext; install poppler-utils")
     except subprocess.CalledProcessError as exc:
         fail(f"pdftotext failed for {name}: {exc.stderr.strip() or exc.stdout.strip()}")
-    flagged = [pattern.pattern for pattern in BANNED_VISIBLE_TERMS if pattern.search(result.stdout)]
+    text = result.stdout
+    flagged = [pattern.pattern for pattern in BANNED_VISIBLE_TERMS if pattern.search(text)]
     if flagged:
         fail(f"{name} contains banned visible EI terminology: " + ", ".join(flagged))
+    missing = [term for term in required_terms if term not in text]
+    if missing:
+        fail(f"{name} is missing required visible terms: " + ", ".join(missing))
+    present_forbidden = [term for term in forbidden_terms if term in text]
+    if present_forbidden:
+        fail(f"{name} contains forbidden visible terms: " + ", ".join(present_forbidden))
 
 
 def main() -> int:
@@ -112,7 +124,16 @@ def main() -> int:
     if tiny_pdfs:
         fail("tiny vector PDF figure(s): " + ", ".join(tiny_pdfs))
     for name in VECTOR_PDFS:
-        validate_pdf_terms(name)
+        required_terms = ()
+        forbidden_terms = ()
+        if name == "kpi_ranking.pdf":
+            required_terms = ("Primary KPI gain", "+742%", "+185%", "LCB95", "1% FPR operating cap")
+            forbidden_terms = ("+743%", "+186%")
+        elif name == "phase_kpi.pdf":
+            required_terms = ("Family legend", "Near-threshold negatives")
+        elif name == "ei_workflow.pdf":
+            required_terms = ("What EI does", "Blind holdout")
+        validate_pdf_terms(name, required_terms=required_terms, forbidden_terms=forbidden_terms)
 
     unexpected = [
         Path(name).with_suffix(".pdf").name

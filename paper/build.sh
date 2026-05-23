@@ -147,6 +147,8 @@ python3 paper/generate_figures_major_upgrade_v2.py \
   --anchor-root "$anchor_root" \
   --strict
 
+python3 paper/validate_visuals.py
+
 latexmk \
   -pdf \
   -bibtex \
