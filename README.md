@@ -7,7 +7,7 @@
 EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. It publishes public-proxy object signatures, uncertainty-scored radar artifacts, and reproducible validation evidence so downstream work can be inspected, rerun, and compared without claiming measured truth or proprietary-equivalent sensor behavior.
 
 The claim boundary stays narrow: public-source priors only, explicit uncertainty, hard negatives treated as robustness work, and no classified, vendor-private, or exact field-performance claims.
-The paper KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%, reported as `LCB95 Recall@≤1%FPR`; AP, ROC AUC, calibration, and false-positive burden remain guardrails.
+The paper KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%, reported as `LCB95 Recall@≤1%FPR`; AP, ROC AUC, calibration, and false-positive burden remain guardrails. On the blind holdout, the accepted human-engineered prior fusion baseline reaches 0.083 LCB95 / 0.292 point Recall@≤1%FPR, while the EI sparse calibrated late-fusion candidate reaches 0.699 / 0.833, with +61.6 pp / +742% / 8.42x LCB95 gain, +54.1 pp / +185% / 2.85x point Recall@≤1%FPR gain, and 49 -> 1 selected-threshold false positives (98.0% fewer false alarms). EI AP rises from 0.128 to 0.825, but EI ROC AUC is 0.917 versus 0.938 for prior fusion, so the claim is improved low-FPR operating behavior rather than universal rank dominance.
 
 ## Studio Preview
 
@@ -73,13 +73,14 @@ Paper figure strip:
 
 | Radar model card | KPI ranking | Anchor compare-only |
 | --- | --- | --- |
-| ![Radar model card](./paper/figures/iq_drone_samples.png) | ![KPI ranking](./paper/figures/kpi_ranking.png) | ![Anchor compare-only](./paper/figures/locked_algorithm.png) |
+| ![Radar model card](./paper/figures/iq_drone_samples.png) | ![KPI ranking](./paper/figures/kpi_ranking.png) | ![Anchor compare-only](./paper/figures/anchor_overlay.png) |
 
 Paper lane:
 
 ```bash
 rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
-rtk python3 paper/generate_figures.py --strict
+rtk python3 paper/generate_figures_major_upgrade_v2.py --strict
+rtk python3 paper/validate_visuals.py
 rtk bash paper/build.sh --copy-tracked
 rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
 ```
@@ -93,7 +94,7 @@ Paper artifact map:
 | `paper/figures/kpi_ranking.png` | holdout ranking with the `Recall@≤1%FPR` KPI and calibration diagnostics |
 | `paper/figures/phase_kpi.png` | phase behavior and cross-method false-positive burden |
 | `paper/figures/detector_ml_pipeline.png` | engineered-intelligence transparency and ablation summary |
-| `paper/figures/locked_algorithm.png` | compare-only KTH anchor overlay for hard-negative realism checks |
+| `paper/figures/anchor_overlay.png` | compare-only KTH anchor overlay for hard-negative realism checks |
 | `paper/validate_paper.py` | page, citation, bibliography, required-figure, and no-fallback-metadata checks |
 
 ```bash
