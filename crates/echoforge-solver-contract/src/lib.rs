@@ -13,7 +13,7 @@
 //! run report. Everything else (mesh production, material binding,
 //! container fan-out) is the runner's concern.
 //!
-//! See FUCKIT.md.done P3 cross-tip resolution for the
+//! See the local coordination archive P3 resolution for the
 //! `core_open | optional_open | restricted_plugin` distinction:
 //! strict-open default ships only `core_open`; `optional_open`
 //! plugins are opt-in builds from open-source code; `restricted_plugin`

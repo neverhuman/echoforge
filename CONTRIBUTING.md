@@ -10,7 +10,8 @@ before opening a PR.
 2. Do not edit `schemas/`, `crates/`, `python/ai-service/`, or `docker/`
    unless your task or the approved plan file authorizes it.
 3. Do not overwrite, revert, or "clean up" changes made by other workers
-   without coordinating in `FUCKIT.md` (local) and quoting in `## Messages`.
+   without coordinating in the local-only scratchpad and quoting in
+   `## Messages`.
 4. Do not claim exact measured truth, proprietary-equivalent behavior, or
    classified fidelity for any object, platform, or sensor.
 5. Keep generated data and solver outputs out of Git (see
@@ -54,7 +55,7 @@ The pre-push hook runs `rtk just fast`.
 
 ## Coordinating with other agents
 
-Multi-agent work coordinates through `FUCKIT.md` per
+Multi-agent work coordinates through a local-only scratchpad per
 `docs/comms-protocol.md`. Claim a slot atomically by editing one
 table row, document handoffs explicitly, and never delete another
 agent's content.

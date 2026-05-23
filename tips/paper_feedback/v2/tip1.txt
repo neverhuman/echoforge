@@ -1,0 +1,732 @@
+I reviewed the uploaded EchoForge IEEE draft in detail, including the rendered pages and the parsed content. My overall view: **the paper has a strong and defensible benchmark concept, but it currently reads more like an evidence-ledger/report than a polished radar paper.** The best ideas are absolutely worth keeping: the strict synthetic claim boundary, group-locked holdout, feature denylisting, low-FPR KPI, phase breakdown, false-alarm-family breakdown, ablations, and compare-only measured anchors. The biggest weaknesses are: **insufficient radar-model specificity, very small positive holdout support, confusing metric/table consistency, opaque component names, and several figures/tables that are not publication-ready.** 
+
+## Executive verdict
+
+The paper does a very good job protecting itself from overclaiming. The abstract and first section repeatedly state that the benchmark is synthetic public-proxy evidence, not measured-platform truth or operational field performance; the title/abstract also clearly identify the positive class as a fixed-wing pusher-prop public proxy and state the main corpus scale of 10,000 scenario groups, 50 positive groups, and 30,000 phase records. 
+
+However, a radar reviewer will likely ask: **“What exactly is being simulated, how close is the signal chain to a physically meaningful radar chain, how much uncertainty is due to only 8 positive holdout groups, and why should I trust the advanced fusion improvement?”** Right now, the answer is partially there, but scattered across narrative, tables, and cramped figures. The paper needs a stronger bridge between **radar physics**, **synthetic generation**, and **detector evaluation**.
+
+My recommended priority order before submission:
+
+1. **Fix the figures first**, especially Fig. 2, Fig. 3, Fig. 5, Fig. 6, and Fig. 8. Several are too small, overlapped, or visually nonstandard.
+2. **Fix Table IV / KPI consistency.** The paper says the primary KPI is LCB95 Recall@1%FPR, but Table IV reports AP confidence intervals, not the primary KPI interval. Also, the TP/FP/TN/FN counts do not match the listed 1% FPR recall threshold, so the table needs clearer labeling. 
+3. **Rebuild Table V completely.** It is currently the weakest table: aliases are hard to parse, there are apparent string/typo issues such as “degeodesic” and “godesic,” and the weights should be sorted and visually grouped. 
+4. **Add radar-specific technical detail**: Doppler resolution, velocity resolution, chirp/FMCW assumptions, SNR/noise model, clutter distributions, RCS/aspect priors, prop/micro-Doppler parameter priors, and how 6 ms CPI relates to 30–150 s phase windows.
+5. **Temper the claims around robustness** because the holdout contains only 24 positive records and 8 positive groups, and the false-alarm table has only one false alarm. 
+6. **Use standard radar/ML baseline names** rather than only internal fusion labels. Add CA-CFAR/OS-CFAR-style detector baselines, simple micro-Doppler feature baselines, and at least one conventional ML baseline.
+
+---
+
+# What the paper does well
+
+## 1. The claim boundary is unusually strong
+
+This is one of the best parts of the draft. The paper explicitly avoids measured-platform truth claims and repeatedly states that the benchmark is synthetic public-proxy evidence, not field-performance equivalence. That is the right posture for a synthetic radar benchmark. The abstract, Section I, validation-tier table, compare-only anchor discussion, limitations, and conclusion all reinforce this boundary.   
+
+The good part: reviewers cannot easily accuse the paper of pretending to be a measured C-UAS trial. You are very clear that the benchmark is for reviewable synthetic evidence under declared assumptions.
+
+The gap: the paper says “strict-open” many times, but it does not define that phrase as a formal artifact policy. You should define it once, early, as something like:
+
+> **Strict-open** means that all detector-facing products, generation scripts, seeds, split manifests, model cards, evaluation scripts, metric traces, and audit artifacts are public/reproducible, while proprietary or measured raw files are excluded and no named-platform truth is claimed.
+
+That would make “strict-open” feel like an engineering standard rather than a slogan.
+
+## 2. Group-locked splitting is exactly the right idea
+
+The split policy is a strong contribution. The paper says each scenario group expands into three locked windows—initial take-up, climb transition, and cruise altitude—and split assignment happens at the scenario-group level so all phase records from one group share the same split role. This is exactly the right approach because row-level splitting would leak group identity through phase windows. 
+
+This is a genuinely important benchmark-design point. Keep it prominent. I would make it even more visual and explicit: one group, three phase rows, one split assignment. A reviewer should understand the leakage prevention in 10 seconds.
+
+## 3. The low-FPR KPI is appropriate for radar
+
+The paper chooses LCB95 Recall@1%FPR as the headline KPI because the benchmark is rare-positive, false-alarm constrained, and group-correlated. That is directionally correct for low-altitude UAS radar. ROC AUC alone is not operationally meaningful when the relevant region is low FPR. 
+
+The gap is execution: the primary KPI is not displayed cleanly as the primary result. It is described in Section IV/Table III, but the main summary table reports AP confidence intervals instead. The primary KPI should appear in the main results table with its point estimate and group-block bootstrap interval.
+
+## 4. Phase-wise behavior is valuable
+
+Table VIII and Fig. 4 show that the initial take-up phase is harder, climb transition improves, and cruise is most separable. That is exactly the kind of diagnostic a radar reviewer wants. It maps performance to an operational sequence rather than treating the dataset as an unstructured classification problem. 
+
+The gap: with only 8 positives per phase in holdout, the phase claims need confidence intervals or at least “n=8 positives per phase” visually emphasized.
+
+## 5. False-alarm-family breakdown is the right diagnostic
+
+The family breakdown is conceptually excellent. A radar system paper should not just say “one false alarm”; it should say whether failures are birds, RC fixed-wing, weather, RFI, ground vehicles, clutter-only counterfactuals, wind turbines, multipath ghosts, etc. Table IX reports that the only locked-candidate false alarm is in `single_bird`. 
+
+The gap: because there is only one false alarm, the paper should not overinterpret this as a stable robustness pattern. It is a useful diagnostic, not a statistically strong family-level conclusion.
+
+---
+
+# Major technical gaps from a radar-industry perspective
+
+## 1. The radar signal chain needs more physical specificity
+
+The generative model starts with a radar-equation-style received-power proxy and a complex IQ equation with target, clutter, interference, and receiver impairment terms. That is a good skeleton.  But for radar reviewers, it is not enough.
+
+You should add the following details:
+
+**Waveform clarity.** Fig. 1 says “multibranch FMCW-style public-proxy radar,” but Table I uses PRF/CPI/pulse language. That can be fine, but you need to state whether “pulse” means chirp, sweep, pulse repetition interval, or a generic coherent sample. FMCW radar usually needs chirp slope, sweep bandwidth, chirp duration, ADC sampling, beat-frequency mapping, and range FFT assumptions. If you keep “PRF/CPI,” define it as chirp repetition frequency and coherent processing interval for FMCW-like processing.
+
+**Derived radar resolutions.** Table I correctly implies range resolutions of 0.25 m for 600 MHz, 0.83 m for 180 MHz, and 0.50 m for 300 MHz. But it does not show Doppler resolution or velocity resolution. With a 6 ms CPI, Doppler-bin spacing is about 167 Hz. At X/Ku this corresponds to relatively coarse velocity resolution for detailed micro-Doppler discrimination. If the classifier uses phase windows of 0–30 s, 30–90 s, and 90–150 s, explain how many CPIs are aggregated and how micro-Doppler features are estimated over those longer windows.
+
+**RCS priors.** The paper says the RCS term is aspect- and frequency-dependent, but it does not define the prior family. A radar reviewer will want at least a public-proxy RCS model card: median RCS range, aspect lobes, Swerling-like fluctuation model, propeller modulation terms, body/wing contributions, and uncertainty bounds.
+
+**Clutter model.** Low-altitude UAS detection is dominated by clutter and hard negatives. You mention clutter, multipath, terrain glint, weather, wind turbine, and RFI, but not the distributions. Add whether clutter amplitude is Rayleigh, Weibull, K-distributed, lognormal, compound-Gaussian, or empirical-proxy. Add grazing-angle and land-cover dependence.
+
+**Noise/SNR model.** The model card should include thermal noise assumptions, receiver noise figure or proxy equivalent, SNR range, dynamic range, AGC behavior, quantization depth, and clipping/compression behavior.
+
+**Micro-Doppler physics.** For fixed-wing pusher-prop UAS, propeller blade count, RPM range, blade-tip velocity, modulation bandwidth, blade-flash intermittency, and aspect dependence matter. Even if synthetic, you should declare priors and uncertainty ranges.
+
+## 2. The positive class is too small for confident low-FPR claims
+
+The main run has 10,000 scenario groups but only 50 positive groups, and the holdout contains 1,500 groups with 8 positive groups, corresponding to 24 positive phase records.  
+
+That is a severe statistical limitation. It is acceptable for a stress-test benchmark, but the paper must treat the result as preliminary. At 24 positive holdout records, every missed positive changes recall by 4.17 percentage points. At 8 positive groups, every missed group is even more consequential for group-block bootstrap uncertainty.
+
+Recommended fix: add one of the following:
+
+* A larger positive holdout, ideally at least 50–100 positive groups.
+* A multi-seed evaluation with several independently generated corpora.
+* A rare-positive justification that explicitly says the benchmark is testing false-alarm control under scarcity, not estimating field Pd with tight confidence.
+* A table of uncertainty at the **group** level, not just the record level.
+
+## 3. The “improves ranking” statement needs qualification
+
+Table IV shows the locked advanced candidate has much higher AP and much higher 1% FPR recall than the layered fusion baseline. That is a strong result: AP 0.824845 versus 0.128188, and 1% FPR recall 0.833333 versus 0.291667. But Table IV also shows the locked candidate has **lower ROC AUC** than the baseline: 0.916564 versus 0.937723. 
+
+So the paper should not broadly say it improves “ranking” without qualification. Better wording:
+
+> The locked candidate substantially improves precision-recall ranking and low-FPR operating behavior, while ROC AUC is slightly lower than the layered fusion baseline; this supports the choice of AP and low-FPR recall as more relevant metrics for the rare-positive operating regime.
+
+That is honest and technically stronger.
+
+## 4. Table IV has a threshold/count mismatch that must be clarified
+
+From Table IV, the locked candidate has TP=18 and FN=6, so the operating-point recall from those counts is 18/24 = 0.75. But the table’s “1% FPR recall” column says 0.833333. Similarly, the baseline has TP=10 and FN=14, so the count-based recall is 0.4167, while the “1% FPR recall” column says 0.291667. Also, the baseline FP count is 49 with TN=4427, which is an FPR of about 1.095%, slightly above 1%. 
+
+This may be because the TP/FP/TN/FN counts are from a selected threshold, while the 1% FPR recall is from a separate threshold sweep. That is fine, but the table must say so. Suggested columns:
+
+| Method | Threshold type | TP | FP | TN | FN | FPR | Recall at threshold | Recall@≤1%FPR | AP | ROC AUC | LCB95 Recall@≤1%FPR |
+| ------ | -------------: | -: | -: | -: | -: | --: | ------------------: | ------------: | -: | ------: | ------------------: |
+
+This is an important fix. Reviewers notice threshold inconsistencies immediately.
+
+## 5. The measured-anchor comparison needs normalization
+
+The paper uses KTH as a compare-only measured anchor and explicitly says it is not transferring truth to the synthetic fixed-wing class. That is good.  
+
+But KTH is a 77 GHz FMCW dataset, while EchoForge includes X/Ku, S-band, and GBAD-like branches. Direct comparison of micro-Doppler bandwidth in Hz is not generally fair across carrier frequencies because Doppler frequency scales with carrier. For compare-only shape checks, normalize Doppler to radial velocity or dimensionless modulation statistics. Fig. 8 currently does not make this clear.
+
+Also, the Han/Jung 2026 time-synchronized multi-sensor dataset appears to be a real Scientific Data article with FMCW radar, CW radar, and RF receiver, so it could be a useful future multimodal anchor; if the paper says “pending license review,” then describe it as “candidate anchor, not used in current results” rather than implying it has already been used. ([Nature][1])
+
+---
+
+# Section-by-section feedback
+
+## Title
+
+Current title:
+
+> **EchoForge: A Strict-Open Synthetic Benchmark for Low-Altitude UAS Radar and Multimodal Sensing**
+
+This is strong and clear. It communicates the benchmark nature, synthetic nature, UAS domain, and multimodal angle. The issue is that “strict-open” is not a standard term. That is acceptable if you define it sharply.
+
+Suggested alternatives:
+
+> **EchoForge: A Strict-Open Public-Proxy Benchmark for Low-Altitude UAS Radar and Multimodal Detection**
+
+or:
+
+> **EchoForge: A Reproducible Synthetic Benchmark for Low-Altitude UAS Radar Under Explicit Public-Proxy Assumptions**
+
+The first is better if “strict-open” is central to the contribution. The second is better if targeting conservative radar reviewers.
+
+## Abstract
+
+What it does well: it is honest, specific, and bounded. It states the positive class, the corpus size, the group-locked split, the blind holdout, and the fact that the goal is reviewable synthetic evidence rather than field-performance equivalence. 
+
+What to improve:
+
+Add one sentence with headline results. The abstract currently says you report ranking, operating-point, calibration, and ablation diagnostics, but it does not give the result. A technical abstract should contain at least one quantitative outcome.
+
+Suggested replacement ending:
+
+> On the blind holdout, the locked candidate improves AP from 0.128 to 0.825 and Recall@≤1%FPR from 0.292 to 0.833 relative to the prior layered-fusion baseline, with group-block uncertainty reported because the holdout contains only 8 positive scenario groups. The result is synthetic public-proxy evidence under declared assumptions, not measured-platform truth or operational field performance.
+
+That one sentence both improves impact and avoids overclaiming.
+
+## Section I: Claim Boundary and Contributions
+
+This section is conceptually strong. It explains that EchoForge is intentionally narrower than measured radar collection, publishes detector-facing products with uncertainty and validation tiers, and avoids measured-platform, proprietary-equivalent, or classified-fidelity claims. 
+
+Main improvement: reduce repetition. The claim boundary appears in the abstract, Section I, Table II, anchor discussion, limitations, and conclusion. That is safe, but it becomes heavy. Keep the strongest version in Section I and refer back to it later.
+
+Suggested structure:
+
+1. Problem: low-altitude UAS radar benchmarks need reproducible hard-negative evaluation.
+2. Constraint: measured collections are expensive, restricted, and not always open.
+3. EchoForge answer: strict-open synthetic public-proxy benchmark.
+4. Contributions:
+
+   * signal-chain model card;
+   * group-locked split and denylist;
+   * low-FPR holdout evaluation;
+   * calibration/ablation/false-alarm diagnostics;
+   * compare-only measured anchors.
+
+Avoid wording like “substantive rather than cosmetic.” It sounds defensive. The contributions are already substantive; let the list prove that.
+
+## Section II: Radar and Multimodal Generative Model
+
+This is the section that most needs technical strengthening. The received-power proxy and complex IQ equation are good starts, and Table I’s branch assumptions are useful. 
+
+Add the following:
+
+**A radar-parameter derivation paragraph.** After Table I, explicitly derive range resolution and Doppler resolution:
+
+* ΔR = c / 2B.
+* ΔfD ≈ 1 / TCPI.
+* Δv ≈ λ / 2TCPI for monostatic radar.
+
+This will reassure radar readers that the model card is physically coherent.
+
+**A waveform paragraph.** Clarify whether the system is FMCW, pulsed-Doppler, or an abstract range-Doppler generator. Right now, “FMCW-style” and “PRF/pulses” coexist without enough explanation.
+
+**A target-prior paragraph.** Describe public-proxy fixed-wing pusher-prop priors: body RCS, wing aspect effects, propeller RPM, blade count, micro-Doppler modulation, radial velocity ranges, altitude/range/aspect distributions.
+
+**A clutter/impairment paragraph.** The receiver impairment list is useful—AGC compression, clock drift, quantization, dropped CPIs, PRF ambiguity, Doppler folding, calibration offset, multipath masking—but each needs at least one sentence or a table row describing how it is parameterized. 
+
+**Multimodal detail.** Acoustic and passive-RF cue definitions are currently too abstract. Add node count, sampling/feature windows, cue families, SNR/noise priors, synchronization assumptions, and missing-data behavior.
+
+## Section III: Scenario Design and Detector Views
+
+This section has a strong design idea: group-level splits and detector-view restriction. Keep that. The detector-facing views are intentionally narrower than generator state, preventing labels, split keys, and hidden generator metadata from becoming shortcuts. 
+
+Needed improvements:
+
+**Show a scenario-card table.** Include rows for range, altitude, aspect, radial velocity, clutter type, site type, weather, RFI, hard-negative family, and phase window.
+
+**State the positive rate prominently.** Fifty positive groups out of 10,000 is 0.5% at group level. That is central to the benchmark and should be openly framed.
+
+**Clarify targeted holdout.** The paper mentions default group-random holdout and targeted holdout support for diagnostic OOD slices. Add either results for a targeted holdout or move that claim to future work.
+
+**Detector-view denylist.** Add a mini-table listing allowed feature families and forbidden fields. Do not leave denylisting only as prose.
+
+## Section IV: Evaluation Protocol and Calibration
+
+This section is directionally good: train/CV-only calibration, holdout scored once after selection lock, many metrics, and group-block bootstrap. 
+
+Main gaps:
+
+**Primary KPI must be reported as the primary number.** Table III explains why LCB95 Recall@1%FPR is the headline KPI, but the paper does not place that value front and center. 
+
+**Clarify the calibration transform.** “Geodesic-odds” is not a common term in radar or mainstream classifier calibration. It may be correct internally, but reviewers may view it as unnecessary jargon. Consider calling it “monotone log-odds calibration” unless “geodesic” has a formal definition you include.
+
+**Calibration metrics need bin counts.** With rare positives, ECE can look excellent because negatives dominate. Add reliability diagrams with adaptive bins, bin counts, calibration slope/intercept, and Brier decomposition if possible.
+
+**Report false alarms in operational units.** A record-level FPR is useful, but radar people will ask for false alarms per unit time, per scan, per CPI, or per scenario group. Add a proxy FA/hour or FA/group metric if the phase windows are time-defined.
+
+## Section V: Locked-Candidate Transparency and Ablation Results
+
+The idea is very good. You explicitly report the advanced candidate as a locked artifact rather than a fresh rerun, and the evidence bundle includes component aliases, ablations, top-k ablations, modality ablations, and no-calibration ablations. 
+
+The problem is presentation. “evolved_mesh_39/sparse_signed/geodesic_odds” and similar labels are audit handles, not reader-facing scientific names. Keep them in an appendix, but in the main paper translate them into clean component families.
+
+Also, ablation should report deltas, not just values. Use columns:
+
+| Ablation | AP | ΔAP | Recall@≤1%FPR | ΔRecall | ECE | Interpretation |
+| -------- | -: | --: | ------------: | ------: | --: | -------------- |
+
+That will make the ablation path interpretable.
+
+## Section VI: Raw Samples and Compare-Only Anchor
+
+This section is important but visually weak. Fig. 7 is useful because it shows positive and hard-negative range-Doppler proxy diagnostics across the three phase windows. Fig. 8, however, is not a convincing measured-anchor comparison. 
+
+The KTH comparison should show distributions, not one compressed bar plot. Use overlaid histograms, violin plots, or empirical CDFs for normalized micro-Doppler bandwidth, range extent, entropy, and return-power proxies. Because KTH is 77 GHz, Doppler should be converted to velocity or normalized before comparison.
+
+## Section VII: Compact Diagnostics Snapshot
+
+This section contains good material: leakage tests, label-shuffle collapse, metadata-only baselines, phase metrics, and false-alarm family table. 
+
+But the “canary forbidden-feature test fail” wording is dangerous. A reviewer may read “fail” and stop. The explanation says the failure is intentional because raw detector views still contain metadata columns that are forbidden at the model interface. That is too confusing.
+
+Rewrite as:
+
+| Check             | Raw audit surface | Model-facing matrix | Interpretation                                                             |
+| ----------------- | ----------------: | ------------------: | -------------------------------------------------------------------------- |
+| Forbidden headers |         Triggered |       Absent / pass | Denylist detects forbidden fields and sanitized model matrix excludes them |
+
+Use “triggered” or “detected,” not “fail.”
+
+Also, do not say the false alarms “concentrate” in single_bird without emphasizing that there is only one false alarm. Say:
+
+> In this holdout, the only observed locked-candidate false alarm is from the single-bird family; this is a useful diagnostic pointer, but larger holdouts are needed before treating it as a stable family-level pattern.
+
+## Section VIII: Evidence Ledger
+
+The evidence-ledger concept is good. Reviewers like artifact traceability. The paper says the evidence bundle includes model cards, feedback coverage, source LOC self-classification audit, split structure, calibration, false-alarm families, ablations, and compare-only anchor checks. 
+
+But this section is too process-heavy for the main paper. The source LOC self-classification and feedback coverage matrix are less important than the radar benchmark itself. Move those to appendix or repository documentation. Keep the main paper focused on:
+
+* artifact list;
+* DOI or repository path;
+* deterministic seed;
+* split manifest;
+* detector-view files;
+* evaluation script;
+* metric traces;
+* figure-generation scripts;
+* hash/version identifiers.
+
+## Section IX: Limitations and Prohibited Inferences
+
+This section is good but should be more concrete. It correctly states that a synthetic benchmark is not measured truth and that measured anchors are compare-only checks. 
+
+Add explicit limitations:
+
+* only 50 positive groups total;
+* only 8 positive groups in default holdout;
+* single-seed main corpus;
+* simplified clutter/weather/RFI priors;
+* 77 GHz anchor mismatch relative to X/Ku/S/GBAD branches;
+* limited acoustic/passive-RF physical modeling detail;
+* no hardware-in-the-loop or field trial validation;
+* low CPI pulse count may limit micro-Doppler fidelity unless long-window aggregation is clearly explained;
+* false-alarm-family conclusions are weak with only one observed false alarm.
+
+## Conclusion
+
+The conclusion is safe and clear. It restates that EchoForge is synthetic public-proxy evidence and not operational performance. 
+
+Add one sentence with the main numerical result and one sentence with the next concrete step:
+
+> The locked candidate improves AP and low-FPR recall over the prior layered-fusion baseline on the blind holdout, but the small positive holdout makes group-level uncertainty central to interpretation. The next release should expand positive groups, add multi-seed evaluation, and strengthen measured-anchor normalization.
+
+---
+
+# Table-by-table feedback
+
+## Table I — Radar Model Card and Signal-Chain Assumptions
+
+This table is necessary and useful. It gives X/Ku, S-band, and GBAD-like branches with nominal bands, bandwidths, PRF/CPI, pulse count, range bins, and nominal range resolution. 
+
+Improve it by splitting “Signal-chain assumption” into separate columns:
+
+| Branch | Band |  B | PRF / CRF | CPI | Pulses/chirps | Range bins | ΔR | ΔfD | Δv | Notes |
+| ------ | ---: | -: | --------: | --: | ------------: | ---------: | -: | --: | -: | ----- |
+
+Use `siunitx` for decimal alignment. Add derived Doppler/velocity resolution. Do not hide multiple parameters in a paragraph cell.
+
+## Table II — Validation Tiers and Current Status
+
+Good idea. The validation boundary is one of the paper’s strengths. 
+
+Issues:
+
+* “Generative-origin self-classification” is confusing and not central to radar science.
+* “pass” and “prohibited” are mixed in the same status column.
+* The table is wordy.
+
+Suggested categories:
+
+| Tier                        | Evidence artifact         | Current status | Claim allowed?               |
+| --------------------------- | ------------------------- | -------------: | ---------------------------- |
+| Synthetic corpus generation | Seed + generator manifest |           Pass | Synthetic reproducibility    |
+| Split isolation             | Group split manifest      |           Pass | Holdout-isolated evaluation  |
+| Measured anchor             | KTH overlay               |   Compare-only | Observable-shape sanity only |
+| Named platform truth        | None                      |     Prohibited | No                           |
+
+Use subtle colors: green for “pass,” amber for “compare-only,” red/gray for “prohibited.”
+
+## Table III — Primary KPI Selection
+
+This is a good explanatory table, but it is not enough. 
+
+Add actual values. Since this is the primary KPI table, include the locked candidate’s point estimate and LCB95. Right now the table explains the metric but does not report it.
+
+Also reduce prose. “Why it is or is not the headline” is too long as a column heading. Use “Rationale.”
+
+## Table IV — Holdout Summary
+
+This is one of the most important tables and needs the most careful fix. 
+
+Required changes:
+
+* Separate threshold-specific counts from threshold-sweep metrics.
+* Add FPR computed from FP/(FP+TN).
+* Add count-based recall computed from TP/(TP+FN).
+* Add LCB95 Recall@≤1%FPR.
+* Add confidence intervals for AP, Recall@≤1%FPR, and maybe ROC AUC.
+* Use three decimals, not six.
+* Highlight improvements professionally.
+
+Example formatting:
+
+| Method                |      AP ↑ | ROC AUC ↑ | Recall@≤1%FPR ↑ | LCB95 Recall@≤1%FPR ↑ | FPR at selected threshold ↓ |     TP/FP/FN |
+| --------------------- | --------: | --------: | --------------: | --------------------: | --------------------------: | -----------: |
+| Layered fusion C2     |     0.128 | **0.938** |           0.292 |                     … |                       1.10% | 10 / 49 / 14 |
+| Locked candidate / EI | **0.825** |     0.917 |       **0.833** |                     … |                   **0.02%** |   18 / 1 / 6 |
+
+Use light green for best values, light amber where a metric worsens, and a footnote explaining thresholds.
+
+## Table V — Locked Meta-Fusion Component Aliases and Weights
+
+This table is currently not acceptable for a polished IEEE-style paper. It has opaque aliases, inconsistent tokenization, possible typos, and no sorting. 
+
+Rebuild it as a reader-facing table sorted by descending weight:
+
+| Rank | Component family | Feature view  | Calibrator    |    Weight |
+| ---: | ---------------- | ------------- | ------------- | --------: |
+|    1 | Evolved mesh 39  | Sparse signed | Geodesic odds | **0.290** |
+|    2 | Passive quality  | Signed        | Geodesic odds | **0.230** |
+|    3 | Evolved mesh 39  | Sparse signed | Beta          | **0.176** |
+|    4 | Passive quality  | Sparse signed | Geodesic odds |     0.143 |
+|    5 | Passive quality  | Signed        | Raw           |     0.075 |
+|    6 | Evolved mesh 39  | Sparse signed | Raw           |     0.053 |
+|    7 | Evolved mesh 19  | Sparse signed | Raw           |     0.029 |
+|    8 | Passive quality  | Sparse signed | Raw           |     0.004 |
+
+Color guidance:
+
+* Top three weights: light green fill.
+* Middle contributors: light blue fill.
+* Negligible weight <0.01: light gray fill.
+* Bold best/top values only; do not over-color every cell.
+
+Also add a footnote: “Weights sum to 1.0.”
+
+## Table VI — Compare-Only Anchor Roles
+
+Good concept, but it should include more factual structure. 
+
+Suggested columns:
+
+| Anchor                | Sensors / band       | Target classes              | EchoForge use                  | Boundary                             |
+| --------------------- | -------------------- | --------------------------- | ------------------------------ | ------------------------------------ |
+| KTH                   | 77 GHz FMCW          | drone/bird/human            | Hard-negative observable shape | No positive-class truth              |
+| Open Radar Initiative | radar micro-Doppler  | moving objects              | Distribution sanity check      | Access-dependent                     |
+| Han/Jung 2026         | FMCW + CW radar + RF | commercial drones/non-drone | Candidate multimodal anchor    | Use only after license/access review |
+
+For Han/Jung 2026, the paper should be consistent: either it is a future candidate, or it is part of the current anchor suite. The Scientific Data article is real, but the current paper should not imply it was used if it was not. ([Nature][1])
+
+## Table VII — Leakage and Realism Diagnostics
+
+The content is excellent, but the canary row must be rewritten. 
+
+Change:
+
+> Canary forbidden-feature test: fail
+
+to:
+
+> Forbidden-header raw-audit trigger: detected
+> Model-facing denylist check: pass
+
+Also make the table more compact. Use one row per diagnostic and short interpretation text. Add color:
+
+* Green: label-shuffle collapse, metadata-only weak, nearest-neighbor not duplicate.
+* Amber: raw forbidden headers detected but excluded.
+* Red only for true unresolved failures.
+
+## Table VIII — Selected Candidate by Phase
+
+This is one of the better tables. 
+
+Improve by adding uncertainty and reducing decimals:
+
+| Phase            | Pos groups / records |    AP | ROC AUC | Recall@≤1%FPR | TP | FP | FN |
+| ---------------- | -------------------: | ----: | ------: | ------------: | -: | -: | -: |
+| Initial take-up  |               8 / 8? | 0.628 |   0.813 |         0.625 |  4 |  0 |  4 |
+| Climb transition |               8 / 8? | 0.845 |   0.937 |         0.875 |  6 |  1 |  2 |
+| Cruise altitude  |               8 / 8? | 1.000 |   1.000 |         1.000 |  8 |  0 |  0 |
+
+Clarify whether “Pos=8” is positive records or positive groups in that phase. Add confidence intervals or mark as small-n.
+
+## Table IX — False-Alarm Family Breakdown
+
+The idea is excellent, but the table should be sorted by false-alarm rate or false-alarm count, not alphabetically. 
+
+Remove the `positive` row. Positive is not a false-alarm family.
+
+Add columns:
+
+| Family      | Negatives | FP | FP rate | Share of all FP | Comment          |
+| ----------- | --------: | -: | ------: | --------------: | ---------------- |
+| single bird |       405 |  1 |  0.247% |            100% | only observed FP |
+| bird flock  |       474 |  0 |  0.000% |              0% | —                |
+| …           |         … |  … |       … |               … | …                |
+
+Add a note: “Only one FP observed; family-level rates are diagnostic, not stable estimates.”
+
+---
+
+# Figure-by-figure feedback
+
+## Fig. 1 — Radar signal chain and claim boundary
+
+This figure is conceptually good. It clearly separates public-proxy object priors, radar archetype, propagation/clutter, IQ/cue streams, detector views, and evidence bundle. 
+
+Improve:
+
+* Keep it as a two-column-width figure or make it a clean one-column figure with fewer words.
+* Use vector graphics.
+* Align the right-side model-card boxes with the left pipeline.
+* Use consistent box widths and font sizes.
+* Add small icons only if they do not reduce readability.
+* Make “detector views and leakage rails” visually distinct from “generator state.”
+
+## Fig. 2 — Scenario balance and leakage diagnostics
+
+This figure is currently too small and too dense. Your own observation is right: **it should span two columns.** In the rendered page, labels and subpanel text are hard to read. 
+
+Recommended redesign:
+
+Use `figure*` and split into two rows:
+
+Top row: balance counts
+
+* split counts;
+* site counts;
+* range counts;
+* aspect counts;
+* noise counts;
+* hard-negative family counts.
+
+Bottom row: leakage/sanity checks
+
+* label-shuffle AP/ROC collapse;
+* metadata-only baseline;
+* stratum-only baseline;
+* nearest-neighbor similarity distribution;
+* forbidden-feature denylist status.
+
+Do not put every label in tiny text. Use horizontal bars, sorted descending. For marginal imbalance values, use a compact table inset rather than tiny text.
+
+## Fig. 3 — Holdout ranking, primary KPI, ROC/PR curves, calibration
+
+This is an important figure but currently overloaded. It tries to show AP ranking, ROC, PR, low-FPR behavior, and calibration context in one figure. 
+
+Specific fixes:
+
+* The AP ranking labels are too long. Replace internal names with readable labels.
+* Highlight the locked candidate / EI in one professional accent color.
+* Use gray for baselines.
+* Sort bars by AP descending.
+* If EI is the selected candidate, name it consistently. I do not see an explicit “EI” label in the PDF; the closest appears to be the locked selected/meta-fusion candidate.
+* Do not manually force EI to be maximum. Sort honestly. If EI is the maximum, the sorted plot will show that automatically.
+* Add error bars for AP confidence intervals.
+* Use a low-FPR ROC inset: x-axis 0–0.02 or 0–0.05.
+* The PR plot has overlapping labels; remove inline labels and use a legend.
+* If the title says calibration, include a real reliability diagram or move calibration to a separate figure.
+
+For bar charts with very similar values, your suggestion is right: use a zoomed x-axis such as `xmin = 0.9 * min(value)` so small differences are visible. To avoid misleading readers, label it “zoomed axis” or include a small full-scale inset.
+
+## Fig. 4 — Per-phase behavior and false-alarm family breakdown
+
+This figure has good content. The phase-wise AP comparison is useful, and the false-alarm family breakdown is one of the most operationally relevant visuals. 
+
+Improve:
+
+* Add confidence intervals or at least show `n=8 positive records per phase`.
+* Sort false-alarm families by FP count or rate.
+* Since there is only one false alarm, annotate “1 FP total.”
+* Show false-alarm rate per 1,000 negative records rather than raw count only.
+* Consider a lollipop/dot plot instead of bars; with mostly zeros, bars waste space.
+* Keep this figure. It is a strong diagnostic idea.
+
+## Fig. 5 — Locked-candidate transparency and ablation path
+
+The current figure is too small and visually weak. The idea is strong, but the presentation reads like a mini flowchart plus tiny table. 
+
+Replace it with one of these:
+
+**Option A: Ablation bar chart**
+
+* y-axis: full candidate, no calibration, top-k, drop passive, drop radar, drop component X.
+* x-axis: AP or Recall@≤1%FPR.
+* show Δ from full candidate.
+
+**Option B: Waterfall plot**
+
+* start with baseline;
+* add components/groups;
+* show final locked candidate.
+
+**Option C: Two-panel figure**
+
+* left: component weights sorted descending;
+* right: ablation results sorted by performance loss.
+
+This would make Table V and Fig. 5 reinforce each other.
+
+## Fig. 6 — Radar model card and signal-chain parameter panel
+
+This figure is the biggest visual problem. It is smashed, overlapping, and not standard. The receiver impairment boxes appear blank or poorly labeled; the acoustic/passive-RF text overlaps; only some branch panels are visible; and the overall figure is hard to interpret. 
+
+Best fix: **replace Fig. 6 with a clean two-column model-card graphic or an expanded table.**
+
+Suggested layout:
+
+Left column: public-proxy assumptions
+
+* positive class;
+* claim boundary;
+* phase windows;
+* detector-view restriction.
+
+Middle column: radar branches
+
+* X/Ku, S-band, GBAD;
+* band, bandwidth, CPI, chirps, range bins, ΔR, ΔfD, Δv.
+
+Right column: impairments and modalities
+
+* receiver impairments as pill labels;
+* acoustic cue family;
+* passive-RF cue family;
+* missing-data behavior.
+
+Use no overlapping text. Use a muted professional palette: light blue for radar branches, light green for valid assumptions, light amber for impairments, light gray for boundary notes.
+
+## Fig. 7 — Range-Doppler proxy diagnostics
+
+This is one of the better figures visually. It shows positive and hard-negative proxy range-Doppler views across initial take-up, climb transition, and cruise altitude. 
+
+Improve:
+
+* Label axes with actual units if possible: range bin/meter and Doppler Hz or radial velocity m/s.
+* If values are intentionally proxy-only, label them “relative range bin” and “relative Doppler bin.”
+* Increase font size on row labels.
+* Keep one shared colorbar, as you already do.
+* Add a small note that the six panels share the same color normalization.
+* Consider adding contours or annotations if the positive/hard-negative difference is subtle.
+
+## Fig. 8 — Compare-only KTH anchor overlay
+
+This figure is not convincing in its current form. The micro-Doppler bandwidth bar dominates, and the other values are visually compressed. 
+
+Replace it with:
+
+* three separate normalized distribution overlays;
+* or one table plus three small histograms;
+* or a radar/spider plot only after z-score normalization.
+
+Recommended features:
+
+1. normalized micro-Doppler velocity spread;
+2. spectral entropy;
+3. range extent;
+4. return-power variability;
+5. temporal modulation/cadence.
+
+Do not plot raw Hz next to unitless entropy and meters on the same axis. Use z-scores, percentile ranks, or separate axes.
+
+---
+
+# Standard visual style to apply across the paper
+
+Use a strict IEEE-style visual system:
+
+**Figures**
+
+* Use vector PDF/SVG wherever possible.
+* Use one-column figures only for simple plots; use two-column `figure*` for dense diagnostics.
+* Minimum final font size: 8 pt after scaling.
+* Avoid more than 4 subpanels in a one-column figure.
+* Use readable labels, not audit aliases.
+* Use consistent colors across the whole paper:
+
+  * locked candidate / EI: one accent color;
+  * baseline: neutral gray;
+  * positive class: muted teal or blue;
+  * hard negatives: muted categorical palette;
+  * warning/audit: amber;
+  * prohibited/fail: muted red only when truly bad.
+* Use colorblind-safe palettes.
+* Add direct annotations sparingly.
+
+**Tables**
+
+* Use `booktabs`, no vertical rules.
+* Use `siunitx` decimal alignment.
+* Use 2–3 significant digits for metrics.
+* Use percentages for FPR/recall where reader intuition matters.
+* Bold best values.
+* Use light cell shading only for comparison:
+
+  * `green!10` for best/improved;
+  * `yellow!12` for caution/mixed;
+  * `gray!10` for negligible or not applicable;
+  * `red!8` only for true unresolved failures.
+* Do not color entire rows unless the status category is the point of the table.
+* Sort tables by importance or value, not arbitrary index.
+
+---
+
+# Recommended concrete edits
+
+## Add a “Radar Model Details” table
+
+Place after Table I or replace Fig. 6.
+
+| Quantity         |         X/Ku |      S-band |         GBAD | Notes                    |
+| ---------------- | -----------: | ----------: | -----------: | ------------------------ |
+| Center band      | 9.0–10.5 GHz | 2.9–3.3 GHz | 9.8–10.8 GHz | public-proxy             |
+| Bandwidth        |      600 MHz |     180 MHz |      300 MHz | determines ΔR            |
+| Range resolution |       0.25 m |      0.83 m |       0.50 m | c/2B                     |
+| CPI              |         6 ms |        6 ms |         6 ms | per coherent block       |
+| Doppler bin      |     166.7 Hz |    166.7 Hz |     166.7 Hz | 1/CPI                    |
+| Pulses/chirps    |           24 |          24 |           24 | define as chirps if FMCW |
+| Range bins       |           20 |          20 |           20 | detector-view extent     |
+
+## Add a “Main Result” table with the true primary KPI
+
+| Method                |  AP ↑ | ROC AUC ↑ | Recall@≤1%FPR ↑ | LCB95 Recall@≤1%FPR ↑ | ECE ↓ | Comment               |
+| --------------------- | ----: | --------: | --------------: | --------------------: | ----: | --------------------- |
+| Layered fusion C2     | 0.128 |     0.938 |           0.292 |                     … |     … | strong ROC, weak PR   |
+| Locked candidate / EI | 0.825 |     0.917 |           0.833 |                     … |     … | best low-FPR behavior |
+
+This resolves the mismatch between declared primary KPI and reported table.
+
+## Add a “Small-n warning” note
+
+Use this exact idea near Table IV:
+
+> Because the blind holdout contains 8 positive scenario groups and 24 positive phase records, recall estimates are sensitive to individual positive groups. We therefore report group-block bootstrap intervals and interpret phase/family diagnostics as evidence of behavior in this synthetic run, not as field Pd estimates.
+
+That will make the paper feel more trustworthy.
+
+## Fix the EI / selected-candidate naming
+
+If EI is the name you want in figures, define it once:
+
+> We refer to the locked advanced candidate as EchoForge-I / EI in plots.
+
+Then use that exact label everywhere. Right now the paper uses “locked advanced candidate,” “selected candidate,” “meta-fusion,” and internal alias names. Pick one main paper-facing name.
+
+## Reword the canary paragraph
+
+Current logic is good but wording is risky. Use:
+
+> The raw audit surface intentionally retains forbidden metadata so the denylist can be tested. The denylist correctly triggers on `cv_fold`, `scenario_group_id`, `split_role`, and `time_lock_id`; these fields are absent from the model-facing detector matrix. Thus the audit trigger is evidence that the guardrail is active, not evidence that the model was trained with forbidden fields.
+
+This will prevent reviewer confusion.
+
+---
+
+# Bottom line
+
+The paper is strongest when it presents EchoForge as a **disciplined synthetic radar benchmark with explicit claim boundaries and serious leakage controls**. It is weakest when it uses cramped visuals, opaque internal component names, and results tables that do not clearly separate threshold counts from fixed-FPR metrics.
+
+The concept is very solid. The paper will become much stronger if you:
+
+1. rebuild Fig. 2, Fig. 3, Fig. 5, Fig. 6, and Fig. 8;
+2. completely redesign Table V;
+3. make Table IV/KPI reporting internally consistent;
+4. add radar-specific model detail and derived radar quantities;
+5. state the small positive-holdout limitation more explicitly;
+6. use a very standard IEEE visual/table style with restrained professional colors.
+
+[1]: https://www.nature.com/articles/s41597-026-06802-6?utm_source=chatgpt.com "A Time-Synchronized Multi-Sensor drone dataset acquired ..."
+

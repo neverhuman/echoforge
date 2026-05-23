@@ -1,7 +1,7 @@
 //! Hard-negative mining loop.
 //!
-//! Implements the closed-loop curriculum described in FUCKIT.md's Critical
-//! Review section I ("Hard-negative mining loop is the four-card pending,
+//! Implements the closed-loop curriculum described in the critical-review
+//! section I ("Hard-negative mining loop is the four-card pending,
 //! not a loop"). One iteration looks like:
 //!
 //! ```text

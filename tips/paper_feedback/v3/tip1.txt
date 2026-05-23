@@ -1,0 +1,581 @@
+I dug through the repo-side figure generator and the uploaded compiled paper. The paper’s evidence story is genuinely strong, but the figures are currently under-selling it: several are over-packed, one table has a real rendering/data-key bug, and Fig. 7’s caption says “shared scale” while the code normalizes each heatmap independently. The build path matters too: `paper/build.sh` calls `paper/generate_figures.py`, and that file delegates to `paper.generate_figures_major_upgrade_v2.main()`, so the right file to patch is **`paper/generate_figures_major_upgrade_v2.py`**.   The uploaded PDF shows the exact failure modes in the current figures. 
+
+## Highest-priority fixes
+
+The first fix should be **Fig. 6**. The model-card figure shows `PRF/CRF Hz` as `4000/0` and `Chirps` as `0`, while the manuscript’s Table I correctly reports `4000/4000` and `24`. That is a credibility hit because reviewers will assume the model card is wrong, not merely the plotting script. The bug is almost certainly that the figure code reads `band["pulses"]`, while the evidence rows use another key such as `chirps`, `chirp_count`, or `pulses_per_cpi`. The current code computes `pulses = int(_safe_float(band.get("pulses"), 0.0))` and then `crf_hz = pulses / cpi_s`, which explains the zero. 
+
+The second fix should be **Fig. 7**. The caption says the Range-Doppler panels use a shared normalized log-magnitude scale, but `_range_doppler()` currently normalizes every panel separately through `_normalize01(np.log1p(np.abs(rd)))`. Then `imshow(..., vmin=0.0, vmax=1.0)` gives a shared-looking colorbar even though the underlying normalization is per-panel. That is misleading for a diagnostic figure.  
+
+The third fix should be **layout discipline**. Figures 3–5 are trying to carry too many tasks at once. Fig. 3 is simultaneously primary KPI, AP ranking, ROC, PR, and calibration; Fig. 4 mixes AP bars, recall markers, stacked false alarms, near-threshold context, and a large legend; Fig. 5 combines weights and ablation deltas with dense labels. The content is right, but the figures need to be less clever and more audit-like. The manuscript explicitly says the headline KPI is LCB95 Recall@≤1%FPR, while AP/ROC/PR/calibration are supporting diagnostics, so the graphics should visually enforce that hierarchy. 
+
+## Patch 1: add helpers for wrapping, robust evidence keys, and shared normalization
+
+Add these near the imports and helper functions in `paper/generate_figures_major_upgrade_v2.py`.
+
+```python
+import textwrap
+from matplotlib.lines import Line2D
+```
+
+Then add these helpers after `_safe_int()`:
+
+```python
+def _wrap(value: Any, width: int = 28) -> str:
+    """Small figure-label wrapper that preserves reviewer readability."""
+    text = str(value).replace("_", " ")
+    return "\n".join(
+        textwrap.wrap(text, width=width, break_long_words=False, break_on_hyphens=False)
+    )
+
+
+def _first_number(mapping: dict[str, Any], *keys: str, default: float = float("nan")) -> float:
+    """Read the first finite numeric value among several possible evidence keys."""
+    for key in keys:
+        if key not in mapping:
+            continue
+        value = _safe_float(mapping.get(key))
+        if math.isfinite(value):
+            return value
+    return default
+
+
+def _global_normalize01(arrays: list[np.ndarray], low_pct: float = 2.0, high_pct: float = 98.0) -> list[np.ndarray]:
+    """Normalize multiple arrays with one shared percentile scale."""
+    finite_values = np.concatenate(
+        [np.asarray(arr, dtype=np.float64).ravel() for arr in arrays if arr is not None]
+    )
+    finite_values = finite_values[np.isfinite(finite_values)]
+    if finite_values.size == 0:
+        return [np.zeros_like(arr, dtype=np.float64) for arr in arrays]
+
+    low, high = np.percentile(finite_values, (low_pct, high_pct))
+    if not math.isfinite(float(low)) or not math.isfinite(float(high)) or high <= low:
+        low = float(np.nanmin(finite_values))
+        high = float(np.nanmax(finite_values))
+
+    if high <= low:
+        return [np.zeros_like(arr, dtype=np.float64) for arr in arrays]
+
+    return [
+        np.clip((np.asarray(arr, dtype=np.float64) - low) / (high - low), 0.0, 1.0)
+        for arr in arrays
+    ]
+
+
+def _friendly_method(name: str) -> str:
+    return (
+        str(name)
+        .replace("locked_candidate", "locked\ncandidate")
+        .replace("layered_fusion_c2", "prior\nlayered\nfusion")
+        .replace("high_resolution_xku_cuas", "high\nresolution\nX/Ku")
+        .replace("tabular_ml_baseline", "tabular\nML\nbaseline")
+        .replace("sequence_ml_proxy", "sequence\nML\nproxy")
+        .replace("_", " ")
+    )
+
+
+def _friendly_family(name: str) -> str:
+    return (
+        str(name)
+        .replace("rc_fixed_wing", "RC fixed-wing")
+        .replace("clutter_only_counterfactual", "clutter-only")
+        .replace("multipath_ghost", "multipath")
+        .replace("_", " ")
+    )
+```
+
+## Patch 2: fix Fig. 6’s zero chirps / zero CRF bug
+
+In `figure_iq_drone_samples()`, replace the current `for band in carrier_bands:` table-row block with this. It accepts multiple key names and falls back to the manuscript’s own model-card defaults instead of writing zeros.
+
+```python
+    for band in carrier_bands:
+        label = band.get("label") or band.get("display_name") or band.get("branch", "")
+        band_name = band.get("band", "")
+        bandwidth_mhz = _first_number(
+            band,
+            "bandwidth_mhz",
+            "bw_mhz",
+            "bandwidth_MHz",
+            default=0.0,
+        )
+        center_ghz = _first_number(
+            band,
+            "center_ghz",
+            "f0_ghz",
+            "carrier_ghz",
+            default=0.0,
+        )
+        cpi_ms = _first_number(band, "cpi_ms", "cpi_msec", default=6.0)
+        cpi_s = cpi_ms / 1000.0 if cpi_ms > 0 else float("nan")
+
+        pulses = int(
+            round(
+                _first_number(
+                    band,
+                    "pulses",
+                    "chirps",
+                    "pulse_count",
+                    "chirp_count",
+                    "pulses_per_cpi",
+                    "chirps_per_cpi",
+                    default=24.0,
+                )
+            )
+        )
+        prf_hz = _first_number(
+            band,
+            "prf_hz",
+            "prf",
+            "pulse_repetition_frequency_hz",
+            default=4000.0,
+        )
+        crf_hz = _first_number(
+            band,
+            "crf_hz",
+            "chirp_repetition_frequency_hz",
+            default=prf_hz if math.isfinite(prf_hz) else 4000.0,
+        )
+
+        range_resolution_m = _first_number(
+            band,
+            "range_resolution_m",
+            "delta_r_m",
+            default=(
+                299792458.0 / (2.0 * bandwidth_mhz * 1e6)
+                if bandwidth_mhz > 0
+                else float("nan")
+            ),
+        )
+        doppler_resolution_hz = _first_number(
+            band,
+            "doppler_resolution_hz",
+            "delta_fd_hz",
+            default=(1.0 / cpi_s if math.isfinite(cpi_s) and cpi_s > 0 else float("nan")),
+        )
+        velocity_resolution_mps = _first_number(
+            band,
+            "velocity_resolution_mps",
+            "delta_v_mps",
+            default=(
+                (299792458.0 / (2.0 * center_ghz * 1e9)) * doppler_resolution_hz
+                if center_ghz > 0 and math.isfinite(doppler_resolution_hz)
+                else float("nan")
+            ),
+        )
+
+        table_rows.append(
+            [
+                _wrap(label, 28),
+                band_name,
+                f"{bandwidth_mhz:.0f}",
+                f"{range_resolution_m:.3f}",
+                f"{prf_hz:.0f}/{crf_hz:.0f}",
+                f"{cpi_ms:.1f}",
+                f"{pulses:d}",
+                f"{doppler_resolution_hz:.1f}",
+                f"{velocity_resolution_mps:.3f}",
+            ]
+        )
+```
+
+Also change the column label from `"Chirps"` to something reviewer-safe:
+
+```python
+    col_labels = [
+        "Branch",
+        "Band",
+        "BW MHz",
+        "ΔR m",
+        "PRF / CRF Hz",
+        "CPI ms",
+        "Pulses/chirps",
+        "ΔfD Hz",
+        "Δv m/s",
+    ]
+```
+
+And increase the figure/table breathing room:
+
+```python
+    fig = plt.figure(figsize=(10.4, 5.8))
+```
+
+For the receiver/cue block, replace the current cue-definition placement with this so the text no longer collides:
+
+```python
+    notes_ax.text(
+        0.02,
+        0.95,
+        "Receiver impairments",
+        fontsize=9.3,
+        weight="bold",
+        transform=notes_ax.transAxes,
+    )
+    impairments = card.get("receiver_impairments", [])[:4]
+    for idx, item in enumerate(impairments):
+        _add_box(
+            notes_ax,
+            0.03,
+            0.78 - idx * 0.13,
+            0.94,
+            0.09,
+            _wrap(item, 34),
+            face=PALE_RED,
+            edge=RED,
+            size=6.8,
+        )
+
+    notes_ax.text(
+        0.02,
+        0.28,
+        "Cue definitions",
+        fontsize=9.3,
+        weight="bold",
+        transform=notes_ax.transAxes,
+    )
+    cue_defs = card.get("cue_definitions", {})
+    cue_text = [
+        f"acoustic: {cue_defs.get('acoustic', 'node cadence and agreement')}",
+        f"passive RF: {cue_defs.get('passive_rf', 'no-signal / RFI geometry')}",
+    ]
+    for idx, line in enumerate(cue_text):
+        _add_box(
+            notes_ax,
+            0.03,
+            0.14 - idx * 0.12,
+            0.94,
+            0.09,
+            _wrap(line, 42),
+            face="white",
+            edge=GRID,
+            size=6.5,
+        )
+
+    boundary = card.get("claim_boundary", "public-proxy assumptions only")
+    notes_ax.text(
+        0.02,
+        -0.10,
+        _wrap(boundary, 58),
+        fontsize=6.4,
+        color=MUTED,
+        transform=notes_ax.transAxes,
+    )
+```
+
+## Patch 3: fix Fig. 7’s “shared scale” problem
+
+Replace `_range_doppler()` with this. It returns unnormalized log power, so the whole figure can be normalized once.
+
+```python
+def _range_doppler_power(sample: np.ndarray) -> np.ndarray:
+    """Return unnormalized log Doppler-vs-range magnitude.
+
+    Range bins are already range-like in the generated sample. Doppler is the
+    slow-time FFT over pulses, so do not run a 2-D FFT that also transforms
+    the range axis.
+    """
+    arr = np.asarray(sample)
+    if arr.ndim == 3:
+        arr = arr.mean(axis=0)
+    elif arr.ndim > 3:
+        arr = arr.reshape((-1,) + arr.shape[-2:]).mean(axis=0)
+
+    rd = np.fft.fftshift(np.fft.fft(arr, axis=0), axes=0)
+    return np.log1p(np.abs(rd))
+```
+
+Then in `figure_iq_negative_samples()`, collect all six panels before plotting and normalize them together. Replace the current sample-reading / `rd = _range_doppler(sample)` logic with this structure:
+
+```python
+    groups = [("sg_00016", True), ("sg_00000", False)]
+
+    # First pass: collect raw, unnormalized panels.
+    raw_panels: dict[tuple[int, int], np.ndarray] = {}
+    raw_panel_list: list[np.ndarray] = []
+
+    for row_idx, (group_id, _positive) in enumerate(groups):
+        for phase_idx, phase in enumerate(PHASES, start=1):
+            record_id = f"{group_id}_{phase}"
+            sample = _read_iq_sample(context, record_id)
+
+            if sample is None or np is None:
+                _note_fallback(filename, f"missing IQ sample {record_id}")
+                if STRICT_MODE:
+                    _require_no_fallback(filename)
+                sample = np.zeros((24, 20), dtype=np.float64)
+
+            raw = _range_doppler_power(sample)
+            raw_panels[(row_idx, phase_idx)] = raw
+            raw_panel_list.append(raw)
+
+    normalized = _global_normalize01(raw_panel_list)
+    panel_lookup = dict(zip(raw_panels.keys(), normalized))
+```
+
+Then replace the panel draw line:
+
+```python
+            rd = _range_doppler(sample)
+```
+
+with:
+
+```python
+            rd = panel_lookup[(row, phase_idx)]
+```
+
+And update the colorbar label to make the scale claim explicit:
+
+```python
+        cbar.set_label("shared normalized log Doppler magnitude", fontsize=7.4)
+```
+
+This makes Fig. 7 scientifically cleaner: a bright positive panel actually means “bright relative to the other panels,” not merely “bright relative to itself.”
+
+## Patch 4: make Fig. 3 calibration a reliability plot, not just bin counts
+
+The calibration panel in Fig. 3 currently shows mostly one giant bin-count bar, which does not visually prove calibration. Replace the calibration-bin bar chart in `figure_kpi_ranking()` with a reliability view.
+
+Find this section:
+
+```python
+    cal_ax.bar(x, counts, color=PALE_BLUE, edgecolor=BLUE, linewidth=0.8)
+    ...
+    cal_ax.set_ylabel("Bin count", fontsize=8.0)
+    cal_ax.set_title("Calibration bin counts", fontsize=9.4, weight="bold")
+```
+
+Replace the whole calibration panel body with:
+
+```python
+    conf = [_safe_float(row.get("mean_score")) for row in bins]
+    empirical = [_safe_float(row.get("empirical_positive_rate")) for row in bins]
+    counts = [_safe_float(row.get("count")) for row in bins]
+
+    valid = [
+        (c, e, n)
+        for c, e, n in zip(conf, empirical, counts)
+        if math.isfinite(c) and math.isfinite(e) and n > 0
+    ]
+
+    cal_ax.plot([0.0, 1.0], [0.0, 1.0], color=GRID, linewidth=1.2, linestyle="--")
+    if valid:
+        vx, vy, vn = zip(*valid)
+        sizes = [max(18.0, min(180.0, 4.0 * math.sqrt(n))) for n in vn]
+        cal_ax.scatter(vx, vy, s=sizes, color=BLUE, edgecolor=INK, linewidth=0.6, alpha=0.80)
+
+        for c, e, n in valid:
+            if n >= max(counts) * 0.15:
+                cal_ax.text(c, e + 0.035, f"n={int(n)}", ha="center", fontsize=5.8, color=MUTED)
+
+    cal_ax.set_xlim(-0.02, 1.02)
+    cal_ax.set_ylim(-0.02, 1.02)
+    cal_ax.set_xlabel("Mean predicted probability", fontsize=8.0)
+    cal_ax.set_ylabel("Empirical positive rate", fontsize=8.0)
+    cal_ax.set_title("Reliability by bin", fontsize=9.4, weight="bold")
+    cal_ax.text(
+        0.98,
+        0.08,
+        f"Brier {selected_row.get('brier_score', float('nan')):.3f}\nECE {selected_row.get('ece', float('nan')):.3f}",
+        transform=cal_ax.transAxes,
+        fontsize=7.0,
+        color=MUTED,
+        ha="right",
+        va="bottom",
+    )
+    cal_ax.xaxis.grid(True, color=GRID, linewidth=0.7)
+    cal_ax.yaxis.grid(True, color=GRID, linewidth=0.7)
+```
+
+The count information stays present through point size and `n=` labels, but the panel now answers the actual calibration question.
+
+## Patch 5: fix Fig. 4’s overloaded legend and AP/recall ambiguity
+
+In `figure_phase_kpi()`, the left panel uses bars for AP and a red line segment for fixed-FPR recall, but the legend only explains the bars. Add an explicit recall handle.
+
+After the AP bars and red recall markers are drawn, replace the legend call with:
+
+```python
+    recall_handle = Line2D(
+        [0],
+        [0],
+        color=RED,
+        linewidth=2.0,
+        label="selected Recall@≤1%FPR",
+    )
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(
+        handles + [recall_handle],
+        labels + ["selected Recall@≤1%FPR"],
+        loc="upper left",
+        fontsize=6.8,
+        frameon=False,
+    )
+```
+
+For the false-alarm panel, shorten method labels and family labels:
+
+```python
+    fa_ax.set_yticklabels(
+        [_friendly_method(method) for method in selected_methods],
+        fontsize=6.6,
+    )
+```
+
+And inside the family loop, change the legend label:
+
+```python
+                label=_friendly_family(family) if family not in seen_families else None,
+```
+
+This keeps the false-alarm family breakdown, but makes it readable at IEEE column scale.
+
+## Patch 6: make Fig. 8 either column-native or two-column
+
+Right now Fig. 8 is too small in the compiled paper. The code builds it as `figsize=(7.6, 4.8)` and the paper includes it as a single-column figure, so the text gets crushed. 
+
+Use one of these two approaches.
+
+For a single-column figure, replace the start of `figure_locked_algorithm()` with:
+
+```python
+    fig, ax = plt.subplots(figsize=(3.55, 2.65), constrained_layout=True)
+    fig.suptitle("KTH compare-only anchor", fontsize=8.8, weight="bold")
+    ax.set_title("Measured-anchor z-score check", fontsize=7.4, weight="bold")
+```
+
+Then after computing `values`, `q10`, and `q90`, add a symmetric x-axis:
+
+```python
+    finite_extent = [
+        abs(v)
+        for v in list(values) + list(q10) + list(q90)
+        if math.isfinite(v)
+    ]
+    max_abs = max(finite_extent) if finite_extent else 1.0
+    max_abs = max(1.0, max_abs)
+    ax.axvline(0.0, color=INK, linewidth=0.8)
+    ax.set_xlim(-1.08 * max_abs, 1.08 * max_abs)
+```
+
+Replace the long note text inside the axes with a single footer:
+
+```python
+    fig.text(
+        0.02,
+        0.01,
+        "Compare-only; no positive-class truth transfer.",
+        fontsize=5.8,
+        color=MUTED,
+    )
+```
+
+For a two-column figure instead, leave the Python size larger and change the LaTeX from `figure` to `figure*` for Fig. 8. The single-column code patch is safer because it does not disturb IEEE float placement.
+
+## Patch 7: save vector files for non-heatmap figures while keeping required PNGs
+
+Most figures are text-heavy; PNG rasterization makes labels fuzzy after LaTeX scaling. Keep PNGs because validation currently requires those names, but also emit PDF versions for line/bar/diagram figures. The validation script explicitly checks the required PNG files, so do not remove them. 
+
+Modify `_save_figure()`:
+
+```python
+RASTER_ONLY_FIGURES = {"iq_negative_samples.png"}
+```
+
+Then replace `_save_figure()` with:
+
+```python
+def _save_figure(fig: Any, filename: str) -> Path:
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+    path = FIGURE_DIR / filename
+    metadata = {"Software": "EchoForge paper/generate_figures_major_upgrade_v2.py"}
+    description = f"sources={_source_note(filename)}"
+    if FIGURE_FALLBACK_NOTES.get(filename):
+        description += f"; fallback={_fallback_note(filename)}"
+    metadata["Description"] = description
+
+    fig.savefig(
+        path,
+        bbox_inches="tight",
+        pad_inches=0.06,
+        dpi=360,
+        metadata=metadata,
+    )
+
+    if filename not in RASTER_ONLY_FIGURES:
+        pdf_path = FIGURE_DIR / f"{Path(filename).stem}.pdf"
+        fig.savefig(
+            pdf_path,
+            bbox_inches="tight",
+            pad_inches=0.06,
+            metadata=metadata,
+        )
+
+    plt.close(fig)
+    return path
+```
+
+Because the LaTeX source uses extensionless `\includegraphics{...}` for these assets, PDF-backed figure inclusion should work naturally once the PDF files exist, while the PNGs remain available for validation.
+
+## Patch 8: remove the stale figure renderer or make it an explicit shim
+
+`paper/generate_figures.py` contains a large older renderer, but its `main()` delegates to `generate_figures_major_upgrade_v2`. That is confusing for future maintainers. Replace the body of `paper/generate_figures.py` with a tiny shim:
+
+```python
+#!/usr/bin/env python3
+"""Compatibility shim for the current EchoForge paper figure renderer."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from paper.generate_figures_major_upgrade_v2 import main
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+That makes the build path obvious and prevents accidental edits to dead plotting code.
+
+## Figure-by-figure feedback
+
+**Fig. 1: Signal chain.** The concept is right, but the model-card snapshot is too cramped; long strings spill into the left stack. Use `_wrap()` and widen the right-side boxes. The code currently uses fixed diagram coordinates and long unwrapped `card_lines`, which is exactly why the waveform and receiver-impairment lines collide. 
+
+**Fig. 2: Scenario balance and leakage.** Good content, but too many small panels with tiny labels. Keep split, hard-negative family, leakage checks, and marginal imbalance. Move site/range/aspect/noise into a compact 2×2 or table-style panel, or use only top categories plus “other.” This figure should scream “no leakage, balanced enough,” not “look at eight small bar charts.”
+
+**Fig. 3: KPI.** This is the most important figure. The left primary KPI panel is good, but the rest should be cleaner: use reliability calibration instead of bin counts, make AP ranking horizontal and sorted, keep ROC low-FPR inset, and make the PR legend smaller or outside the axes. The paper’s text already frames LCB95 Recall@≤1%FPR as the headline metric and AP/ROC/calibration as diagnostics, so the figure should follow that hierarchy. 
+
+**Fig. 4: Phase and false alarms.** Add a legend entry for the red fixed-FPR recall line. The right stacked bars should be simplified: show top five methods, top five families, and roll the rest into “other.” The current legend and labels are doing too much.
+
+**Fig. 5: Component weights and controls.** The content is excellent because it makes the locked candidate auditable. But the right panel needs more whitespace and shorter labels. Also add a visual separator between “negative controls” and “positive controls,” because passive-RF-only outperforming the full locked candidate in AP/recall is a subtle point reviewers will notice. The table already documents those view-control numbers, so the figure should make the interpretation explicit rather than visually bury it. 
+
+**Fig. 6: Model card.** Fix the zero pulses/CRF bug immediately. This should be one of the strongest paper figures because it explains the synthetic assumptions. Right now it undermines Table I.
+
+**Fig. 7: Range-Doppler diagnostics.** Use shared normalization and consider choosing examples from evidence rather than hard-coded `sg_00016` and `sg_00000`. Hard-coded examples are acceptable for reproducibility, but better choices would be: highest-scoring true positive, hardest false negative or near-miss positive, and the single false positive family. The current panels look visually random and do not make the target/confuser difference obvious enough for a radar reviewer.
+
+**Fig. 8: KTH anchor.** Make it column-native or promote it to a two-column figure. It is currently too small to read and therefore does not earn its space.
+
+## Run this after patching
+
+```bash
+python3 paper/generate_figures_major_upgrade_v2.py --strict
+
+PAPER_OUT_DIR=target/paper bash paper/build.sh
+
+python3 paper/validate_paper.py \
+  --tex paper/echoforge_ieee.tex \
+  --bib paper/references.bib \
+  --pdf target/paper/echoforge_ieee.pdf \
+  --figures-dir paper/figures \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+```
+
+The big win is not making the plots prettier; it is making them **harder for a reviewer to misread**. Fix Fig. 6’s incorrect values, fix Fig. 7’s shared-scale mismatch, and simplify the crowded KPI/false-alarm panels. Those changes will make the benchmark feel much more rigorous without changing the underlying claims.
+

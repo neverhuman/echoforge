@@ -1,0 +1,39 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Gull / tern class used as a coastal bird confuser.
+id: "ef:object_card:gull-tern-hard-negative:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: gull-tern-hard-negative
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Radar_ornithology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-22T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Gull / Tern Hard Negative"
+object_family: biological
+geometry_variant: gull-tern
+material_variant: biological-tissue
+dimensions_m:
+  x: 0.24
+  y: 0.48
+  z: 0.14
+tags:
+  - hard_negative
+  - biological
+  - bird
+  - gull
+  - tern
+  - wildlife_confuser

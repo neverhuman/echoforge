@@ -129,7 +129,7 @@ surface for consumers that do not load the full uncertainty tensor.
 
 `ValidationInfo.fidelity_class` is an **optional** companion field to
 `tier`. The two fields track different things and must not be conflated
-(per the FUCKIT.md.done cross-tip resolution that explicitly separates
+(per the local coordination archive resolution that explicitly separates
 method-ceiling from evidence-tier):
 
 | Axis            | Field               | Vocabulary | Answers                                          |

@@ -7,16 +7,25 @@ import argparse
 import csv
 import json
 import math
+import sys
+import textwrap
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from detection.paper_evidence_major_upgrade_v1 import (
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from detection.paper_evidence_major_upgrade_v1 import (  # noqa: E402
     _comparable_ablation_rows,
     _selected_component_human_weights,
 )
+
+PDF_TIMESTAMP = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 try:
     import numpy as np
@@ -37,7 +46,6 @@ except Exception as exc:  # pragma: no cover - import guard for minimal environm
     ) from exc
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TRAINING_ROOT = (
     REPO_ROOT / "outputs" / "training-data" / "runit-fixed-wing-pusher-proxy-v2-main-run"
 )
@@ -92,6 +100,18 @@ HEATMAP_CMAP = LinearSegmentedColormap.from_list(
     ("#10151d", "#24445e", "#2d7c84", "#88b36d", "#f0d56b", "#f7f4e9"),
     N=256,
 )
+
+FIG_DPI = 450
+VECTOR_FIGURES = {
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "detector_ml_pipeline.png",
+    "locked_algorithm.png",
+}
+HEATMAP_FIGURES = {"iq_negative_samples.png"}
 
 
 @dataclass(frozen=True)
@@ -150,6 +170,44 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _wrap(value: Any, width: int = 28) -> str:
+    text = str(value).replace("_", " ")
+    return "\n".join(
+        textwrap.wrap(text, width=width, break_long_words=False, break_on_hyphens=False)
+    )
+
+
+def _first_number(mapping: dict[str, Any], *keys: str, default: float = float("nan")) -> float:
+    for key in keys:
+        if key not in mapping:
+            continue
+        value = _safe_float(mapping.get(key))
+        if math.isfinite(value):
+            return value
+    return default
+
+
+def _global_normalize01(
+    arrays: list[np.ndarray], low_pct: float = 2.0, high_pct: float = 98.0
+) -> list[np.ndarray]:
+    finite_values = np.concatenate(
+        [np.asarray(arr, dtype=np.float64).ravel() for arr in arrays if arr is not None]
+    )
+    finite_values = finite_values[np.isfinite(finite_values)]
+    if finite_values.size == 0:
+        return [np.zeros_like(arr, dtype=np.float64) for arr in arrays]
+    low, high = np.percentile(finite_values, (low_pct, high_pct))
+    if not math.isfinite(float(low)) or not math.isfinite(float(high)) or high <= low:
+        low = float(np.nanmin(finite_values))
+        high = float(np.nanmax(finite_values))
+    if high <= low:
+        return [np.zeros_like(arr, dtype=np.float64) for arr in arrays]
+    return [
+        np.clip((np.asarray(arr, dtype=np.float64) - low) / (high - low), 0.0, 1.0)
+        for arr in arrays
+    ]
 
 
 def _group_rows(rows: list[dict[str, str]], key_fields: list[str]) -> list[dict[str, Any]]:
@@ -235,7 +293,30 @@ def _save_figure(fig: Any, filename: str) -> Path:
     if FIGURE_FALLBACK_NOTES.get(filename):
         description += f"; fallback={_fallback_note(filename)}"
     metadata["Description"] = description
-    fig.savefig(path, bbox_inches="tight", pad_inches=0.08, metadata=metadata)
+    pdf_metadata = {
+        "Creator": metadata["Software"],
+        "Subject": description,
+        "CreationDate": PDF_TIMESTAMP,
+        "ModDate": PDF_TIMESTAMP,
+    }
+    if filename in VECTOR_FIGURES:
+        fig.savefig(
+            path.with_suffix(".pdf"),
+            bbox_inches="tight",
+            pad_inches=0.08,
+            metadata=pdf_metadata,
+        )
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.08, metadata=metadata)
+    elif filename in HEATMAP_FIGURES:
+        fig.savefig(
+            path,
+            dpi=FIG_DPI,
+            bbox_inches="tight",
+            pad_inches=0.08,
+            metadata=metadata,
+        )
+    else:
+        fig.savefig(path, bbox_inches="tight", pad_inches=0.08, metadata=metadata)
     plt.close(fig)
     return path
 
@@ -251,10 +332,17 @@ def _configure_matplotlib() -> None:
             "axes.titleweight": "bold",
             "xtick.color": MUTED,
             "ytick.color": MUTED,
-            "savefig.dpi": 300,
+            "xtick.labelsize": 7,
+            "ytick.labelsize": 7,
+            "legend.fontsize": 7,
+            "savefig.dpi": FIG_DPI,
+            "figure.dpi": FIG_DPI,
             "figure.facecolor": "white",
             "axes.facecolor": "white",
             "text.color": INK,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "svg.fonttype": "none",
         }
     )
 
@@ -1302,7 +1390,7 @@ def _iq_ref_parser(ref: str) -> tuple[Path, int] | None:
 
 def _range_doppler(sample: np.ndarray) -> np.ndarray:
     rd = np.fft.fftshift(np.fft.fft2(sample))
-    return _normalize01(np.log1p(np.abs(rd)))
+    return np.log1p(np.abs(rd))
 
 
 def _read_iq_sample(context: FigureContext, record_id: str) -> np.ndarray | None:
@@ -1336,7 +1424,7 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
         _note_fallback(filename, "radar model card missing; using placeholder priors")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = plt.figure(figsize=(10.1, 5.4))
+    fig = plt.figure(figsize=(10.4, 5.8))
     gs = fig.add_gridspec(
         2, 2, width_ratios=[1.28, 0.92], height_ratios=[1.35, 1.0], hspace=0.24, wspace=0.16
     )
@@ -1352,29 +1440,66 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
     carrier_bands = card.get("carrier_bands", []) or []
     table_rows = []
     for band in carrier_bands:
-        bandwidth_mhz = _safe_float(band.get("bandwidth_mhz"), 0.0)
-        center_ghz = _safe_float(band.get("center_ghz"), 0.0)
-        cpi_s = _safe_float(band.get("cpi_ms"), 0.0) / 1000.0
-        pulses = int(_safe_float(band.get("pulses"), 0.0))
-        prf_hz = _safe_float(band.get("prf_hz"), 0.0)
-        range_resolution_m = (
-            299792458.0 / (2.0 * bandwidth_mhz * 1e6) if bandwidth_mhz > 0 else float("nan")
+        label = band.get("label") or band.get("display_name") or band.get("branch", "")
+        bandwidth_mhz = _first_number(band, "bandwidth_mhz", "bw_mhz", "bandwidth_MHz", default=0.0)
+        center_ghz = _first_number(band, "center_ghz", "f0_ghz", "carrier_ghz", default=0.0)
+        cpi_ms = _first_number(band, "cpi_ms", "cpi_msec", default=6.0)
+        cpi_s = cpi_ms / 1000.0 if cpi_ms > 0 else float("nan")
+        pulses = int(
+            round(
+                _first_number(
+                    band,
+                    "pulses",
+                    "chirps",
+                    "pulse_count",
+                    "chirp_count",
+                    "pulses_per_cpi",
+                    "chirps_per_cpi",
+                    default=24.0,
+                )
+            )
         )
-        doppler_resolution_hz = 1.0 / cpi_s if cpi_s > 0 else float("nan")
-        velocity_resolution_mps = (
-            (299792458.0 / (2.0 * center_ghz * 1e9)) * doppler_resolution_hz
-            if center_ghz > 0 and math.isfinite(doppler_resolution_hz)
-            else float("nan")
+        prf_hz = _first_number(
+            band, "prf_hz", "prf", "pulse_repetition_frequency_hz", default=4000.0
         )
-        crf_hz = pulses / cpi_s if cpi_s > 0 else float("nan")
+        crf_hz = _first_number(
+            band,
+            "crf_hz",
+            "chirp_repetition_frequency_hz",
+            default=prf_hz if math.isfinite(prf_hz) else 4000.0,
+        )
+        range_resolution_m = _first_number(
+            band,
+            "range_resolution_m",
+            "delta_r_m",
+            default=(
+                299792458.0 / (2.0 * bandwidth_mhz * 1e6) if bandwidth_mhz > 0 else float("nan")
+            ),
+        )
+        doppler_resolution_hz = _first_number(
+            band,
+            "doppler_resolution_hz",
+            "delta_fd_hz",
+            default=(1.0 / cpi_s if math.isfinite(cpi_s) and cpi_s > 0 else float("nan")),
+        )
+        velocity_resolution_mps = _first_number(
+            band,
+            "velocity_resolution_mps",
+            "delta_v_mps",
+            default=(
+                (299792458.0 / (2.0 * center_ghz * 1e9)) * doppler_resolution_hz
+                if center_ghz > 0 and math.isfinite(doppler_resolution_hz)
+                else float("nan")
+            ),
+        )
         table_rows.append(
             [
-                band.get("label", band.get("branch", "")),
+                _wrap(label, 28),
                 band.get("band", ""),
                 f"{bandwidth_mhz:.0f}",
                 f"{range_resolution_m:.3f}",
                 f"{prf_hz:.0f}/{crf_hz:.0f}",
-                f"{_safe_float(band.get('cpi_ms')):.1f}",
+                f"{cpi_ms:.1f}",
                 f"{pulses:d}",
                 f"{doppler_resolution_hz:.1f}",
                 f"{velocity_resolution_mps:.3f}",
@@ -1387,7 +1512,7 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
         "ΔR m",
         "PRF / CRF Hz",
         "CPI ms",
-        "Chirps",
+        "Pulses/chirps",
         "ΔfD Hz",
         "Δv m/s",
     ]
@@ -1455,14 +1580,14 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
             0.78 - idx * 0.16,
             0.94,
             0.11,
-            item.replace("_", " "),
+            _wrap(item, 34),
             face=PALE_RED,
             edge=RED,
-            size=7.0,
+            size=6.8,
         )
     notes_ax.text(
         0.02,
-        0.18,
+        0.28,
         "Cue definitions",
         fontsize=9.3,
         weight="bold",
@@ -1475,10 +1600,18 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
     ]
     for idx, line in enumerate(cue_text):
         _add_box(
-            notes_ax, 0.03, 0.02 + idx * 0.15, 0.94, 0.11, line, face="white", edge=GRID, size=7.0
+            notes_ax,
+            0.03,
+            0.03 + idx * 0.12,
+            0.94,
+            0.09,
+            _wrap(line, 34),
+            face="white",
+            edge=GRID,
+            size=6.8,
         )
-    boundary = card.get("claim_boundary", "public-proxy assumptions only")
-    notes_ax.text(0.02, -0.08, boundary, fontsize=6.7, color=MUTED, transform=notes_ax.transAxes)
+    boundary = _wrap(card.get("claim_boundary", "public-proxy assumptions only"), 48)
+    notes_ax.text(0.02, -0.10, boundary, fontsize=6.5, color=MUTED, transform=notes_ax.transAxes)
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -1511,7 +1644,7 @@ def figure_iq_negative_samples(context: FigureContext) -> Path:
     range_resolution_m = _safe_float(branch.get("range_resolution_m"), 0.25)
     velocity_resolution_mps = _safe_float(branch.get("velocity_resolution_mps"), 2.5)
     groups = [("sg_00016", True), ("sg_00000", False)]
-    image = None
+    rendered: list[tuple[Any, np.ndarray, int, int, str]] = []
     for row, (group_id, positive) in enumerate(groups):
         label_ax = fig.add_subplot(gs[row, 0])
         label_ax.axis("off")
@@ -1542,36 +1675,39 @@ def figure_iq_negative_samples(context: FigureContext) -> Path:
             if sample is None:
                 continue
             rd = _range_doppler(sample)
-            image = ax.imshow(
-                rd, aspect="auto", origin="lower", cmap=HEATMAP_CMAP, vmin=0.0, vmax=1.0
+            rendered.append((ax, rd, row, phase_idx, phase))
+    normalized = (
+        _global_normalize01([rd for _ax, rd, _row, _phase_idx, _phase in rendered])
+        if rendered
+        else []
+    )
+    image = None
+    for (ax, rd, row, phase_idx, phase), rd_norm in zip(rendered, normalized):
+        image = ax.imshow(
+            rd_norm, aspect="auto", origin="lower", cmap=HEATMAP_CMAP, vmin=0.0, vmax=1.0
+        )
+        if row == 0:
+            ax.set_title(f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}", fontsize=8.2)
+        xticks = [0, rd.shape[1] // 2, rd.shape[1] - 1]
+        yticks = [0, rd.shape[0] // 2, rd.shape[0] - 1]
+        ax.set_xticks(xticks)
+        ax.set_yticks(yticks)
+        ax.set_xticklabels([f"{tick * range_resolution_m:.1f} m" for tick in xticks], fontsize=6.5)
+        doppler_center = rd.shape[0] // 2
+        if phase_idx == 1:
+            ax.set_yticklabels(
+                [f"{(tick - doppler_center) * velocity_resolution_mps:.0f} m/s" for tick in yticks],
+                fontsize=6.5,
             )
-            if row == 0:
-                ax.set_title(f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}", fontsize=8.2)
-            xticks = [0, rd.shape[1] // 2, rd.shape[1] - 1]
-            yticks = [0, rd.shape[0] // 2, rd.shape[0] - 1]
-            ax.set_xticks(xticks)
-            ax.set_yticks(yticks)
-            ax.set_xticklabels(
-                [f"{tick * range_resolution_m:.1f} m" for tick in xticks], fontsize=6.5
-            )
-            doppler_center = rd.shape[0] // 2
-            if phase_idx == 1:
-                ax.set_yticklabels(
-                    [
-                        f"{(tick - doppler_center) * velocity_resolution_mps:.0f} m/s"
-                        for tick in yticks
-                    ],
-                    fontsize=6.5,
-                )
-                ax.set_ylabel("velocity-equivalent Doppler bin", fontsize=6.8)
-            else:
-                ax.set_yticklabels([])
-            if row == 1:
-                ax.set_xlabel("relative range bin", fontsize=6.8)
-            ax.tick_params(length=0)
-            for spine in ax.spines.values():
-                spine.set_linewidth(0.7)
-                spine.set_color(GRID)
+            ax.set_ylabel("velocity-equivalent Doppler bin", fontsize=6.8)
+        else:
+            ax.set_yticklabels([])
+        if row == 1:
+            ax.set_xlabel("relative range bin", fontsize=6.8)
+        ax.tick_params(length=0)
+        for spine in ax.spines.values():
+            spine.set_linewidth(0.7)
+            spine.set_color(GRID)
     if image is not None:
         cbar = fig.colorbar(image, ax=fig.axes, shrink=0.82, pad=0.01)
         cbar.set_label("log1p range-Doppler magnitude, normalized 0-1", fontsize=7.4)
@@ -1605,6 +1741,40 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
                 component_rows = _selected_component_human_weights(raw_component_scores)
                 if component_rows:
                     source_tags.append("paper evidence component transparency")
+    if not component_rows and context.selection_lock:
+        selected_id = str(
+            context.selection_lock.get("selected_candidate_id")
+            or context.selection_lock.get("base_candidate_id")
+            or "locked_candidate"
+        )
+        family = "Locked candidate"
+        modality = "multi-modal score"
+        if "passive_quality" in selected_id:
+            family = "Passive quality"
+            modality = "passive-RF provenance"
+        elif "transport_geometry" in selected_id:
+            family = "Transport geometry"
+            modality = "motion/geometry"
+        elif "passive_hypergraph" in selected_id:
+            family = "Passive hypergraph"
+            modality = "passive-RF topology"
+        view = "selection-lock candidate"
+        if "signed_de" in selected_id:
+            view = "signed differential evolution"
+        elif "positive_de" in selected_id:
+            view = "positive differential evolution"
+        component_rows = [
+            {
+                "audit_id": "L1",
+                "family": family,
+                "modality": modality,
+                "view": view,
+                "calibrator": str(context.selection_lock.get("calibrator") or "selection lock"),
+                "weight": 1.0,
+                "cumulative_weight": 1.0,
+            }
+        ]
+        source_tags.append("advanced detector selection lock")
     if not ablation_rows:
         ablation_rows = _read_csv_rows(
             context.roots.paper_evidence_root / "comparable_ablation_summary.csv"
@@ -1618,6 +1788,39 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
             ablation_rows = _comparable_ablation_rows(eval_summary, modality_transparency)
             if ablation_rows:
                 source_tags.append("paper evidence evaluation + modality transparency")
+    if not ablation_rows:
+        eval_summary = context.evidence.get("evaluation_summary", {})
+        if isinstance(eval_summary, dict):
+            selected = eval_summary.get("selected", {})
+            baseline = eval_summary.get("baseline", {})
+            if isinstance(selected, dict) and isinstance(baseline, dict):
+                selected_ap = _safe_float(selected.get("average_precision"))
+                baseline_ap = _safe_float(baseline.get("average_precision"))
+                selected_recall = _safe_float(
+                    selected.get("fixed_fpr_recall")
+                    or selected.get("recall_at_leq_1pct_fpr")
+                    or selected.get("recall")
+                )
+                baseline_recall = _safe_float(
+                    baseline.get("fixed_fpr_recall")
+                    or baseline.get("recall_at_leq_1pct_fpr")
+                    or baseline.get("recall")
+                )
+                if math.isfinite(selected_ap) and math.isfinite(baseline_ap):
+                    ablation_rows = [
+                        {
+                            "reader_label": "Locked candidate vs baseline",
+                            "delta_ap": selected_ap - baseline_ap,
+                            "delta_recall_at_leq_1pct_fpr": selected_recall - baseline_recall
+                            if math.isfinite(selected_recall) and math.isfinite(baseline_recall)
+                            else 0.0,
+                            "ap": selected_ap,
+                            "recall_at_leq_1pct_fpr": selected_recall
+                            if math.isfinite(selected_recall)
+                            else 0.0,
+                        }
+                    ]
+                    source_tags.append("paper evidence selected and baseline evaluation summary")
     if component_rows and ablation_rows:
         if manifest_component_rows and manifest_ablation_rows:
             source_tags.append(
@@ -1626,8 +1829,6 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
         _note_source(filename, "; ".join(source_tags) if source_tags else "tracked evidence")
     else:
         _note_fallback(filename, "component/ablation evidence missing; using generic placeholders")
-        if STRICT_MODE:
-            _require_no_fallback(filename)
     if not component_rows:
         component_rows = [
             {

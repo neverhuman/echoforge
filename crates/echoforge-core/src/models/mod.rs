@@ -118,7 +118,7 @@ pub struct MaterialCard {
     pub conductivity_s_per_m: f64,
     #[serde(default)]
     pub roughness_m: f64,
-    // --- v2 additive fields (FUCKIT.md.done section B; material-card-v2 packet).
+    // --- v2 additive fields (coordination archive section B; material-card-v2 packet).
     // All Option<...> and skipped when None so the canonical JSON
     // serialization, golden SHA-256 hashes, and v1 fixtures remain stable.
     #[serde(default, skip_serializing_if = "Option::is_none")]

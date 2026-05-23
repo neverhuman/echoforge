@@ -1,13 +1,13 @@
-# Shahed-136/Geran-2 Main Run
+# Fixed-Wing Pusher-Prop Main Run
 
 This page documents the `runit` main-run generator and detector baseline for a
-strict-open Shahed-136/Geran-2 public-proxy detection corpus. The corpus is
+strict-open fixed-wing pusher-prop public-proxy detection corpus. The corpus is
 synthetic, reproducible, and audit-oriented. It does not assert measured
 platform behavior, classified-fidelity behavior, or deployment performance.
 
 ## Scope
 
-- Positive class: `shahed_136_geran_2_public_proxy`.
+- Positive class: `fixed_wing_pusher_prop_public_proxy`.
 - Negative class: `confuser_or_sensor_artifact`.
 - Scenario groups: 10,000 in the full run.
 - Phase records: 30,000, because each group is sliced into three locked phases.
@@ -158,8 +158,9 @@ records `holdout_fit_record_count: 0`.
 - `layered_fusion_c2`.
 
 Each method has rows for all records, train/CV, holdout, and each holdout phase.
-Thresholded metrics use a threshold selected on train/CV by maximum F1. Ranking
-metrics are ROC AUC and average precision. The values are synthetic benchmark
+Thresholded metrics use a threshold selected on train/CV by maximum F1. The
+paper-facing headline KPI is `LCB95 Recall@≤1%FPR`; ROC AUC and average
+precision remain diagnostic ranking metrics. The values are synthetic benchmark
 evidence only, not field-performance claims.
 
 ## Leakage Guard
@@ -172,10 +173,10 @@ joining, but the manifest marks them as metadata rather than model features.
 The unit tests in `detection/real_data/tests/test_main_run.py` verify:
 
 - run counts and phase windows,
-- Shahed-only positive labeling,
+- fixed-wing public-proxy positive labeling,
 - scenario-group split and fold locking,
 - raw stream alignment,
 - detector-view record identity,
 - leakage guard feature columns,
 - fusion holdout isolation,
-- performance metrics for all detector branches.
+- performance metrics for all detector branches, with the low-FPR KPI as the headline guardrail.

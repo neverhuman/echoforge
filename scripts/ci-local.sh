@@ -20,6 +20,9 @@ bash ops/ci/receipts.sh
 ci_header "security lane"
 bash ops/ci/security.sh
 
+ci_header "score lane"
+run_lane score
+
 ci_header "web-smoke lane"
 bash ops/ci/web-smoke.sh
 

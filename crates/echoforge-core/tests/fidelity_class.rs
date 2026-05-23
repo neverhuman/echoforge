@@ -1,7 +1,7 @@
 // Fidelity-class field round-trip tests (fidelity-class-field packet).
 //
 // The `fidelity_class` field on `ValidationInfo` is an additive optional
-// method-ceiling tier introduced per the FUCKIT.md.done cross-tip
+// method-ceiling tier introduced per the local coordination archive
 // resolution that separates method-ceiling from
 // evidence-tier (evidence tier aliases / `ValidationInfo.tier`). This test file
 // pins three invariants the packet ships:

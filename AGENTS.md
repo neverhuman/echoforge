@@ -45,7 +45,7 @@ EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. T
 - If a dependency, license, or bootstrap assumption blocks work, stop and report it instead of widening scope.
 
 ## Coordination
-- Multi-agent work coordinates via `FUCKIT.md` (local-only, gitignored).
+- Multi-agent work coordinates via a local-only, gitignored scratchpad.
 - Protocol spec at `docs/comms-protocol.md` (committed). Read before claiming a slot.
 - Atomic slot claim by editing one row in the Work Slots table. Conflicts resolve by quote-and-respond in `## Messages`.
 

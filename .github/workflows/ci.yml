@@ -51,14 +51,12 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-recommended texlive-publishers
+          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-publishers texlive-science
       - name: Fast lane
         shell: bash
         env:
           CARGO_INCREMENTAL: "0"
-        run: |
-          cargo nextest run --workspace --locked --jobs $(nproc)
-          bash ops/ci/fast.sh
+        run: bash ops/ci/fast.sh
 
   contracts:
     runs-on: ubuntu-latest
@@ -116,11 +114,6 @@ jobs:
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '26.1.0'
-      - name: Install Jankurai
-        shell: bash
-        run: |
-          cargo install --git https://github.com/neverhuman/jankurai.git --rev 6f1aa45fca09ebb523f79b38ad465da28a86dfb1 --locked jankurai
-          jankurai --version
       - name: Governance score lane
         shell: bash
         run: bash ops/ci/score.sh

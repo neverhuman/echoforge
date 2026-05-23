@@ -1,18 +1,29 @@
-# Paper Feedback Coverage Matrix
+# Paper Feedback V3 Coverage Matrix
 
-This matrix maps the major reviewer concerns in `tips/paper_feedback/` to the sections and artifacts that address them. It is a coverage artifact, not a claim that every concern is fully solved in the measured sense.
+This matrix summarizes how the paper repair addresses actionable feedback in
+`tips/paper_feedback/v3/`. The generated evidence lane also emits the full
+machine-readable matrix under
+`outputs/paper-evidence/major-upgrade-v1/feedback_coverage_matrix.*`.
 
-| Theme | Feedback sources | Paper / evidence location | Status | Notes |
-| --- | --- | --- | --- | --- |
-| Claim boundary and named-platform wording | `tip1.txt`, `tip2.txt`, `tip3.txt` | Abstract, Claim Boundary, Limitations | covered | Paper-facing text stays on the fixed-wing pusher-prop public proxy boundary and avoids field-truth claims. |
-| Radar model card and physical units | `tip1.txt`, `tip2.txt`, `tip3.txt` | Radar and Multimodal Generative Model; Table `tab:radar` | covered | The paper now states carrier bands, bandwidths, PRF/CPI, pulse counts, range bins, and nominal resolution assumptions. |
-| Prior / parameter tables | `tip1.txt`, `tip2.txt` | Radar and Multimodal Generative Model; Evidence Ledger | covered | Model-card and prior summaries are surfaced as readable tables and evidence files. |
-| Measured-anchor comparison | `tip1.txt`, `tip2.txt`, `tip3.txt` | Raw Samples and Compare-Only Anchor | covered | KTH is explicitly compare-only, with no positive-truth inference. |
-| Leakage controls and split isolation | `tip1.txt`, `tip2.txt`, `tip3.txt` | Scenario Design and Detector Views; Validation Tiers; Evidence Ledger | covered | Group-locked split, denylist, canary, nearest-neighbor scan, and holdout isolation are explicit. |
-| Confidence intervals and uncertainty | `tip2.txt`, `tip3.txt` | Evaluation Protocol; Primary KPI; holdout summary tables | covered | The primary KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%. |
-| Calibration and reliability | `tip1.txt`, `tip2.txt`, `tip3.txt` | Evaluation Protocol; KPI figure | covered | Brier score, ECE, and calibration bins remain visible as diagnostics. |
-| Locked-candidate explanation | `tip1.txt`, `tip2.txt`, `tip3.txt` | Locked-Candidate Transparency and Ablation Results | covered | Component scores, aliases, ablations, and locked-candidate framing are explicit. |
-| Low-FPR operating behavior | `tip2.txt`, `tip3.txt` | Primary KPI; Holdout summary; KPI figure | covered | Low-FPR recall is elevated to the headline KPI rather than buried in metric clutter. |
-| False-alarm families and robustness | `tip1.txt`, `tip2.txt`, `tip3.txt` | Phase diagnostics; false-alarm family breakdown | covered | Birds, RC aircraft, weather, wind turbines, clutter, multipath, and RFI remain first-class robustness slices. |
-| Limitations and non-claims | `tip1.txt`, `tip2.txt`, `tip3.txt` | Limitations and Prohibited Inferences | covered | The paper keeps the synthetic/public-proxy boundary intact and does not claim field truth. |
-| Generative-origin audit | `tip1.txt`, `tip3.txt` | Evidence Ledger; `paper/docs/generative_origin_manifest.json` | covered | The LOC audit is an auditable self-classification, not authorship proof. |
+| Tip | Action area | Status | Paper / evidence location |
+| --- | --- | --- | --- |
+| `tip1.txt` | Fig. 2, Fig. 3, Fig. 5, Fig. 6, Fig. 7, and Fig. 8 readability | addressed | Wide figures, physical axes, normalized anchor intervals |
+| `tip1.txt` | Table IV / Fig. 3 / Fig. 5 metric consistency | addressed | `evaluation_summary.json`, `comparable_ablation_summary.csv`, Table IV |
+| `tip1.txt` | Selected-threshold counts vs swept fixed-FPR metrics | addressed | `selected_threshold_confusion_matrix.csv`, `primary_kpi_table.csv` |
+| `tip1.txt` | Group-level uncertainty and small positive holdout caution | addressed | `group_level_operating_metrics.csv`, Section IV, Limitations |
+| `tip1.txt` | Radar model specificity and physical units | addressed | `radar_model_card.json`, `radar_model_detail_rows.csv`, Section II |
+| `tip2.txt` | Strict-open definition and headline abstract result | addressed | Abstract, Claim Boundary |
+| `tip2.txt` | FMCW/chirp versus pulse/CPI terminology | addressed | Section II, `radar_model_detail_rows.csv` |
+| `tip2.txt` | Larger positive holdout / multi-seed evaluation | deferred | Limitations |
+| `tip2.txt` | Track-level false-alarm rate | deferred | Limitations |
+| `tip2.txt` | Canary wording as raw audit detection plus detector schema pass | addressed | Table VII, `detector_view_schema_evidence.csv` |
+| `tip3.txt` | Radar-first positioning and related work | addressed | Claim Boundary, Section II |
+| `tip3.txt` | ROC AUC vs AP tradeoff explanation | addressed | Abstract, main result paragraph, Table IV |
+| `tip3.txt` | Human-readable sorted component table | addressed | Table V, `selected_component_human_weights.csv` |
+| `tip3.txt` | Threshold source and metric basis | addressed | Table IV, `selected_threshold_confusion_matrix.csv` |
+| `tip4.txt` | Scenario and positive-only balance outputs | addressed | `scenario_balance_by_dimension.csv`, `positive_balance_by_dimension.csv` |
+| `tip4.txt` | Measured-anchor distance diagnostics | addressed | `anchor_distance_diagnostics.csv`, Fig. 8 |
+| `tip4.txt` | Expanded limitations and prohibited inferences | addressed | Limitations and Prohibited Inferences |
+| `tip1.txt` / `tip3.txt` | Fig. 6 chirp/CRF key compatibility | addressed | `paper/generate_figures_major_upgrade_v2.py`, `iq_drone_samples` |
+| `tip1.txt` / `tip3.txt` | Fig. 7 shared range-Doppler color scale | addressed | `paper/generate_figures_major_upgrade_v2.py`, `iq_negative_samples` |
+| `tip2.txt` / `tip4.txt` | Vector-backed non-heatmap figures and visual QA | addressed | `paper/figures/*.pdf`, `paper/validate_visuals.py` |

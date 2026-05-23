@@ -1,0 +1,39 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Seabird / cormorant class used as a marine-edge bird confuser.
+id: "ef:object_card:seabird-cormorant-hard-negative:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: seabird-cormorant-hard-negative
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Radar_ornithology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-22T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Seabird / Cormorant Hard Negative"
+object_family: biological
+geometry_variant: seabird-cormorant
+material_variant: biological-tissue
+dimensions_m:
+  x: 0.26
+  y: 0.52
+  z: 0.14
+tags:
+  - hard_negative
+  - biological
+  - bird
+  - seabird
+  - cormorant
+  - wildlife_confuser

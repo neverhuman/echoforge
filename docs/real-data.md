@@ -81,20 +81,23 @@ AUC is retained as a leakage diagnostic. The realism gate reports `no_go` when
 calibration, Pfa, lifecycle, or domain-holdout gates fail, even if AUC is high.
 Headline metrics for V4 readiness are phase Pd/Pfa, first-hit latency, track
 initiation, fragmentation, false-track and missed-track rates, calibration
-distance, and leave-domain-out robustness.
+distance, and leave-domain-out robustness. For the current paper lane, the
+headline KPI is `LCB95 Recall@≤1%FPR`, with false-positive burden retained as a
+guardrail.
 
 ## Claim Boundary
 
 Real-data anchors are public measured references for distribution comparisons.
 They do not create exact measured truth for any Iranian platform, proprietary
-sensor equivalence, classified fidelity, or deployment-performance claims.
+sensor equivalence, classified fidelity, operational route modeling, or
+deployment-performance claims.
 
-## KTH Application To Shahed/Iranian Public-Proxy Simulation
+## KTH Application To Fixed-Wing Public-Proxy Simulation
 
-KTH is used to harden EchoForge's Shahed/Iranian-drone public-proxy
-simulation only through distribution-distance and hard-negative realism. It is
-not a measured Shahed, Geran, or Iranian-platform dataset, and it is not used
-to claim operational detection range or proprietary sensor behavior.
+KTH is used to harden EchoForge's fixed-wing public-proxy simulation only
+through distribution-distance and hard-negative realism. It is not a measured
+platform dataset, and it is not used to claim operational detection range or
+proprietary sensor behavior.
 
 The local KTH adapter report for
 `data_SAAB_SIRS_77GHz_FMCW.npy` processed 75,868 segment rows:
@@ -130,5 +133,5 @@ hard-negative family is added later.
 
 This improves micro-Doppler energy and bandwidth overlap, bird/human confuser
 realism reporting, scan-gap/edge robustness reporting, and measured-anchor gap
-reporting. It does not improve exact Shahed signature truth, operational
+reporting. It does not improve exact platform-signature truth, operational
 detection range, proprietary sensor behavior, or classified fidelity.

@@ -74,8 +74,14 @@ real-data/
 # Claude Code agent worktrees (exact copies of source — exclude from tooling scans)
 .claude/worktrees/
 
+# Local-only coordination and scratch notes.
+/*.local.md
+/*.scratch.md
+/*.md.done
+/local sprint plan
+/local sprint chat
+
 # Generated governance artifacts (gitignore only; committed roll-up lives in agent/baselines/)
-FUCKIT.md
 agent/repo-score.json
 agent/repo-score.md
 

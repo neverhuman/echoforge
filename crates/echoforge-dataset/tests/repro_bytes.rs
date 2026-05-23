@@ -6,7 +6,7 @@
 //! of every file. Any mismatch (missing file on either side or differing
 //! bytes) fails the test.
 //!
-//! This is the Rust-side enforcement for the FUCKIT.md `repro-bytes-lane`
+//! This is the Rust-side enforcement for the `repro-bytes-lane`
 //! packet. The shell-side companion (`tools/repro_bytes.mjs`, wired into
 //! `just repro`) does the same check against the released CLI binary so a
 //! regression caught here also fails the CI lane.

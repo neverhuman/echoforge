@@ -2,13 +2,14 @@
 
 EchoForge is built by multiple autonomous agents working in parallel. To stay
 out of each other's way without a synchronous lock, agents coordinate via
-`FUCKIT.md` (local-only, gitignored) using the protocol described here.
+a local-only, gitignored coordination scratchpad using the protocol described
+here.
 
-This document is the source of truth. `FUCKIT.md` is the live state.
+This document is the source of truth. The local scratchpad is the live state.
 
 ## Files
 
-- `FUCKIT.md` — local-only scratchpad (gitignored). Carries live work-slot
+- Local coordination scratchpad — local-only and gitignored. Carries live work-slot
   state, blockers, handoffs, and an append-only message log. Two agents on
   the same machine see it; agents on different machines do not.
 - `docs/comms-protocol.md` (this file) — committed spec. New agents read it
@@ -18,9 +19,9 @@ This document is the source of truth. `FUCKIT.md` is the live state.
 - `.agents/receipts/<slice>/<UTC-timestamp>.md` — the durable, committed
   record of what each agent actually did.
 
-## Sections of FUCKIT.md
+## Sections of the Local Scratchpad
 
-Codex seeded `FUCKIT.md` with three free-form sections: `## Completed`,
+Codex seeds the local scratchpad with three free-form sections: `## Completed`,
 `## Pending`, `## Notes`. These are preserved as the informal log. The
 protocol below appends four structured sections after `## Notes`:
 

@@ -21,7 +21,7 @@
 //! traces enter the repo. No measured-truth claims — that is V5,
 //! reserved.
 //!
-//! Per the FUCKIT.md.done cross-tip resolution that separates
+//! Per the local coordination archive resolution that separates
 //! method-ceiling (fidelity F0–F5) from evidence-tier (validation
 //! V0–V5), the V4 gate is purely an evidence-tier evaluator and does
 //! NOT interact with the `fidelity_class` axis. The V0/V1/V2 gate in
