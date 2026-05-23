@@ -1,0 +1,570 @@
+I reviewed the uploaded PDF and the current GitHub paper lane. The active repo paper workflow is centered on `detection.paper_evidence_major_upgrade_v1`, `paper/generate_figures.py --strict`, `paper/build.sh --copy-tracked`, and `paper/validate_paper.py`, and the repo’s paper directory currently contains the TeX source plus the figure renderer and validators. ([GitHub][1]) I could not do a raw `git clone` through the sandbox DNS, but I did inspect the current repo tree and fetched the relevant paper/rendering/evidence source files through the GitHub tooling.
+
+I also prepared a copy-paste engineering patch spec with exact file-by-file edits here:
+
+[Download the full EchoForge figure/content patch spec](sandbox:/mnt/data/echoforge_visuals_content_patch_spec.md)
+
+The biggest problems are real and they are fixable. The PDF currently still presents the author as “EchoForge Project” and uses “locked candidate” throughout the abstract/main result framing.  Fig. 3 is too dense, has overlapping calibration labels, and still uses “selected” in the curve legend.  Fig. 4’s “strange lines” are the red horizontal ticks showing selected-candidate Recall@≤1%FPR, but they are unlabeled and visually look like rendering artifacts above the AP bars.  Fig. 5 is useful but still says “locked candidate,” uses inconsistent red/green styling, and needs an EI framing plus explicit guardrails because Table IX shows passive-RF-only has higher AP and fixed-FPR recall than the full candidate but worse selected-threshold F1/ECE.  Fig. 6/7/8 are conceptually good, but the file/function names are misleading, the visual style is inconsistent, and the appendix needs to be much richer around source assumptions, detector assumptions, noise, workflow, and generative-origin percentages.
+
+## Highest-priority patch list
+
+### 1. Rename “locked candidate” to “engineered intelligence (EI) candidate”
+
+Paper-facing language should be:
+
+* First mention: **engineered intelligence (EI) candidate**
+* Later mentions: **EI candidate**
+* Avoid: **locked candidate**, **selected**, **winner**, **advanced candidate**
+* Keep “selection lock” only when discussing audit mechanics, not the model name.
+
+This needs to be global across `paper/echoforge_ieee.tex` and the figure renderer. Do not only change captions; the legends and labels embedded inside PNG/PDF figures must change too.
+
+### 2. Fix author metadata
+
+In `paper/echoforge_ieee.tex`, replace:
+
+```tex
+\author{EchoForge Project}
+```
+
+with:
+
+```tex
+\author{
+  NeverHumqn Research Group\\
+  Lead author: Jeppson Taylor
+}
+```
+
+This gives the official group identity while preserving Jeppson Taylor as lead author.
+
+### 3. Replace the abstract with a tier-1 calibrated version
+
+Replace the current abstract paragraph with this:
+
+```tex
+\begin{abstract}
+EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal sensing research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty; it is not a measured-platform claim and is not a fielded-sensor surrogate. EchoForge combines a radar signal-chain model card, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, hard-negative false-alarm analysis, compare-only measured-anchor checks, and holdout-isolated evaluation into a reproducible evidence package. The v2 single-seed run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records. On the 4,500-record blind holdout, with 24 positive records from eight positive scenario groups, the engineered intelligence (EI) candidate reaches point Recall@$\leq$1\%FPR of 0.833 and LCB95 Recall@$\leq$1\%FPR of 0.699; the prior fusion baseline reaches 0.292 and 0.083, respectively. EI improves average precision, selected-threshold false-positive control, and low-FPR recall for this synthetic public-proxy benchmark, while its ROC AUC is lower than the prior fusion baseline. These results should be read as reproducible benchmark evidence under declared assumptions, not as measured truth, named-platform equivalence, or operational performance.
+\end{abstract}
+```
+
+This is stronger because it says exactly what is new and exactly what is not being claimed.
+
+## Figure-by-figure fixes
+
+| Figure | Current problem                                                                                                                | Exact fix                                                                                                                                                     |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fig. 1 | Good content, but too much white space and different diagram style from later figures.                                         | Keep full-width. Use the same title/subtitle/card style as every other figure. Add an EI-neutral evidence boundary, not governance-heavy language.            |
+| Fig. 2 | Overlapping title text, cramped multi-panel diagnostics, bottom note collides with axes.                                       | Rebuild as a full-width 3×2 balance panel plus a right-side leakage card. Use wrapped labels, shared grid style, and numeric annotations only at bar ends.    |
+| Fig. 3 | Too many panels in too little space; calibration bin labels overlap; legend says “selected”; curve labels are tiny.            | Use a named `subplot_mosaic`, larger figure height, sparse calibration labels, and replace “selected” with “EI candidate.”                                    |
+| Fig. 4 | Red horizontal lines above AP bars look broken. They are actually Recall@≤1%FPR ticks, but unlabeled.                          | Remove the line ticks. Plot **AP** and **Recall@≤1%FPR** as separate grouped bars. Also replace “selected AP” with “EI AP.”                                   |
+| Fig. 5 | Uses locked-candidate naming; red/green coloring is not governed by a consistent colormap; positive deltas not labeled enough. | Rename to “EI component weights and holdout control deltas.” Use one diverging red/green colormap via `TwoSlopeNorm`. Add numeric labels for ΔAP and ΔRecall. |
+| Fig. 6 | File/function name is `iq_drone_samples`, but the figure is actually the radar model card.                                     | Rename output to `radar_model_card.png/pdf`; rename function to `figure_radar_model_card`.                                                                    |
+| Fig. 7 | File/function name is `iq_negative_samples`, but the figure is actually range-Doppler positive-vs-negative diagnostics.        | Rename output to `range_doppler_samples.png`; use consistent heatmap colormap and larger tick labels.                                                         |
+| Fig. 8 | File/function name is `locked_algorithm`, but the figure is KTH anchor overlay.                                                | Rename output to `anchor_overlay.png/pdf`; title should say “Compare-only KTH measured-anchor overlay.”                                                       |
+
+## Exact code changes: `paper/generate_figures_major_upgrade_v2.py`
+
+At the top of the file, change the color imports:
+
+```python
+from matplotlib.colors import LinearSegmentedColormap
+```
+
+to:
+
+```python
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+```
+
+Then replace the current palette block with a single house style:
+
+```python
+INK = "#17212B"
+MUTED = "#52606D"
+GRID = "#D9E2EC"
+
+# EchoForge house colors.
+BLUE = "#2F6F9F"
+TEAL = "#208A7C"
+GOLD = "#B7791F"
+
+# Night red-green comparison palette: muted, readable, colorblind-healthier.
+NIGHT_RED = "#8C2D3E"
+NIGHT_GREEN = "#1F7A5A"
+NIGHT_RED_LIGHT = "#F2D6DB"
+NIGHT_GREEN_LIGHT = "#D9EFE7"
+
+SLATE = "#EFF3F7"
+PALE_BLUE = "#E8F2FB"
+PALE_TEAL = "#E7F5F1"
+PALE_GOLD = "#FFF5DB"
+PALE_RED = "#FAE8E8"
+PALE_GREEN = "#E9F5EC"
+
+EI_LABEL = "Engineered intelligence (EI)"
+EI_SHORT = "EI candidate"
+BASELINE_LABEL = "Prior fusion baseline"
+
+NIGHT_RG = LinearSegmentedColormap.from_list(
+    "echoforge_night_red_green",
+    (NIGHT_RED, "#F7F7F2", NIGHT_GREEN),
+    N=256,
+)
+
+FAMILY_PALETTE = {
+    "single_bird": NIGHT_RED,
+    "bird_flock": GOLD,
+    "shorebird_wader": BLUE,
+    "gull_tern": TEAL,
+    "raptor_falcon": NIGHT_GREEN,
+    "flamingo_large_bird": "#C45A67",
+    "seabird_cormorant": "#6F8FB0",
+    "seasonal_migratory_density": "#7A5A9E",
+    "rc_fixed_wing": INK,
+    "weather_cell": "#7B8794",
+    "clutter_only": "#9AA5B1",
+    "ground_vehicle": "#B7791F",
+    "multipath_ghost": "#6B7280",
+    "rfi_burst": "#805AD5",
+    "terrain_glint": "#A0AEC0",
+    "wind_turbine": "#718096",
+}
+```
+
+Update the figure file lists:
+
+```python
+VECTOR_FIGURES = {
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "radar_model_card.png",
+    "detector_ml_pipeline.png",
+    "anchor_overlay.png",
+}
+HEATMAP_FIGURES = {"range_doppler_samples.png"}
+```
+
+Add these helpers after `_add_arrow`:
+
+```python
+def _style_axes(ax: Any, *, xgrid: bool = False, ygrid: bool = False) -> None:
+    if xgrid:
+        ax.xaxis.grid(True, color=GRID, linewidth=0.7)
+    if ygrid:
+        ax.yaxis.grid(True, color=GRID, linewidth=0.7)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color(GRID)
+    ax.spines["bottom"].set_color(GRID)
+    ax.tick_params(colors=MUTED, labelsize=7.2)
+
+
+def _clean_label(value: Any, width: int = 22) -> str:
+    return _wrap(str(value).replace("locked candidate", EI_SHORT), width)
+
+
+def _signed_color(value: float, vmax: float) -> str:
+    if not math.isfinite(value):
+        return "#F7F7F2"
+    norm = TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
+    return NIGHT_RG(norm(value))
+
+
+def _annotate_bars(ax: Any, bars: Any, *, fmt: str = "{:.3f}", dy: float = 0.015) -> None:
+    for bar in bars:
+        value = float(bar.get_height())
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            min(value + dy, ax.get_ylim()[1] * 0.98),
+            fmt.format(value),
+            ha="center",
+            va="bottom",
+            fontsize=6.7,
+            color=INK,
+        )
+
+
+def _horizontal_value_labels(ax: Any, values: list[float], y_positions: Any, *, fmt: str = "{:.3f}") -> None:
+    xmax = ax.get_xlim()[1]
+    for value, ypos in zip(values, y_positions):
+        if not math.isfinite(value):
+            continue
+        ax.text(
+            min(value + xmax * 0.015, xmax * 0.98),
+            ypos,
+            fmt.format(value),
+            va="center",
+            ha="left",
+            fontsize=6.8,
+            color=MUTED,
+        )
+```
+
+### Critical Fig. 4 fix
+
+In `figure_phase_kpi`, remove this block entirely:
+
+```python
+for idx, value in enumerate(selected_recall):
+    ax.plot([idx - 0.12, idx + 0.12], [value, value], color=RED, linewidth=2.0)
+```
+
+Replace the left panel with grouped bars:
+
+```python
+baseline_recall = [
+    baseline.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
+]
+selected_recall = [
+    selected.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
+]
+
+series = [
+    ("Baseline AP", baseline_ap, PALE_GREEN, NIGHT_GREEN),
+    ("Baseline R@≤1%FPR", baseline_recall, "#EEF7F2", NIGHT_GREEN),
+    ("EI AP", selected_ap, PALE_GOLD, GOLD),
+    ("EI R@≤1%FPR", selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+]
+bar_width = 0.18
+offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * bar_width
+
+for offset, (label, values, face, edge) in zip(offsets, series):
+    bars = ax.bar(
+        x + offset,
+        values,
+        bar_width,
+        color=face,
+        edgecolor=edge,
+        linewidth=0.9,
+        label=label,
+    )
+    _annotate_bars(ax, bars, dy=0.012)
+
+ax.set_xticks(x)
+ax.set_xticklabels(
+    [f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order],
+    fontsize=7.2,
+)
+ax.set_ylabel("Holdout metric value", fontsize=9.0)
+ax.set_ylim(0.0, 1.05)
+ax.legend(loc="upper left", fontsize=6.8, frameon=False, ncol=2)
+ax.set_title("Per-phase AP and low-FPR recall", fontsize=9.6, weight="bold")
+_style_axes(ax, ygrid=True)
+```
+
+This removes the confusing red ticks and makes the comparison explicit.
+
+### Rename misleading figure functions
+
+Change:
+
+```python
+def figure_iq_drone_samples(context: FigureContext) -> Path:
+    filename = "iq_drone_samples.png"
+```
+
+to:
+
+```python
+def figure_radar_model_card(context: FigureContext) -> Path:
+    filename = "radar_model_card.png"
+```
+
+Change:
+
+```python
+def figure_iq_negative_samples(context: FigureContext) -> Path:
+    filename = "iq_negative_samples.png"
+```
+
+to:
+
+```python
+def figure_range_doppler_samples(context: FigureContext) -> Path:
+    filename = "range_doppler_samples.png"
+```
+
+Change:
+
+```python
+def figure_locked_algorithm(context: FigureContext) -> Path:
+    filename = "locked_algorithm.png"
+```
+
+to:
+
+```python
+def figure_anchor_overlay(context: FigureContext) -> Path:
+    filename = "anchor_overlay.png"
+```
+
+Then update `generate_all`:
+
+```python
+def generate_all(context: FigureContext) -> list[Path]:
+    _configure_matplotlib()
+    return [
+        figure_architecture_stack(context),
+        figure_monte_carlo_split_flow(context),
+        figure_kpi_ranking(context),
+        figure_phase_kpi(context),
+        figure_radar_model_card(context),
+        figure_range_doppler_samples(context),
+        figure_detector_ml_pipeline(context),
+        figure_anchor_overlay(context),
+    ]
+```
+
+## Exact TeX figure filename changes
+
+In `paper/echoforge_ieee.tex`, replace:
+
+```tex
+\includegraphics[width=0.95\textwidth]{iq_drone_samples}
+```
+
+with:
+
+```tex
+\includegraphics[width=0.95\textwidth]{radar_model_card}
+```
+
+Replace:
+
+```tex
+\includegraphics[width=0.98\textwidth]{iq_negative_samples}
+```
+
+with:
+
+```tex
+\includegraphics[width=0.98\textwidth]{range_doppler_samples}
+```
+
+Replace:
+
+```tex
+\includegraphics[width=0.98\columnwidth]{locked_algorithm}
+```
+
+with:
+
+```tex
+\includegraphics[width=0.98\columnwidth]{anchor_overlay}
+```
+
+Update the Fig. 4 caption to make the bar semantics unambiguous:
+
+```tex
+\caption{Per-phase behavior and cross-method false-positive burden. The left panel reports phase-wise AP and Recall@$\leq$1\%FPR as separate bars for the prior fusion baseline and EI candidate; no marker is an error bar. The right panel sorts false alarms by family for the strongest methods together with near-threshold context. Each phase has only eight positive holdout records from eight positive groups, so phase conclusions are diagnostic.}
+```
+
+## Exact validator changes: `paper/validate_visuals.py`
+
+Replace the figure lists:
+
+```python
+REQUIRED_PNGS = (
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "radar_model_card.png",
+    "range_doppler_samples.png",
+    "detector_ml_pipeline.png",
+    "anchor_overlay.png",
+)
+
+VECTOR_PDFS = (
+    "architecture_stack.pdf",
+    "monte_carlo_split_flow.pdf",
+    "kpi_ranking.pdf",
+    "phase_kpi.pdf",
+    "radar_model_card.pdf",
+    "detector_ml_pipeline.pdf",
+    "anchor_overlay.pdf",
+)
+
+RASTER_ONLY = ("range_doppler_samples.png",)
+```
+
+Then add a real image dimension/readability check. This catches the failure mode where a figure technically exists but is tiny/cramped:
+
+```python
+try:
+    from PIL import Image
+except Exception:
+    Image = None
+
+
+MIN_DIMENSIONS = {
+    "architecture_stack.png": (2600, 1200),
+    "monte_carlo_split_flow.png": (3200, 1700),
+    "kpi_ranking.png": (3400, 1900),
+    "phase_kpi.png": (3200, 1500),
+    "radar_model_card.png": (3200, 1700),
+    "range_doppler_samples.png": (3200, 1500),
+    "detector_ml_pipeline.png": (3200, 1500),
+    "anchor_overlay.png": (2200, 1400),
+}
+
+
+def validate_dimensions() -> None:
+    if Image is None:
+        print("visual validation warning: Pillow unavailable; skipped dimension checks")
+        return
+
+    bad = []
+    for name, (min_w, min_h) in MIN_DIMENSIONS.items():
+        path = FIGURES_DIR / name
+        with Image.open(path) as im:
+            width, height = im.size
+        if width < min_w or height < min_h:
+            bad.append(f"{name}={width}x{height}, expected at least {min_w}x{min_h}")
+
+    if bad:
+        fail("undersized figure(s): " + "; ".join(bad))
+```
+
+Call it in `main()` after the file-size checks:
+
+```python
+validate_dimensions()
+```
+
+## Appendix upgrade
+
+The current fixed-wing appendix already says no measured Iranian-drone radar signature, no operational route/evasion modeling, no payload-effects inference, no deployment-performance claim, and no sensor-parity/classified-fidelity claim.  That is good, but it is too thin for a tier-1 paper. Add an explicit appendix suite:
+
+```tex
+\appendices
+
+\section{Source and Assumption Ledger}
+
+\subsection{Fixed-Wing Pusher-Prop Public Proxy}
+The positive class is a fixed-wing pusher-prop public proxy. It is motivated by open visual reporting and public summaries of fixed-wing pusher-prop UAS geometry, but EchoForge does not use measured Iranian-drone radar signatures, recovered hardware measurements, proprietary sensor returns, or classified performance information. The proxy includes only broad geometry, speed, launch-phase, RCS-envelope, and prop-cadence assumptions.
+
+\subsection{Noise, Clutter, and RFI Assumptions}
+EchoForge models clutter and impairment pressure through declared synthetic priors: Weibull/K-like clutter envelopes, sea/terrain/weather stress, AGC compression, clock drift, quantization, dropped CPIs, PRF ambiguity, Doppler folding, calibration offset, multipath masking, and RFI bursts. These are stressors for detector comparison, not calibrated field-rate claims.
+
+\subsection{Detector Archetype Assumptions}
+The X/Ku, S-band, GBAD, acoustic, passive-RF, and fusion branches are detector-view archetypes. Public systems and public radar literature bound the role envelope, but the benchmark does not reproduce vendor processing, ECCM, classified sensitivity, exact Pd/Pfa, operator workflow, emitter libraries, or deployment topology.
+
+\subsection{Workflow and Algorithm Summary}
+At a high level, EchoForge samples scenario strata, expands each scenario group into phase-locked records, synthesizes public-proxy radar/acoustic/passive-RF cues, materializes detector-facing views under a feature denylist, fits/calibrates candidates only on train/CV rows, writes a selection lock, scores the blind holdout once, and emits a paper evidence bundle. The repository intentionally exposes enough configuration and evidence for audit while not publishing generated raw arrays or measured raw traces.
+
+\subsection{Generative-Origin Self-Classification}
+The generative-origin audit is a manifest-based self-classification of tracked source lines of code. It is not proof of authorship history. Report the generated values from \texttt{generative\_origin\_audit.json}: generative/AI-inspired LOC, human-standard LOC, percentage generative LOC, and percentage human-standard LOC.
+```
+
+The repo already has a generative-origin manifest that explicitly frames the audit as a self-classification, not authorship proof, and it defines generative/AI-inspired versus human-standard categories. Use those generated percentages rather than hand-entering them.
+
+## Evidence-generation code to add
+
+In `detection/paper_evidence_major_upgrade_v1.py`, add a helper that writes appendix-ready evidence files:
+
+```python
+def _write_appendix_evidence(out_root: Path, generative_origin: dict[str, Any]) -> dict[str, Any]:
+    appendix = {
+        "source_and_assumption_ledger": {
+            "positive_proxy": {
+                "paper_facing_name": "fixed-wing pusher-prop public proxy",
+                "boundary": [
+                    "public-source geometry and kinematic assumptions only",
+                    "no measured Iranian-drone radar signature",
+                    "no operational route or evasion modeling",
+                    "no payload-effects inference",
+                    "no deployment-performance claim",
+                    "no sensor-parity or classified-fidelity claim",
+                ],
+                "assumption_families": [
+                    "swept/delta fixed-wing geometry",
+                    "rear pusher propulsor",
+                    "45--60 m/s speed envelope",
+                    "take-up / climb / cruise phase windows",
+                    "aspect-dependent RCS envelope",
+                    "150--217 Hz pusher-prop micro-Doppler proxy",
+                ],
+            },
+            "noise_clutter_rfi": {
+                "clutter": ["Weibull-like", "K-like", "terrain", "sea/coastal", "weather cell"],
+                "receiver_impairments": [
+                    "AGC compression",
+                    "clock drift",
+                    "quantization",
+                    "dropped CPI",
+                    "PRF ambiguity",
+                    "Doppler folding",
+                    "calibration offset",
+                    "multipath masking",
+                ],
+                "rfi": ["no-signal passive-RF", "RFI burst", "clock offset", "provenance-quality stress"],
+            },
+            "detector_archetypes": [
+                "X/Ku C-UAS public low-slow-small radar branch",
+                "tactical S-band AESA/MHR-style surveillance branch",
+                "GBAD 3D/4D cueing branch",
+                "classical CA-CFAR / OS-CFAR / MTD branch",
+                "acoustic spectral-cadence branch",
+                "passive-RF missingness/provenance branch",
+                "late-fusion C2 branch",
+            ],
+            "workflow_summary": [
+                "sample scenario strata",
+                "expand each scenario group into locked phase records",
+                "synthesize radar/acoustic/passive-RF public-proxy cues",
+                "materialize detector-facing views under feature denylist",
+                "fit candidate discovery and calibration on train/CV only",
+                "write EI selection lock",
+                "score blind holdout once",
+                "emit figures, tables, manifests, and validation artifacts",
+            ],
+            "generative_origin_summary": {
+                "scope": generative_origin.get("scope", ""),
+                "generative_loc": generative_origin.get("generative_loc"),
+                "human_standard_loc": generative_origin.get("human_standard_loc"),
+                "percentage_generative_loc": generative_origin.get("percentage_generative_loc"),
+                "percentage_human_standard_loc": generative_origin.get("percentage_human_standard_loc"),
+                "boundary": "manifest-based self-classification, not authorship proof",
+            },
+        }
+    }
+    _write_json(out_root / "appendix_source_assumption_ledger.json", appendix)
+    return appendix
+```
+
+Then call it after `_run_generative_origin_audit(...)` and include the result in `paper_evidence_manifest.json`.
+
+## Build/test commands
+
+Run these in order:
+
+```bash
+rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
+rtk python3 paper/generate_figures.py --strict
+rtk python3 paper/validate_visuals.py
+rtk bash paper/build.sh --copy-tracked
+rtk python3 paper/validate_paper.py \
+  --tex paper/echoforge_ieee.tex \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+```
+
+Acceptance criteria:
+
+1. No figure contains “locked candidate” or “selected” as a public-facing model label.
+2. Fig. 4 contains no unexplained red horizontal ticks.
+3. Fig. 4 explicitly plots AP and Recall@≤1%FPR as separate bars.
+4. Fig. 3 calibration labels do not overlap.
+5. Fig. 2 title/subtitle/axis labels do not collide.
+6. Figure filenames match figure meaning: `radar_model_card`, `range_doppler_samples`, `anchor_overlay`.
+7. Author line reads “NeverHumqn Research Group” with “Lead author: Jeppson Taylor.”
+8. Appendix includes source/assumption ledger, noise/clutter/RFI configs, detector assumptions, workflow summary, and generative-origin percentages.
+9. `paper/validate_visuals.py` passes both file-size and dimension checks.
+10. The final paper still preserves the strict claim boundary: synthetic public-proxy evidence, not measured truth or operational performance.
+
+[1]: https://github.com/neverhuman/echoforge "GitHub - neverhuman/echoforge: EM simulator · GitHub"
+

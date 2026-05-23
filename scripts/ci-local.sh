@@ -26,4 +26,7 @@ run_lane score
 ci_header "web-smoke lane"
 bash ops/ci/web-smoke.sh
 
+ci_header "web-e2e lane"
+bash ops/ci/web-e2e.sh
+
 ci_header "All local CI lanes passed"

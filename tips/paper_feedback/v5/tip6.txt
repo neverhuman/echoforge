@@ -1,0 +1,626 @@
+I reviewed the uploaded PDF and the current `paper/` repository path. The visual problem is real: the paper is scientifically promising, but the current plots are being generated too large/dense and then shrunk into IEEE columns, which makes labels, legends, and tables collapse. The repo’s paper folder contains the exact files to patch: `echoforge_ieee.tex`, `generate_figures.py`, `generate_figures_major_upgrade_v2.py`, `validate_paper.py`, and `validate_visuals.py`.  ([GitHub][1])
+
+I also wrote a full engineering spec with exact code snippets and acceptance checks here: [Download the EchoForge tier-1 revision spec](sandbox:/mnt/data/echoforge_tier1_revision_spec.md).
+
+## Highest-priority diagnosis
+
+The current paper does **not** have a content-only problem. It has a production-quality figure-system problem.
+
+The renderer currently builds several figures around 10 inches wide or 7.6 inches wide, then LaTeX scales them into IEEE two-column or one-column slots. That destroys text size. The phase figure’s “strange lines” are not confidence intervals: the code currently plots `selected_recall` as red horizontal line segments over the selected AP bars in `figure_phase_kpi`, which is visually ambiguous and should be removed. 
+
+The current visual validator is also too weak: it checks required PNG/PDF presence and byte-size thresholds, but it does not verify rendered pixel dimensions, figure scale, or banned visible phrases like “locked candidate” / “selected AP.” 
+
+The TeX still uses `\author{EchoForge Project}` and the abstract/paper language still says “locked candidate,” while the requested paper-facing identity is **NeverHumqn Research Group**, with **Jeppson Taylor** as lead author, and the model should be called **engineered intelligence (EI)**. 
+
+## Figure-by-figure required fixes
+
+| Figure                    | Current issue                                                                             | Exact fix                                                                                                                      |
+| ------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Fig. 1 signal chain       | Good concept, but too much small text and inconsistent card style                         | Generate at true IEEE two-column width; use five large stages, not six; use one right-side model-card stack with wrapped lines |
+| Fig. 2 balance/leakage    | Worst layout failure: title/subtitle collide, panels too small, bottom line overlaps axes | Reduce to four count panels: split, site, range, hard-negative; move aspect/noise into text card; increase tick fonts          |
+| Fig. 3 KPI                | Too dense; legends say “selected”; calibration labels overlap                             | Replace all “selected” labels with EI; use bin index labels for calibration instead of diagonal ranges                         |
+| Fig. 4 phase/false alarms | The strange red lines are `selected_recall` overlays on AP bars                           | Replace with four grouped bars: Prior AP, EI AP, Prior R@1%, EI R@1%; no red horizontal marks                                  |
+| Fig. 5 EI components      | Useful content, but small labels and unhealthy/ambiguous red/green                        | Rename title to EI; use night red-green diverging colormap centered at zero; add numeric delta labels                          |
+| Fig. 6 model card         | Table and cards are too small                                                             | Use true textwidth; simplify into readable table + receiver/cue chips                                                          |
+| Fig. 7 range-Doppler      | Mostly good, but axes/colorbar too tiny                                                   | Generate at final wide size; larger tick labels; colorbar says “normalized log magnitude”                                      |
+| Fig. 8 KTH anchor         | Drawn as wide figure but inserted as single-column, making it tiny                        | Generate as one-column-native point/interval plot, not bars                                                                    |
+
+## Exact code changes: global plotting system
+
+**File:** `paper/generate_figures_major_upgrade_v2.py`
+
+Change the import:
+
+```python
+from matplotlib.colors import LinearSegmentedColormap
+```
+
+to:
+
+```python
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+from matplotlib.ticker import MaxNLocator
+```
+
+Add this block immediately after `HEATMAP_CMAP`:
+
+```python
+# IEEE final-render sizes. Do not generate oversized plots and shrink them in LaTeX.
+IEEE_TEXTWIDTH_IN = 7.16
+IEEE_COLUMNWIDTH_IN = 3.48
+WIDE_SHORT_FIG = (IEEE_TEXTWIDTH_IN, 3.70)
+WIDE_FIG = (IEEE_TEXTWIDTH_IN, 4.55)
+WIDE_TALL_FIG = (IEEE_TEXTWIDTH_IN, 5.15)
+COL_FIG = (IEEE_COLUMNWIDTH_IN, 2.85)
+
+EI_LABEL = "Engineered intelligence (EI)"
+EI_SHORT = "EI"
+PRIOR_LABEL = "Prior fusion"
+
+NIGHT_RED_GREEN = LinearSegmentedColormap.from_list(
+    "echoforge_night_red_green",
+    ("#7f1d1d", "#27313f", "#0f766e"),
+    N=256,
+)
+DELTA_NORM = TwoSlopeNorm(vmin=-0.80, vcenter=0.0, vmax=0.20)
+
+METHOD_LABELS = {
+    "locked_candidate": EI_LABEL,
+    "layered_fusion_c2": PRIOR_LABEL,
+    "prior_layered_fusion": PRIOR_LABEL,
+    "tabular_ml_baseline": "Tabular ML baseline",
+    "sequence_ml_proxy": "Sequence ML proxy",
+    "high_resolution_xku_cuas": "High-res. X/Ku radar",
+    "tactical_s_band_aesa": "Tactical S-band",
+    "gbad_3d4d_cueing": "GBAD 3D/4D",
+    "distributed_acoustic_cue": "Acoustic cue",
+}
+
+
+def _delta_color(value: float) -> Any:
+    if not math.isfinite(value):
+        return GRID
+    return NIGHT_RED_GREEN(DELTA_NORM(value))
+
+
+def _paper_label(value: Any) -> str:
+    text = str(value).replace("_", " ")
+    text = text.replace("locked candidate", EI_LABEL)
+    text = text.replace("Locked candidate", EI_LABEL)
+    text = text.replace("selected candidate", "EI candidate")
+    text = text.replace("selected", "EI")
+    return text
+
+
+def _method_label(method: str, *, width: int = 22) -> str:
+    return _wrap(METHOD_LABELS.get(method, method.replace("_", " ")), width)
+
+
+def _style_axis(ax: Any, *, grid_axis: str = "y", integer_x: bool = False) -> None:
+    if grid_axis in {"x", "both"}:
+        ax.xaxis.grid(True, color=GRID, linewidth=0.7)
+    if grid_axis in {"y", "both"}:
+        ax.yaxis.grid(True, color=GRID, linewidth=0.7)
+    if integer_x:
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="both", labelsize=7.0, length=2.5, width=0.6)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color(GRID)
+    ax.spines["bottom"].set_color(GRID)
+
+
+def _label_bars(ax: Any, bars: Any, *, fmt: str = "{:.3f}", fontsize: float = 6.7) -> None:
+    for bar in bars:
+        value = float(bar.get_height())
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            min(value + 0.018, ax.get_ylim()[1] * 0.97),
+            fmt.format(value),
+            ha="center",
+            va="bottom",
+            fontsize=fontsize,
+            color=INK,
+        )
+```
+
+## Exact code fix for Fig. 4
+
+**File:** `paper/generate_figures_major_upgrade_v2.py`
+**Replace `figure_phase_kpi` completely.**
+
+This removes the strange red lines above the selected AP bars and replaces them with readable grouped metric bars.
+
+```python
+def figure_phase_kpi(context: FigureContext) -> Path:
+    filename = "phase_kpi.png"
+    evaluation = _evaluation_summary(context)
+    if evaluation:
+        _note_source(filename, "phase metrics and false-alarm family breakdown")
+    else:
+        _note_fallback(filename, "phase metrics missing; using deterministic defaults")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig = plt.figure(figsize=WIDE_FIG)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.08, 1.0], wspace=0.26)
+    fig.suptitle("Phase behavior and false-alarm burden", fontsize=11.6, weight="bold", y=0.985)
+
+    phase_metrics = evaluation.get("phase_metrics", {})
+    selected_method = evaluation.get("selected_method", "")
+    ei = phase_metrics.get(selected_method, {})
+    prior = phase_metrics.get("layered_fusion_c2", {})
+    phase_order = list(PHASES)
+    x = np.arange(len(phase_order))
+    width = 0.18
+
+    ax = fig.add_subplot(gs[0, 0])
+    prior_ap = [float(prior.get(p, {}).get("average_precision", 0.0)) for p in phase_order]
+    ei_ap = [float(ei.get(p, {}).get("average_precision", 0.0)) for p in phase_order]
+    prior_r1 = [float(prior.get(p, {}).get("fixed_fpr_recall", 0.0)) for p in phase_order]
+    ei_r1 = [float(ei.get(p, {}).get("fixed_fpr_recall", 0.0)) for p in phase_order]
+
+    b1 = ax.bar(x - 1.5 * width, prior_ap, width, color=PALE_GREEN, edgecolor=GREEN, linewidth=0.8, label="Prior AP")
+    b2 = ax.bar(x - 0.5 * width, ei_ap, width, color=INK, edgecolor=INK, linewidth=0.8, label="EI AP")
+    b3 = ax.bar(x + 0.5 * width, prior_r1, width, color=PALE_BLUE, edgecolor=BLUE, linewidth=0.8, label="Prior R@1%")
+    b4 = ax.bar(x + 1.5 * width, ei_r1, width, color=PALE_GOLD, edgecolor=GOLD, linewidth=0.8, label="EI R@1%")
+
+    for bars in (b1, b2, b3, b4):
+        _label_bars(ax, bars, fontsize=5.9)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order], fontsize=6.8)
+    ax.set_ylabel("Metric value", fontsize=8.5)
+    ax.set_ylim(0.0, 1.05)
+    ax.set_title("Per-phase holdout diagnostics", fontsize=9.2, weight="bold")
+    _style_axis(ax, grid_axis="y")
+    ax.legend(loc="upper left", fontsize=6.4, frameon=False, ncol=2, columnspacing=0.8)
+
+    fa_ax = fig.add_subplot(gs[0, 1])
+    family_rows = _read_csv_rows(context.roots.paper_evidence_root / "false_alarm_by_method_family.csv")
+    method_rows = _read_csv_rows(context.roots.paper_evidence_root / "top_method_false_positive_frequency.csv")
+
+    if not family_rows or not method_rows:
+        family_rows = _fallback_false_alarm_rows()
+        method_rows = [{
+            "method": "locked_candidate",
+            "method_label": "locked_candidate",
+            "rank": 1,
+            "selected_threshold_fp_count": 1,
+            "fp_per_1000_negatives": 0.2,
+            "recall_at_leq_1pct_fpr": 0.8,
+            "top_fp_family": "single_bird",
+        }]
+        _note_fallback(filename, "false-alarm evidence missing; using placeholder rows")
+
+    method_rows = sorted(method_rows, key=lambda row: _safe_float(row.get("rank"), 99.0))[:5]
+    selected_methods = [row.get("method", "") for row in method_rows if row.get("method")]
+
+    method_to_family_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in family_rows:
+        method_to_family_rows[row.get("method", "")].append(row)
+    method_to_summary = {row.get("method", ""): row for row in method_rows}
+
+    family_totals: dict[str, float] = defaultdict(float)
+    for row in family_rows:
+        family_totals[row.get("family", "")] += _safe_float(row.get("false_alarm_count"))
+
+    top_families = [
+        name for name, _ in sorted(family_totals.items(), key=lambda item: item[1], reverse=True)[:5] if name
+    ]
+    family_palette = {
+        "single_bird": "#7f1d1d",
+        "bird_flock": GOLD,
+        "rc_fixed_wing": INK,
+        "weather_cell": BLUE,
+        "clutter_only": TEAL,
+        "terrain_glint": GREEN,
+        "multipath_ghost": "#475569",
+        "ground_vehicle": "#64748b",
+    }
+
+    y_positions = np.arange(len(selected_methods))
+    max_total = 1.0
+    seen: set[str] = set()
+
+    for idx, method in enumerate(selected_methods):
+        rows = method_to_family_rows.get(method, [])
+        summary = method_to_summary.get(method, {})
+        total_fp = sum(_safe_float(r.get("false_alarm_count")) for r in rows)
+        near_total = sum(_safe_float(r.get("near_threshold_count")) for r in rows)
+        max_total = max(max_total, total_fp, near_total)
+
+        fa_ax.barh(
+            idx,
+            near_total,
+            color=PALE_GREEN,
+            edgecolor=GREEN,
+            linewidth=0.6,
+            alpha=0.35,
+            label="near-threshold" if idx == 0 else None,
+        )
+
+        left = 0.0
+        for family in top_families:
+            count = sum(_safe_float(r.get("false_alarm_count")) for r in rows if r.get("family") == family)
+            if count <= 0.0:
+                continue
+            fa_ax.barh(
+                idx,
+                count,
+                left=left,
+                color=family_palette.get(family, BLUE),
+                edgecolor="white",
+                linewidth=0.5,
+                label=_paper_label(family) if family not in seen else None,
+            )
+            left += count
+            seen.add(family)
+
+        fa_ax.text(
+            max(left, near_total) + max_total * 0.03,
+            idx,
+            f"FP {int(total_fp)} | near {int(near_total)} | R@1% {_safe_float(summary.get('recall_at_leq_1pct_fpr')):.3f}",
+            va="center",
+            fontsize=6.3,
+            color=MUTED,
+        )
+
+    fa_ax.set_yticks(y_positions)
+    fa_ax.set_yticklabels([_method_label(m, width=18) for m in selected_methods], fontsize=6.7)
+    fa_ax.set_xlabel("False alarms / near-threshold negatives", fontsize=8.5)
+    fa_ax.set_title("Cross-method false-alarm burden", fontsize=9.2, weight="bold")
+    fa_ax.set_xlim(0.0, max_total * 1.32)
+    _style_axis(fa_ax, grid_axis="x", integer_x=True)
+    fa_ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), fontsize=5.9, frameon=False, ncol=3)
+
+    fig.text(
+        0.02,
+        0.018,
+        "Each phase has n=8 positive holdout records from 8 positive groups; phase and family slices are diagnostic.",
+        fontsize=6.8,
+        color=MUTED,
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+## Exact Fig. 3 changes
+
+Inside `figure_kpi_ranking`, make these visible-label edits:
+
+```python
+methods = [(PRIOR_LABEL, baseline_row, GREEN), (EI_LABEL, selected_row, INK)]
+```
+
+Change ROC/PR plot labels:
+
+```python
+label=PRIOR_LABEL
+label=EI_SHORT
+```
+
+Change the title:
+
+```python
+fig.suptitle(
+    "Holdout KPI: EI operating point, ranking, curves, and calibration",
+    fontsize=11.6,
+    weight="bold",
+    y=0.985,
+)
+```
+
+Change AP ranking display:
+
+```python
+method_labels[selected_method] = EI_LABEL
+```
+
+Replace the calibration x tick block with:
+
+```python
+cal_ax.set_xticks(x)
+cal_ax.set_xticklabels([str(idx) for idx in range(len(bin_labels))], fontsize=6.5)
+cal_ax.set_xlabel("calibration bin index; bins are [0.0,0.1), ... [0.9,1.0]", fontsize=6.6)
+```
+
+## Exact Fig. 5 color and label changes
+
+Inside `figure_detector_ml_pipeline`, change:
+
+```python
+fig = plt.figure(figsize=(10.3, 4.9))
+```
+
+to:
+
+```python
+fig = plt.figure(figsize=WIDE_FIG)
+```
+
+Change the title:
+
+```python
+fig.suptitle(
+    "Engineered intelligence (EI) components and holdout controls",
+    fontsize=11.6,
+    weight="bold",
+    y=0.985,
+)
+```
+
+Replace the delta bar color logic:
+
+```python
+delta_colors = [RED if value < 0 else GREEN for value in delta_ap]
+```
+
+with:
+
+```python
+delta_colors = [_delta_color(value) for value in delta_ap]
+```
+
+Add numeric delta labels:
+
+```python
+for idx, (dap, dr) in enumerate(zip(delta_ap, delta_recall)):
+    if math.isfinite(dap):
+        ha = "right" if dap < 0 else "left"
+        delta_ax.text(
+            dap + (-0.015 if dap < 0 else 0.015),
+            idx,
+            f"ΔAP {dap:+.3f}",
+            va="center",
+            ha=ha,
+            fontsize=6.1,
+            color=INK,
+        )
+    if math.isfinite(dr):
+        delta_ax.text(
+            dr + 0.012,
+            idx + 0.18,
+            f"R {dr:+.3f}",
+            va="center",
+            fontsize=5.9,
+            color=MUTED,
+        )
+```
+
+## Exact Fig. 8 change
+
+Inside `figure_locked_algorithm`, replace the oversized one-column plot:
+
+```python
+fig, ax = plt.subplots(figsize=(7.6, 4.8))
+```
+
+with:
+
+```python
+fig, ax = plt.subplots(figsize=COL_FIG)
+fig.subplots_adjust(top=0.82, left=0.35, right=0.98, bottom=0.28)
+fig.suptitle("Compare-only KTH anchor", fontsize=9.4, weight="bold", y=0.98)
+ax.set_title("normalized z-score intervals", fontsize=8.0, weight="bold")
+```
+
+Then replace the bar plot with point intervals:
+
+```python
+y = np.arange(len(labels))
+clean_labels = [_wrap(str(label).replace("_hz", "").replace("_", " "), 16) for label in labels]
+
+ax.axvline(0.0, color=GRID, linewidth=0.8)
+for idx, (value, low, high) in enumerate(zip(values, q10, q90)):
+    if not (math.isfinite(value) and math.isfinite(low) and math.isfinite(high)):
+        continue
+    ax.plot([low, high], [idx, idx], color=INK, linewidth=1.0)
+    ax.scatter([value], [idx], color=TEAL if value >= 0 else RED, s=18, zorder=3)
+
+ax.set_yticks(y)
+ax.set_yticklabels(clean_labels, fontsize=6.5)
+ax.invert_yaxis()
+ax.set_xlabel("measured-anchor z score", fontsize=7.2)
+_style_axis(ax, grid_axis="x")
+fig.text(0.02, 0.04, "Compare-only: no positive fixed-wing truth claim.", fontsize=6.2, color=MUTED)
+```
+
+## Exact TeX changes
+
+**File:** `paper/echoforge_ieee.tex`
+
+Add after `\graphicspath`:
+
+```tex
+\newcommand{\EI}{engineered intelligence (EI)}
+\newcommand{\EICap}{Engineered intelligence (EI)}
+\newcommand{\RecallOne}{Recall@$\leq$1\%FPR}
+```
+
+Replace:
+
+```tex
+\author{EchoForge Project}
+```
+
+with:
+
+```tex
+\author{Jeppson Taylor\thanks{Lead author, NeverHumqn Research Group.}\\NeverHumqn Research Group}
+```
+
+Replace the abstract with:
+
+```tex
+\begin{abstract}
+EchoForge is a strict-open, radar-first synthetic sensing benchmark for low-altitude uncrewed aerial system (UAS) detection research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty, not a measured-platform claim. EchoForge couples a declared radar signal chain, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, false-alarm-family analysis, compare-only measured-anchor checks, and holdout-isolated evaluation into a reproducible evidence package. The v2 single-seed run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records. On the 4,500-record blind holdout, with 24 positive records from eight positive scenario groups, the \EI{} candidate reaches point \RecallOne{} of 0.833 and group-block LCB95 \RecallOne{} of 0.699; the prior fusion baseline reaches 0.292 and 0.083, respectively. The EI candidate improves AP and low-FPR recall while its ROC AUC is lower than the prior fusion baseline. These results are strict-open synthetic public-proxy benchmark evidence under declared assumptions, not measured truth or operational performance claims.
+\end{abstract}
+```
+
+Apply these text replacements everywhere except file names and artifact paths:
+
+```text
+locked candidate -> EI candidate
+Locked candidate -> EI candidate
+locked advanced candidate -> EI candidate
+selected candidate -> EI candidate
+selected AP -> EI AP
+selected lock -> pre-registered EI lock
+```
+
+## Rich appendix to add
+
+The existing paper already has appendices, but it needs a richer, more explicit source/noise/detector/EI workflow appendix. The evidence generation script already carries the radar model-card assumptions, including public-proxy waveform detail, target RCS prior, micro-Doppler priors, clutter/noise/RFI priors, and cue definitions, so the appendix should surface that clearly instead of leaving it buried in generated evidence. 
+
+Add this before the conclusion:
+
+```tex
+\section{Appendix: Sources, Noise, Detector Configurations, and EI Workflow}
+
+\subsection{Public-Proxy Source Boundary}
+The positive class is a fixed-wing pusher-prop public proxy. It is informed by open visual reporting and public summaries of fixed-wing pusher-prop UAS families, including Iranian-origin loitering-munition reporting, but the benchmark does not claim a measured Iranian-drone radar signature, route model, evasion model, payload effect, or operational platform equivalence. The appendix records only geometry, speed-envelope, RCS-envelope, and prop-cadence priors broad enough to support synthetic benchmark review.
+
+\subsection{Noise, Clutter, and Artifact Assumptions}
+The radar lane includes thermal-noise/SNR stress, Weibull and K-like clutter, coastal sea clutter, terrain glint, urban-edge multipath, vegetation-motion clutter, weather cells, RFI bursts, dropped CPI events, PRF ambiguity, Doppler folding, AGC compression, clock drift, quantization, calibration offset, and multipath masking. Acoustic cue stressors include weather, ambient traffic, amplitude instability, node disagreement, and cadence ambiguity. Passive-RF cue stressors include RF silence, RFI bursts, clock-offset artifacts, sparse provenance, and low-quality geometry.
+
+\subsection{Detector Configuration Boundary}
+The detector cards are public-source archetype envelopes. X/Ku C-UAS, tactical S-band AESA/MHR, GBAD 3D/4D cueing, acoustic-network, passive-RF, and fusion-C2 views expose only detector-facing summaries. They do not expose labels, scenario group identifiers, split roles, time-lock identifiers, or hidden generator state to model-facing matrices. Excluded claims include classified sensitivity, proprietary clutter maps, exact Pd/Pfa, ECCM behavior, operator workflow, deployment geometry, emitter libraries, and sensor-parity performance.
+
+\subsection{EI Algorithm and Workflow Summary}
+The EI lane follows a fixed audit workflow. First, public-proxy object packs and hard-negative source packs define the scenario strata. Second, scenario groups are expanded into phase-locked records before any split assignment is used by models. Third, radar, acoustic, and passive-RF synthetic cue streams are materialized into detector views. Fourth, the detector-view schema denies audit-only fields before train/CV search. Fifth, candidate branches are explored on train/CV only, including sparse radar, passive-RF, transport-geometry, and fusion families. Sixth, a small nonnegative weight vector is chosen and calibrated with a monotone odds transform. Seventh, the EI lock is written before blind-holdout scoring. Eighth, holdout metrics, group-block bootstrap intervals, false-alarm-family tables, calibration bins, and compare-only anchor overlays are emitted to the paper evidence bundle.
+
+\subsection{Human and Generative-Origin Self-Classification}
+The repository should report code-origin percentages as a manifest-based self-classification, not as authorship proof. The paper-facing table should group non-empty source lines by manifest label: human-authored, generative-assisted, mixed, and unknown/unclassified. The percentage denominator is the total non-empty LOC covered by the audited manifest. Generated arrays, measured raw files, and solver outputs are excluded from the denominator because they are not paper-authorship source code.
+```
+
+## Human vs generative-origin percentage
+
+Do **not** hardcode a percentage in the paper unless the manifest is actually read at build time. The current evidence script already references `paper/docs/generative_origin_manifest.json`, so the right fix is to compute the percentages and write them to `outputs/paper-evidence/major-upgrade-v1/generative_origin_percentages.csv`. 
+
+Add this in `detection/paper_evidence_major_upgrade_v1.py`:
+
+```python
+def _generative_origin_percentage_rows(manifest_path: Path) -> list[dict[str, Any]]:
+    manifest = _read_json(manifest_path)
+    entries = manifest.get("files", []) if isinstance(manifest, dict) else []
+    buckets: dict[str, dict[str, Any]] = defaultdict(lambda: {"files": 0, "non_empty_loc": 0})
+    total_loc = 0
+
+    for entry in entries:
+        rel_path = str(entry.get("path", ""))
+        if not rel_path:
+            continue
+        origin = str(entry.get("origin", entry.get("classification", "unknown"))).lower().replace(" ", "_")
+        if origin not in {"human", "generative", "generative_assisted", "mixed", "unknown"}:
+            origin = "unknown"
+
+        path = REPO_ROOT / rel_path
+        loc = _count_non_empty_lines(path) if path.exists() else _safe_int(entry.get("non_empty_loc"), 0)
+
+        buckets[origin]["files"] += 1
+        buckets[origin]["non_empty_loc"] += loc
+        total_loc += loc
+
+    rows: list[dict[str, Any]] = []
+    for origin in ("human", "generative", "generative_assisted", "mixed", "unknown"):
+        loc = int(buckets[origin]["non_empty_loc"])
+        files = int(buckets[origin]["files"])
+        rows.append({
+            "origin": origin,
+            "files": files,
+            "non_empty_loc": loc,
+            "pct_non_empty_loc": float((loc / total_loc) * 100.0) if total_loc else 0.0,
+            "basis": "manifest-based self-classification; not authorship proof",
+        })
+    return rows
+```
+
+Then in `build_paper_evidence`, after the current origin audit line, add:
+
+```python
+generative_origin_percentage_rows = _generative_origin_percentage_rows(DEFAULT_GENERATIVE_ORIGIN_MANIFEST)
+```
+
+And write it:
+
+```python
+_write_csv(
+    roots.out_root / "generative_origin_percentages.csv",
+    generative_origin_percentage_rows,
+    ["origin", "files", "non_empty_loc", "pct_non_empty_loc", "basis"],
+)
+```
+
+## Validation upgrade
+
+Add dimension and banned-label checks to `paper/validate_visuals.py`:
+
+```python
+try:
+    from PIL import Image
+except Exception:  # pragma: no cover
+    Image = None
+
+TEX_PATH = Path(__file__).resolve().parent / "echoforge_ieee.tex"
+BAD_VISIBLE_PHRASES = (
+    "locked candidate",
+    "Locked candidate",
+    "selected AP",
+    "selected lock",
+)
+MIN_PIXEL_SIZE = {
+    "architecture_stack.png": (2400, 1200),
+    "monte_carlo_split_flow.png": (2400, 1500),
+    "kpi_ranking.png": (2400, 1500),
+    "phase_kpi.png": (2400, 1400),
+    "iq_drone_samples.png": (2400, 1400),
+    "iq_negative_samples.png": (2400, 1600),
+    "detector_ml_pipeline.png": (2400, 1400),
+    "locked_algorithm.png": (1100, 800),
+}
+```
+
+Inside `main()`, after the tiny-PNG check:
+
+```python
+    if Image is not None:
+        too_small = []
+        for name, (min_w, min_h) in MIN_PIXEL_SIZE.items():
+            with Image.open(FIGURES_DIR / name) as image:
+                width, height = image.size
+            if width < min_w or height < min_h:
+                too_small.append(f"{name}={width}x{height}, expected >= {min_w}x{min_h}")
+        if too_small:
+            fail("undersized figure raster(s): " + "; ".join(too_small))
+
+    if TEX_PATH.exists():
+        tex = TEX_PATH.read_text(encoding="utf-8")
+        bad = [phrase for phrase in BAD_VISIBLE_PHRASES if phrase in tex]
+        if bad:
+            fail("banned visible phrase(s) in TeX: " + ", ".join(bad))
+```
+
+## Rebuild commands
+
+The README’s paper lane already points to the correct build sequence: evidence generation, strict figure generation, paper build, and validation. Run this after the patch. ([GitHub][2])
+
+```bash
+rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
+rtk python3 paper/generate_figures.py --strict
+rtk python3 paper/validate_visuals.py
+rtk bash paper/build.sh --copy-tracked
+rtk python3 paper/validate_paper.py \
+  --tex paper/echoforge_ieee.tex \
+  --bib paper/references.bib \
+  --pdf paper/echoforge_ieee.pdf \
+  --figures-dir paper/figures \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+```
+
+The biggest immediate win is Fig. 4: remove the red recall overlays, stop saying “selected,” and show AP and Recall@≤1%FPR as explicit grouped bars. The second biggest win is enforcing final IEEE render sizes everywhere so text stops collapsing.
+
+[1]: https://github.com/neverhuman/echoforge/tree/main/paper "echoforge/paper at main · neverhuman/echoforge · GitHub"
+[2]: https://github.com/neverhuman/echoforge "GitHub - neverhuman/echoforge: EM simulator · GitHub"
+

@@ -38,7 +38,7 @@ try:
     matplotlib.use("Agg")
     warnings.filterwarnings("ignore", message="Unable to import Axes3D.*", category=UserWarning)
     import matplotlib.pyplot as plt
-    from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
     from matplotlib.patches import FancyArrowPatch, Rectangle
 except Exception as exc:  # pragma: no cover - import guard for minimal environments
     raise SystemExit(
@@ -95,11 +95,40 @@ PALE_GOLD = "#fff5db"
 PALE_RED = "#fae8e8"
 PALE_GREEN = "#e9f5ec"
 
+NIGHT_RED = "#8c2d3e"
+NIGHT_GREEN = "#1f7a5a"
+NIGHT_RED_LIGHT = "#f2d6db"
+NIGHT_GREEN_LIGHT = "#d9efe7"
+EI_LABEL = "Engineered Intelligence (EI)"
+EI_SHORT = "EI candidate"
+BASELINE_LABEL = "Prior fusion baseline"
+PRIMARY_KPI_TEXT = "Recall@<=1%FPR"
+
+# IEEE-ready visual style. Figures are authored at final paper size so labels
+# do not become tiny after LaTeX scaling.
+IEEE_TEXT_WIDTH_IN = 7.16
+IEEE_COLUMN_WIDTH_IN = 3.45
+FONT_TITLE = 9.6
+FONT_SUBTITLE = 8.2
+FONT_AXIS = 7.4
+FONT_TICK = 6.6
+FONT_TINY = 6.1
+FONT_CARD = 6.6
+LINE_MAIN = 1.25
+LINE_GRID = 0.55
+SPINE_WIDTH = 0.65
+
 HEATMAP_CMAP = LinearSegmentedColormap.from_list(
     "echoforge_iq",
     ("#10151d", "#24445e", "#2d7c84", "#88b36d", "#f0d56b", "#f7f4e9"),
     N=256,
 )
+NIGHT_RED_GREEN = LinearSegmentedColormap.from_list(
+    "echoforge_night_red_green",
+    (NIGHT_RED, "#f7f7f2", NIGHT_GREEN),
+    N=256,
+)
+DELTA_NORM = TwoSlopeNorm(vmin=-0.80, vcenter=0.0, vmax=0.20)
 
 FIG_DPI = 450
 VECTOR_FIGURES = {
@@ -109,9 +138,213 @@ VECTOR_FIGURES = {
     "phase_kpi.png",
     "iq_drone_samples.png",
     "detector_ml_pipeline.png",
-    "locked_algorithm.png",
+    "anchor_overlay.png",
+    "ei_workflow.png",
 }
 HEATMAP_FIGURES = {"iq_negative_samples.png"}
+
+
+def _paper_fig(height: float, *, constrained: bool = True) -> Any:
+    return plt.figure(figsize=(IEEE_TEXT_WIDTH_IN, height), constrained_layout=constrained)
+
+
+def _wrap_compact(value: Any, width: int = 24) -> str:
+    return "\n".join(
+        textwrap.wrap(
+            str(value).replace("_", " "),
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+    )
+
+
+def _short_branch_label(value: Any) -> str:
+    text = str(value)
+    if "meta_fusion" in text:
+        return EI_SHORT
+    replacements = {
+        "High-resolution X/Ku C-UAS": "High-res. X/Ku",
+        "Tactical S-band AESA/MHR": "Tactical S-band",
+        "GBAD 3D/4D cueing": "GBAD 3D/4D",
+        "X/Ku public cueing envelope": "X/Ku cue",
+        "locked_candidate": EI_SHORT,
+        "selected_candidate": EI_SHORT,
+        "Locked candidate": EI_SHORT,
+        "locked candidate": EI_SHORT,
+        "selected candidate": EI_SHORT,
+        "high_resolution_xku_cuas": "High-res. X/Ku",
+        "tactical_s_band_aesa": "Tactical S-band",
+        "gbad_3d4d_cueing": "GBAD 3D/4D",
+        "distributed_acoustic_cue": "Acoustic cue",
+        "tabular_ml_baseline": "Tabular ML",
+        "sequence_ml_proxy": "Sequence ML",
+        "layered_fusion_c2": "Prior fusion",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text.replace("_", " ")
+
+
+def _reader_label(value: Any, width: int | None = None) -> str:
+    text = str(value or "")
+    replacements = {
+        "full_locked_candidate": "Full EI candidate",
+        "locked_candidate": EI_SHORT,
+        "selected_candidate": EI_SHORT,
+        "locked candidate": EI_SHORT,
+        "selected candidate": EI_SHORT,
+        "Locked candidate": EI_SHORT,
+        "Selected candidate": EI_SHORT,
+        "layered_fusion_c2": BASELINE_LABEL,
+        "prior fusion": BASELINE_LABEL,
+        "selected": EI_SHORT,
+        "passive_rf_only": "Passive-RF only",
+        "radar_only": "Radar only",
+        "acoustic_only": "Acoustic only",
+        "radar_acoustic": "Radar + acoustic",
+        "radar_rf": "Radar + passive-RF",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    text = text.replace("_", " ")
+    return _wrap_compact(text, width) if width else text
+
+
+def _delta_color(value: float) -> Any:
+    if not math.isfinite(value):
+        return SLATE
+    bounded = max(-0.80, min(0.20, value))
+    return NIGHT_RED_GREEN(DELTA_NORM(bounded))
+
+
+def _annotate_vertical_bars(ax: Any, bars: Any, *, dy: float = 0.018) -> None:
+    top = ax.get_ylim()[1]
+    for bar in bars:
+        value = float(bar.get_height())
+        ax.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            min(value + dy, top * 0.98),
+            f"{value:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=FONT_TINY,
+            color=MUTED,
+        )
+
+
+def _short_family_label(value: Any) -> str:
+    mapping = {
+        "single_bird": "Single bird",
+        "bird_flock": "Bird flock",
+        "shorebird_wader": "Shorebird",
+        "gull_tern": "Gull/tern",
+        "raptor_falcon": "Raptor",
+        "flamingo_large_bird": "Large bird",
+        "seabird_cormorant": "Seabird",
+        "seasonal_migratory_density": "Migration",
+        "rc_fixed_wing": "RC fixed-wing",
+    }
+    return mapping.get(str(value), str(value).replace("_", " "))
+
+
+def _short_feature_label(value: Any) -> str:
+    mapping = {
+        "micro_doppler_bandwidth_hz": "micro-Doppler\nbandwidth",
+        "micro_doppler_peak_hz": "micro-Doppler\npeak",
+        "spectral_entropy": "spectral\nentropy",
+        "range_m": "range",
+        "return_power_db": "return\npower",
+    }
+    return mapping.get(str(value), _wrap_compact(value, 18))
+
+
+def _clean_axes(ax: Any, *, xgrid: bool = False, ygrid: bool = False) -> None:
+    if xgrid:
+        ax.xaxis.grid(True, color=GRID, linewidth=LINE_GRID)
+    if ygrid:
+        ax.yaxis.grid(True, color=GRID, linewidth=LINE_GRID)
+    ax.set_axisbelow(True)
+    ax.tick_params(axis="both", labelsize=FONT_TICK, width=SPINE_WIDTH, length=2.5)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    for spine in ("left", "bottom"):
+        ax.spines[spine].set_linewidth(SPINE_WIDTH)
+        ax.spines[spine].set_color(INK)
+
+
+def _draw_text_card(
+    ax: Any,
+    title: str,
+    lines: list[str],
+    *,
+    wrap_width: int = 42,
+    columns: int = 1,
+    face: str = "white",
+    edge: str = GRID,
+    accent: str = INK,
+) -> None:
+    ax.axis("off")
+    ax.text(
+        0.0,
+        1.0,
+        title,
+        ha="left",
+        va="top",
+        fontsize=FONT_SUBTITLE,
+        weight="bold",
+        color=accent,
+        transform=ax.transAxes,
+    )
+    if not lines:
+        return
+    if columns == 1:
+        ax.text(
+            0.02,
+            0.84,
+            "\n".join(_wrap_compact(line, wrap_width) for line in lines),
+            ha="left",
+            va="top",
+            fontsize=FONT_CARD,
+            color=INK,
+            linespacing=1.22,
+            transform=ax.transAxes,
+        )
+        return
+    n_left = math.ceil(len(lines) / columns)
+    for idx, line in enumerate(lines):
+        col = idx // n_left
+        row = idx % n_left
+        x = 0.02 + col * 0.49
+        y = 0.82 - row * min(0.16, 0.72 / max(n_left, 1))
+        ax.text(
+            x,
+            y,
+            _wrap_compact(line, max(14, wrap_width // 2)),
+            ha="left",
+            va="top",
+            fontsize=FONT_CARD,
+            color=INK,
+            linespacing=1.05,
+            transform=ax.transAxes,
+        )
+
+
+def _style_table(table: Any, *, fontsize: float = FONT_TINY, yscale: float = 1.22) -> None:
+    table.auto_set_font_size(False)
+    table.set_fontsize(fontsize)
+    table.scale(1.0, yscale)
+    for (row_idx, _col_idx), cell in table.get_celld().items():
+        cell.set_edgecolor(GRID)
+        cell.set_linewidth(0.45)
+        cell.PAD = 0.035
+        if row_idx == 0:
+            cell.set_facecolor(PALE_BLUE)
+            cell.set_text_props(weight="bold", color=INK)
+        elif row_idx % 2 == 0:
+            cell.set_facecolor("#f9fbfd")
+        else:
+            cell.set_facecolor("white")
 
 
 @dataclass(frozen=True)
@@ -299,24 +532,25 @@ def _save_figure(fig: Any, filename: str) -> Path:
         "CreationDate": PDF_TIMESTAMP,
         "ModDate": PDF_TIMESTAMP,
     }
+    pad = 0.08
     if filename in VECTOR_FIGURES:
         fig.savefig(
             path.with_suffix(".pdf"),
             bbox_inches="tight",
-            pad_inches=0.08,
+            pad_inches=pad,
             metadata=pdf_metadata,
         )
-        fig.savefig(path, bbox_inches="tight", pad_inches=0.08, metadata=metadata)
+        fig.savefig(path, dpi=FIG_DPI, bbox_inches="tight", pad_inches=pad, metadata=metadata)
     elif filename in HEATMAP_FIGURES:
         fig.savefig(
             path,
             dpi=FIG_DPI,
             bbox_inches="tight",
-            pad_inches=0.08,
+            pad_inches=pad,
             metadata=metadata,
         )
     else:
-        fig.savefig(path, bbox_inches="tight", pad_inches=0.08, metadata=metadata)
+        fig.savefig(path, dpi=FIG_DPI, bbox_inches="tight", pad_inches=pad, metadata=metadata)
     plt.close(fig)
     return path
 
@@ -325,16 +559,17 @@ def _configure_matplotlib() -> None:
     plt.rcParams.update(
         {
             "font.family": "DejaVu Sans",
-            "font.size": 9,
+            "font.size": FONT_AXIS,
             "axes.edgecolor": INK,
             "axes.labelcolor": INK,
-            "axes.titlesize": 10,
+            "axes.titlesize": FONT_SUBTITLE,
             "axes.titleweight": "bold",
+            "axes.labelsize": FONT_AXIS,
             "xtick.color": MUTED,
             "ytick.color": MUTED,
-            "xtick.labelsize": 7,
-            "ytick.labelsize": 7,
-            "legend.fontsize": 7,
+            "xtick.labelsize": FONT_TICK,
+            "ytick.labelsize": FONT_TICK,
+            "legend.fontsize": FONT_TINY,
             "savefig.dpi": FIG_DPI,
             "figure.dpi": FIG_DPI,
             "figure.facecolor": "white",
@@ -359,14 +594,14 @@ def _add_box(
     edge: str = INK,
     color: str = INK,
     weight: str = "normal",
-    size: float = 8.2,
+    size: float = FONT_CARD,
 ) -> None:
     rect = Rectangle((x, y), w, h, linewidth=1.0, edgecolor=edge, facecolor=face)
     ax.add_patch(rect)
     ax.text(
         x + w / 2,
         y + h / 2,
-        text,
+        _wrap_compact(text, 24),
         ha="center",
         va="center",
         fontsize=size,
@@ -393,7 +628,7 @@ def _add_arrow(
 
 
 def _setup_diagram(width: float = 7.1, height: float = 4.2) -> tuple[Any, Any]:
-    fig, ax = plt.subplots(figsize=(width, height))
+    fig, ax = plt.subplots(figsize=(width, height), constrained_layout=True)
     ax.set_xlim(0, 10)
     ax.set_ylim(0, 6)
     ax.axis("off")
@@ -833,44 +1068,53 @@ def figure_architecture_stack(context: FigureContext) -> Path:
         _note_fallback(filename, "radar model card missing; using generic stack")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig, ax = _setup_diagram(7.4, 4.7)
-    ax.text(0.15, 5.7, "EchoForge radar signal chain", fontsize=12, weight="bold")
+    fig, ax = _setup_diagram(IEEE_TEXT_WIDTH_IN, 3.35)
+    ax.text(0.15, 5.72, "EchoForge radar evidence stack", fontsize=FONT_TITLE, weight="bold")
     ax.text(
         0.15,
         5.35,
-        "Public-proxy object priors, sensor archetypes, detector views, and evidence outputs stay separated by claim boundary",
-        fontsize=8.5,
+        "Public-proxy priors, synthetic sensing, detector views, and validation evidence stay separated by claim boundary.",
+        fontsize=FONT_TINY,
         color=MUTED,
     )
     layers = [
-        ("Public-proxy object priors\nfixed-wing pusher-prop", PALE_BLUE, BLUE),
-        ("Radar archetype\ncarrier/bandwidth/PRF/CPI", PALE_TEAL, TEAL),
-        ("Propagation and clutter\nmultipath / weather / RFI", PALE_GOLD, GOLD),
-        ("Complex IQ and cue streams\nradar + acoustic + passive RF", PALE_GREEN, GREEN),
-        ("Detector views and leakage rails\nfeature denylist + split locks", PALE_RED, RED),
-        ("Evidence bundle\nmetrics, ablations, anchor compare", SLATE, INK),
+        ("Public-proxy object priors", PALE_BLUE, BLUE),
+        ("Radar archetype and clutter", PALE_TEAL, TEAL),
+        ("Complex IQ plus cue streams", PALE_GOLD, GOLD),
+        ("Detector views with leakage rails", PALE_GREEN, GREEN),
+        ("Evidence bundle and claim boundary", PALE_RED, RED),
     ]
-    x, w, h = 0.55, 5.8, 0.58
-    y0 = 4.6
+    x, w, h = 0.50, 5.55, 0.62
+    y0 = 4.65
     for idx, (text, face, edge) in enumerate(layers):
-        y = y0 - idx * 0.72
+        y = y0 - idx * 0.80
         _add_box(
             ax, x, y, w, h, text, face=face, edge=edge, weight="bold" if idx == 0 else "normal"
         )
         if idx < len(layers) - 1:
-            _add_arrow(ax, (x + w / 2, y - 0.02), (x + w / 2, y - 0.16), color=edge)
+            _add_arrow(ax, (x + w / 2, y - 0.02), (x + w / 2, y - 0.21), color=edge)
 
-    ax.text(7.0, 5.05, "Model card snapshot", fontsize=9.2, weight="bold")
+    ax.text(6.55, 5.05, "Model card snapshot", fontsize=FONT_SUBTITLE, weight="bold")
     card_lines = [
         f"waveform: {radar_model.get('waveform_family', 'public-proxy radar')}",
         "pulses: 24 per CPI",
         "range bins: 20",
         "PRF/CPI: 4 kHz / 6 ms",
-        "receiver impairments: AGC, drift, quantization",
-        "cue family: acoustic + passive RF",
+        "receiver: AGC, drift, quantization",
+        "cues: acoustic + passive RF",
     ]
     for idx, line in enumerate(card_lines):
-        _add_box(ax, 6.95, 4.3 - idx * 0.53, 2.45, 0.34, line, face="white", edge=GRID, size=7.6)
+        _add_box(
+            ax,
+            6.50,
+            4.35 - idx * 0.56,
+            2.75,
+            0.38,
+            line,
+            face="white",
+            edge=GRID,
+            size=FONT_TINY,
+        )
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -884,14 +1128,16 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         _note_fallback(filename, "scenario balance missing; using summary placeholders")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = plt.figure(figsize=(10.1, 5.6))
-    gs = fig.add_gridspec(3, 3, width_ratios=[1.45, 1.45, 1.0], hspace=0.32, wspace=0.25)
-    fig.suptitle("Scenario balance and leakage diagnostics", fontsize=12.2, weight="bold", y=0.98)
+    fig = _paper_fig(4.10, constrained=True)
+    gs = fig.add_gridspec(2, 3, width_ratios=[1.15, 1.15, 0.92], hspace=0.42, wspace=0.36)
+    fig.suptitle(
+        "Scenario balance and leakage diagnostics", fontsize=FONT_TITLE, weight="bold", y=0.995
+    )
     fig.text(
         0.02,
         0.02,
         "Scenario groups are locked before phase expansion. The paper evidence keeps label, site, range, aspect, noise, and hard-negative family counts together.",
-        fontsize=7.2,
+        fontsize=FONT_TINY,
         color=MUTED,
     )
     marginal_counts = balance.get("marginal_counts", {})
@@ -899,8 +1145,6 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         ("split", "Split"),
         ("site", "Site"),
         ("range", "Range"),
-        ("aspect", "Aspect"),
-        ("noise", "Noise"),
         ("hard_negative_role", "Hard-negative"),
     ]
     for idx, (key, title) in enumerate(ordered_keys):
@@ -917,14 +1161,17 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         names = list(counts)
         values = [counts[name] for name in names]
         display_names = [
-            name.replace("vegetation_motion_corridor", "vegetation")
-            .replace("open_desert_edge", "desert edge")
-            .replace("edge_of_track", "edge")
-            .replace("broadside_right", "broadside R")
-            .replace("broadside_left", "broadside L")
-            .replace("clutter_only_counterfactual", "clutter-only")
-            .replace("seasonal_migratory_density", "migration")
-            .replace("_", " ")
+            _wrap_compact(
+                name.replace("vegetation_motion_corridor", "vegetation")
+                .replace("open_desert_edge", "desert edge")
+                .replace("edge_of_track", "edge")
+                .replace("broadside_right", "broadside R")
+                .replace("broadside_left", "broadside L")
+                .replace("clutter_only_counterfactual", "clutter-only")
+                .replace("seasonal_migratory_density", "migration")
+                .replace("_", " "),
+                14,
+            )
             for name in names
         ]
         palette = [BLUE, TEAL, GOLD, RED, GREEN]
@@ -932,20 +1179,19 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
             range(len(names)), values, color=[palette[i % len(palette)] for i in range(len(names))]
         )
         ax.set_yticks(range(len(names)))
-        ax.set_yticklabels(display_names, fontsize=6.8)
-        ax.set_title(title, fontsize=9.4, weight="bold")
-        ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-        ax.set_axisbelow(True)
-        for spine in ("top", "right"):
-            ax.spines[spine].set_visible(False)
+        ax.set_yticklabels(display_names, fontsize=FONT_TICK)
+        ax.set_title(title, fontsize=FONT_SUBTITLE, weight="bold")
+        _clean_axes(ax, xgrid=True)
         for i, value in enumerate(values):
-            ax.text(value + max(values) * 0.01, i, f"{value}", va="center", fontsize=6.8)
+            ax.text(value + max(values) * 0.01, i, f"{value}", va="center", fontsize=FONT_TINY)
 
     ax = fig.add_subplot(gs[0, 2])
     ax.axis("off")
     leakage = context.evidence.get("leakage_diagnostics", {})
     canary = leakage.get("canary_forbidden_feature_test", {})
-    ax.text(0.02, 0.94, "Leakage checks", fontsize=9.4, weight="bold", transform=ax.transAxes)
+    ax.text(
+        0.02, 0.94, "Leakage checks", fontsize=FONT_SUBTITLE, weight="bold", transform=ax.transAxes
+    )
     lines = [
         f"canary test: {str(canary.get('status', 'missing')).replace('_', ' ')}",
         f"stratum baseline AP: {leakage.get('stratum_only_baseline', {}).get('average_precision', float('nan')):.3f}",
@@ -953,15 +1199,28 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
         f"label shuffle AP: {leakage.get('label_shuffle_sanity', {}).get('shuffled_labels', {}).get('average_precision', float('nan')):.3f}",
     ]
     for idx, line in enumerate(lines):
-        _add_box(ax, 0.03, 0.74 - idx * 0.14, 0.92, 0.10, line, face="white", edge=GRID, size=7.1)
+        _add_box(
+            ax, 0.03, 0.74 - idx * 0.16, 0.92, 0.12, line, face="white", edge=GRID, size=FONT_TINY
+        )
 
     ax = fig.add_subplot(gs[1:, 2])
     ax.axis("off")
     imbalance = balance.get("imbalance_scores", {})
-    ax.text(0.02, 0.94, "Marginal imbalance", fontsize=9.4, weight="bold", transform=ax.transAxes)
+    ax.text(
+        0.02,
+        0.94,
+        "Marginal imbalance",
+        fontsize=FONT_SUBTITLE,
+        weight="bold",
+        transform=ax.transAxes,
+    )
     for idx, (name, value) in enumerate(sorted(imbalance.items())):
         ax.text(
-            0.04, 0.80 - idx * 0.12, f"{name}: {value:.3f}", fontsize=7.3, transform=ax.transAxes
+            0.04,
+            0.80 - idx * 0.13,
+            f"{name}: {value:.3f}",
+            fontsize=FONT_TINY,
+            transform=ax.transAxes,
         )
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
@@ -976,13 +1235,16 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         _note_fallback(filename, "evaluation summary missing; using deterministic defaults")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = plt.figure(figsize=(10.5, 5.8))
-    gs = fig.add_gridspec(2, 3, width_ratios=[1.05, 1.0, 1.0], hspace=0.34, wspace=0.30)
-    fig.suptitle(
-        "Holdout primary KPI, ranking diagnostics, low-FPR curves, and calibration",
-        fontsize=12.2,
+    fig = _paper_fig(4.20, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.84, bottom=0.16, wspace=0.78, hspace=0.66)
+    gs = fig.add_gridspec(2, 4, width_ratios=[1.30, 0.10, 0.86, 0.86])
+    fig.text(
+        0.08,
+        0.935,
+        "Holdout KPI and supporting diagnostics",
+        fontsize=FONT_TITLE,
         weight="bold",
-        y=0.98,
+        ha="left",
     )
 
     selected_row = evaluation.get("selected", {})
@@ -995,7 +1257,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
     )
 
     kpi_ax = fig.add_subplot(gs[:, 0])
-    methods = [("Prior fusion", baseline_row, GREEN), ("Locked candidate", selected_row, INK)]
+    methods = [(BASELINE_LABEL, baseline_row, GREEN), (EI_SHORT, selected_row, INK)]
     y = np.arange(len(methods))
     point_values = [_safe_float(row.get("fixed_fpr_recall")) for _label, row, _color in methods]
     lcb_values = [
@@ -1011,47 +1273,26 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
                 idx,
                 f"point {point:.3f}\nLCB95 {lcb:.3f}",
                 va="center",
-                fontsize=7.0,
+                fontsize=FONT_TINY,
                 color=MUTED,
             )
     kpi_ax.set_yticks(y)
-    kpi_ax.set_yticklabels([label for label, _row, _color in methods], fontsize=8.2)
+    kpi_ax.set_yticklabels([label for label, _row, _color in methods], fontsize=FONT_AXIS)
     kpi_ax.set_xlim(0.0, 1.02)
-    kpi_ax.set_xlabel("Recall at FPR ≤ 1%", fontsize=9.0)
-    kpi_ax.set_title("Primary KPI: group-block LCB95", fontsize=9.8, weight="bold")
-    kpi_ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-    kpi_ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        kpi_ax.spines[spine].set_visible(False)
+    kpi_ax.set_xlabel("Recall at FPR <= 1%", fontsize=FONT_AXIS)
+    kpi_ax.set_title("Primary KPI: group-block LCB95", fontsize=FONT_SUBTITLE, weight="bold")
+    _clean_axes(kpi_ax, xgrid=True)
     kpi_ax.text(
         0.02,
-        -0.17,
-        f"{primary_label}: {primary_value:.3f}; holdout has 8 positive groups / 24 positive records.",
-        fontsize=7.1,
-        color=MUTED,
-        transform=kpi_ax.transAxes,
-    )
-    kpi_ax.text(
-        0.02,
-        -0.27,
-        "AP and ROC AUC are supporting rank diagnostics; selected ROC AUC is lower than prior fusion.",
-        fontsize=7.1,
+        0.04,
+        f"{primary_label}: {primary_value:.3f}",
+        fontsize=FONT_TINY,
         color=MUTED,
         transform=kpi_ax.transAxes,
     )
 
-    rank_ax = fig.add_subplot(gs[0, 1])
+    rank_ax = fig.add_subplot(gs[0, 2])
     selected_method = evaluation.get("selected_method", "")
-    method_labels = {
-        "high_resolution_xku_cuas": "X/Ku radar",
-        "tactical_s_band_aesa": "S-band AESA",
-        "gbad_3d4d_cueing": "GBAD cue",
-        "distributed_acoustic_cue": "acoustic cue",
-        "tabular_ml_baseline": "tabular ML",
-        "sequence_ml_proxy": "sequence ML",
-        "layered_fusion_c2": "prior fusion",
-        selected_method: "locked candidate",
-    }
     rows = [
         row
         for row in context.baseline_metrics
@@ -1069,18 +1310,13 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         positions.append(len(positions))
     rank_ax.barh(positions, values, color=colors, edgecolor="white", linewidth=0.8)
     rank_ax.set_yticks(positions)
-    rank_ax.set_yticklabels(
-        [method_labels.get(label, label.replace("_", " ")) for label in labels], fontsize=7.0
-    )
-    rank_ax.set_xlabel("Holdout AP", fontsize=8.4)
-    rank_ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-    rank_ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        rank_ax.spines[spine].set_visible(False)
-    rank_ax.set_title("AP ranking diagnostic", fontsize=9.4, weight="bold")
+    rank_ax.set_yticklabels([_short_branch_label(label) for label in labels], fontsize=FONT_TINY)
+    rank_ax.set_xlabel("Holdout AP", fontsize=FONT_AXIS)
+    _clean_axes(rank_ax, xgrid=True)
+    rank_ax.set_title("AP ranking diagnostic", fontsize=FONT_SUBTITLE, weight="bold")
 
-    roc_ax = fig.add_subplot(gs[0, 2])
-    pr_ax = fig.add_subplot(gs[1, 1])
+    roc_ax = fig.add_subplot(gs[0, 3])
+    pr_ax = fig.add_subplot(gs[1, 2])
     for ax2, metric in ((roc_ax, "roc"), (pr_ax, "pr")):
         sel_curve = evaluation.get("curves", {}).get("selected", {}).get(metric, [])
         base_curve = evaluation.get("curves", {}).get("baseline", {}).get(metric, [])
@@ -1090,20 +1326,20 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
                 [p["tpr"] for p in base_curve],
                 color=GREEN,
                 linewidth=1.8,
-                label="baseline",
+                label=BASELINE_LABEL,
             )
             ax2.plot(
                 [p["fpr"] for p in sel_curve],
                 [p["tpr"] for p in sel_curve],
                 color=INK,
                 linewidth=1.8,
-                label="selected",
+                label=EI_SHORT,
             )
-            ax2.set_xlabel("False-positive rate", fontsize=8.0)
-            ax2.set_ylabel("True-positive rate", fontsize=8.0)
-            ax2.set_title("ROC low-FPR inset", fontsize=9.4, weight="bold")
+            ax2.set_xlabel("False-positive rate", fontsize=FONT_AXIS)
+            ax2.set_ylabel("True-positive rate", fontsize=FONT_AXIS)
+            ax2.set_title("ROC low-FPR inset", fontsize=FONT_SUBTITLE, weight="bold")
             ax2.axvline(0.01, color=RED, linewidth=1.0, linestyle="--")
-            ax2.text(0.011, 0.07, "1% FPR", fontsize=6.8, color=RED)
+            ax2.text(0.011, 0.07, "1% FPR", fontsize=FONT_TINY, color=RED)
             ax2.set_xlim(0.0, 0.025)
             ax2.set_ylim(0.0, 1.02)
         else:
@@ -1112,39 +1348,33 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
                 [p["precision"] for p in base_curve],
                 color=GREEN,
                 linewidth=1.8,
-                label="baseline",
+                label=BASELINE_LABEL,
             )
             ax2.plot(
                 [p["recall"] for p in sel_curve],
                 [p["precision"] for p in sel_curve],
                 color=INK,
                 linewidth=1.8,
-                label="selected",
+                label=EI_SHORT,
             )
-            ax2.set_xlabel("Recall", fontsize=8.0)
-            ax2.set_ylabel("Precision", fontsize=8.0)
-            ax2.set_title("PR curve", fontsize=9.4, weight="bold")
+            ax2.set_xlabel("Recall", fontsize=FONT_AXIS)
+            ax2.set_ylabel("Precision", fontsize=FONT_AXIS)
+            ax2.set_title("PR curve", fontsize=FONT_SUBTITLE, weight="bold")
             base_rate = _safe_float(selected_row.get("positive_count")) / max(
                 _safe_float(selected_row.get("count"), 1.0), 1.0
             )
             ax2.axhline(base_rate, color=RED, linewidth=1.0, linestyle="--", label="base rate")
             ax2.set_xlim(0.0, 1.0)
             ax2.set_ylim(0.0, 1.02)
-        ax2.xaxis.grid(True, color=GRID, linewidth=0.7)
-        ax2.yaxis.grid(True, color=GRID, linewidth=0.7)
-        for spine in ("top", "right"):
-            ax2.spines[spine].set_visible(False)
-    roc_ax.legend(loc="lower right", fontsize=7.2, frameon=False)
-    pr_ax.legend(loc="upper right", fontsize=6.8, frameon=False)
+        _clean_axes(ax2, xgrid=True, ygrid=True)
+    roc_ax.legend(loc="lower right", fontsize=FONT_TINY, frameon=False)
+    pr_ax.legend(loc="upper right", fontsize=FONT_TINY, frameon=False)
 
-    cal_ax = fig.add_subplot(gs[1, 2])
+    cal_ax = fig.add_subplot(gs[1, 3])
     bins = selected_row.get("calibration_bins", [])
     if not bins:
         bins = evaluation.get("calibration", {}).get("selected", {}).get("bins", [])
-    bin_labels = [
-        f"{_safe_float(row.get('bin_left')):.1f}-{_safe_float(row.get('bin_right')):.1f}"
-        for row in bins
-    ]
+    bin_labels = [f"{_safe_float(row.get('bin_left')):.1f}" for row in bins]
     counts = [_safe_float(row.get("count")) for row in bins]
     gaps = [_safe_float(row.get("gap")) for row in bins]
     x = np.arange(len(bin_labels))
@@ -1152,29 +1382,33 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
     nonzero = [count for count in counts if count > 0]
     if nonzero:
         cal_ax.set_ylim(0.0, max(nonzero) * 1.12)
-    cal_ax.set_xticks(x)
-    cal_ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=6.2)
-    cal_ax.set_ylabel("Bin count", fontsize=8.0)
-    cal_ax.set_title("Calibration bin counts", fontsize=9.4, weight="bold")
+    tick_positions = list(range(0, len(bin_labels), 2))
+    cal_ax.set_xticks(tick_positions)
+    cal_ax.set_xticklabels([bin_labels[idx] for idx in tick_positions], fontsize=FONT_TINY)
+    cal_ax.set_ylabel("Bin count", fontsize=FONT_AXIS)
+    cal_ax.set_title("Calibration bin counts", fontsize=FONT_SUBTITLE, weight="bold")
     max_count = max(counts) if counts else 0.0
     for idx, (count, gap) in enumerate(zip(counts, gaps)):
         if count > 0 and count < max_count * 0.25 and math.isfinite(gap):
             cal_ax.text(
-                idx, count, f"gap {gap:.3f}", ha="center", va="bottom", fontsize=5.8, color=MUTED
+                idx,
+                count,
+                f"gap {gap:.3f}",
+                ha="center",
+                va="bottom",
+                fontsize=FONT_TINY,
+                color=MUTED,
             )
     cal_ax.text(
         0.98,
         0.86,
         f"Brier {selected_row.get('brier_score', float('nan')):.3f} / ECE {selected_row.get('ece', float('nan')):.3f}",
         transform=cal_ax.transAxes,
-        fontsize=7.0,
+        fontsize=FONT_TINY,
         color=MUTED,
         ha="right",
     )
-    cal_ax.yaxis.grid(True, color=GRID, linewidth=0.7)
-    cal_ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        cal_ax.spines[spine].set_visible(False)
+    _clean_axes(cal_ax, ygrid=True)
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -1188,10 +1422,16 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         _note_fallback(filename, "phase metrics missing; using deterministic defaults")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = plt.figure(figsize=(10.3, 4.9))
-    gs = fig.add_gridspec(1, 2, width_ratios=[1.15, 1.0], wspace=0.24)
-    fig.suptitle(
-        "Phase behavior and false-alarm family breakdown", fontsize=12.1, weight="bold", y=0.98
+    fig = _paper_fig(3.55, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.82, bottom=0.20, wspace=0.42)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.0])
+    fig.text(
+        0.08,
+        0.92,
+        "Phase behavior and false-alarm burden",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
     )
 
     phase_metrics = evaluation.get("phase_metrics", {})
@@ -1199,36 +1439,48 @@ def figure_phase_kpi(context: FigureContext) -> Path:
     baseline = phase_metrics.get("layered_fusion_c2", {})
     phase_order = list(PHASES)
     x = np.arange(len(phase_order))
-    width = 0.32
+    width = 0.17
     ax = fig.add_subplot(gs[0, 0])
     selected_ap = [selected.get(phase, {}).get("average_precision", 0.0) for phase in phase_order]
     selected_recall = [
         selected.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
     ]
     baseline_ap = [baseline.get(phase, {}).get("average_precision", 0.0) for phase in phase_order]
-    ax.bar(
-        x - width / 2, baseline_ap, width, color=PALE_GREEN, edgecolor=GREEN, label="baseline AP"
-    )
-    ax.bar(x + width / 2, selected_ap, width, color=INK, edgecolor=GOLD, label="selected AP")
-    for idx, value in enumerate(selected_recall):
-        ax.plot([idx - 0.12, idx + 0.12], [value, value], color=RED, linewidth=2.0)
+    baseline_recall = [
+        baseline.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
+    ]
+    series = [
+        ("Baseline AP", baseline_ap, PALE_GREEN, GREEN),
+        ("Baseline R@<=1%FPR", baseline_recall, PALE_BLUE, BLUE),
+        ("EI AP", selected_ap, INK, INK),
+        ("EI R@<=1%FPR", selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+    ]
+    offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * width
+    for offset, (label, values, face, edge) in zip(offsets, series):
+        bars = ax.bar(
+            x + offset,
+            values,
+            width,
+            color=face,
+            edgecolor=edge,
+            linewidth=0.8,
+            label=label,
+        )
+        _annotate_vertical_bars(ax, bars, dy=0.012)
     ax.set_xticks(x)
     ax.set_xticklabels(
-        [f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order], fontsize=7.4
+        [f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order], fontsize=FONT_TINY
     )
-    ax.set_ylabel("AP / Recall@≤1%FPR", fontsize=9.0)
+    ax.set_ylabel("Holdout metric value", fontsize=FONT_AXIS)
     ax.set_ylim(0.0, 1.02)
-    ax.yaxis.grid(True, color=GRID, linewidth=0.7)
-    ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        ax.spines[spine].set_visible(False)
-    ax.legend(loc="upper left", fontsize=7.2, frameon=False)
-    ax.set_title("Per-phase holdout diagnostics", fontsize=9.6, weight="bold")
+    _clean_axes(ax, ygrid=True)
+    ax.legend(loc="upper left", fontsize=FONT_TINY, frameon=False, ncol=2, columnspacing=0.8)
+    ax.set_title("Per-phase AP and low-FPR recall", fontsize=FONT_SUBTITLE, weight="bold")
     fig.text(
-        0.04,
-        0.025,
+        0.08,
+        0.075,
         "Each phase has n=8 positive holdout records from 8 positive groups; phase results are diagnostic.",
-        fontsize=7.1,
+        fontsize=FONT_TINY,
         color=MUTED,
     )
 
@@ -1252,7 +1504,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
                 "top_fp_family": "single_bird",
             }
         ]
-    method_rows = sorted(method_rows, key=lambda row: _safe_float(row.get("rank"), 99.0))
+    method_rows = sorted(method_rows, key=lambda row: _safe_float(row.get("rank"), 99.0))[:5]
     selected_methods = [row.get("method", "") for row in method_rows if row.get("method")]
     family_names = sorted(
         {row.get("family", "") for row in family_rows if row.get("family")},
@@ -1264,7 +1516,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
             ),
             name,
         ),
-    )
+    )[:4]
     family_palette = {
         "single_bird": RED,
         "bird_flock": GOLD,
@@ -1303,7 +1555,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
             edgecolor=GRID,
             linewidth=0.8,
             alpha=0.35,
-            label="near-threshold negatives" if idx == 0 else None,
+            label=None,
         )
         left = 0.0
         for family in family_names:
@@ -1321,7 +1573,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
                 color=family_palette.get(family, BLUE),
                 edgecolor="white",
                 linewidth=0.5,
-                label=family if family not in seen_families else None,
+                label=None,
             )
             left += family_count
             max_total = max(max_total, left)
@@ -1329,33 +1581,23 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         fa_ax.text(
             max(left, near_total) + 0.18,
             idx,
-            f"FP {int(total_fp)} | near {int(near_total)} | recall@≤1%FPR {_safe_float(summary.get('recall_at_leq_1pct_fpr')):.3f}",
+            f"FP {int(total_fp)} | near {int(near_total)} | R@1% {_safe_float(summary.get('recall_at_leq_1pct_fpr')):.3f}",
             va="center",
-            fontsize=6.8,
+            fontsize=FONT_TINY,
             color=MUTED,
         )
     fa_ax.set_yticks(y_positions)
     fa_ax.set_yticklabels(
         [
-            method_to_summary.get(method, {}).get("method_label", method).replace("_", "\n")
+            _reader_label(method_to_summary.get(method, {}).get("method_label", method), 14)
             for method in selected_methods
         ],
-        fontsize=7.0,
+        fontsize=FONT_TICK,
     )
-    fa_ax.set_xlabel("False-alarm count by family", fontsize=9.0)
-    fa_ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-    fa_ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        fa_ax.spines[spine].set_visible(False)
+    fa_ax.set_xlabel("False-alarm count by top family", fontsize=FONT_AXIS)
+    _clean_axes(fa_ax, xgrid=True)
     fa_ax.set_xlim(0.0, max_total * 1.15 if max_total > 0 else 1.0)
-    fa_ax.set_title("Cross-method false-alarm burden", fontsize=9.6, weight="bold")
-    fa_ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.16),
-        fontsize=6.2,
-        frameon=False,
-        ncol=3,
-    )
+    fa_ax.set_title("Cross-method false-alarm burden", fontsize=FONT_SUBTITLE, weight="bold")
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -1424,15 +1666,23 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
         _note_fallback(filename, "radar model card missing; using placeholder priors")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = plt.figure(figsize=(10.4, 5.8))
+    fig = _paper_fig(4.10, constrained=False)
+    fig.subplots_adjust(left=0.06, right=0.98, top=0.84, bottom=0.18)
     gs = fig.add_gridspec(
-        2, 2, width_ratios=[1.28, 0.92], height_ratios=[1.35, 1.0], hspace=0.24, wspace=0.16
+        2,
+        3,
+        height_ratios=[0.90, 1.42],
+        width_ratios=[1.32, 0.82, 0.94],
+        hspace=0.44,
+        wspace=0.34,
     )
-    fig.suptitle(
-        "Radar model card, derived resolution budget, and public-proxy boundaries",
-        fontsize=12.0,
+    fig.text(
+        0.06,
+        0.93,
+        "Radar model card, resolution budget, and public-proxy boundary",
+        fontsize=FONT_TITLE,
         weight="bold",
-        y=0.985,
+        ha="left",
     )
 
     table_ax = fig.add_subplot(gs[0, :])
@@ -1440,7 +1690,9 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
     carrier_bands = card.get("carrier_bands", []) or []
     table_rows = []
     for band in carrier_bands:
-        label = band.get("label") or band.get("display_name") or band.get("branch", "")
+        label = _short_branch_label(
+            band.get("label") or band.get("display_name") or band.get("branch", "")
+        )
         bandwidth_mhz = _first_number(band, "bandwidth_mhz", "bw_mhz", "bandwidth_MHz", default=0.0)
         center_ghz = _first_number(band, "center_ghz", "f0_ghz", "carrier_ghz", default=0.0)
         cpi_ms = _first_number(band, "cpi_ms", "cpi_msec", default=6.0)
@@ -1494,8 +1746,8 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
         )
         table_rows.append(
             [
-                _wrap(label, 28),
-                band.get("band", ""),
+                label,
+                _short_branch_label(band.get("band", "")),
                 f"{bandwidth_mhz:.0f}",
                 f"{range_resolution_m:.3f}",
                 f"{prf_hz:.0f}/{crf_hz:.0f}",
@@ -1505,16 +1757,22 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
                 f"{velocity_resolution_mps:.3f}",
             ]
         )
+    if not table_rows:
+        table_rows = [
+            ["High-res. X/Ku", "X/Ku", "600", "0.250", "4000/4000", "6.0", "24", "166.7", "2.498"],
+            ["Tactical S-band", "S", "180", "0.833", "4000/4000", "6.0", "24", "166.7", "8.059"],
+            ["GBAD 3D/4D", "X/Ku cue", "300", "0.500", "4000/4000", "6.0", "24", "166.7", "2.426"],
+        ]
     col_labels = [
         "Branch",
         "Band",
-        "BW MHz",
-        "ΔR m",
-        "PRF / CRF Hz",
-        "CPI ms",
-        "Pulses/chirps",
-        "ΔfD Hz",
-        "Δv m/s",
+        "BW\nMHz",
+        "dR\nm",
+        "PRF/CRF\nHz",
+        "CPI\nms",
+        "Pulses",
+        "dfD\nHz",
+        "dv\nm/s",
     ]
     table = table_ax.table(
         cellText=table_rows,
@@ -1522,96 +1780,69 @@ def figure_iq_drone_samples(context: FigureContext) -> Path:
         loc="center",
         cellLoc="center",
         colLoc="center",
-        colWidths=[0.20, 0.08, 0.09, 0.08, 0.14, 0.09, 0.08, 0.09, 0.09],
+        colWidths=[0.20, 0.08, 0.075, 0.075, 0.13, 0.075, 0.075, 0.075, 0.075],
     )
-    table.auto_set_font_size(False)
-    table.set_fontsize(6.9)
-    table.scale(1.0, 1.18)
-    for (row_idx, col_idx), cell in table.get_celld().items():
-        cell.set_edgecolor(GRID)
-        cell.set_linewidth(0.6)
-        if row_idx == 0:
-            cell.set_facecolor(PALE_BLUE)
-            cell.set_text_props(weight="bold")
-        elif row_idx % 2 == 0:
-            cell.set_facecolor("#f9fbfd")
-        else:
-            cell.set_facecolor("white")
+    _style_table(table, fontsize=FONT_TINY, yscale=1.18)
 
     model_box = fig.add_subplot(gs[1, 0])
-    model_box.axis("off")
-    model_box.text(
-        0.02,
-        0.95,
+    _draw_text_card(
+        model_box,
         "Public-proxy assumptions",
-        fontsize=9.3,
-        weight="bold",
-        transform=model_box.transAxes,
+        [
+            "positive class: fixed-wing pusher-prop public proxy",
+            "geometry: swept/delta wing; rear pusher propulsor",
+            "speed: 45--60 m/s; prop micro-Doppler: 150--217 Hz",
+            "phase windows: 0--30 s, 30--90 s, 90--150 s",
+            "launch proxy: rail/catapult take-up",
+            "RCS/aspect: -28 to -2 dBsm public-source proxy",
+        ],
+        wrap_width=44,
+        face="white",
+        edge=GRID,
+        accent=INK,
     )
-    lines = [
-        "positive class: fixed-wing pusher-prop public proxy",
-        "geometry: delta / swept fixed wing, rear pusher propulsor",
-        "speed envelope: 45--60 m/s proxy",
-        "phase windows: take-up 0--30 s, climb 30--90 s, cruise 90--150 s",
-        "launch proxy: rail/catapult take-up with short booster assist",
-        "RCS/aspect envelope: -28 to -2 dBsm public-source proxy",
-        "prop micro-Doppler proxy: 150--217 Hz",
-    ]
-    for idx, line in enumerate(lines):
-        _add_box(
-            model_box, 0.03, 0.80 - idx * 0.10, 0.94, 0.074, line, face="white", edge=GRID, size=7.0
-        )
 
-    notes_ax = fig.add_subplot(gs[1, 1])
-    notes_ax.axis("off")
-    notes_ax.text(
-        0.02,
-        0.95,
+    impair_ax = fig.add_subplot(gs[1, 1])
+    impairments = card.get("receiver_impairments", []) or [
+        "AGC compression",
+        "clock drift",
+        "quantization",
+        "dropped CPI",
+        "PRF ambiguity",
+        "Doppler folding",
+        "calibration offset",
+        "multipath masking",
+    ]
+    _draw_text_card(
+        impair_ax,
         "Receiver impairments",
-        fontsize=9.3,
-        weight="bold",
-        transform=notes_ax.transAxes,
+        [str(item) for item in impairments],
+        wrap_width=18,
+        columns=2,
+        face=PALE_RED,
+        edge=RED,
+        accent=RED,
     )
-    impairments = card.get("receiver_impairments", [])[:4]
-    for idx, item in enumerate(impairments):
-        _add_box(
-            notes_ax,
-            0.03,
-            0.78 - idx * 0.16,
-            0.94,
-            0.11,
-            _wrap(item, 34),
-            face=PALE_RED,
-            edge=RED,
-            size=6.8,
-        )
-    notes_ax.text(
-        0.02,
-        0.28,
-        "Cue definitions",
-        fontsize=9.3,
-        weight="bold",
-        transform=notes_ax.transAxes,
-    )
+
+    notes_ax = fig.add_subplot(gs[1, 2])
     cue_defs = card.get("cue_definitions", {})
     cue_text = [
         f"acoustic: {cue_defs.get('acoustic', 'node cadence and agreement')}",
         f"passive RF: {cue_defs.get('passive_rf', 'no-signal / RFI geometry')}",
+        "claim boundary: public-proxy assumptions only",
     ]
-    for idx, line in enumerate(cue_text):
-        _add_box(
-            notes_ax,
-            0.03,
-            0.03 + idx * 0.12,
-            0.94,
-            0.09,
-            _wrap(line, 34),
-            face="white",
-            edge=GRID,
-            size=6.8,
-        )
+    _draw_text_card(notes_ax, "Cue definitions", cue_text, wrap_width=34, face="white", edge=GRID)
     boundary = _wrap(card.get("claim_boundary", "public-proxy assumptions only"), 48)
-    notes_ax.text(0.02, -0.10, boundary, fontsize=6.5, color=MUTED, transform=notes_ax.transAxes)
+    notes_ax.text(
+        0.0,
+        -0.02,
+        boundary,
+        fontsize=FONT_TINY,
+        color=MUTED,
+        linespacing=1.05,
+        va="top",
+        transform=notes_ax.transAxes,
+    )
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -1624,13 +1855,22 @@ def figure_iq_negative_samples(context: FigureContext) -> Path:
         _note_fallback(filename, "training records missing; using synthetic heatmaps")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = plt.figure(figsize=(10.1, 5.1))
-    gs = fig.add_gridspec(2, 4, width_ratios=[1.05, 1.0, 1.0, 1.0], hspace=0.18, wspace=0.1)
-    fig.suptitle(
+    fig = _paper_fig(4.10, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.96, top=0.82, bottom=0.16)
+    gs = fig.add_gridspec(
+        2,
+        5,
+        width_ratios=[0.64, 1.0, 1.0, 1.0, 0.055],
+        hspace=0.28,
+        wspace=0.14,
+    )
+    fig.text(
+        0.08,
+        0.93,
         "Range-Doppler proxy diagnostics for positive and hard-negative samples",
-        fontsize=12.0,
+        fontsize=FONT_TITLE,
         weight="bold",
-        y=0.98,
+        ha="left",
     )
     card = context.evidence.get("radar_model_card", {})
     branch = next(
@@ -1650,17 +1890,13 @@ def figure_iq_negative_samples(context: FigureContext) -> Path:
         label_ax.axis("off")
         label_ax.text(
             0.02,
-            0.95,
+            0.90,
             "\n".join(
-                [
-                    group_id,
-                    "public-proxy positive" if positive else "hard negative / artifact",
-                    "range-Doppler magnitude",
-                ]
+                [group_id, "public-proxy\npositive" if positive else "hard negative\nartifact"]
             ),
             ha="left",
             va="top",
-            fontsize=8.0,
+            fontsize=FONT_AXIS,
             transform=label_ax.transAxes,
         )
         for phase_idx, phase in enumerate(PHASES, start=1):
@@ -1687,31 +1923,33 @@ def figure_iq_negative_samples(context: FigureContext) -> Path:
             rd_norm, aspect="auto", origin="lower", cmap=HEATMAP_CMAP, vmin=0.0, vmax=1.0
         )
         if row == 0:
-            ax.set_title(f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}", fontsize=8.2)
+            ax.set_title(f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}", fontsize=FONT_AXIS)
         xticks = [0, rd.shape[1] // 2, rd.shape[1] - 1]
         yticks = [0, rd.shape[0] // 2, rd.shape[0] - 1]
         ax.set_xticks(xticks)
         ax.set_yticks(yticks)
-        ax.set_xticklabels([f"{tick * range_resolution_m:.1f} m" for tick in xticks], fontsize=6.5)
+        ax.set_xticklabels(
+            [f"{tick * range_resolution_m:.1f}" for tick in xticks], fontsize=FONT_TINY
+        )
         doppler_center = rd.shape[0] // 2
         if phase_idx == 1:
             ax.set_yticklabels(
-                [f"{(tick - doppler_center) * velocity_resolution_mps:.0f} m/s" for tick in yticks],
-                fontsize=6.5,
+                [f"{(tick - doppler_center) * velocity_resolution_mps:.0f}" for tick in yticks],
+                fontsize=FONT_TINY,
             )
-            ax.set_ylabel("velocity-equivalent Doppler bin", fontsize=6.8)
         else:
             ax.set_yticklabels([])
         if row == 1:
-            ax.set_xlabel("relative range bin", fontsize=6.8)
+            ax.set_xlabel("range m", fontsize=FONT_TINY)
         ax.tick_params(length=0)
         for spine in ax.spines.values():
             spine.set_linewidth(0.7)
             spine.set_color(GRID)
     if image is not None:
-        cbar = fig.colorbar(image, ax=fig.axes, shrink=0.82, pad=0.01)
-        cbar.set_label("log1p range-Doppler magnitude, normalized 0-1", fontsize=7.4)
-        cbar.ax.tick_params(labelsize=7.0)
+        cax = fig.add_subplot(gs[:, 4])
+        cbar = fig.colorbar(image, cax=cax)
+        cbar.set_label("normalized log magnitude", fontsize=FONT_TINY)
+        cbar.ax.tick_params(labelsize=FONT_TINY)
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -1747,7 +1985,7 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
             or context.selection_lock.get("base_candidate_id")
             or "locked_candidate"
         )
-        family = "Locked candidate"
+        family = EI_SHORT
         modality = "multi-modal score"
         if "passive_quality" in selected_id:
             family = "Passive quality"
@@ -1809,7 +2047,7 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
                 if math.isfinite(selected_ap) and math.isfinite(baseline_ap):
                     ablation_rows = [
                         {
-                            "reader_label": "Locked candidate vs baseline",
+                            "reader_label": "EI candidate vs baseline",
                             "delta_ap": selected_ap - baseline_ap,
                             "delta_recall_at_leq_1pct_fpr": selected_recall - baseline_recall
                             if math.isfinite(selected_recall) and math.isfinite(baseline_recall)
@@ -1870,18 +2108,21 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
         key=lambda row: _safe_float(row.get("delta_ap")),
     )[:7]
 
-    fig = plt.figure(figsize=(10.3, 4.9))
-    gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.0], wspace=0.30)
-    fig.suptitle(
-        "Locked candidate components and comparable holdout deltas",
-        fontsize=12.0,
+    fig = _paper_fig(3.65, constrained=False)
+    fig.subplots_adjust(left=0.12, right=0.98, top=0.82, bottom=0.20, wspace=0.68)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.02, 1.0])
+    fig.text(
+        0.12,
+        0.92,
+        "EI components and comparable holdout deltas",
+        fontsize=FONT_TITLE,
         weight="bold",
-        y=0.98,
+        ha="left",
     )
 
     weight_ax = fig.add_subplot(gs[0, 0])
     labels = [
-        f"{row.get('audit_id', '')} {row.get('family', '')}\n{row.get('calibrator', '')}"
+        f"{row.get('audit_id', '')} {_wrap_compact(row.get('family', ''), 15)}"
         for row in component_rows
     ]
     weights = [_safe_float(row.get("weight")) for row in component_rows]
@@ -1896,60 +2137,82 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
     y = np.arange(len(component_rows))
     weight_ax.barh(y, weights, color=colors, edgecolor="white", linewidth=0.8)
     weight_ax.set_yticks(y)
-    weight_ax.set_yticklabels(labels, fontsize=7.0)
+    weight_ax.set_yticklabels(labels, fontsize=FONT_TICK)
     weight_ax.invert_yaxis()
-    weight_ax.set_xlabel("Locked nonnegative fusion weight", fontsize=9.0)
-    weight_ax.set_title("Component weights sorted by lock weight", fontsize=9.6, weight="bold")
+    weight_ax.set_xlabel("Fusion weight", fontsize=FONT_AXIS)
+    weight_ax.set_title("Component weights", fontsize=FONT_SUBTITLE, weight="bold")
     weight_ax.set_xlim(0.0, max(weights) * 1.32 if weights else 1.0)
-    weight_ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-    weight_ax.set_axisbelow(True)
+    _clean_axes(weight_ax, xgrid=True)
     for idx, (weight, row) in enumerate(zip(weights, component_rows)):
         weight_ax.text(
             weight + 0.01,
             idx,
             f"{weight:.3f} / cum {_safe_float(row.get('cumulative_weight')):.3f}",
             va="center",
-            fontsize=6.8,
+            fontsize=FONT_TINY,
             color=MUTED,
         )
-    for spine in ("top", "right"):
-        weight_ax.spines[spine].set_visible(False)
 
     delta_ax = fig.add_subplot(gs[0, 1])
-    delta_labels = [row.get("reader_label", row.get("ablation", "")) for row in ablation_rows]
+    delta_labels = [
+        _reader_label(row.get("reader_label", row.get("ablation", "")), 20) for row in ablation_rows
+    ]
     delta_ap = [_safe_float(row.get("delta_ap")) for row in ablation_rows]
     delta_recall = [_safe_float(row.get("delta_recall_at_leq_1pct_fpr")) for row in ablation_rows]
     y2 = np.arange(len(ablation_rows))
-    delta_colors = [RED if value < 0 else GREEN for value in delta_ap]
+    delta_colors = [_delta_color(value) for value in delta_ap]
     delta_ax.axvline(0.0, color=INK, linewidth=0.9)
-    delta_ax.barh(y2, delta_ap, color=delta_colors, alpha=0.78, edgecolor="white", label="ΔAP")
-    delta_ax.scatter(delta_recall, y2, color=INK, s=24, label="ΔRecall@≤1%FPR", zorder=3)
+    bars = delta_ax.barh(
+        y2, delta_ap, color=delta_colors, alpha=0.88, edgecolor="white", label="Delta AP"
+    )
+    delta_ax.scatter(delta_recall, y2, color=INK, s=24, label="Delta Recall@<=1%FPR", zorder=3)
+    for idx, (bar, dap, dre) in enumerate(zip(bars, delta_ap, delta_recall)):
+        if math.isfinite(dap):
+            x_text = dap + 0.018 if dap >= 0 else -0.035
+            delta_ax.text(
+                x_text,
+                idx,
+                f"{dap:+.3f}",
+                ha="left" if dap >= 0 else "right",
+                va="center",
+                fontsize=FONT_TINY,
+                color=INK,
+            )
+        if math.isfinite(dre):
+            recall_x = dre + 0.035 if dre < 0 else dre - 0.035
+            delta_ax.text(
+                recall_x,
+                idx + 0.28,
+                f"R {dre:+.3f}",
+                ha="left" if dre < 0 else "right",
+                va="center",
+                fontsize=FONT_TINY,
+                color=MUTED,
+            )
     delta_ax.set_yticks(y2)
-    delta_ax.set_yticklabels(delta_labels, fontsize=7.0)
+    delta_ax.set_yticklabels(delta_labels, fontsize=FONT_TICK)
     delta_ax.invert_yaxis()
-    delta_ax.set_xlabel("Delta vs full locked candidate", fontsize=9.0)
-    delta_ax.set_title("Comparable holdout controls", fontsize=9.6, weight="bold")
-    delta_ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-    delta_ax.set_axisbelow(True)
+    delta_ax.set_xlabel("Delta vs full EI candidate", fontsize=FONT_AXIS)
+    delta_ax.set_title(
+        "Comparable controls: bars AP, dots recall", fontsize=FONT_SUBTITLE, weight="bold"
+    )
+    _clean_axes(delta_ax, xgrid=True)
     xmin = min(delta_ap + delta_recall + [0.0]) - 0.08
     xmax = max(delta_ap + delta_recall + [0.0]) + 0.10
-    delta_ax.set_xlim(xmin, xmax)
-    delta_ax.legend(loc="lower right", fontsize=7.0, frameon=False)
-    for spine in ("top", "right"):
-        delta_ax.spines[spine].set_visible(False)
+    delta_ax.set_xlim(xmin - 0.05, xmax + 0.04)
     fig.text(
-        0.02,
-        0.02,
-        "Raw component handles and selected_component_ablations.csv remain evidence artifacts; the main figure uses human labels and Table-IV-compatible holdout metrics.",
-        fontsize=7.1,
+        0.12,
+        0.07,
+        "Component handles and ablation CSVs remain evidence artifacts; this figure uses human labels and Table-IV-compatible holdout metrics.",
+        fontsize=FONT_TINY,
         color=MUTED,
     )
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
 
-def figure_locked_algorithm(context: FigureContext) -> Path:
-    filename = "locked_algorithm.png"
+def figure_anchor_overlay(context: FigureContext) -> Path:
+    filename = "anchor_overlay.png"
     normalized_rows = context.evidence.get("normalized_anchor_comparison", [])
     anchor = context.anchor_summary
     if normalized_rows:
@@ -1960,16 +2223,18 @@ def figure_locked_algorithm(context: FigureContext) -> Path:
         _note_fallback(filename, "anchor summary missing; using placeholder compare-only panel")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig, ax = plt.subplots(figsize=(7.6, 4.8))
-    fig.subplots_adjust(top=0.86)
-    fig.suptitle("Compare-only KTH anchor overlay", fontsize=12.0, weight="bold", y=0.98)
+    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 2.80), constrained_layout=False)
+    fig.subplots_adjust(left=0.14, right=0.98, top=0.78, bottom=0.20)
+    fig.text(
+        0.14, 0.91, "Compare-only KTH anchor overlay", fontsize=FONT_TITLE, weight="bold", ha="left"
+    )
     ax.set_title(
-        "Measured anchor role: normalized compare-only distribution check",
-        fontsize=9.4,
+        "Normalized measured-anchor z-score intervals",
+        fontsize=FONT_SUBTITLE,
         weight="bold",
     )
     if normalized_rows:
-        labels = [row.get("feature", "") for row in normalized_rows]
+        labels = [_short_feature_label(row.get("feature", "")) for row in normalized_rows]
         values = [_safe_float(row.get("q50_z")) for row in normalized_rows]
         q10 = [_safe_float(row.get("q10_z")) for row in normalized_rows]
         q90 = [_safe_float(row.get("q90_z")) for row in normalized_rows]
@@ -1981,7 +2246,7 @@ def figure_locked_algorithm(context: FigureContext) -> Path:
             "range_m",
             "return_power_db",
         ]
-        labels = feature_names
+        labels = [_short_feature_label(name) for name in feature_names]
         values = []
         q10 = []
         q90 = []
@@ -2015,18 +2280,93 @@ def figure_locked_algorithm(context: FigureContext) -> Path:
                 elinewidth=0.9,
                 capsize=2.5,
             )
-    ax.set_xlabel("Measured-anchor z-score median with q10/q90 interval", fontsize=9.0)
-    ax.xaxis.grid(True, color=GRID, linewidth=0.7)
-    ax.set_axisbelow(True)
-    for spine in ("top", "right"):
-        ax.spines[spine].set_visible(False)
-    note_lines = [
-        "KTH drone/bird/human collection is compare-only for hard-negative realism.",
-        "No positive fixed-wing proxy truth is inferred from it.",
-        "Raw measured traces stay outside Git.",
+    ax.tick_params(axis="y", labelsize=FONT_TICK)
+    ax.set_xlabel("Measured-anchor z-score median with q10/q90 interval", fontsize=FONT_AXIS)
+    _clean_axes(ax, xgrid=True)
+    ax.text(
+        0.02,
+        0.02,
+        "KTH is compare-only; no positive fixed-wing truth is inferred.",
+        transform=ax.transAxes,
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+        va="bottom",
+        bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.82, "pad": 1.0},
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+
+
+def figure_ei_workflow(context: FigureContext) -> Path:
+    filename = "ei_workflow.png"
+    if context.selection_lock:
+        _note_source(filename, "selection-lock and paper evidence workflow metadata")
+    else:
+        _note_fallback(filename, "selection lock missing; using declared EI workflow")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.25), constrained_layout=False)
+    fig.subplots_adjust(left=0.02, right=0.98, top=0.88, bottom=0.08)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6)
+    ax.axis("off")
+    ax.text(
+        0.0,
+        5.72,
+        "Engineered Intelligence workflow and audit boundaries",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
+        va="top",
+    )
+    stages = [
+        ("Detector\nviews", PALE_BLUE, BLUE),
+        ("Train/CV\ndiscovery", PALE_TEAL, TEAL),
+        ("Sparse\nnonnegative fusion", PALE_GOLD, GOLD),
+        ("Geodesic-odds\ncalibration", "white", GRID),
+        ("EI selection\nlock", NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+        ("Holdout\nscoring", SLATE, INK),
     ]
-    for idx, line in enumerate(note_lines):
-        ax.text(0.02, 0.05 - idx * 0.07, line, transform=ax.transAxes, fontsize=7.3, color=MUTED)
+    x0 = 0.28
+    y0 = 3.42
+    box_w = 1.34
+    gap = 0.25
+    for idx, (label, face, edge) in enumerate(stages):
+        x = x0 + idx * (box_w + gap)
+        _add_box(ax, x, y0, box_w, 1.10, label, face=face, edge=edge, weight="bold", size=FONT_TINY)
+        if idx < len(stages) - 1:
+            _add_arrow(ax, (x + box_w + 0.02, y0 + 0.55), (x + box_w + gap - 0.02, y0 + 0.55))
+
+    rails = [
+        ("Group-locked split", "train/CV rows only before final scoring"),
+        ("Feature denylist", "labels, split keys, group IDs, and audit headers blocked"),
+        ("Public-proxy boundary", "synthetic evidence, not measured truth"),
+        ("Code-disclosure boundary", "reviewable workflow; generated arrays stay out of Git"),
+    ]
+    for idx, (title, body) in enumerate(rails):
+        x = 0.40 + (idx % 2) * 4.70
+        y = 1.78 - (idx // 2) * 0.82
+        _add_box(
+            ax,
+            x,
+            y,
+            4.20,
+            0.64,
+            f"{title}: {body}",
+            face="white",
+            edge=GRID,
+            size=FONT_TINY,
+        )
+    ax.text(
+        0.30,
+        0.24,
+        "Raw component handles, selection_lock.json, and component CSVs remain evidence artifacts; reader-facing labels summarize their role.",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
     _add_fallback_banner(fig, filename)
     return _save_figure(fig, filename)
 
@@ -2049,7 +2389,8 @@ def generate_all(context: FigureContext) -> list[Path]:
         figure_iq_drone_samples(context),
         figure_iq_negative_samples(context),
         figure_detector_ml_pipeline(context),
-        figure_locked_algorithm(context),
+        figure_anchor_overlay(context),
+        figure_ei_workflow(context),
     ]
 
 
