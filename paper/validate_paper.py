@@ -13,24 +13,27 @@ from pathlib import Path
 
 
 REQUIRED_FIGURES = (
-    "architecture_stack.png",
-    "monte_carlo_split_flow.png",
-    "kpi_ranking.png",
-    "phase_kpi.png",
-    "iq_drone_samples.png",
-    "iq_negative_samples.png",
-    "detector_ml_pipeline.png",
-    "locked_algorithm.png",
-)
-VECTOR_FIGURES = (
     "architecture_stack.pdf",
     "monte_carlo_split_flow.pdf",
     "kpi_ranking.pdf",
     "phase_kpi.pdf",
     "iq_drone_samples.pdf",
+    "iq_negative_samples.png",
     "detector_ml_pipeline.pdf",
-    "locked_algorithm.pdf",
+    "anchor_overlay.pdf",
+    "ei_workflow.pdf",
 )
+PREVIEW_PNGS = (
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "detector_ml_pipeline.png",
+    "anchor_overlay.png",
+    "ei_workflow.png",
+)
+LEGACY_FIGURES = ("locked_algorithm.pdf", "locked_algorithm.png")
 
 FORBIDDEN_FIGURE_METADATA = (b"fallback=", b"fallback source:")
 FORBIDDEN_PAPER_PATTERNS = (
@@ -45,6 +48,11 @@ FORBIDDEN_PAPER_PATTERNS = (
     r"operational\s+parity",
     r"matches\s+classified\s+fidelity",
     r"matches\s+proprietary-equivalent\s+behavior",
+)
+FORBIDDEN_READER_TERMS = (
+    r"\blocked candidate\b",
+    r"\bselected candidate\b",
+    r"\bselected AP\b",
 )
 PRIMARY_KPI_PATTERN = r"LCB95 Recall@\$\\leq\$1\\%FPR|lower 95\\% group-block bootstrap bound of recall at FPR <= 1\\%"
 
@@ -114,13 +122,16 @@ def validate_figures(figures_dir: Path) -> None:
     missing = [name for name in REQUIRED_FIGURES if not (figures_dir / name).is_file()]
     if missing:
         fail("missing required figure(s): " + ", ".join(missing))
-    missing_vectors = [name for name in VECTOR_FIGURES if not (figures_dir / name).is_file()]
-    if missing_vectors:
-        fail("missing vector figure(s): " + ", ".join(missing_vectors))
+    missing_previews = [name for name in PREVIEW_PNGS if not (figures_dir / name).is_file()]
+    if missing_previews:
+        fail("missing vector preview PNG(s): " + ", ".join(missing_previews))
     if (figures_dir / "iq_negative_samples.pdf").exists():
         fail("iq_negative_samples must remain raster-only")
+    legacy = [name for name in LEGACY_FIGURES if (figures_dir / name).exists()]
+    if legacy:
+        fail("legacy locked_algorithm figure(s) must be renamed: " + ", ".join(legacy))
     flagged: list[str] = []
-    for name in REQUIRED_FIGURES:
+    for name in REQUIRED_FIGURES + PREVIEW_PNGS:
         payload = (figures_dir / name).read_bytes()
         if any(marker in payload for marker in FORBIDDEN_FIGURE_METADATA):
             flagged.append(name)
@@ -142,12 +153,14 @@ def validate_includegraphics(tex_path: Path, figures_dir: Path) -> int:
     missing: list[str] = []
     for raw_name in includegraphics_files(tex_path):
         graphic_name = Path(raw_name).name
+        suffix = Path(graphic_name).suffix.lower()
+        if suffix not in {".pdf", ".png"}:
+            fail(f"includegraphics must explicitly reference .pdf or .png: {raw_name}")
+        if graphic_name == "iq_negative_samples.pdf":
+            fail("TeX must not include iq_negative_samples.pdf")
+        if graphic_name != "iq_negative_samples.png" and suffix != ".pdf":
+            fail(f"non-heatmap figure must be included as vector PDF: {raw_name}")
         candidates = [figures_dir / graphic_name]
-        if not Path(graphic_name).suffix:
-            candidates.extend(
-                figures_dir / f"{graphic_name}{suffix}"
-                for suffix in (".png", ".pdf", ".jpg", ".jpeg")
-            )
         if not any(candidate.is_file() for candidate in candidates):
             missing.append(raw_name)
     if missing:
@@ -160,6 +173,13 @@ def validate_paper_text(tex_path: Path) -> None:
     missing_patterns = [pattern for pattern in FORBIDDEN_PAPER_PATTERNS if re.search(pattern, text)]
     if missing_patterns:
         fail("paper text still contains stale v1 evidence markers: " + ", ".join(missing_patterns))
+    reader_terms = [
+        pattern
+        for pattern in FORBIDDEN_READER_TERMS
+        if re.search(pattern, text, flags=re.IGNORECASE)
+    ]
+    if reader_terms:
+        fail("paper text contains banned reader-facing EI terminology: " + ", ".join(reader_terms))
     if not re.search(PRIMARY_KPI_PATTERN, text):
         fail("paper text is missing the primary KPI statement")
     if "Engineered Intelligence" not in text:
@@ -168,6 +188,8 @@ def validate_paper_text(tex_path: Path) -> None:
         fail("paper text is missing the fixed-wing public-proxy appendix")
     if "Regional Bird and RC Hard-Negative Appendix" not in text:
         fail("paper text is missing the regional bird appendix")
+    if "Source, Noise, Detector, and Assumption Appendix" not in text:
+        fail("paper text is missing the source/noise/detector appendix")
     if "LCB95 Recall@$\\leq$1\\%FPR" not in text:
         fail("paper text is missing the exact LCB95 Recall@<=1%FPR label")
     if "n/a" in text:
