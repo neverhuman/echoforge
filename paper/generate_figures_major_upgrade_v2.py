@@ -1741,6 +1741,40 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
                 component_rows = _selected_component_human_weights(raw_component_scores)
                 if component_rows:
                     source_tags.append("paper evidence component transparency")
+    if not component_rows and context.selection_lock:
+        selected_id = str(
+            context.selection_lock.get("selected_candidate_id")
+            or context.selection_lock.get("base_candidate_id")
+            or "locked_candidate"
+        )
+        family = "Locked candidate"
+        modality = "multi-modal score"
+        if "passive_quality" in selected_id:
+            family = "Passive quality"
+            modality = "passive-RF provenance"
+        elif "transport_geometry" in selected_id:
+            family = "Transport geometry"
+            modality = "motion/geometry"
+        elif "passive_hypergraph" in selected_id:
+            family = "Passive hypergraph"
+            modality = "passive-RF topology"
+        view = "selection-lock candidate"
+        if "signed_de" in selected_id:
+            view = "signed differential evolution"
+        elif "positive_de" in selected_id:
+            view = "positive differential evolution"
+        component_rows = [
+            {
+                "audit_id": "L1",
+                "family": family,
+                "modality": modality,
+                "view": view,
+                "calibrator": str(context.selection_lock.get("calibrator") or "selection lock"),
+                "weight": 1.0,
+                "cumulative_weight": 1.0,
+            }
+        ]
+        source_tags.append("advanced detector selection lock")
     if not ablation_rows:
         ablation_rows = _read_csv_rows(
             context.roots.paper_evidence_root / "comparable_ablation_summary.csv"
@@ -1754,6 +1788,39 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
             ablation_rows = _comparable_ablation_rows(eval_summary, modality_transparency)
             if ablation_rows:
                 source_tags.append("paper evidence evaluation + modality transparency")
+    if not ablation_rows:
+        eval_summary = context.evidence.get("evaluation_summary", {})
+        if isinstance(eval_summary, dict):
+            selected = eval_summary.get("selected", {})
+            baseline = eval_summary.get("baseline", {})
+            if isinstance(selected, dict) and isinstance(baseline, dict):
+                selected_ap = _safe_float(selected.get("average_precision"))
+                baseline_ap = _safe_float(baseline.get("average_precision"))
+                selected_recall = _safe_float(
+                    selected.get("fixed_fpr_recall")
+                    or selected.get("recall_at_leq_1pct_fpr")
+                    or selected.get("recall")
+                )
+                baseline_recall = _safe_float(
+                    baseline.get("fixed_fpr_recall")
+                    or baseline.get("recall_at_leq_1pct_fpr")
+                    or baseline.get("recall")
+                )
+                if math.isfinite(selected_ap) and math.isfinite(baseline_ap):
+                    ablation_rows = [
+                        {
+                            "reader_label": "Locked candidate vs baseline",
+                            "delta_ap": selected_ap - baseline_ap,
+                            "delta_recall_at_leq_1pct_fpr": selected_recall - baseline_recall
+                            if math.isfinite(selected_recall) and math.isfinite(baseline_recall)
+                            else 0.0,
+                            "ap": selected_ap,
+                            "recall_at_leq_1pct_fpr": selected_recall
+                            if math.isfinite(selected_recall)
+                            else 0.0,
+                        }
+                    ]
+                    source_tags.append("paper evidence selected and baseline evaluation summary")
     if component_rows and ablation_rows:
         if manifest_component_rows and manifest_ablation_rows:
             source_tags.append(
