@@ -128,7 +128,7 @@ python3 -m detection.paper_evidence_major_upgrade_v1 \
   --out-root outputs/paper-evidence/major-upgrade-v1 \
   --force
 
-python3 paper/generate_figures.py \
+python3 paper/generate_figures_major_upgrade_v2.py \
   --training-root "$training_root" \
   --baseline-root "$baseline_root" \
   --advanced-root "$advanced_root" \
