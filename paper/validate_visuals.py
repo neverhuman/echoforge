@@ -25,6 +25,7 @@ REQUIRED_PNGS = (
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "data_processing_flow.png",
     "appendix_modeling_map.png",
 )
 VECTOR_PDFS = (
@@ -36,6 +37,7 @@ VECTOR_PDFS = (
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
+    "data_processing_flow.pdf",
     "appendix_modeling_map.pdf",
 )
 RASTER_ONLY = ("iq_negative_samples.png",)
@@ -148,6 +150,14 @@ def main() -> int:
             )
         elif name == "ei_workflow.pdf":
             required_terms = ("What EI does", "Blind holdout", "Feature denylist")
+        elif name == "data_processing_flow.pdf":
+            required_terms = (
+                "Data-processing path",
+                "Synthetic sensing",
+                "Detector-view schema",
+                "Train/CV branch",
+                "Blind holdout",
+            )
         elif name == "appendix_modeling_map.pdf":
             required_terms = ("positive proxy", "environment", "detector views")
         validate_pdf_terms(name, required_terms=required_terms, forbidden_terms=forbidden_terms)
