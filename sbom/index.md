@@ -1,6 +1,6 @@
 # EchoForge SBOM Index
 
-Generated: 2026-05-23T02:01:41Z
+Generated: 2026-05-23T02:32:56Z
 
 ## Artifacts
 - `sbom/cargo.cdx.json` (169576 bytes)

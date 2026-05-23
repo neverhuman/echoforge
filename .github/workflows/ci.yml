@@ -116,11 +116,6 @@ jobs:
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '26.1.0'
-      - name: Install Jankurai
-        shell: bash
-        run: |
-          cargo install --git https://github.com/neverhuman/jankurai.git --rev 6f1aa45fca09ebb523f79b38ad465da28a86dfb1 --locked jankurai
-          jankurai --version
       - name: Governance score lane
         shell: bash
         run: bash ops/ci/score.sh
