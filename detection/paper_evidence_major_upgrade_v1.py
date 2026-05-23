@@ -60,6 +60,7 @@ DEFAULT_FEEDBACK_MATRIX = REPO_ROOT / "paper" / "docs" / "paper_feedback_coverag
 DEFAULT_GENERATIVE_ORIGIN_MANIFEST = (
     REPO_ROOT / "paper" / "docs" / "generative_origin_manifest.json"
 )
+PAPER_EVIDENCE_VERSION = "major-upgrade-v2"
 THRESHOLD_TARGET_FPR = 0.01
 BOOTSTRAP_ROUNDS = 200
 BOOTSTRAP_SEED = 20260522
@@ -301,7 +302,7 @@ def _feedback_coverage_rows() -> list[dict[str, str]]:
             "actionable_item": "Mention the headline performance result and ROC AUC tradeoff in the abstract/main result.",
             "status": "addressed",
             "evidence_location": "Abstract, Section IV, Table IV",
-            "notes": "The selected candidate improves AP and low-FPR recall while lowering ROC AUC versus prior fusion.",
+            "notes": "The EI artifact improves AP and low-FPR recall while lowering ROC AUC versus prior fusion.",
         },
         {
             "tip": "tip2.txt",
@@ -2573,8 +2574,8 @@ def _comparable_ablation_rows(
     rows: list[dict[str, Any]] = [
         {
             "ablation": "full_locked_candidate",
-            "reader_label": "Full locked candidate",
-            "diagnostic_type": "selected_candidate",
+            "reader_label": "Full EI candidate",
+            "diagnostic_type": "ei_artifact",
             "ap": selected_ap,
             "delta_ap": 0.0,
             "recall_at_leq_1pct_fpr": selected_recall,
@@ -2686,6 +2687,72 @@ def _primary_kpi_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
                 "basis": primary.get("basis", "holdout group-block bootstrap"),
             }
         )
+    return rows
+
+
+def _main_kpi_gain_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    baseline = eval_summary.get("baseline", {})
+    selected = eval_summary.get("selected", {})
+
+    def metric_row(
+        metric: str,
+        baseline_value: float,
+        selected_value: float,
+        *,
+        lower_is_better: bool = False,
+    ) -> dict[str, Any]:
+        absolute = selected_value - baseline_value
+        if lower_is_better:
+            relative = (
+                (baseline_value - selected_value) / baseline_value
+                if baseline_value
+                else float("nan")
+            )
+            direction = "reduction"
+        else:
+            relative = absolute / baseline_value if baseline_value else float("nan")
+            direction = "gain"
+        return {
+            "metric": metric,
+            "prior_fusion_baseline": baseline_value,
+            "ei_candidate": selected_value,
+            "absolute_change": absolute,
+            "relative_change": relative,
+            "relative_percent": relative * 100.0 if math.isfinite(relative) else float("nan"),
+            "direction": direction,
+        }
+
+    baseline_primary = baseline.get("primary_kpi", {})
+    selected_primary = selected.get("primary_kpi", {})
+    rows = [
+        metric_row(
+            "lcb95_recall_at_leq_1pct_fpr",
+            _safe_float(baseline_primary.get("value")),
+            _safe_float(selected_primary.get("value")),
+        ),
+        metric_row(
+            "point_recall_at_leq_1pct_fpr",
+            _safe_float(baseline.get("fixed_fpr_recall")),
+            _safe_float(selected.get("fixed_fpr_recall")),
+        ),
+        metric_row(
+            "average_precision",
+            _safe_float(baseline.get("average_precision")),
+            _safe_float(selected.get("average_precision")),
+        ),
+        metric_row("f1", _safe_float(baseline.get("f1")), _safe_float(selected.get("f1"))),
+        metric_row(
+            "selected_threshold_false_positives",
+            _safe_float(baseline.get("fp")),
+            _safe_float(selected.get("fp")),
+            lower_is_better=True,
+        ),
+        metric_row(
+            "roc_auc_guardrail",
+            _safe_float(baseline.get("roc_auc")),
+            _safe_float(selected.get("roc_auc")),
+        ),
+    ]
     return rows
 
 
@@ -3054,7 +3121,7 @@ def _engineered_intelligence_rows(
         },
         {
             "stage": "evolved feature families",
-            "summary": "The locked candidate fuses sparse radar, passive, and transport-style feature families.",
+            "summary": "The EI artifact fuses sparse radar, passive, and transport-style feature families.",
             "evidence_artifact": "selected_component_scores.csv + selected_component_aliases.json",
             "status": "pass" if component_transparency.get("component_scores") else "warn",
         },
@@ -3148,6 +3215,130 @@ def _public_proxy_positive_class_card() -> dict[str, Any]:
         "claim_boundary": "Appendix-only public proxy card for reviewable synthetic evidence",
         "source_dossier_excerpt_length": len(physics_dossier.splitlines()),
     }
+
+
+def _public_proxy_model_detail_rows(card: dict[str, Any]) -> list[dict[str, Any]]:
+    assumptions = card.get("public_source_assumptions", {}) if isinstance(card, dict) else {}
+    geometry = assumptions.get("geometry", {}) if isinstance(assumptions, dict) else {}
+    return [
+        {
+            "model_item": "airframe_geometry",
+            "public_proxy_assumption": json.dumps(geometry, sort_keys=True),
+            "radar_consequence": "aspect-dependent projected area and RCS stress",
+            "evidence_basis": "public visual/source summary envelope",
+            "prohibited_inference": "no measured Iranian-platform radar signature",
+        },
+        {
+            "model_item": "kinematics",
+            "public_proxy_assumption": json.dumps(
+                {"speed_envelope_mps": assumptions.get("speed_envelope_mps")}, sort_keys=True
+            ),
+            "radar_consequence": "Doppler centroid and track-rate priors",
+            "evidence_basis": "public-source speed envelope",
+            "prohibited_inference": "no route, tasking, or evasion model",
+        },
+        {
+            "model_item": "launch_take_up",
+            "public_proxy_assumption": str(assumptions.get("launch_proxy", "")),
+            "radar_consequence": "initial phase ground coupling, multipath, and unsettled track state",
+            "evidence_basis": "public-proxy launch abstraction",
+            "prohibited_inference": "no site-specific or operational launch model",
+        },
+        {
+            "model_item": "rcs_aspect_envelope",
+            "public_proxy_assumption": json.dumps(
+                {"dbsm": assumptions.get("rcs_aspect_envelope_dbsm")}, sort_keys=True
+            ),
+            "radar_consequence": "branch-level detectability and aspect stress",
+            "evidence_basis": "public-proxy RCS envelope",
+            "prohibited_inference": "no sensor-specific Pd/Pfa or classified-fidelity claim",
+        },
+        {
+            "model_item": "prop_micro_doppler",
+            "public_proxy_assumption": json.dumps(
+                {"hz": assumptions.get("prop_micro_doppler_hz")}, sort_keys=True
+            ),
+            "radar_consequence": "pusher-prop modulation family and RC overlap stress",
+            "evidence_basis": "small-UAS radar literature and public-proxy propulsion envelope",
+            "prohibited_inference": "no measured propeller signature claim",
+        },
+        {
+            "model_item": "phase_windows",
+            "public_proxy_assumption": json.dumps(
+                assumptions.get("phase_windows", {}), sort_keys=True
+            ),
+            "radar_consequence": "phase-specific holdout metrics and diagnostic slices",
+            "evidence_basis": "benchmark time-window definition",
+            "prohibited_inference": "phase slices are diagnostics, not field-rate estimates",
+        },
+    ]
+
+
+def _environment_impairment_model_rows(radar_model_card: dict[str, Any]) -> list[dict[str, Any]]:
+    priors = (
+        radar_model_card.get("clutter_and_artifact_priors", {})
+        if isinstance(radar_model_card, dict)
+        else {}
+    )
+    clutter = priors.get("clutter", []) if isinstance(priors, dict) else []
+    noise_rfi = priors.get("noise_and_rfi", []) if isinstance(priors, dict) else []
+    hard_negatives = priors.get("hard_negative_families", []) if isinstance(priors, dict) else []
+    receiver_impairments = (
+        radar_model_card.get("receiver_impairments", [])
+        if isinstance(radar_model_card, dict)
+        else []
+    )
+    return [
+        {
+            "family": "thermal_snr_stress",
+            "generated_proxy": "SNR/CNR stress buckets attached to branch summaries",
+            "radar_review_role": "prevents a clean-signal-only benchmark",
+            "source_values": "synthetic detector-view stress values",
+            "claim_boundary": "not a calibrated receiver-noise figure",
+        },
+        {
+            "family": "weibull_k_like_clutter",
+            "generated_proxy": "|".join(map(str, clutter)),
+            "radar_review_role": "non-Gaussian and site-style clutter pressure",
+            "source_values": "radar_model_card.clutter_and_artifact_priors.clutter",
+            "claim_boundary": "not measured site clutter truth",
+        },
+        {
+            "family": "weather_sea_terrain",
+            "generated_proxy": "weather cell, sea clutter, terrain glint, coastal haze, vegetation motion",
+            "radar_review_role": "near-threshold false-track pressure",
+            "source_values": "scenario noise/site strata and hard-negative roles",
+            "claim_boundary": "not a meteorological population model",
+        },
+        {
+            "family": "multipath_ghosting",
+            "generated_proxy": "near-ground reflection and ghost-track stressors",
+            "radar_review_role": "tests low-altitude false-track pressure and branch disagreement",
+            "source_values": "scenario hard-negative roles and receiver impairment rows",
+            "claim_boundary": "no deployment geometry or site-specific ray tracing",
+        },
+        {
+            "family": "rfi_passive_rf_missingness",
+            "generated_proxy": "|".join(map(str, noise_rfi)),
+            "radar_review_role": "tests sparse and contaminated multimodal cues",
+            "source_values": "radar_model_card.clutter_and_artifact_priors.noise_and_rfi",
+            "claim_boundary": "no emitter library, payload command, or operator inference",
+        },
+        {
+            "family": "receiver_impairment",
+            "generated_proxy": "|".join(map(str, receiver_impairments)),
+            "radar_review_role": "forces tolerance to AGC, drift, quantization, CPI loss, and calibration offset",
+            "source_values": "radar_model_card.receiver_impairments",
+            "claim_boundary": "simplified impairment families, not hardware qualification",
+        },
+        {
+            "family": "hard_negative_taxonomy",
+            "generated_proxy": "|".join(map(str, hard_negatives)),
+            "radar_review_role": "explains false-alarm family colors and robustness slices",
+            "source_values": "regional_hard_negative_taxonomy and false_alarm_by_method_family",
+            "claim_boundary": "robustness diagnostics, not evasion guidance or field rates",
+        },
+    ]
 
 
 def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
@@ -3272,6 +3463,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         component_transparency.get("component_scores", [])
     )
     primary_kpi_rows = _primary_kpi_rows(eval_summary)
+    main_kpi_gain_rows = _main_kpi_gain_rows(eval_summary)
     false_alarm_rows = _false_alarm_breakdown(
         holdout_scenarios,
         [row for row in selected_rows if row.get("split_role") == "holdout"],
@@ -3301,6 +3493,10 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
     )
     source_pack_bird_coverage = _source_pack_bird_coverage_summary()
     public_proxy_positive_class_card = _public_proxy_positive_class_card()
+    public_proxy_model_detail_rows = _public_proxy_model_detail_rows(
+        public_proxy_positive_class_card
+    )
+    environment_impairment_model_rows = _environment_impairment_model_rows(radar_model_card)
     regional_bird_library = _build_regional_bird_library(
         false_positive_tables["family_rows"], false_positive_tables["method_summary_rows"]
     )
@@ -3315,7 +3511,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         selected_component_columns = []
 
     payload = {
-        "version": "major-upgrade-v1",
+        "version": PAPER_EVIDENCE_VERSION,
         "training_manifest": training_manifest,
         "training_quality": training_quality,
         "radar_model_card": radar_model_card,
@@ -3337,6 +3533,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         "normalized_anchor_comparison": normalized_anchor_comparison,
         "anchor_distance_diagnostics": anchor_distance_diagnostics,
         "primary_kpi_rows": primary_kpi_rows,
+        "main_kpi_gain_rows": main_kpi_gain_rows,
         "group_level_operating_metrics": eval_summary.get("group_operating_metrics", []),
         "selected_threshold_confusion_matrix": selected_threshold_confusion_rows,
         "selected_component_columns": selected_component_columns,
@@ -3347,6 +3544,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         "source_pack_bird_coverage_summary": source_pack_bird_coverage,
         "engineered_intelligence": engineered_intelligence_rows,
         "public_proxy_positive_class_card": public_proxy_positive_class_card,
+        "public_proxy_model_detail_rows": public_proxy_model_detail_rows,
+        "environment_impairment_model_rows": environment_impairment_model_rows,
         "feedback_coverage": feedback_coverage,
         "generative_origin_audit": generative_origin_audit,
         "source_roots": {
@@ -3568,6 +3767,19 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         ["method", "point_estimate", "lcb95", "target_fpr", "basis"],
     )
     _write_csv(
+        roots.out_root / "main_kpi_gain_table.csv",
+        main_kpi_gain_rows,
+        [
+            "metric",
+            "prior_fusion_baseline",
+            "ei_candidate",
+            "absolute_change",
+            "relative_change",
+            "relative_percent",
+            "direction",
+        ],
+    )
+    _write_csv(
         roots.out_root / "group_level_operating_metrics.csv",
         eval_summary.get("group_operating_metrics", []),
         [
@@ -3747,6 +3959,37 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
     _write_json(
         roots.out_root / "public_proxy_positive_class_card.json",
         public_proxy_positive_class_card,
+    )
+    _write_json(roots.out_root / "main_kpi_gain_table.json", main_kpi_gain_rows)
+    _write_json(
+        roots.out_root / "public_proxy_model_detail_rows.json",
+        public_proxy_model_detail_rows,
+    )
+    _write_csv(
+        roots.out_root / "public_proxy_model_detail_rows.csv",
+        public_proxy_model_detail_rows,
+        [
+            "model_item",
+            "public_proxy_assumption",
+            "radar_consequence",
+            "evidence_basis",
+            "prohibited_inference",
+        ],
+    )
+    _write_json(
+        roots.out_root / "environment_impairment_model_rows.json",
+        environment_impairment_model_rows,
+    )
+    _write_csv(
+        roots.out_root / "environment_impairment_model_rows.csv",
+        environment_impairment_model_rows,
+        [
+            "family",
+            "generated_proxy",
+            "radar_review_role",
+            "source_values",
+            "claim_boundary",
+        ],
     )
 
     if component_transparency.get("selection_lock"):

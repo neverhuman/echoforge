@@ -25,6 +25,7 @@ REQUIRED_PNGS = (
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "appendix_modeling_map.png",
 )
 VECTOR_PDFS = (
     "architecture_stack.pdf",
@@ -35,6 +36,7 @@ VECTOR_PDFS = (
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
+    "appendix_modeling_map.pdf",
 )
 RASTER_ONLY = ("iq_negative_samples.png",)
 LEGACY_FIGURES = ("locked_algorithm.png", "locked_algorithm.pdf")
@@ -42,6 +44,7 @@ BANNED_VISIBLE_TERMS = (
     re.compile(r"\blocked candidate\b", re.IGNORECASE),
     re.compile(r"\bselected candidate\b", re.IGNORECASE),
     re.compile(r"\bselected AP\b", re.IGNORECASE),
+    re.compile(r"NeverHumqn", re.IGNORECASE),
 )
 MIN_PNG_BYTES = 25_000
 MIN_PDF_BYTES = 5_000
@@ -127,12 +130,26 @@ def main() -> int:
         required_terms = ()
         forbidden_terms = ()
         if name == "kpi_ranking.pdf":
-            required_terms = ("Primary KPI gain", "+742%", "+185%", "LCB95", "1% FPR operating cap")
+            required_terms = (
+                "Primary KPI gain",
+                "gain vs best practice",
+                "red tick = LCB95 lower bound",
+                "+742%",
+                "+185%",
+                "LCB95",
+                "1% FPR operating cap",
+            )
             forbidden_terms = ("+743%", "+186%")
         elif name == "phase_kpi.pdf":
-            required_terms = ("Family legend", "Near-threshold negatives")
+            required_terms = (
+                "False-alarm family legend",
+                "Near-threshold total",
+                "Fixed-FPR recall",
+            )
         elif name == "ei_workflow.pdf":
-            required_terms = ("What EI does", "Blind holdout")
+            required_terms = ("What EI does", "Blind holdout", "Feature denylist")
+        elif name == "appendix_modeling_map.pdf":
+            required_terms = ("positive proxy", "environment", "detector views")
         validate_pdf_terms(name, required_terms=required_terms, forbidden_terms=forbidden_terms)
 
     unexpected = [

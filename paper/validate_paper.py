@@ -22,6 +22,7 @@ REQUIRED_FIGURES = (
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
+    "appendix_modeling_map.pdf",
 )
 PREVIEW_PNGS = (
     "architecture_stack.png",
@@ -32,6 +33,7 @@ PREVIEW_PNGS = (
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "appendix_modeling_map.png",
 )
 LEGACY_FIGURES = ("locked_algorithm.pdf", "locked_algorithm.png")
 
@@ -40,6 +42,8 @@ FORBIDDEN_PAPER_PATTERNS = (
     r"NeverHumqn",
     r"Table-IV-compatible",
     r"Engineered Intelligence Transparency Summary",
+    r"Main Experiment Lanes",
+    r"Primary KPI Selection for the EI Holdout Evaluation",
     r"\+743\\%",
     r"\+186\\%",
     r"250 positive groups",
@@ -79,8 +83,20 @@ REQUIRED_COMPARATOR_PATTERN = (
 )
 REQUIRED_FIGURE_PHRASES = (
     r"1\\% FPR operating cap",
-    r"Stacked colors",
+    r"false-alarm family legend",
     r"near-threshold",
+)
+REQUIRED_WORLDCLASS_PATTERNS = (
+    r"Core Experiment Roadmap",
+    r"Main KPI Gain Ledger Versus Accepted Prior Fusion",
+    r"Rich Public-Proxy Modeling Appendix",
+    r"Fixed-Wing Pusher-Prop / Iranian-Drone Public-Proxy Modeling Card",
+    r"Noise, Clutter, RFI, and Receiver Modeling Details",
+    r"Detector-View Modeling Contract",
+    r"main(?:\\_|\_)kpi(?:\\_|\_)gain(?:\\_|\_)table\.csv",
+    r"public(?:\\_|\_)proxy(?:\\_|\_)model(?:\\_|\_)detail(?:\\_|\_)rows\.csv",
+    r"environment(?:\\_|\_)impairment(?:\\_|\_)model(?:\\_|\_)rows\.csv",
+    r"no measured Iranian-drone radar signature",
 )
 
 CITE_RE = re.compile(
@@ -93,6 +109,7 @@ INCLUDEGRAPHICS_RE = re.compile(
     r"\\includegraphics(?:\s*\[[^\]]*\])?\s*\{([^}]*)\}",
     re.MULTILINE,
 )
+INPUT_RE = re.compile(r"\\input\s*\{([^}]*)\}", re.MULTILINE)
 
 
 def fail(message: str) -> None:
@@ -176,6 +193,26 @@ def includegraphics_files(tex_path: Path) -> list[str]:
     return names
 
 
+def expanded_tex_text(tex_path: Path) -> str:
+    text = tex_path.read_text(encoding="utf-8")
+    chunks = [text]
+    repo_root = tex_path.resolve().parents[1]
+    for raw_name in INPUT_RE.findall(text):
+        input_path = Path(raw_name)
+        candidates = [
+            input_path,
+            repo_root / input_path,
+            tex_path.parent / input_path,
+            tex_path.parent / f"{raw_name}.tex",
+            repo_root / f"{raw_name}.tex",
+        ]
+        for candidate in candidates:
+            if candidate.is_file():
+                chunks.append(candidate.read_text(encoding="utf-8"))
+                break
+    return "\n".join(chunks)
+
+
 def validate_includegraphics(tex_path: Path, figures_dir: Path) -> int:
     missing: list[str] = []
     for raw_name in includegraphics_files(tex_path):
@@ -196,7 +233,7 @@ def validate_includegraphics(tex_path: Path, figures_dir: Path) -> int:
 
 
 def validate_paper_text(tex_path: Path) -> None:
-    text = tex_path.read_text(encoding="utf-8")
+    text = expanded_tex_text(tex_path)
     missing_patterns = [pattern for pattern in FORBIDDEN_PAPER_PATTERNS if re.search(pattern, text)]
     if missing_patterns:
         fail("paper text still contains stale v1 evidence markers: " + ", ".join(missing_patterns))
@@ -237,6 +274,16 @@ def validate_paper_text(tex_path: Path) -> None:
         fail("paper text is missing the exact LCB95 Recall@<=1%FPR label")
     if "n/a" in text:
         fail("paper text still contains unresolved n/a values")
+    missing_worldclass = [
+        pattern
+        for pattern in REQUIRED_WORLDCLASS_PATTERNS
+        if not re.search(pattern, text, flags=re.IGNORECASE)
+    ]
+    if missing_worldclass:
+        fail(
+            "paper text is missing world-class appendix/roadmap markers: "
+            + ", ".join(missing_worldclass)
+        )
 
 
 def validate_paper_evidence(evidence_root: Path) -> None:
@@ -249,6 +296,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         fail(f"paper evidence manifest is invalid JSON: {exc}")
     if not isinstance(manifest, dict):
         fail("paper evidence manifest must be a JSON object")
+    if manifest.get("version") != "major-upgrade-v2":
+        fail("paper evidence manifest version must be major-upgrade-v2")
     generative = manifest.get("generative_origin_audit", {})
     if not isinstance(generative, dict):
         fail("paper evidence manifest is missing generative-origin audit data")
@@ -270,6 +319,7 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "modality_transparency",
         "normalized_anchor_comparison",
         "primary_kpi_rows",
+        "main_kpi_gain_rows",
     ):
         value = manifest.get(key)
         if not value:
@@ -282,6 +332,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "source_pack_bird_coverage_summary",
         "engineered_intelligence",
         "public_proxy_positive_class_card",
+        "public_proxy_model_detail_rows",
+        "environment_impairment_model_rows",
     ):
         value = manifest.get(key)
         if not value:
@@ -326,6 +378,9 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "regional_bird_library.csv",
         "source_pack_bird_coverage_summary.csv",
         "engineered_intelligence_transparency.csv",
+        "main_kpi_gain_table.csv",
+        "public_proxy_model_detail_rows.csv",
+        "environment_impairment_model_rows.csv",
     ):
         if not (evidence_root / required_csv).exists():
             fail(f"missing paper evidence csv: {required_csv}")
@@ -357,8 +412,8 @@ def main() -> None:
         fail("missing BibTeX entries for citation(s): " + ", ".join(missing_cites))
 
     pages = pdf_page_count(args.pdf)
-    if not 8 <= pages <= 14:
-        fail(f"page count {pages} outside 8-14")
+    if not 8 <= pages <= 18:
+        fail(f"page count {pages} outside 8-18")
 
     print(
         "paper validation passed: "
