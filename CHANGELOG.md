@@ -6,6 +6,12 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.12] - 2026-05-23
+
+### Changed
+- Added the v7 paper traceability pass with data-processing evidence rows, a processing-flow figure, radar-review narrative clarifications, and validator guards.
+- Bumped the workspace release metadata to `0.2.12`.
+
 ## [0.2.10] - 2026-05-22
 
 ### Changed
