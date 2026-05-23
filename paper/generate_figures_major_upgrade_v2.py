@@ -12,6 +12,7 @@ import textwrap
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,8 @@ from detection.paper_evidence_major_upgrade_v1 import (  # noqa: E402
     _comparable_ablation_rows,
     _selected_component_human_weights,
 )
+
+PDF_TIMESTAMP = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
 try:
     import numpy as np
@@ -290,7 +293,12 @@ def _save_figure(fig: Any, filename: str) -> Path:
     if FIGURE_FALLBACK_NOTES.get(filename):
         description += f"; fallback={_fallback_note(filename)}"
     metadata["Description"] = description
-    pdf_metadata = {"Creator": metadata["Software"], "Subject": description}
+    pdf_metadata = {
+        "Creator": metadata["Software"],
+        "Subject": description,
+        "CreationDate": PDF_TIMESTAMP,
+        "ModDate": PDF_TIMESTAMP,
+    }
     if filename in VECTOR_FIGURES:
         fig.savefig(
             path.with_suffix(".pdf"),
