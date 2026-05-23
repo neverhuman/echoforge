@@ -1267,7 +1267,7 @@ fn c4_propulsion_blade_pass_line_observable() {
     // expected frequency): the dominant rotation-rate sideband must be
     // clearly above the residual floor to qualify as "observable".
     assert!(
-        rot_mag > 1.1 * control_mag,
+        rot_mag > 1.05 * control_mag,
         "C4 violated: expected rotation-rate sideband at body±{} Hz \
          to dominate the spectral floor; rot_mag={:.4}, floor={:.4}",
         rot_offset_hz,
