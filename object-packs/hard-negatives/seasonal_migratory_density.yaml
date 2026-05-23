@@ -1,0 +1,40 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Seasonal migratory density is a scene-level hard-negative regime rather than a single object.
+id: "ef:object_card:seasonal-migratory-density-hard-negative:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: seasonal-migratory-density-hard-negative
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Radar_ornithology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-22T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Seasonal Migratory Density Hard Negative"
+object_family: biological_scene
+geometry_variant: migratory-flock-density
+material_variant: mixed-biological
+dimensions_m:
+  x: 1.0
+  y: 1.0
+  z: 0.3
+tags:
+  - hard_negative
+  - biological
+  - bird
+  - migratory
+  - flock
+  - seasonal
+  - wildlife_confuser

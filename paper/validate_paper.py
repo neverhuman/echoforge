@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
 import subprocess
@@ -21,6 +22,15 @@ REQUIRED_FIGURES = (
     "detector_ml_pipeline.png",
     "locked_algorithm.png",
 )
+VECTOR_FIGURES = (
+    "architecture_stack.pdf",
+    "monte_carlo_split_flow.pdf",
+    "kpi_ranking.pdf",
+    "phase_kpi.pdf",
+    "iq_drone_samples.pdf",
+    "detector_ml_pipeline.pdf",
+    "locked_algorithm.pdf",
+)
 
 FORBIDDEN_FIGURE_METADATA = (b"fallback=", b"fallback source:")
 FORBIDDEN_PAPER_PATTERNS = (
@@ -29,10 +39,14 @@ FORBIDDEN_PAPER_PATTERNS = (
     r"114 are positive",
     r"114 positive phase rows",
     r"positive phase records, 250 in each phase",
+    r"canary\s+fail",
+    r"Recall@1\\%FPR",
+    r"sensor\s+parity",
+    r"operational\s+parity",
+    r"matches\s+classified\s+fidelity",
+    r"matches\s+proprietary-equivalent\s+behavior",
 )
-PRIMARY_KPI_PATTERN = (
-    r"LCB95 Recall@1\\%FPR|lower 95\\% group-block bootstrap bound of recall at FPR <= 1\\%"
-)
+PRIMARY_KPI_PATTERN = r"LCB95 Recall@\$\\leq\$1\\%FPR|lower 95\\% group-block bootstrap bound of recall at FPR <= 1\\%"
 
 CITE_RE = re.compile(
     r"\\(?:cite|citep|citet|citealp|citeauthor|citeyear|nocite)"
@@ -76,8 +90,8 @@ def bib_keys(bib_path: Path) -> set[str]:
         fail(f"missing bibliography: {bib_path}")
     text = bib_path.read_text(encoding="utf-8")
     keys = set(BIB_ENTRY_RE.findall(text))
-    if not 30 <= len(keys) <= 40:
-        fail(f"bibliography entry count {len(keys)} outside 30-40")
+    if not 30 <= len(keys) <= 50:
+        fail(f"bibliography entry count {len(keys)} outside 30-50")
     return keys
 
 
@@ -100,6 +114,11 @@ def validate_figures(figures_dir: Path) -> None:
     missing = [name for name in REQUIRED_FIGURES if not (figures_dir / name).is_file()]
     if missing:
         fail("missing required figure(s): " + ", ".join(missing))
+    missing_vectors = [name for name in VECTOR_FIGURES if not (figures_dir / name).is_file()]
+    if missing_vectors:
+        fail("missing vector figure(s): " + ", ".join(missing_vectors))
+    if (figures_dir / "iq_negative_samples.pdf").exists():
+        fail("iq_negative_samples must remain raster-only")
     flagged: list[str] = []
     for name in REQUIRED_FIGURES:
         payload = (figures_dir / name).read_bytes()
@@ -143,6 +162,16 @@ def validate_paper_text(tex_path: Path) -> None:
         fail("paper text still contains stale v1 evidence markers: " + ", ".join(missing_patterns))
     if not re.search(PRIMARY_KPI_PATTERN, text):
         fail("paper text is missing the primary KPI statement")
+    if "Engineered Intelligence" not in text:
+        fail("paper text is missing the Engineered Intelligence section")
+    if "Fixed-Wing Pusher-Prop Public-Proxy Appendix" not in text:
+        fail("paper text is missing the fixed-wing public-proxy appendix")
+    if "Regional Bird and RC Hard-Negative Appendix" not in text:
+        fail("paper text is missing the regional bird appendix")
+    if "LCB95 Recall@$\\leq$1\\%FPR" not in text:
+        fail("paper text is missing the exact LCB95 Recall@<=1%FPR label")
+    if "n/a" in text:
+        fail("paper text still contains unresolved n/a values")
 
 
 def validate_paper_evidence(evidence_root: Path) -> None:
@@ -170,6 +199,73 @@ def validate_paper_evidence(evidence_root: Path) -> None:
     feedback = manifest.get("feedback_coverage", {})
     if not isinstance(feedback, dict) or feedback.get("status") != "pass":
         fail("paper evidence manifest is missing feedback coverage status")
+    for key in (
+        "sensor_archetype_cards",
+        "regional_hard_negative_taxonomy",
+        "modality_transparency",
+        "normalized_anchor_comparison",
+        "primary_kpi_rows",
+    ):
+        value = manifest.get(key)
+        if not value:
+            fail(f"paper evidence manifest is missing {key}")
+    for key in (
+        "selected_threshold_confusion_matrix",
+        "false_alarm_by_method_family",
+        "top_method_false_positive_frequency",
+        "regional_bird_library",
+        "source_pack_bird_coverage_summary",
+        "engineered_intelligence",
+        "public_proxy_positive_class_card",
+    ):
+        value = manifest.get(key)
+        if not value:
+            fail(f"paper evidence manifest is missing {key}")
+    modality = manifest.get("modality_transparency", {})
+    modality_rows = modality.get("modality_rows", []) if isinstance(modality, dict) else []
+    required_views = {
+        "radar_only",
+        "acoustic_only",
+        "passive_rf_only",
+        "radar_acoustic",
+        "radar_rf",
+        "full_fusion",
+    }
+    present_views = {row.get("view") for row in modality_rows if isinstance(row, dict)}
+    missing_views = sorted(required_views - present_views)
+    if missing_views:
+        fail("paper evidence modality transparency missing view(s): " + ", ".join(missing_views))
+    normalized = manifest.get("normalized_anchor_comparison", [])
+    if not isinstance(normalized, list) or not normalized:
+        fail("paper evidence KTH anchor comparison is not normalized")
+    if any(
+        "unitless" not in str(row.get("unitless_basis", ""))
+        for row in normalized
+        if isinstance(row, dict)
+    ):
+        fail("paper evidence KTH anchor comparison lacks unitless basis markers")
+    false_alarm_path = evidence_root / "false_alarm_family_breakdown.csv"
+    if not false_alarm_path.exists():
+        fail(f"missing false-alarm family table: {false_alarm_path}")
+    with false_alarm_path.open(encoding="utf-8", newline="") as handle:
+        false_alarm_rows = list(csv.DictReader(handle))
+    if any(row.get("family") == "positive" for row in false_alarm_rows):
+        fail("false-alarm family table includes positive rows")
+    for column in ("near_threshold_count", "near_threshold_rate", "p95_score"):
+        if false_alarm_rows and column not in false_alarm_rows[0]:
+            fail(f"false-alarm family table is missing {column}")
+    for required_csv in (
+        "selected_threshold_confusion_matrix.csv",
+        "false_alarm_by_method_family.csv",
+        "top_method_false_positive_frequency.csv",
+        "regional_bird_library.csv",
+        "source_pack_bird_coverage_summary.csv",
+        "engineered_intelligence_transparency.csv",
+    ):
+        if not (evidence_root / required_csv).exists():
+            fail(f"missing paper evidence csv: {required_csv}")
+    if not (evidence_root / "public_proxy_positive_class_card.json").exists():
+        fail("missing public proxy positive-class card JSON")
 
 
 def main() -> None:

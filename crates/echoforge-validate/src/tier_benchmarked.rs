@@ -18,7 +18,7 @@
 //! the CLI in a follow-up packet once the upstream metrics producer is
 //! online.
 //!
-//! Per the FUCKIT.md.done cross-tip resolution, the V3 gate does NOT
+//! Per the local coordination archive resolution, the V3 gate does NOT
 //! interact with the `fidelity_class` (F0..F5) method-ceiling axis;
 //! see `docs/validation-tiers.md` "Why the two axes are independent".
 //!

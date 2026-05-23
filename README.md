@@ -7,6 +7,7 @@
 EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. It publishes public-proxy object signatures, uncertainty-scored radar artifacts, and reproducible validation evidence so downstream work can be inspected, rerun, and compared without claiming measured truth or proprietary-equivalent sensor behavior.
 
 The claim boundary stays narrow: public-source priors only, explicit uncertainty, hard negatives treated as robustness work, and no classified, vendor-private, or exact field-performance claims.
+The paper KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%, reported as `LCB95 Recall@≤1%FPR`; AP, ROC AUC, calibration, and false-positive burden remain guardrails.
 
 ## Studio Preview
 
@@ -61,10 +62,10 @@ rtk bash ops/run-lane.sh studio-sync
 ## Modeling Results
 
 The `runit` main run is the benchmark of record here: a 10,000-scenario-group,
-30,000-phase-record Shahed-136/Geran-2 public-proxy example with all detector
-branches plus the layered fusion branch. It writes generated streams and
-reports under `outputs/`; see [docs/main_run.md](./docs/main_run.md) for the
-full split, leakage, and claim-boundary protocol.
+30,000-phase-record fixed-wing pusher-prop public-proxy example with all
+detector branches plus the layered fusion branch. It writes generated streams
+and reports under `outputs/`; see [docs/main_run.md](./docs/main_run.md) for
+the full split, leakage, and claim-boundary protocol.
 
 IEEE-style paper: [paper/echoforge_ieee.pdf](./paper/echoforge_ieee.pdf).
 
@@ -89,8 +90,9 @@ Paper artifact map:
 | --- | --- |
 | `paper/echoforge_ieee.tex` | IEEE-style source with strict public-proxy claim boundaries |
 | `paper/echoforge_ieee.pdf` | tracked compiled paper for direct review |
-| `paper/figures/kpi_ranking.png` | holdout ranking with ROC/PR and calibration diagnostics |
-| `paper/figures/phase_kpi.png` | phase behavior and false-alarm family breakdown |
+| `paper/figures/kpi_ranking.png` | holdout ranking with the `Recall@≤1%FPR` KPI and calibration diagnostics |
+| `paper/figures/phase_kpi.png` | phase behavior and cross-method false-positive burden |
+| `paper/figures/detector_ml_pipeline.png` | engineered-intelligence transparency and ablation summary |
 | `paper/figures/locked_algorithm.png` | compare-only KTH anchor overlay for hard-negative realism checks |
 | `paper/validate_paper.py` | page, citation, bibliography, required-figure, and no-fallback-metadata checks |
 
@@ -143,7 +145,7 @@ rtk just demo
 rtk env HOST=127.0.0.1 PORT=8080 cargo run -p echoforge-studio --locked
 rtk npm run web:build
 rtk npm run web:smoke
-rtk python3 detection/generate_ml_training.py --out-root outputs/training-data/shahed136-public-proxy-ml-training-smoke --scenario-groups 24 --seed 136 --scale-name smoke --max-time-s 150 --force
+rtk python3 detection/generate_ml_training.py --out-root outputs/training-data/fixed-wing-pusher-proxy-ml-training-smoke --scenario-groups 24 --seed 136 --scale-name smoke --max-time-s 150 --force
 rtk bash detection/run_all.sh --smoke
 ```
 

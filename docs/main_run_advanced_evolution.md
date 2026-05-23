@@ -77,7 +77,7 @@ The runner writes:
 | `performance_summary.json` | Summary, selected candidate, thresholds, and holdout policy. |
 | `fusion_quality_report.json` | Output, isolation, and promotion-gate status. |
 
-## Promotion Gate
+## Lock Discipline
 
 The current canonical target to beat is `layered_fusion_c2`:
 
@@ -86,8 +86,10 @@ The current canonical target to beat is `layered_fusion_c2`:
 | train/CV | 0.314444 | 0.924003 | 0.402888 |
 | holdout | 0.128188 | 0.937723 | 0.240964 |
 
-The advanced lane is promoted only if the selected winner beats train/CV AP and
-blind holdout AP, with holdout AUC non-regression.
+The selected winner is locked after train/CV-only search and holdout scoring is
+used for the final evidence pass only. AP and ROC AUC remain secondary
+diagnostics; a rerun-selected candidate is a reproducibility finding, not an
+automatic replacement for the locked output.
 
 Full-stream result:
 
@@ -95,5 +97,5 @@ Full-stream result:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | `meta_fusion.top8.v2_aggressive.geodesic_odds` | 1 | 0.841459 | 0.948087 | 0.958147 | 0.893817 | 0.998444 | 0.947368 | 0.750000 | 0.000223 | 0.837209 | pass |
 
-The gate passed on the full 30,000-record stream, so the result is a promoted
+The gate passed on the full 30,000-record stream, so the result is a locked
 advanced experiment rather than a negative-only run.

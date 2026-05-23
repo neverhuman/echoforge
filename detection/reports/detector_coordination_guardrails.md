@@ -1,6 +1,6 @@
 # Detector current Coordination Guardrails
 
-Status: coordination report based on the current local `FUCKIT.md`,
+Status: coordination report based on the current local coordination scratchpad,
 `detection/RADAR_REALISM.md`, `detection/reports/phase_pd_pfa.md`, and
 the latest detector/radar messages as of `20260518T201219Z`.
 

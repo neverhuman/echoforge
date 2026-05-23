@@ -56,10 +56,6 @@
 			"command": "rtk just fast",
 			"purpose": "verify changelog governance document"
 		},
-		"CLAUDE.md": {
-			"command": "rtk just fast",
-			"purpose": "verify Claude Code project instructions"
-		},
 		"CODE_OF_CONDUCT.md": {
 			"command": "rtk just fast",
 			"purpose": "verify code of conduct document"
@@ -76,26 +72,6 @@
 			"command": "rtk cargo test --workspace --locked",
 			"purpose": "verify workspace manifest"
 		},
-		"FUCKIT.md": {
-			"command": "rtk just fast",
-			"purpose": "verify project governance backlog document"
-		},
-		"FUCKIT.md.done": {
-			"command": "rtk just fast",
-			"purpose": "verify completed governance backlog archive"
-		},
-		"GEMINI.md": {
-			"command": "rtk just fast",
-			"purpose": "verify Gemini AI project instructions"
-		},
-		"HI.md": {
-			"command": "rtk just fast",
-			"purpose": "verify compliance plan document"
-		},
-		"HIchat.md": {
-			"command": "rtk just fast",
-			"purpose": "verify agent coordination log"
-		},
 		"Justfile": {
 			"command": "rtk just fast",
 			"purpose": "verify task runner recipes"
@@ -111,10 +87,6 @@
 		"LICENSE-MIT": {
 			"command": "rtk just fast",
 			"purpose": "verify MIT license file"
-		},
-		"README-jankurai-scaffold.md": {
-			"command": "jankurai doctor --fail-on critical",
-			"purpose": "verify scaffold marker does not hide missing control-plane files"
 		},
 		"README.md": {
 			"command": "rtk just fast",

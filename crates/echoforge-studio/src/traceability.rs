@@ -11,7 +11,7 @@
 //! detector threshold. The endpoint READS the campaign output directory
 //! but never writes to it.
 //!
-//! This is the FUCKIT.md Critical Review section M
+//! This is the critical-review section M
 //! "one-click drill from detection to provenance" milestone.
 
 use std::collections::BTreeMap;

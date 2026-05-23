@@ -18,7 +18,7 @@
 //!   missing the field, carries an unparseable label, or sits below the
 //!   numeric floor.
 //!
-//! Per FUCKIT.md `validate-fidelity-rollup` boundaries, this module is
+//! Per the `validate-fidelity-rollup` boundaries, this module is
 //! purely additive: it does **not** alter the V0/V1/V2 promotion gate in
 //! [`crate::report`] and does **not** modify `ValidationInfo` itself.
 
