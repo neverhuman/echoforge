@@ -42,6 +42,25 @@ This appendix states how the benchmark models the positive public-source family,
 \end{table*}
 
 \begin{table*}[t]
+  \caption{Synthetic Radar Simulation Processing Detail}
+  \label{tab:radarsimprocessing}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.16\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.21\textwidth}@{}}
+    \toprule
+    Processing step & Modeled quantity & How it becomes evidence & Red-line boundary \\
+    \midrule
+    Target return & aspect-dependent public-proxy RCS, phase-stable complex amplitude, range migration, Doppler centroid & IQ magnitude diagnostics and detector features such as concentration and Doppler spread & no measured platform signature \\
+    Micro-Doppler & pusher-prop 150--217 Hz proxy plus bird/RC cadence stressors & branch summaries and hard-negative false-alarm interpretation & cadence bands are broad priors, not identity labels \\
+    Clutter/noise & thermal/SNR buckets, Weibull/K-like clutter, sea/weather/terrain glint, vegetation motion & score degradation and near-threshold hard-negative pressure & no site-measured clutter truth \\
+    Receiver effects & AGC compression, drift, quantization, dropped CPI, Doppler folding, calibration offset & detector-view robustness features and failure slices & no hardware qualification \\
+    Cue streams & acoustic cadence/agreement and passive-RF no-signal/RFI/provenance geometry & non-radar branch scores and EI component inputs & no emitter library or operator inference \\
+    Feature contract & denylisted schema converts generated products to detector views & train/CV and holdout scores, leakage diagnostics, and KPI tables & labels, split keys, group IDs, and generator internals blocked \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
   \caption{Detector-View Modeling Contract}
   \label{tab:detectorviewcontract}
   \centering
@@ -69,6 +88,7 @@ This appendix states how the benchmark models the positive public-source family,
     \toprule
     Artifact & Contents & Reviewer question answered \\
     \midrule
+    \texttt{data\_processing\_trace\_rows.csv} & Stage-level scenario-to-holdout trace, including input artifacts, output artifacts, reviewer checks, and claim boundaries & Can I reconstruct the processing path without reading generator internals? \\
     \texttt{main\_kpi\_gain\_table.csv} & Prior-fusion and EI values, absolute changes, relative percentages, and gain/reduction direction & What exactly is the +742\% LCB95 and +185\% point-recall claim computed from? \\
     \texttt{public\_proxy\_model\_detail\_rows.csv} & Positive-class geometry, kinematics, RCS, micro-Doppler, launch, phase, and prohibited-inference rows & How is the Iranian-drone public proxy represented without claiming measured truth? \\
     \texttt{environment\_impairment\_model\_rows.csv} & Clutter, noise, weather, RFI, multipath, receiver impairment, and hard-negative stress rows & What noise and artifact regimes are actually modeled? \\
