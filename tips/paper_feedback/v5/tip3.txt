@@ -1,0 +1,150 @@
+I studied the latest uploaded PDF and the current `paper/` code path. The biggest blocker is now **visual production quality**, not the core story. The paper’s abstract is much stronger than before: it states the strict-open boundary, the 10,000 groups / 50 positives / 30,000 records setup, the 4,500-record blind holdout with 24 positives from eight positive groups, the locked-candidate LCB95 result, and the caveat that ROC AUC is lower than the prior fusion baseline. Keep that bounded framing. 
+
+I made a current-repo-targeted exact edit package here:
+
+[Download the exact figure/table code edits](sandbox:/mnt/data/echoforge_current_exact_figure_edits.md)
+
+## What is still broken
+
+The current repo already has some good infrastructure: `generate_figures_major_upgrade_v2.py` imports `textwrap`, writes vector PDFs for most figures, and has `FIG_DPI = 450`; the TeX file also now uses full-width `figure*` for several dashboards. But the renderer still uses 10-inch figures such as `10.1 x 5.6`, `10.5 x 5.8`, `10.3 x 4.9`, `10.4 x 5.8`, and `10.1 x 5.1`, then the paper shrinks them into IEEE width. That is why the final PDF text becomes tiny and collisions remain.   
+
+The worst visual failure is **Figure 6**. In the rendered PDF, the model-card panel still has cue-definition text and boundary text colliding, with wasted vertical white space above it. The current function still builds this as a 2-by-2 layout with receiver impairments and cue definitions sharing the same lower-right axis, which is exactly the wrong structure for that content.  
+
+**Figure 7** is better than Figure 6 but still not tier-1: the row labels and y-axis label compete, and the heatmap/colorbar layout is too cramped. The current function uses a label column plus three heatmaps, but then uses `fig.colorbar(image, ax=fig.axes, ...)`, which lets the colorbar negotiate against every axis and worsens the layout.  
+
+**Figure 4 and Figure 5 are over-dense.** Figure 4 still has a huge multi-family visual burden; the right panel should show false-positive burden by method and top family, while the detailed family accounting belongs in the tables. Figure 5 is scientifically useful, but the labels need more horizontal breathing room and smaller, consistent print-size typography.  
+
+One important claim-flow issue: Table IX shows that the passive-RF-only view has higher AP and swept Recall@≤1%FPR than the full locked candidate, even though its F1 and ECE are worse. The paper must explicitly say the locked candidate is the **pre-registered, calibrated, selected-threshold artifact**, not a universal dominator of every post-hoc view control. 
+
+## Exact edits to apply
+
+The linked file contains full replacement code, but the agent should treat these as the must-do edits:
+
+### 1. Generate figures at final IEEE size
+
+Add these constants in `paper/generate_figures_major_upgrade_v2.py`:
+
+```python
+IEEE_TEXT_WIDTH_IN = 7.16
+IEEE_COLUMN_WIDTH_IN = 3.45
+FIG_DPI = 450
+
+FS_SUPTITLE = 9.2
+FS_TITLE = 7.6
+FS_AXIS = 6.6
+FS_TICK = 5.7
+FS_ANNOT = 5.7
+FS_NOTE = 5.4
+FS_LEGEND = 5.3
+FS_BOX = 5.7
+```
+
+Then replace `_configure_matplotlib()` and `_add_box()` exactly as provided in the edit package. The key fix is that `_add_box()` must wrap text and set `clip_on=False`; the current `_add_box()` still places raw text in boxes without wrapping. 
+
+### 2. Replace these full functions
+
+Replace these functions in `paper/generate_figures_major_upgrade_v2.py` with the versions in the edit package:
+
+```python
+figure_architecture_stack()
+figure_kpi_ranking()
+figure_phase_kpi()
+figure_iq_drone_samples()
+figure_iq_negative_samples()
+figure_locked_algorithm()
+```
+
+Also apply the sizing/font substitutions inside:
+
+```python
+figure_monte_carlo_split_flow()
+figure_detector_ml_pipeline()
+```
+
+The biggest replacements are `figure_iq_drone_samples()` and `figure_iq_negative_samples()`.
+
+For **Figure 6**, the replacement uses:
+
+```python
+fig = plt.figure(figsize=(IEEE_TEXT_WIDTH_IN, 3.10))
+gs = fig.add_gridspec(
+    2,
+    3,
+    height_ratios=[0.95, 1.20],
+    width_ratios=[1.32, 0.82, 0.94],
+    hspace=0.38,
+    wspace=0.34,
+)
+```
+
+That changes the figure from “top table plus two bottom panels” into “top table plus three bottom panels”: public-proxy assumptions, receiver impairments, and cue definitions/boundary. This is the direct fix for the overlap.
+
+For **Figure 7**, the replacement uses:
+
+```python
+gs = fig.add_gridspec(
+    2,
+    5,
+    width_ratios=[0.64, 1.0, 1.0, 1.0, 0.055],
+    hspace=0.28,
+    wspace=0.14,
+)
+```
+
+That gives row labels their own column and the colorbar its own column. No more repeated long y-axis label on the heatmaps.
+
+### 3. Use vector PDFs for vector figures
+
+The current `_save_figure()` already writes `.pdf` for vector figures. The TeX should explicitly include those PDFs instead of extensionless filenames. Replace these includes in `paper/echoforge_ieee.tex`:
+
+```latex
+\includegraphics[width=0.96\textwidth]{architecture_stack.pdf}
+\includegraphics[width=0.98\textwidth]{monte_carlo_split_flow.pdf}
+\includegraphics[width=0.98\textwidth]{kpi_ranking.pdf}
+\includegraphics[width=0.98\textwidth]{phase_kpi.pdf}
+\includegraphics[width=0.98\textwidth]{detector_ml_pipeline.pdf}
+\includegraphics[width=0.98\textwidth]{iq_drone_samples.pdf}
+\includegraphics[width=0.98\columnwidth]{locked_algorithm.pdf}
+```
+
+Keep only the heatmap as PNG:
+
+```latex
+\includegraphics[width=0.98\textwidth]{iq_negative_samples.png}
+```
+
+The current TeX uses extensionless includes, while the renderer writes both PNG and PDF for vector figures; forcing PDF prevents rasterized tiny text.  
+
+### 4. Add the missing caveat after Table IX
+
+Insert this exact paragraph after the Figure 5 / ablation discussion:
+
+```latex
+Table~\ref{tab:modalities} is also a guard against over-claiming. The passive-RF-only view has higher AP and swept Recall@$\leq$1\%FPR than the full locked candidate, but its selected-threshold F1 and ECE are worse. We therefore report the locked candidate as the pre-registered holdout-scored artifact with the strongest calibrated selected-threshold behavior, not as a universal dominator of every post-hoc view control.
+```
+
+This protects the paper from a very obvious reviewer objection.
+
+### 5. Strengthen validation so this cannot regress
+
+In `paper/validate_paper.py`, change required figures to require vector PDFs for non-heatmaps:
+
+```python
+REQUIRED_FIGURES = (
+    "architecture_stack.pdf",
+    "monte_carlo_split_flow.pdf",
+    "kpi_ranking.pdf",
+    "phase_kpi.pdf",
+    "iq_drone_samples.pdf",
+    "iq_negative_samples.png",
+    "detector_ml_pipeline.pdf",
+    "locked_algorithm.pdf",
+)
+```
+
+Add the Pillow readability check from the edit package, then add Pillow installation to `paper/build.sh`.
+
+## Bottom-line assessment
+
+The story is now close to tier-1: the claim boundary is careful, the primary KPI is appropriate for a rare-positive low-FPR benchmark, and the abstract does not overclaim. The remaining tier-1 blocker is that the plots still look like generated dashboards compressed into a paper. Apply the linked code edits, rebuild, and manually inspect pages 2, 5, 6, 8, and 9 first; those are the known failure pages.
+

@@ -1,0 +1,2193 @@
+I studied the current uploaded PDF and the repo paper path. The problem is not one bad plot. It is a **paper-figure system problem**: too much text inside figures, manual positioning, inconsistent table/plot styles, no shared paper style, overloaded multi-panel figures, and a few real code bugs. The worst current failures are visible in Fig. 1 page 2, Fig. 3 page 5, Fig. 4 page 6, Fig. 5 page 7, Fig. 6 page 8/9, and Fig. 7/8 page 9/10. Fig. 6 is especially damaging: the radar model-card figure has overlapping cue-definition text, a cramped table, and in one PDF version the “Chirps” column is rendered as `0`, which directly undermines the model-card credibility. 
+
+The paper’s **claim boundary is good** and the abstract is basically defensible: it clearly states strict-open, public-proxy, non-measured-truth framing, the 10,000 groups / 50 positives / 30,000 records setup, the 4,500-record holdout, and the locked candidate’s 0.833 point Recall@≤1%FPR and 0.699 LCB95 versus 0.292 / 0.083 for prior fusion.  But the figures currently make the work look less mature than the text. A tier-1 version needs the figures to feel like a controlled evidence system, not generated dashboards.
+
+Below is a concrete, agent-ready patch plan. The highest-impact implementation is: **replace the figure-rendering style layer, rewrite Figs. 1–8 in a common IEEE style, generate vector PDFs for all non-heatmap figures, and update the LaTeX placement for Fig. 8.**
+
+---
+
+# 1. Exact global style changes
+
+Edit:
+
+```text
+paper/generate_figures_major_upgrade_v2.py
+```
+
+## 1.1 Add imports
+
+At the top of the file, change the imports from:
+
+```python
+import argparse
+import csv
+import json
+import math
+import warnings
+```
+
+to:
+
+```python
+import argparse
+import csv
+import json
+import math
+import textwrap
+import warnings
+```
+
+Then change:
+
+```python
+from matplotlib.patches import FancyArrowPatch, Rectangle
+```
+
+to:
+
+```python
+from matplotlib.patches import FancyArrowPatch, Rectangle
+from matplotlib.ticker import MaxNLocator
+```
+
+## 1.2 Add shared figure dimensions and style constants
+
+Add this block after the existing color constants:
+
+```python
+# IEEE two-column layout targets.
+# These are in inches and tuned for IEEEtran journal mode.
+IEEE_TEXT_WIDTH = 7.16
+IEEE_COLUMN_WIDTH = 3.48
+
+FIG_TITLE_SIZE = 11.2
+PANEL_TITLE_SIZE = 8.6
+AXIS_LABEL_SIZE = 7.5
+TICK_LABEL_SIZE = 6.5
+ANNOTATION_SIZE = 6.3
+CAPTION_NOTE_SIZE = 6.4
+LEGEND_SIZE = 6.2
+
+LINE_WIDTH = 0.85
+GRID_WIDTH = 0.55
+BAR_EDGE_WIDTH = 0.55
+
+METHOD_LABELS = {
+    "layered_fusion_c2": "Prior fusion",
+    "locked_candidate": "Locked candidate",
+    "meta_fusion.top8.v2_aggressive.geodesic_odds": "Locked candidate",
+    "tabular_ml_baseline": "Tabular ML",
+    "sequence_ml_proxy": "Sequence ML",
+    "high_resolution_xku_cuas": "X/Ku radar",
+    "tactical_s_band_aesa": "S-band AESA",
+    "gbad_3d4d_cueing": "GBAD cue",
+    "distributed_acoustic_cue": "Acoustic cue",
+}
+
+FAMILY_LABELS = {
+    "single_bird": "Single bird",
+    "weather_cell": "Weather cell",
+    "rc_fixed_wing": "RC fixed-wing",
+    "bird_flock": "Bird flock",
+    "wind_turbine": "Wind turbine",
+    "terrain_glint": "Terrain glint",
+    "clutter_only_counterfactual": "Clutter only",
+    "multipath_ghost": "Multipath ghost",
+    "rfi_burst": "RFI burst",
+    "ground_vehicle": "Ground vehicle",
+}
+
+PLOT_COLORS = {
+    "selected": INK,
+    "baseline": GREEN,
+    "secondary": BLUE,
+    "tertiary": TEAL,
+    "warning": RED,
+    "accent": GOLD,
+    "light_selected": "#e7eaee",
+    "light_baseline": PALE_GREEN,
+}
+```
+
+## 1.3 Replace `_configure_matplotlib`
+
+Replace the current `_configure_matplotlib()` with:
+
+```python
+def _configure_matplotlib() -> None:
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "font.size": 8.4,
+            "axes.titlesize": PANEL_TITLE_SIZE,
+            "axes.titleweight": "bold",
+            "axes.labelsize": AXIS_LABEL_SIZE,
+            "xtick.labelsize": TICK_LABEL_SIZE,
+            "ytick.labelsize": TICK_LABEL_SIZE,
+            "legend.fontsize": LEGEND_SIZE,
+            "axes.edgecolor": INK,
+            "axes.labelcolor": INK,
+            "xtick.color": MUTED,
+            "ytick.color": MUTED,
+            "text.color": INK,
+            "figure.facecolor": "white",
+            "axes.facecolor": "white",
+            "savefig.dpi": 450,
+            "figure.dpi": 150,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "axes.unicode_minus": False,
+        }
+    )
+```
+
+## 1.4 Add shared helper functions
+
+Add these immediately after `_configure_matplotlib()`:
+
+```python
+def _wrap_label(value: Any, width: int = 18) -> str:
+    text = str(value).replace("_", " ").replace("-", "-").strip()
+    return "\n".join(
+        textwrap.wrap(
+            text,
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+    )
+
+
+def _method_label(method: str, width: int = 18) -> str:
+    label = METHOD_LABELS.get(method, method.replace("_", " "))
+    return _wrap_label(label, width=width)
+
+
+def _family_label(family: str, width: int = 18) -> str:
+    label = FAMILY_LABELS.get(family, family.replace("_", " "))
+    return _wrap_label(label, width=width)
+
+
+def _style_axes(ax: Any, *, grid: str = "x") -> None:
+    if grid in ("x", "both"):
+        ax.xaxis.grid(True, color=GRID, linewidth=GRID_WIDTH)
+    if grid in ("y", "both"):
+        ax.yaxis.grid(True, color=GRID, linewidth=GRID_WIDTH)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color(GRID)
+    ax.spines["bottom"].set_color(GRID)
+    ax.spines["left"].set_linewidth(LINE_WIDTH)
+    ax.spines["bottom"].set_linewidth(LINE_WIDTH)
+
+
+def _style_count_axis(ax: Any) -> None:
+    _style_axes(ax, grid="x")
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=4, integer=True))
+    ax.tick_params(axis="both", length=2.2, width=0.6, pad=1.5)
+
+
+def _top_items_with_other(
+    counts: dict[str, Any],
+    *,
+    max_items: int = 7,
+) -> list[tuple[str, int]]:
+    cleaned = {str(k): int(v) for k, v in counts.items()}
+    ordered = sorted(cleaned.items(), key=lambda item: item[1], reverse=True)
+    if len(ordered) <= max_items:
+        return ordered
+    kept = ordered[: max_items - 1]
+    kept.append(("other", sum(value for _name, value in ordered[max_items - 1 :])))
+    return kept
+
+
+def _add_panel_letter(ax: Any, letter: str) -> None:
+    ax.text(
+        -0.08,
+        1.04,
+        letter,
+        transform=ax.transAxes,
+        fontsize=8.8,
+        weight="bold",
+        va="bottom",
+        ha="left",
+        color=INK,
+    )
+
+
+def _barh_value_labels(
+    ax: Any,
+    values: list[float],
+    *,
+    fmt: str = "{:.3f}",
+    pad_fraction: float = 0.018,
+    fontsize: float = ANNOTATION_SIZE,
+) -> None:
+    finite = [value for value in values if math.isfinite(value)]
+    xmax = max(finite) if finite else 1.0
+    for idx, value in enumerate(values):
+        if not math.isfinite(value):
+            continue
+        ax.text(
+            value + xmax * pad_fraction,
+            idx,
+            fmt.format(value),
+            va="center",
+            ha="left",
+            fontsize=fontsize,
+            color=MUTED,
+        )
+
+
+def _fig_note(fig: Any, text: str, *, y: float = 0.012) -> None:
+    fig.text(
+        0.015,
+        y,
+        text,
+        ha="left",
+        va="bottom",
+        fontsize=CAPTION_NOTE_SIZE,
+        color=MUTED,
+    )
+
+
+def _nonempty_calibration_bins(selected_row: dict[str, Any], evaluation: dict[str, Any]) -> list[dict[str, Any]]:
+    bins = selected_row.get("calibration_bins", [])
+    if not bins:
+        bins = evaluation.get("calibration", {}).get("selected", {}).get("bins", [])
+    output = []
+    for row in bins:
+        count = _safe_float(row.get("count"))
+        mean_score = _safe_float(row.get("mean_score"))
+        empirical = _safe_float(row.get("empirical_positive_rate"))
+        if count > 0 and math.isfinite(mean_score) and math.isfinite(empirical):
+            output.append(row)
+    return output
+```
+
+## 1.5 Replace `_save_figure`
+
+The current validator expects PNGs and also vector PDFs for most figures. The renderer should emit both. `iq_negative_samples` must remain raster-only because the validator explicitly rejects `iq_negative_samples.pdf`. The validation file lists required PNGs and vector PDFs and forbids a vector `iq_negative_samples.pdf`. 
+
+Replace `_save_figure()` with:
+
+```python
+def _save_figure(fig: Any, filename: str) -> Path:
+    FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+    png_path = FIGURE_DIR / filename
+
+    metadata = {"Software": "EchoForge paper/generate_figures_major_upgrade_v2.py"}
+    description = f"sources={_source_note(filename)}"
+    if FIGURE_FALLBACK_NOTES.get(filename):
+        description += f"; fallback={_fallback_note(filename)}"
+    metadata["Description"] = description
+
+    # Draw first so constrained/tight layout has stable text extents.
+    fig.canvas.draw_idle()
+
+    fig.savefig(
+        png_path,
+        bbox_inches="tight",
+        pad_inches=0.035,
+        metadata=metadata,
+    )
+
+    # Keep range-Doppler heatmaps raster-only. All other paper figures should
+    # also have vector PDFs so text, axes, and boxes remain sharp in IEEE PDF.
+    if png_path.name != "iq_negative_samples.png":
+        pdf_path = png_path.with_suffix(".pdf")
+        fig.savefig(
+            pdf_path,
+            bbox_inches="tight",
+            pad_inches=0.035,
+            metadata=metadata,
+        )
+
+    plt.close(fig)
+    return png_path
+```
+
+---
+
+# 2. Replace Fig. 1: architecture stack
+
+The current Fig. 1 is visually weak because it uses hand-positioned text and the right model-card text collides with the diagram on the page. Page 2 shows the model-card text bleeding across the figure area. 
+
+Replace the entire `figure_architecture_stack()` function with:
+
+```python
+def figure_architecture_stack(context: FigureContext) -> Path:
+    filename = "architecture_stack.png"
+    radar_model = context.evidence.get("radar_model_card", {})
+    if radar_model:
+        _note_source(filename, "paper evidence radar model card")
+    else:
+        _note_fallback(filename, "radar model card missing; using generic stack")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 3.35), constrained_layout=True)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.55, 1.0], wspace=0.12)
+    fig.suptitle(
+        "EchoForge radar signal chain and evidence boundary",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    ax = fig.add_subplot(gs[0, 0])
+    ax.set_axis_off()
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+
+    layers = [
+        ("Public-proxy object priors", "fixed-wing pusher-prop", PALE_BLUE, BLUE),
+        ("Radar archetype", "carrier / bandwidth / PRF / CPI", PALE_TEAL, TEAL),
+        ("Propagation and clutter", "multipath / weather / RFI", PALE_GOLD, GOLD),
+        ("Complex IQ and cue streams", "radar + acoustic + passive RF", PALE_GREEN, GREEN),
+        ("Detector views and leakage rails", "feature denylist + split locks", PALE_RED, RED),
+        ("Evidence bundle", "metrics / ablations / anchor compare", SLATE, INK),
+    ]
+
+    x0 = 0.04
+    w = 0.90
+    h = 0.115
+    y0 = 0.84
+    gap = 0.038
+
+    for idx, (title, detail, face, edge) in enumerate(layers):
+        y = y0 - idx * (h + gap)
+        rect = Rectangle((x0, y), w, h, facecolor=face, edgecolor=edge, linewidth=1.0)
+        ax.add_patch(rect)
+        ax.text(
+            x0 + w / 2,
+            y + h * 0.63,
+            title,
+            ha="center",
+            va="center",
+            fontsize=8.1,
+            weight="bold" if idx == 0 else "normal",
+        )
+        ax.text(
+            x0 + w / 2,
+            y + h * 0.31,
+            detail,
+            ha="center",
+            va="center",
+            fontsize=7.2,
+            color=MUTED,
+        )
+        if idx < len(layers) - 1:
+            _add_arrow(
+                ax,
+                (x0 + w / 2, y - 0.004),
+                (x0 + w / 2, y - gap + 0.012),
+                color=edge,
+            )
+
+    ax.text(
+        0.04,
+        0.035,
+        "Claim boundary: generated/public-proxy evidence only; no measured-platform or operational-performance claim.",
+        fontsize=6.5,
+        color=MUTED,
+        ha="left",
+        va="bottom",
+    )
+
+    card_ax = fig.add_subplot(gs[0, 1])
+    card_ax.set_axis_off()
+    card_ax.set_xlim(0, 1)
+    card_ax.set_ylim(0, 1)
+    card_ax.text(0.02, 0.96, "Model-card snapshot", fontsize=9.2, weight="bold", va="top")
+
+    card_lines = [
+        ("Waveform", radar_model.get("waveform_family", "multibranch FMCW-style public-proxy radar")),
+        ("CPI", "24 pulses / 6 ms"),
+        ("Range bins", "20"),
+        ("PRF / CRF", "4 kHz / 4 kHz"),
+        ("Impairments", "AGC, drift, quantization, dropped CPI"),
+        ("Cues", "acoustic + passive RF"),
+    ]
+
+    y = 0.82
+    for label, value in card_lines:
+        rect = Rectangle((0.02, y - 0.07), 0.96, 0.085, facecolor="white", edgecolor=GRID, linewidth=0.65)
+        card_ax.add_patch(rect)
+        card_ax.text(0.05, y - 0.028, label, fontsize=6.7, weight="bold", va="center")
+        card_ax.text(
+            0.36,
+            y - 0.028,
+            _wrap_label(value, width=28),
+            fontsize=6.5,
+            va="center",
+            color=MUTED,
+        )
+        y -= 0.115
+
+    card_ax.text(
+        0.02,
+        0.06,
+        "Evidence outputs remain reviewable; raw arrays and measured raw traces remain outside Git.",
+        fontsize=6.4,
+        color=MUTED,
+        ha="left",
+        va="bottom",
+        wrap=True,
+    )
+
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+# 3. Replace Fig. 2: scenario balance
+
+Fig. 2 is not as broken as the others, but it is too dashboard-like. Keep it as an audit figure, but sort consistently, label cleanly, and make leakage diagnostics into cards. The current figure is already trying to show split/site/range/aspect/noise/hard-negative counts and leakage checks. 
+
+Replace `figure_monte_carlo_split_flow()` with:
+
+```python
+def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
+    filename = "monte_carlo_split_flow.png"
+    balance = _scenario_balance_counts(context)
+    if balance:
+        _note_source(filename, "scenario balance and leakage diagnostics")
+    else:
+        _note_fallback(filename, "scenario balance missing; using summary placeholders")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    marginal_counts = balance.get("marginal_counts", {})
+    leakage = context.evidence.get("leakage_diagnostics", {})
+    imbalance = balance.get("imbalance_scores", {})
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 4.15), constrained_layout=True)
+    gs = fig.add_gridspec(
+        3,
+        3,
+        width_ratios=[1.0, 1.0, 0.88],
+        height_ratios=[1.0, 1.0, 1.0],
+        wspace=0.18,
+        hspace=0.30,
+    )
+    fig.suptitle(
+        "Scenario balance and leakage diagnostics",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    panel_specs = [
+        ("split", "Split"),
+        ("site", "Site"),
+        ("range", "Range"),
+        ("aspect", "Aspect"),
+        ("noise", "Noise"),
+        ("hard_negative_role", "Hard-negative"),
+    ]
+
+    palette = [BLUE, TEAL, GOLD, RED, GREEN, "#62758a", "#8899ab"]
+    for idx, (key, title) in enumerate(panel_specs):
+        ax = fig.add_subplot(gs[idx // 2, idx % 2])
+        counts = marginal_counts.get(key, {})
+        if not counts:
+            counts = {"missing": 1}
+            _note_fallback(filename, f"{key} counts missing")
+        items = _top_items_with_other(counts, max_items=7)
+        labels = [_wrap_label(name, width=16) for name, _value in items]
+        values = [value for _name, value in items]
+        ypos = np.arange(len(items))
+
+        ax.barh(
+            ypos,
+            values,
+            color=[palette[i % len(palette)] for i in range(len(items))],
+            edgecolor="white",
+            linewidth=BAR_EDGE_WIDTH,
+        )
+        ax.set_yticks(ypos)
+        ax.set_yticklabels(labels, fontsize=6.2)
+        ax.invert_yaxis()
+        ax.set_title(title, fontsize=PANEL_TITLE_SIZE, pad=2.0)
+        _style_count_axis(ax)
+
+        xmax = max(values) if values else 1
+        ax.set_xlim(0, xmax * 1.20)
+        for y, value in zip(ypos, values):
+            ax.text(
+                value + xmax * 0.025,
+                y,
+                f"{value:,}",
+                va="center",
+                ha="left",
+                fontsize=5.9,
+                color=MUTED,
+            )
+
+    leak_ax = fig.add_subplot(gs[0, 2])
+    leak_ax.set_axis_off()
+    leak_ax.set_xlim(0, 1)
+    leak_ax.set_ylim(0, 1)
+    leak_ax.text(0.02, 0.96, "Leakage checks", fontsize=8.8, weight="bold", va="top")
+
+    canary = leakage.get("canary_forbidden_feature_test", {})
+    leak_lines = [
+        ("Canary", str(canary.get("status", "missing")).replace("_", " ")),
+        ("Stratum AP", f"{_safe_float(leakage.get('stratum_only_baseline', {}).get('average_precision')):.3f}"),
+        ("Metadata AP", f"{_safe_float(leakage.get('metadata_only_baseline', {}).get('average_precision')):.3f}"),
+        ("Shuffle AP", f"{_safe_float(leakage.get('label_shuffle_sanity', {}).get('shuffled_labels', {}).get('average_precision')):.3f}"),
+    ]
+    y = 0.78
+    for label, value in leak_lines:
+        rect = Rectangle((0.02, y - 0.08), 0.96, 0.105, facecolor="white", edgecolor=GRID, linewidth=0.65)
+        leak_ax.add_patch(rect)
+        leak_ax.text(0.06, y - 0.03, label, fontsize=6.3, weight="bold", va="center")
+        leak_ax.text(0.52, y - 0.03, value, fontsize=6.3, color=MUTED, va="center", ha="left")
+        y -= 0.145
+
+    imb_ax = fig.add_subplot(gs[1:, 2])
+    imb_ax.set_axis_off()
+    imb_ax.set_xlim(0, 1)
+    imb_ax.set_ylim(0, 1)
+    imb_ax.text(0.02, 0.96, "Marginal imbalance", fontsize=8.8, weight="bold", va="top")
+
+    items = sorted(imbalance.items(), key=lambda kv: kv[0])
+    if not items:
+        items = [("missing", float("nan"))]
+    y = 0.82
+    for name, value in items:
+        label = name.replace("hard_negative_role", "hard-negative").replace("_", " ")
+        value_text = f"{_safe_float(value):.3f}" if math.isfinite(_safe_float(value)) else "missing"
+        imb_ax.text(0.05, y, label, fontsize=6.4, color=INK, va="center")
+        imb_ax.text(0.92, y, value_text, fontsize=6.4, color=MUTED, va="center", ha="right")
+        y -= 0.105
+
+    _fig_note(
+        fig,
+        "Scenario groups are split before phase expansion; audit-only split/group headers are detected and blocked before detector scoring.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+# 4. Replace Fig. 3: KPI figure
+
+Fig. 3 is the paper’s main result figure, but right now it is too busy and uses “calibration bin counts,” which is not an intuitive calibration plot. The paper itself says Recall@≤1%FPR and LCB95 are the headline quantities, while AP/ROC/PR/calibration are supporting diagnostics.  Table VI provides the key numbers: prior fusion 0.128 AP / 0.938 ROC AUC / 0.292 Recall@≤1%FPR / 0.083 LCB95, locked candidate 0.825 AP / 0.917 ROC AUC / 0.833 Recall@≤1%FPR / 0.699 LCB95.  The figure should visually encode exactly that.
+
+Replace the entire `figure_kpi_ranking()` with:
+
+```python
+def figure_kpi_ranking(context: FigureContext) -> Path:
+    filename = "kpi_ranking.png"
+    evaluation = _evaluation_summary(context)
+    if evaluation:
+        _note_source(filename, "evaluation summary with curves and bootstrap CIs")
+    else:
+        _note_fallback(filename, "evaluation summary missing; using deterministic defaults")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    selected_row = evaluation.get("selected", {})
+    baseline_row = evaluation.get("baseline", {})
+    selected_method = evaluation.get("selected_method", "locked_candidate")
+
+    primary_kpi = evaluation.get("primary_kpi", {})
+    primary_label = primary_kpi.get("name", "LCB95 Recall@≤1%FPR")
+    primary_value = _safe_float(
+        primary_kpi.get("value"),
+        _safe_float(selected_row.get("fixed_fpr_recall")),
+    )
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 4.10), constrained_layout=True)
+    gs = fig.add_gridspec(
+        2,
+        3,
+        width_ratios=[1.22, 1.0, 1.0],
+        height_ratios=[1.0, 1.0],
+        wspace=0.26,
+        hspace=0.34,
+    )
+    fig.suptitle(
+        "Holdout primary KPI and supporting diagnostics",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    # ------------------------------------------------------------------
+    # A. Primary KPI
+    # ------------------------------------------------------------------
+    kpi_ax = fig.add_subplot(gs[:, 0])
+    methods = [
+        ("Prior fusion", baseline_row, PLOT_COLORS["baseline"]),
+        ("Locked candidate", selected_row, PLOT_COLORS["selected"]),
+    ]
+    y = np.arange(len(methods))
+    point_values = [_safe_float(row.get("fixed_fpr_recall")) for _label, row, _color in methods]
+    lcb_values = [
+        _safe_float(row.get("primary_kpi", {}).get("value"))
+        for _label, row, _color in methods
+    ]
+
+    kpi_ax.barh(
+        y,
+        point_values,
+        height=0.46,
+        color=[color for _label, _row, color in methods],
+        edgecolor="white",
+        linewidth=BAR_EDGE_WIDTH,
+    )
+    for idx, (point, lcb) in enumerate(zip(point_values, lcb_values)):
+        if math.isfinite(lcb):
+            kpi_ax.plot(
+                [lcb, lcb],
+                [idx - 0.25, idx + 0.25],
+                color=RED,
+                linewidth=1.9,
+                solid_capstyle="round",
+                zorder=3,
+            )
+        if math.isfinite(point):
+            kpi_ax.text(
+                min(point + 0.035, 0.98),
+                idx,
+                f"point {point:.3f}\nLCB95 {lcb:.3f}",
+                va="center",
+                ha="left",
+                fontsize=6.4,
+                color=MUTED,
+            )
+
+    kpi_ax.set_yticks(y)
+    kpi_ax.set_yticklabels([label for label, _row, _color in methods], fontsize=7.1)
+    kpi_ax.invert_yaxis()
+    kpi_ax.set_xlim(0.0, 1.02)
+    kpi_ax.set_xlabel("Recall at FPR ≤ 1%", fontsize=AXIS_LABEL_SIZE)
+    kpi_ax.set_title("A. Primary KPI: group-block LCB95", fontsize=PANEL_TITLE_SIZE)
+    _style_axes(kpi_ax, grid="x")
+
+    kpi_ax.text(
+        0.02,
+        0.04,
+        "Red marker = lower 95% group-block bootstrap bound.",
+        transform=kpi_ax.transAxes,
+        fontsize=6.2,
+        color=MUTED,
+        ha="left",
+        va="bottom",
+    )
+
+    # ------------------------------------------------------------------
+    # B. AP ranking diagnostic
+    # ------------------------------------------------------------------
+    rank_ax = fig.add_subplot(gs[0, 1])
+    rows = [
+        row
+        for row in context.baseline_metrics
+        if row.get("split_role") == "holdout" and row.get("phase_id") == "all"
+    ]
+    rows.sort(key=lambda row: _safe_float(row.get("average_precision")), reverse=True)
+
+    labels = [row.get("method", "") for row in rows]
+    values = [_safe_float(row.get("average_precision")) for row in rows]
+    if selected_method and selected_method not in labels:
+        labels = [selected_method] + labels
+        values = [_safe_float(selected_row.get("average_precision"))] + values
+
+    order = np.argsort(values)[::-1]
+    labels = [labels[i] for i in order]
+    values = [values[i] for i in order]
+    positions = np.arange(len(labels))
+
+    colors = [
+        PLOT_COLORS["selected"] if label == selected_method else
+        PLOT_COLORS["baseline"] if label == "layered_fusion_c2" else
+        PLOT_COLORS["secondary"]
+        for label in labels
+    ]
+
+    rank_ax.barh(
+        positions,
+        values,
+        color=colors,
+        edgecolor="white",
+        linewidth=BAR_EDGE_WIDTH,
+        height=0.62,
+    )
+    rank_ax.set_yticks(positions)
+    rank_ax.set_yticklabels([_method_label(label, width=13) for label in labels], fontsize=5.9)
+    rank_ax.invert_yaxis()
+    rank_ax.set_xlim(0.0, max(values + [1.0]) * 1.10)
+    rank_ax.set_xlabel("Holdout AP", fontsize=AXIS_LABEL_SIZE)
+    rank_ax.set_title("B. AP ranking", fontsize=PANEL_TITLE_SIZE)
+    _style_axes(rank_ax, grid="x")
+    _barh_value_labels(rank_ax, values, fontsize=5.7)
+
+    # ------------------------------------------------------------------
+    # C. Low-FPR ROC inset
+    # ------------------------------------------------------------------
+    roc_ax = fig.add_subplot(gs[0, 2])
+    sel_curve = evaluation.get("curves", {}).get("selected", {}).get("roc", [])
+    base_curve = evaluation.get("curves", {}).get("baseline", {}).get("roc", [])
+
+    if base_curve:
+        roc_ax.plot(
+            [p["fpr"] for p in base_curve],
+            [p["tpr"] for p in base_curve],
+            color=PLOT_COLORS["baseline"],
+            linewidth=1.4,
+            label="prior fusion",
+        )
+    if sel_curve:
+        roc_ax.plot(
+            [p["fpr"] for p in sel_curve],
+            [p["tpr"] for p in sel_curve],
+            color=PLOT_COLORS["selected"],
+            linewidth=1.4,
+            label="locked candidate",
+        )
+
+    roc_ax.axvline(0.01, color=RED, linewidth=0.9, linestyle="--")
+    roc_ax.text(0.0105, 0.07, "1% FPR", fontsize=5.8, color=RED)
+    roc_ax.set_xlim(0.0, 0.025)
+    roc_ax.set_ylim(0.0, 1.02)
+    roc_ax.set_xlabel("False-positive rate", fontsize=AXIS_LABEL_SIZE)
+    roc_ax.set_ylabel("True-positive rate", fontsize=AXIS_LABEL_SIZE)
+    roc_ax.set_title("C. ROC low-FPR region", fontsize=PANEL_TITLE_SIZE)
+    roc_ax.legend(loc="lower right", frameon=False, fontsize=5.8)
+    _style_axes(roc_ax, grid="both")
+
+    # ------------------------------------------------------------------
+    # D. PR curve
+    # ------------------------------------------------------------------
+    pr_ax = fig.add_subplot(gs[1, 1])
+    sel_pr = evaluation.get("curves", {}).get("selected", {}).get("pr", [])
+    base_pr = evaluation.get("curves", {}).get("baseline", {}).get("pr", [])
+
+    if base_pr:
+        pr_ax.plot(
+            [p["recall"] for p in base_pr],
+            [p["precision"] for p in base_pr],
+            color=PLOT_COLORS["baseline"],
+            linewidth=1.2,
+            label="prior fusion",
+        )
+    if sel_pr:
+        pr_ax.plot(
+            [p["recall"] for p in sel_pr],
+            [p["precision"] for p in sel_pr],
+            color=PLOT_COLORS["selected"],
+            linewidth=1.2,
+            label="locked candidate",
+        )
+
+    base_rate = _safe_float(selected_row.get("positive_count")) / max(
+        _safe_float(selected_row.get("count"), 1.0), 1.0
+    )
+    if math.isfinite(base_rate):
+        pr_ax.axhline(base_rate, color=RED, linewidth=0.8, linestyle="--", label="base rate")
+
+    pr_ax.set_xlim(0.0, 1.0)
+    pr_ax.set_ylim(0.0, 1.02)
+    pr_ax.set_xlabel("Recall", fontsize=AXIS_LABEL_SIZE)
+    pr_ax.set_ylabel("Precision", fontsize=AXIS_LABEL_SIZE)
+    pr_ax.set_title("D. Precision–recall", fontsize=PANEL_TITLE_SIZE)
+    pr_ax.legend(loc="upper right", frameon=False, fontsize=5.6)
+    _style_axes(pr_ax, grid="both")
+
+    # ------------------------------------------------------------------
+    # E. Calibration reliability, not raw bin counts
+    # ------------------------------------------------------------------
+    cal_ax = fig.add_subplot(gs[1, 2])
+    cal_ax.plot([0, 1], [0, 1], color=GRID, linewidth=0.9, linestyle="--", label="ideal")
+    bins = _nonempty_calibration_bins(selected_row, evaluation)
+
+    if bins:
+        mean_scores = [_safe_float(row.get("mean_score")) for row in bins]
+        empirical = [_safe_float(row.get("empirical_positive_rate")) for row in bins]
+        counts = [_safe_float(row.get("count")) for row in bins]
+        max_count = max(counts) if counts else 1.0
+        sizes = [22.0 + 85.0 * count / max_count for count in counts]
+
+        cal_ax.scatter(
+            mean_scores,
+            empirical,
+            s=sizes,
+            color=PLOT_COLORS["secondary"],
+            edgecolor="white",
+            linewidth=0.55,
+            alpha=0.88,
+            label="non-empty bins",
+            zorder=3,
+        )
+        for xval, yval, count in zip(mean_scores, empirical, counts):
+            if count >= max_count * 0.08:
+                cal_ax.text(
+                    xval,
+                    min(yval + 0.045, 0.98),
+                    f"n={int(count)}",
+                    ha="center",
+                    fontsize=5.3,
+                    color=MUTED,
+                )
+    else:
+        cal_ax.text(
+            0.5,
+            0.5,
+            "No non-empty\ncalibration bins",
+            ha="center",
+            va="center",
+            fontsize=6.8,
+            color=MUTED,
+        )
+
+    cal_ax.text(
+        0.98,
+        0.08,
+        f"Brier {selected_row.get('brier_score', float('nan')):.3f}\nECE {selected_row.get('ece', float('nan')):.3f}",
+        transform=cal_ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=6.2,
+        color=MUTED,
+    )
+    cal_ax.set_xlim(-0.02, 1.02)
+    cal_ax.set_ylim(-0.02, 1.02)
+    cal_ax.set_xlabel("Mean predicted probability", fontsize=AXIS_LABEL_SIZE)
+    cal_ax.set_ylabel("Empirical positive rate", fontsize=AXIS_LABEL_SIZE)
+    cal_ax.set_title("E. Calibration reliability", fontsize=PANEL_TITLE_SIZE)
+    cal_ax.legend(loc="upper left", frameon=False, fontsize=5.6)
+    _style_axes(cal_ax, grid="both")
+
+    _fig_note(
+        fig,
+        f"{primary_label}: {primary_value:.3f}; holdout has 8 positive groups / 24 positive records. "
+        "AP and ROC AUC are supporting rank diagnostics; selected ROC AUC is lower than prior fusion.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+This fixes three things at once: the primary result becomes dominant, calibration becomes scientifically meaningful, and every panel uses the same typography and axis system.
+
+---
+
+# 5. Replace Fig. 4: phase behavior and false alarms
+
+Fig. 4 currently mixes AP bars and fixed-FPR recall as a tiny red tick with no clear legend, and the false-alarm legend is far too dense. The page-6 rendering makes the right panel hard to read. 
+
+Replace `figure_phase_kpi()` with:
+
+```python
+def figure_phase_kpi(context: FigureContext) -> Path:
+    filename = "phase_kpi.png"
+    evaluation = _evaluation_summary(context)
+    if evaluation:
+        _note_source(filename, "phase metrics and false-alarm family breakdown")
+    else:
+        _note_fallback(filename, "phase metrics missing; using deterministic defaults")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 3.85), constrained_layout=True)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.0, 1.28], wspace=0.26)
+    fig.suptitle(
+        "Phase behavior and cross-method false-alarm burden",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    phase_metrics = evaluation.get("phase_metrics", {})
+    selected_method = evaluation.get("selected_method", "")
+    selected = phase_metrics.get(selected_method, {})
+    baseline = phase_metrics.get("layered_fusion_c2", {})
+    phase_order = list(PHASES)
+
+    # ------------------------------------------------------------------
+    # A. Phase diagnostics
+    # ------------------------------------------------------------------
+    ax = fig.add_subplot(gs[0, 0])
+    x = np.arange(len(phase_order))
+    width = 0.30
+
+    baseline_ap = [_safe_float(baseline.get(phase, {}).get("average_precision"), 0.0) for phase in phase_order]
+    selected_ap = [_safe_float(selected.get(phase, {}).get("average_precision"), 0.0) for phase in phase_order]
+    selected_recall = [_safe_float(selected.get(phase, {}).get("fixed_fpr_recall"), 0.0) for phase in phase_order]
+
+    ax.bar(
+        x - width / 2,
+        baseline_ap,
+        width,
+        color=PLOT_COLORS["light_baseline"],
+        edgecolor=PLOT_COLORS["baseline"],
+        linewidth=BAR_EDGE_WIDTH,
+        label="prior fusion AP",
+    )
+    ax.bar(
+        x + width / 2,
+        selected_ap,
+        width,
+        color=PLOT_COLORS["selected"],
+        edgecolor=GOLD,
+        linewidth=BAR_EDGE_WIDTH,
+        label="locked candidate AP",
+    )
+    ax.scatter(
+        x + width / 2,
+        selected_recall,
+        marker="D",
+        s=26,
+        color=RED,
+        edgecolor="white",
+        linewidth=0.55,
+        label="locked Recall@≤1%FPR",
+        zorder=4,
+    )
+
+    for idx, value in enumerate(selected_recall):
+        ax.text(
+            idx + width / 2,
+            min(value + 0.035, 0.985),
+            f"{value:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=5.7,
+            color=RED,
+        )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order],
+        fontsize=6.1,
+    )
+    ax.set_ylim(0.0, 1.04)
+    ax.set_ylabel("AP / Recall@≤1%FPR", fontsize=AXIS_LABEL_SIZE)
+    ax.set_title("A. Per-phase holdout diagnostics", fontsize=PANEL_TITLE_SIZE)
+    ax.legend(loc="upper left", frameon=False, fontsize=5.7)
+    _style_axes(ax, grid="y")
+
+    # ------------------------------------------------------------------
+    # B. False-alarm burden
+    # ------------------------------------------------------------------
+    fa_ax = fig.add_subplot(gs[0, 1])
+
+    family_rows = _read_csv_rows(context.roots.paper_evidence_root / "false_alarm_by_method_family.csv")
+    method_rows = _read_csv_rows(context.roots.paper_evidence_root / "top_method_false_positive_frequency.csv")
+    if not family_rows or not method_rows:
+        family_rows = _fallback_false_alarm_rows()
+        method_rows = [
+            {
+                "method": "locked_candidate",
+                "method_label": "locked candidate",
+                "rank": 1,
+                "selected_threshold_fp_count": 1,
+                "fp_per_1000_negatives": 0.2,
+                "recall_at_leq_1pct_fpr": 0.8,
+                "top_fp_family": "single_bird",
+            }
+        ]
+
+    method_rows = sorted(method_rows, key=lambda row: _safe_float(row.get("rank"), 99.0))[:5]
+    selected_methods = [row.get("method", "") for row in method_rows if row.get("method")]
+
+    method_to_family_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
+    method_to_summary: dict[str, dict[str, str]] = {}
+    for row in family_rows:
+        method_to_family_rows[row.get("method", "")].append(row)
+    for row in method_rows:
+        method_to_summary[row.get("method", "")] = row
+
+    # Keep only top families across the displayed methods; collapse the rest.
+    family_totals: dict[str, float] = {}
+    for row in family_rows:
+        method = row.get("method", "")
+        if method not in selected_methods:
+            continue
+        family = row.get("family", "")
+        family_totals[family] = family_totals.get(family, 0.0) + _safe_float(row.get("false_alarm_count"))
+
+    top_families = [name for name, _value in _top_items_with_other(family_totals, max_items=7)]
+    family_palette = {
+        "single_bird": RED,
+        "weather_cell": BLUE,
+        "rc_fixed_wing": GOLD,
+        "bird_flock": TEAL,
+        "wind_turbine": GREEN,
+        "terrain_glint": "#62758a",
+        "clutter_only_counterfactual": "#8899ab",
+        "other": GRID,
+    }
+
+    y_positions = np.arange(len(selected_methods))
+    max_total = 1.0
+    seen_labels: set[str] = set()
+
+    for idx, method in enumerate(selected_methods):
+        rows = method_to_family_rows.get(method, [])
+        summary = method_to_summary.get(method, {})
+
+        near_total = sum(_safe_float(row.get("near_threshold_count")) for row in rows)
+        fa_ax.barh(
+            idx,
+            near_total,
+            color=PALE_GREEN,
+            edgecolor=GRID,
+            linewidth=0.45,
+            alpha=0.45,
+            label="near-threshold negatives" if idx == 0 else None,
+        )
+
+        left = 0.0
+        total_fp = 0.0
+        for family in top_families:
+            if family == "other":
+                family_count = sum(
+                    _safe_float(row.get("false_alarm_count"))
+                    for row in rows
+                    if row.get("family") not in top_families[:-1]
+                )
+            else:
+                family_count = sum(
+                    _safe_float(row.get("false_alarm_count"))
+                    for row in rows
+                    if row.get("family") == family
+                )
+            if family_count <= 0:
+                continue
+
+            total_fp += family_count
+            label = _family_label(family, width=15).replace("\n", " ")
+            fa_ax.barh(
+                idx,
+                family_count,
+                left=left,
+                color=family_palette.get(family, BLUE),
+                edgecolor="white",
+                linewidth=0.45,
+                label=label if label not in seen_labels else None,
+            )
+            seen_labels.add(label)
+            left += family_count
+
+        max_total = max(max_total, left, near_total)
+        fa_ax.text(
+            max(left, near_total) + max_total * 0.025,
+            idx,
+            f"FP {int(total_fp)} | near {int(near_total)} | R@1% {_safe_float(summary.get('recall_at_leq_1pct_fpr')):.3f}",
+            va="center",
+            ha="left",
+            fontsize=5.8,
+            color=MUTED,
+        )
+
+    fa_ax.set_yticks(y_positions)
+    fa_ax.set_yticklabels(
+        [
+            _method_label(method_to_summary.get(method, {}).get("method_label", method), width=15)
+            for method in selected_methods
+        ],
+        fontsize=5.9,
+    )
+    fa_ax.invert_yaxis()
+    fa_ax.set_xlim(0.0, max_total * 1.33)
+    fa_ax.set_xlabel("False-alarm count", fontsize=AXIS_LABEL_SIZE)
+    fa_ax.set_title("B. False alarms by family", fontsize=PANEL_TITLE_SIZE)
+    _style_axes(fa_ax, grid="x")
+    fa_ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.50, -0.16),
+        ncol=3,
+        frameon=False,
+        fontsize=5.4,
+        handlelength=1.1,
+        columnspacing=0.8,
+    )
+
+    _fig_note(
+        fig,
+        "Each phase has n=8 positive holdout records from 8 groups; phase and family slices are diagnostics, not field-rate estimates.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+# 6. Replace Fig. 5: component weights and ablations
+
+Fig. 5 has a serious right-panel overlap problem: labels from the ablation panel run into the component-weight value labels, and the legend is too small. Page 7 shows exactly this. 
+
+Replace `figure_detector_ml_pipeline()` with:
+
+```python
+def figure_detector_ml_pipeline(context: FigureContext) -> Path:
+    filename = "detector_ml_pipeline.png"
+
+    manifest_component_rows = context.evidence.get("selected_component_human_weights", [])
+    manifest_ablation_rows = context.evidence.get("comparable_ablation_summary", [])
+    component_rows = manifest_component_rows if isinstance(manifest_component_rows, list) else []
+    ablation_rows = manifest_ablation_rows if isinstance(manifest_ablation_rows, list) else []
+
+    source_tags: list[str] = []
+    if not component_rows:
+        component_rows = _read_csv_rows(context.roots.paper_evidence_root / "selected_component_human_weights.csv")
+        if component_rows:
+            source_tags.append("paper evidence CSV outputs for component weights")
+    if not component_rows:
+        component_rows = _selected_component_human_weights(context.component_scores)
+        if component_rows:
+            source_tags.append("advanced detector component scores")
+    if not ablation_rows:
+        ablation_rows = _read_csv_rows(context.roots.paper_evidence_root / "comparable_ablation_summary.csv")
+        if ablation_rows:
+            source_tags.append("paper evidence CSV outputs for comparable ablations")
+    if not ablation_rows:
+        eval_summary = context.evidence.get("evaluation_summary", {})
+        modality_transparency = context.evidence.get("modality_transparency", {})
+        if isinstance(eval_summary, dict) and isinstance(modality_transparency, dict):
+            ablation_rows = _comparable_ablation_rows(eval_summary, modality_transparency)
+            if ablation_rows:
+                source_tags.append("paper evidence evaluation + modality transparency")
+
+    if component_rows and ablation_rows:
+        _note_source(filename, "; ".join(source_tags) if source_tags else "tracked evidence")
+    else:
+        _note_fallback(filename, "component/ablation evidence missing; using generic placeholders")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    if not component_rows:
+        component_rows = [
+            {
+                "audit_id": "C1",
+                "family": "Passive quality",
+                "modality": "passive-RF provenance",
+                "view": "signed differential evolution",
+                "calibrator": "geodesic odds",
+                "weight": 0.43,
+                "cumulative_weight": 0.43,
+            },
+            {
+                "audit_id": "C2",
+                "family": "Transport geometry",
+                "modality": "motion/geometry",
+                "view": "positive differential evolution",
+                "calibrator": "geodesic odds",
+                "weight": 0.29,
+                "cumulative_weight": 0.72,
+            },
+        ]
+
+    if not ablation_rows:
+        ablation_rows = [
+            {
+                "reader_label": "Radar-only view",
+                "delta_ap": -0.70,
+                "delta_recall_at_leq_1pct_fpr": -0.58,
+                "ap": 0.13,
+                "recall_at_leq_1pct_fpr": 0.25,
+            }
+        ]
+
+    component_rows = sorted(component_rows, key=lambda row: _safe_float(row.get("weight")), reverse=True)
+    ablation_rows = [row for row in ablation_rows if row.get("ablation") != "full_locked_candidate"]
+    ablation_rows = sorted(ablation_rows, key=lambda row: _safe_float(row.get("delta_ap")))[:7]
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 3.75), constrained_layout=True)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.05], wspace=0.34)
+    fig.suptitle(
+        "Locked candidate components and comparable holdout deltas",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    # ------------------------------------------------------------------
+    # A. Component weights
+    # ------------------------------------------------------------------
+    weight_ax = fig.add_subplot(gs[0, 0])
+    labels = [
+        f"{row.get('audit_id', '')} {_wrap_label(row.get('family', ''), width=18)}\n{row.get('calibrator', '')}"
+        for row in component_rows
+    ]
+    weights = [_safe_float(row.get("weight")) for row in component_rows]
+    colors = [
+        TEAL if "passive" in row.get("modality", "").lower()
+        else GOLD if "geometry" in row.get("modality", "").lower()
+        else BLUE
+        for row in component_rows
+    ]
+    y = np.arange(len(component_rows))
+
+    weight_ax.barh(
+        y,
+        weights,
+        color=colors,
+        edgecolor="white",
+        linewidth=BAR_EDGE_WIDTH,
+        height=0.62,
+    )
+    weight_ax.set_yticks(y)
+    weight_ax.set_yticklabels(labels, fontsize=5.8)
+    weight_ax.invert_yaxis()
+    weight_ax.set_xlabel("Nonnegative fusion weight", fontsize=AXIS_LABEL_SIZE)
+    weight_ax.set_title("A. Sparse lock weights", fontsize=PANEL_TITLE_SIZE)
+    weight_ax.set_xlim(0.0, max(weights + [0.1]) * 1.28)
+    _style_axes(weight_ax, grid="x")
+
+    for idx, (weight, row) in enumerate(zip(weights, component_rows)):
+        weight_ax.text(
+            weight + max(weights + [0.1]) * 0.018,
+            idx,
+            f"{weight:.3f}\ncum {_safe_float(row.get('cumulative_weight')):.3f}",
+            va="center",
+            ha="left",
+            fontsize=5.6,
+            color=MUTED,
+        )
+
+    # ------------------------------------------------------------------
+    # B. Comparable holdout controls
+    # ------------------------------------------------------------------
+    delta_ax = fig.add_subplot(gs[0, 1])
+    delta_labels = [_wrap_label(row.get("reader_label", row.get("ablation", "")), width=20) for row in ablation_rows]
+    delta_ap = [_safe_float(row.get("delta_ap")) for row in ablation_rows]
+    delta_recall = [_safe_float(row.get("delta_recall_at_leq_1pct_fpr")) for row in ablation_rows]
+    y2 = np.arange(len(ablation_rows))
+
+    delta_ax.axvline(0.0, color=INK, linewidth=0.9)
+    delta_ax.barh(
+        y2,
+        delta_ap,
+        color=[RED if value < 0 else GREEN for value in delta_ap],
+        alpha=0.75,
+        edgecolor="white",
+        linewidth=BAR_EDGE_WIDTH,
+        height=0.62,
+        label="ΔAP",
+    )
+    delta_ax.scatter(
+        delta_recall,
+        y2,
+        color=INK,
+        s=20,
+        marker="o",
+        label="ΔRecall@≤1%FPR",
+        zorder=3,
+    )
+
+    for idx, (ap_delta, recall_delta) in enumerate(zip(delta_ap, delta_recall)):
+        delta_ax.text(
+            ap_delta - 0.025 if ap_delta < 0 else ap_delta + 0.025,
+            idx,
+            f"{ap_delta:+.3f}",
+            va="center",
+            ha="right" if ap_delta < 0 else "left",
+            fontsize=5.5,
+            color=MUTED,
+        )
+        delta_ax.text(
+            recall_delta + 0.025,
+            idx + 0.16,
+            f"{recall_delta:+.3f}",
+            va="center",
+            ha="left",
+            fontsize=5.3,
+            color=INK,
+        )
+
+    delta_ax.set_yticks(y2)
+    delta_ax.set_yticklabels(delta_labels, fontsize=5.8)
+    delta_ax.invert_yaxis()
+    delta_ax.set_xlabel("Delta vs full locked candidate", fontsize=AXIS_LABEL_SIZE)
+    delta_ax.set_title("B. Same-holdout controls", fontsize=PANEL_TITLE_SIZE)
+
+    xmin = min(delta_ap + delta_recall + [0.0]) - 0.09
+    xmax = max(delta_ap + delta_recall + [0.0]) + 0.12
+    delta_ax.set_xlim(xmin, xmax)
+    _style_axes(delta_ax, grid="x")
+    delta_ax.legend(loc="lower right", frameon=False, fontsize=5.7)
+
+    _fig_note(
+        fig,
+        "Human labels summarize locked evidence artifacts; AP and fixed-FPR recall deltas use the same holdout metric basis as Table VI.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+# 7. Replace Fig. 6: model card figure
+
+This is the most urgent fix. The current Fig. 6 is the paper’s worst figure: it has table text collisions, cue-definition overlap, inconsistent spacing, and pulse/chirp rendering problems.  Also, Table I already gives the compact model-card values, so Fig. 6 should not be another tiny table. It should be a readable **model-card panel**.
+
+Replace `figure_iq_drone_samples()` with:
+
+```python
+def _band_value(row: dict[str, Any], *keys: str, default: float = float("nan")) -> float:
+    for key in keys:
+        if key in row and row.get(key) not in (None, ""):
+            return _safe_float(row.get(key), default)
+    return default
+
+
+def _band_pulses(row: dict[str, Any]) -> int:
+    value = _band_value(row, "pulses_per_cpi", "pulses", "chirps", default=24.0)
+    return int(value) if math.isfinite(value) and value > 0 else 24
+
+
+def figure_iq_drone_samples(context: FigureContext) -> Path:
+    filename = "iq_drone_samples.png"
+    card = context.evidence.get("radar_model_card", {})
+    if card:
+        _note_source(filename, "radar model card and public-proxy object priors")
+    else:
+        _note_fallback(filename, "radar model card missing; using placeholder priors")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    carrier_bands = card.get("carrier_bands", []) or []
+    if not carrier_bands:
+        carrier_bands = [
+            {"label": "X/Ku C-UAS", "band": "X/Ku", "bandwidth_mhz": 600, "center_ghz": 10.0, "prf_hz": 4000, "cpi_ms": 6.0, "pulses": 24},
+            {"label": "S-band AESA/MHR", "band": "S", "bandwidth_mhz": 180, "center_ghz": 3.1, "prf_hz": 4000, "cpi_ms": 6.0, "pulses": 24},
+            {"label": "GBAD 3D/4D", "band": "X/Ku", "bandwidth_mhz": 300, "center_ghz": 10.3, "prf_hz": 4000, "cpi_ms": 6.0, "pulses": 24},
+        ]
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 4.15), constrained_layout=True)
+    gs = fig.add_gridspec(2, 3, height_ratios=[1.0, 1.15], wspace=0.20, hspace=0.26)
+    fig.suptitle(
+        "Radar model card and public-proxy signal assumptions",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    # ------------------------------------------------------------------
+    # Top row: one readable branch card per radar branch
+    # ------------------------------------------------------------------
+    for idx, band in enumerate(carrier_bands[:3]):
+        ax = fig.add_subplot(gs[0, idx])
+        ax.set_axis_off()
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+
+        label = band.get("label", band.get("branch", f"Branch {idx + 1}"))
+        band_name = band.get("band", "")
+        bandwidth_mhz = _band_value(band, "bandwidth_mhz", default=0.0)
+        center_ghz = _band_value(band, "center_ghz", default=0.0)
+        cpi_ms = _band_value(band, "cpi_ms", default=6.0)
+        cpi_s = cpi_ms / 1000.0 if cpi_ms > 0 else float("nan")
+        prf_hz = _band_value(band, "prf_hz", default=4000.0)
+        pulses = _band_pulses(band)
+
+        computed_range_resolution_m = (
+            299792458.0 / (2.0 * bandwidth_mhz * 1e6)
+            if bandwidth_mhz > 0
+            else float("nan")
+        )
+        computed_doppler_resolution_hz = 1.0 / cpi_s if cpi_s > 0 else float("nan")
+        computed_velocity_resolution_mps = (
+            (299792458.0 / (2.0 * center_ghz * 1e9)) * computed_doppler_resolution_hz
+            if center_ghz > 0 and math.isfinite(computed_doppler_resolution_hz)
+            else float("nan")
+        )
+
+        range_resolution_m = _band_value(band, "range_resolution_m", default=computed_range_resolution_m)
+        doppler_resolution_hz = _band_value(band, "doppler_resolution_hz", default=computed_doppler_resolution_hz)
+        velocity_resolution_mps = _band_value(band, "velocity_resolution_mps", default=computed_velocity_resolution_mps)
+
+        border_color = [BLUE, TEAL, GOLD][idx % 3]
+        ax.add_patch(Rectangle((0.02, 0.05), 0.96, 0.88, facecolor="white", edgecolor=border_color, linewidth=1.0))
+        ax.add_patch(Rectangle((0.02, 0.80), 0.96, 0.13, facecolor=[PALE_BLUE, PALE_TEAL, PALE_GOLD][idx % 3], edgecolor=border_color, linewidth=1.0))
+        ax.text(
+            0.50,
+            0.865,
+            _wrap_label(label, width=22),
+            ha="center",
+            va="center",
+            fontsize=7.0,
+            weight="bold",
+        )
+
+        rows = [
+            ("Band", str(band_name)),
+            ("BW", f"{bandwidth_mhz:.0f} MHz"),
+            ("ΔR", f"{range_resolution_m:.3f} m"),
+            ("PRF/CPI", f"{prf_hz:.0f} Hz / {cpi_ms:.1f} ms"),
+            ("Pulses/CPI", f"{pulses:d}"),
+            ("ΔfD", f"{doppler_resolution_hz:.1f} Hz"),
+            ("Δv", f"{velocity_resolution_mps:.3f} m/s"),
+        ]
+
+        y = 0.70
+        for key, value in rows:
+            ax.text(0.08, y, key, fontsize=6.1, weight="bold", ha="left", va="center")
+            ax.text(0.94, y, value, fontsize=6.1, color=MUTED, ha="right", va="center")
+            y -= 0.085
+
+    # ------------------------------------------------------------------
+    # Bottom left: public-proxy assumptions
+    # ------------------------------------------------------------------
+    assumptions_ax = fig.add_subplot(gs[1, :2])
+    assumptions_ax.set_axis_off()
+    assumptions_ax.set_xlim(0, 1)
+    assumptions_ax.set_ylim(0, 1)
+    assumptions_ax.text(0.02, 0.97, "Public-proxy assumptions", fontsize=8.8, weight="bold", va="top")
+
+    assumption_lines = [
+        "Positive class: fixed-wing pusher-prop public proxy",
+        "Geometry: delta / swept fixed wing with rear pusher propulsor",
+        "Speed envelope: 45–60 m/s proxy",
+        "Phase windows: take-up 0–30 s; climb 30–90 s; cruise 90–150 s",
+        "Launch proxy: rail/catapult take-up with short booster assist",
+        "RCS/aspect envelope: −28 to −2 dBsm public-source proxy",
+        "Prop micro-Doppler proxy: 150–217 Hz",
+    ]
+
+    y = 0.82
+    for line in assumption_lines:
+        assumptions_ax.add_patch(Rectangle((0.02, y - 0.045), 0.96, 0.064, facecolor="white", edgecolor=GRID, linewidth=0.55))
+        assumptions_ax.text(0.045, y - 0.013, line, fontsize=6.2, color=INK, ha="left", va="center")
+        y -= 0.083
+
+    # ------------------------------------------------------------------
+    # Bottom right: impairments and cue definitions
+    # ------------------------------------------------------------------
+    notes_ax = fig.add_subplot(gs[1, 2])
+    notes_ax.set_axis_off()
+    notes_ax.set_xlim(0, 1)
+    notes_ax.set_ylim(0, 1)
+
+    notes_ax.text(0.02, 0.97, "Impairments", fontsize=8.8, weight="bold", va="top")
+    impairments = card.get("receiver_impairments", [])[:4] or [
+        "AGC compression",
+        "clock drift",
+        "quantization",
+        "dropped CPI",
+    ]
+
+    y = 0.82
+    for item in impairments:
+        notes_ax.add_patch(Rectangle((0.02, y - 0.050), 0.96, 0.068, facecolor=PALE_RED, edgecolor=RED, linewidth=0.55))
+        notes_ax.text(0.50, y - 0.016, item.replace("_", " "), fontsize=6.1, ha="center", va="center")
+        y -= 0.087
+
+    notes_ax.text(0.02, 0.43, "Cue definitions", fontsize=8.8, weight="bold", va="top")
+    cue_defs = card.get("cue_definitions", {})
+    cue_lines = [
+        ("Acoustic", cue_defs.get("acoustic", "node-wise spectral cadence and cross-node agreement")),
+        ("Passive RF", cue_defs.get("passive_rf", "no-signal / RFI burst / provenance-quality geometry")),
+    ]
+
+    y = 0.30
+    for label, value in cue_lines:
+        notes_ax.add_patch(Rectangle((0.02, y - 0.075), 0.96, 0.095, facecolor="white", edgecolor=GRID, linewidth=0.55))
+        notes_ax.text(0.05, y - 0.005, label, fontsize=6.1, weight="bold", ha="left", va="center")
+        notes_ax.text(0.35, y - 0.005, _wrap_label(value, width=20), fontsize=5.7, color=MUTED, ha="left", va="center")
+        y -= 0.125
+
+    notes_ax.text(
+        0.02,
+        0.015,
+        "All values are public-proxy synthetic assumptions; no measured-platform truth is implied.",
+        fontsize=5.7,
+        color=MUTED,
+        ha="left",
+        va="bottom",
+        wrap=True,
+    )
+
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+This removes the fragile in-figure table, fixes pulse/chirp semantics, and prevents the cue text from colliding.
+
+---
+
+# 8. Replace Fig. 7: range-Doppler diagnostics
+
+Fig. 7 is visually understandable but too pixelated, and labels collide at the left edge. The figure is described as a visual diagnostic, not detector evidence, so the fallback path should never silently draw blank heatmaps. The paper states this boundary explicitly. 
+
+Add this helper near `_range_doppler()`:
+
+```python
+def _synthetic_rd_proxy(group_id: str, phase: str, positive: bool) -> np.ndarray:
+    if np is None:
+        raise RuntimeError("numpy is required for synthetic range-Doppler fallback")
+
+    rng = np.random.default_rng(_stable_seed("rd-fallback", group_id, phase))
+    rows, cols = 24, 20
+    yy = np.linspace(-1.0, 1.0, rows)[:, None]
+    xx = np.linspace(0.0, 1.0, cols)[None, :]
+    phase_idx = PHASES.index(phase)
+
+    texture = 0.14 + 0.12 * rng.random((rows, cols))
+    if positive:
+        center = 0.27 + 0.19 * phase_idx
+        ridge = np.exp(-((xx - center) ** 2) / (2.0 * 0.055**2))
+        doppler = 0.48 + 0.35 * np.exp(-((yy - 0.18 * phase_idx) ** 2) / 0.16)
+        signal = ridge * doppler
+    else:
+        center = 0.36 + 0.10 * ((stable_seed(group_id) % 5) / 4.0)
+        smear = np.exp(-((xx - center) ** 2) / (2.0 * 0.17**2))
+        doppler = 0.32 + 0.26 * np.sin(2.0 * math.pi * (yy + 0.18 * phase_idx)) ** 2
+        signal = smear * doppler
+
+    return _normalize01(texture + signal)
+```
+
+Then replace `figure_iq_negative_samples()` with:
+
+```python
+def figure_iq_negative_samples(context: FigureContext) -> Path:
+    filename = "iq_negative_samples.png"
+    if context.records:
+        _note_source(filename, "training IQ range-Doppler samples")
+    else:
+        _note_fallback(filename, "training records missing; using synthetic heatmaps")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig = plt.figure(figsize=(IEEE_TEXT_WIDTH, 4.10), constrained_layout=True)
+    gs = fig.add_gridspec(
+        2,
+        4,
+        width_ratios=[0.86, 1.0, 1.0, 1.0],
+        height_ratios=[1.0, 1.0],
+        wspace=0.10,
+        hspace=0.20,
+    )
+    fig.suptitle(
+        "Range-Doppler diagnostics for positive and hard-negative samples",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    card = context.evidence.get("radar_model_card", {})
+    branch = next(
+        (row for row in card.get("carrier_bands", []) if row.get("branch") == "high_resolution_xku_cuas"),
+        {},
+    )
+    range_resolution_m = _safe_float(branch.get("range_resolution_m"), 0.25)
+    velocity_resolution_mps = _safe_float(branch.get("velocity_resolution_mps"), 2.5)
+
+    groups = [("sg_00016", True), ("sg_00000", False)]
+    image = None
+    heatmap_axes: list[Any] = []
+
+    for row_idx, (group_id, positive) in enumerate(groups):
+        label_ax = fig.add_subplot(gs[row_idx, 0])
+        label_ax.set_axis_off()
+        label_ax.set_xlim(0, 1)
+        label_ax.set_ylim(0, 1)
+
+        label_ax.text(
+            0.04,
+            0.78,
+            group_id,
+            ha="left",
+            va="top",
+            fontsize=7.2,
+            weight="bold",
+        )
+        label_ax.text(
+            0.04,
+            0.58,
+            "public-proxy\npositive" if positive else "hard-negative\nartifact",
+            ha="left",
+            va="top",
+            fontsize=6.6,
+            color=MUTED,
+            linespacing=1.10,
+        )
+        label_ax.text(
+            0.04,
+            0.18,
+            "Range-Doppler\nmagnitude",
+            ha="left",
+            va="bottom",
+            fontsize=6.4,
+            color=MUTED,
+            linespacing=1.10,
+        )
+
+        for phase_idx, phase in enumerate(PHASES, start=1):
+            record_id = f"{group_id}_{phase}"
+            sample = _read_iq_sample(context, record_id)
+            ax = fig.add_subplot(gs[row_idx, phase_idx])
+            heatmap_axes.append(ax)
+
+            if sample is None or np is None:
+                _note_fallback(filename, f"missing IQ sample {record_id}; using deterministic RD proxy")
+                if STRICT_MODE:
+                    _require_no_fallback(filename)
+                rd = _synthetic_rd_proxy(group_id, phase, positive)
+            else:
+                rd = _range_doppler(sample)
+
+            image = ax.imshow(
+                rd,
+                aspect="auto",
+                origin="lower",
+                cmap=HEATMAP_CMAP,
+                vmin=0.0,
+                vmax=1.0,
+                interpolation="nearest",
+                rasterized=True,
+            )
+
+            if row_idx == 0:
+                ax.set_title(
+                    f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}",
+                    fontsize=7.0,
+                    pad=3.0,
+                )
+
+            xticks = [0, rd.shape[1] // 2, rd.shape[1] - 1]
+            yticks = [0, rd.shape[0] // 2, rd.shape[0] - 1]
+            ax.set_xticks(xticks)
+            ax.set_yticks(yticks)
+            ax.set_xticklabels([f"{tick * range_resolution_m:.1f} m" for tick in xticks], fontsize=5.7)
+
+            doppler_center = rd.shape[0] // 2
+            if phase_idx == 1:
+                ax.set_yticklabels(
+                    [
+                        f"{(tick - doppler_center) * velocity_resolution_mps:.0f} m/s"
+                        for tick in yticks
+                    ],
+                    fontsize=5.7,
+                )
+                ax.set_ylabel("velocity-equivalent Doppler", fontsize=6.1, labelpad=2.0)
+            else:
+                ax.set_yticklabels([])
+
+            if row_idx == 1:
+                ax.set_xlabel("relative range", fontsize=6.1, labelpad=1.5)
+
+            ax.tick_params(length=0, pad=1.0)
+            for spine in ax.spines.values():
+                spine.set_linewidth(0.55)
+                spine.set_color(GRID)
+
+    if image is not None:
+        cbar = fig.colorbar(image, ax=heatmap_axes, shrink=0.86, pad=0.012)
+        cbar.set_label("log1p magnitude, normalized 0–1", fontsize=6.4)
+        cbar.ax.tick_params(labelsize=5.7, length=2.0)
+
+    _fig_note(
+        fig,
+        "Visual diagnostic only: axes use X/Ku branch resolution; color scale is shared across all panels.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+# 9. Replace Fig. 8: KTH anchor overlay
+
+Fig. 8 is currently too small and appears squeezed under Fig. 7 in the PDF. Its message is important: KTH is compare-only, not positive-truth transfer.  Make it a two-column figure and give it readable labels.
+
+Replace `figure_locked_algorithm()` with:
+
+```python
+def figure_locked_algorithm(context: FigureContext) -> Path:
+    filename = "locked_algorithm.png"
+    normalized_rows = context.evidence.get("normalized_anchor_comparison", [])
+    anchor = context.anchor_summary
+
+    if normalized_rows:
+        _note_source(filename, "normalized KTH compare-only anchor summary")
+    elif anchor:
+        _note_source(filename, "KTH compare-only anchor summary")
+    else:
+        _note_fallback(filename, "anchor summary missing; using placeholder compare-only panel")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH, 3.05), constrained_layout=True)
+    fig.suptitle(
+        "Compare-only KTH measured-anchor overlay",
+        fontsize=FIG_TITLE_SIZE,
+        weight="bold",
+        y=1.03,
+    )
+    ax.set_title(
+        "Normalized measured-anchor z-score medians with q10/q90 intervals",
+        fontsize=PANEL_TITLE_SIZE,
+        pad=3.0,
+    )
+
+    if normalized_rows:
+        labels = [row.get("feature", "") for row in normalized_rows]
+        values = [_safe_float(row.get("q50_z")) for row in normalized_rows]
+        q10 = [_safe_float(row.get("q10_z")) for row in normalized_rows]
+        q90 = [_safe_float(row.get("q90_z")) for row in normalized_rows]
+    else:
+        selected_features = anchor.get("selected_features", {})
+        labels = [
+            "micro_doppler_bandwidth_hz",
+            "micro_doppler_peak_hz",
+            "spectral_entropy",
+            "range_m",
+            "return_power_db",
+        ]
+        values, q10, q90 = [], [], []
+        for name in labels:
+            stats = selected_features.get(name, {})
+            mean = _safe_float(stats.get("mean"))
+            std = _safe_float(stats.get("std"), 1.0)
+            values.append((_safe_float(stats.get("q50")) - mean) / std)
+            q10.append((_safe_float(stats.get("q10")) - mean) / std)
+            q90.append((_safe_float(stats.get("q90")) - mean) / std)
+
+    # Put highest-absolute features at top so the chart reads as a diagnostic.
+    tuples = list(zip(labels, values, q10, q90))
+    tuples.sort(key=lambda item: abs(item[1]) if math.isfinite(item[1]) else -1.0, reverse=True)
+    labels, values, q10, q90 = map(list, zip(*tuples)) if tuples else ([], [], [], [])
+
+    y = np.arange(len(labels))
+    colors = [BLUE, TEAL, GOLD, GREEN, RED]
+
+    ax.axvline(0.0, color=INK, linewidth=0.9)
+    ax.barh(
+        y,
+        values,
+        color=[colors[idx % len(colors)] for idx in range(len(labels))],
+        edgecolor="white",
+        linewidth=BAR_EDGE_WIDTH,
+        height=0.58,
+    )
+
+    for idx, (value, low, high) in enumerate(zip(values, q10, q90)):
+        if math.isfinite(value) and math.isfinite(low) and math.isfinite(high):
+            ax.errorbar(
+                value,
+                idx,
+                xerr=[[max(0.0, value - low)], [max(0.0, high - value)]],
+                fmt="none",
+                ecolor=INK,
+                elinewidth=0.9,
+                capsize=2.0,
+                zorder=3,
+            )
+            ax.text(
+                value + (0.05 if value >= 0 else -0.05),
+                idx,
+                f"{value:+.2f}",
+                ha="left" if value >= 0 else "right",
+                va="center",
+                fontsize=5.9,
+                color=MUTED,
+            )
+
+    ax.set_yticks(y)
+    ax.set_yticklabels([_wrap_label(label, width=24) for label in labels], fontsize=6.3)
+    ax.invert_yaxis()
+    ax.set_xlabel("Measured-anchor z-score median with q10/q90 interval", fontsize=AXIS_LABEL_SIZE)
+    _style_axes(ax, grid="x")
+
+    ax.text(
+        0.99,
+        0.05,
+        "Compare-only: hard-negative realism and observable-shape checks.\n"
+        "No positive fixed-wing measured truth is inferred; raw measured traces stay outside Git.",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=6.3,
+        color=MUTED,
+        bbox={"facecolor": "white", "edgecolor": GRID, "linewidth": 0.55, "pad": 3.0},
+    )
+
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+# 10. Rename wrappers so code matches figure meaning
+
+Right now the function names are misleading: `figure_iq_drone_samples()` generates the model card, and `figure_iq_negative_samples()` generates the range-Doppler figure. This causes agents to patch the wrong thing.
+
+Add these wrappers immediately above `generate_all()`:
+
+```python
+def figure_radar_model_card(context: FigureContext) -> Path:
+    return figure_iq_drone_samples(context)
+
+
+def figure_range_doppler_samples(context: FigureContext) -> Path:
+    return figure_iq_negative_samples(context)
+
+
+def figure_component_transparency(context: FigureContext) -> Path:
+    return figure_detector_ml_pipeline(context)
+
+
+def figure_anchor_overlay(context: FigureContext) -> Path:
+    return figure_locked_algorithm(context)
+```
+
+Then replace `generate_all()` with:
+
+```python
+def generate_all(context: FigureContext) -> list[Path]:
+    _configure_matplotlib()
+    return [
+        figure_architecture_stack(context),
+        figure_monte_carlo_split_flow(context),
+        figure_kpi_ranking(context),
+        figure_phase_kpi(context),
+        figure_radar_model_card(context),
+        figure_range_doppler_samples(context),
+        figure_component_transparency(context),
+        figure_anchor_overlay(context),
+    ]
+```
+
+Keep the PNG filenames unchanged because `validate_paper.py` requires the existing names. 
+
+---
+
+# 11. Exact LaTeX edits
+
+Edit:
+
+```text
+paper/echoforge_ieee.tex
+```
+
+The current TeX includes the figure files at fixed widths such as `0.98\textwidth`, `0.95\textwidth`, and one-column Fig. 8. The relevant figure inclusion blocks are in the paper source. 
+
+## 11.1 Add float spacing control
+
+After:
+
+```latex
+\usepackage{url}
+```
+
+add:
+
+```latex
+\usepackage{stfloats}
+\usepackage[font=footnotesize,labelfont=bf]{caption}
+```
+
+After:
+
+```latex
+\setlength{\tabcolsep}{3.5pt}
+```
+
+add:
+
+```latex
+\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+\setlength{\floatsep}{7pt plus 2pt minus 2pt}
+\setlength{\intextsep}{7pt plus 2pt minus 2pt}
+```
+
+## 11.2 Make Fig. 8 two-column
+
+Replace this block:
+
+```latex
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.98\columnwidth]{locked_algorithm}
+  \caption{Compare-only KTH anchor overlay. Features are normalized to measured-anchor z-scores before plotting, so the figure compares distribution shape rather than mixing raw physical units.}
+  \label{fig:anchor}
+\end{figure}
+```
+
+with:
+
+```latex
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.92\textwidth]{locked_algorithm}
+  \caption{Compare-only KTH anchor overlay. Features are normalized to measured-anchor z-scores before plotting, so the figure compares distribution shape rather than mixing raw physical units. The overlay is a hard-negative realism and observable-shape check only; it is not positive-class measured truth.}
+  \label{fig:anchor}
+\end{figure*}
+```
+
+## 11.3 Adjust Fig. 6 width
+
+Replace:
+
+```latex
+\includegraphics[width=0.95\textwidth]{iq_drone_samples}
+```
+
+with:
+
+```latex
+\includegraphics[width=0.98\textwidth]{iq_drone_samples}
+```
+
+The new Fig. 6 is no longer a tiny table, so it should use full available width.
+
+## 11.4 Update Fig. 3 caption
+
+Replace the Fig. 3 caption with:
+
+```latex
+\caption{Holdout primary KPI and supporting diagnostics. The left panel foregrounds Recall@$\leq$1\%FPR and its group-block LCB95; AP ranking, low-FPR ROC, precision--recall behavior, and calibration reliability are supporting diagnostics. The selected candidate improves the low-FPR operating point while its ROC AUC is lower than the prior fusion baseline.}
+```
+
+This is sharper and more aligned with the actual claim.
+
+## 11.5 Update Fig. 4 caption
+
+Replace the Fig. 4 caption with:
+
+```latex
+\caption{Phase behavior and cross-method false-positive burden. The phase panel reports AP bars and locked-candidate Recall@$\leq$1\%FPR markers; the false-alarm panel summarizes selected-threshold false alarms by family for the strongest methods with near-threshold negative context. Each phase has only eight positive holdout records from eight positive groups, so phase and family conclusions are diagnostic.}
+```
+
+## 11.6 Update Fig. 6 caption
+
+Replace the Fig. 6 caption with:
+
+```latex
+\caption{Radar model-card panel. Branch cards show public-proxy carrier, bandwidth, PRF/CPI, pulse count, and derived resolution assumptions; the lower panels summarize positive-class proxy assumptions, receiver impairments, and acoustic/passive-RF cue definitions. All values are synthetic public-proxy assumptions, not measured-platform truth.}
+```
+
+## 11.7 Update Fig. 7 caption
+
+Replace the Fig. 7 caption with:
+
+```latex
+\caption{Range-Doppler proxy diagnostics for one positive public-proxy group and one hard-negative group across phase windows. Axes use the X/Ku branch resolution; color is normalized log-magnitude on a shared scale. These panels are visual diagnostics, not detector features or measured truth.}
+```
+
+---
+
+# 12. Abstract edit for a tier-1 version
+
+The current abstract is cautious and mostly correct, but it is too long and a bit mechanically descriptive. I would replace the abstract with this tighter version:
+
+```latex
+\begin{abstract}
+EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal detection research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty, not a measured-platform claim. EchoForge combines a radar signal-chain model card, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, leakage diagnostics, false-alarm-family analysis, and holdout-isolated evaluation into a reproducible evidence package. In a single-seed v2 run with 10,000 scenario groups, 50 positive groups, and 30,000 phase records, the 4,500-record blind holdout contains 24 positive records from eight positive scenario groups. The locked sparse-fusion candidate reaches point Recall@$\leq$1\%FPR of 0.833 and LCB95 Recall@$\leq$1\%FPR of 0.699, compared with 0.292 and 0.083 for the prior fusion baseline. The locked candidate improves AP and low-FPR recall while its ROC AUC is lower than the prior fusion baseline. These results are synthetic public-proxy benchmark evidence under declared assumptions, not measured truth or operational performance claims.
+\end{abstract}
+```
+
+Key change: **“locked sparse-fusion candidate”** is more review-friendly than just “locked candidate,” and the abstract reads as a benchmark contribution instead of a dashboard report. The paper already has the right limitation language on page 1 and in the conclusion. 
+
+---
+
+# 13. Table consistency edits
+
+The paper’s tables are mostly acceptable, but they are inconsistent in density. Apply this global rule:
+
+1. **All evidence tables:** `\small`, `booktabs`, no vertical rules.
+2. **Any table wider than one column:** `table*`.
+3. **No dense prose in single-column tables unless using `tabularx`.**
+4. **No underscores in reader-facing method/family names unless they are code artifacts.**
+
+Make these exact edits.
+
+## 13.1 Table VI method labels
+
+Replace in Table VI:
+
+```latex
+layered\_fusion\_c2
+```
+
+with:
+
+```latex
+prior fusion
+```
+
+The figure uses “Prior fusion”; the table should not switch back to code labels. Current inconsistency is visible around Table VI / Fig. 4. 
+
+## 13.2 Table XIII method labels
+
+Replace:
+
+```latex
+locked candidate
+layered\_fusion\_c2
+tabular\_ml\_baseline
+sequence\_ml\_proxy
+high\_resolution\_xku\_cuas
+```
+
+with:
+
+```latex
+locked candidate
+prior fusion
+tabular ML
+sequence ML
+X/Ku radar
+```
+
+Replace family names:
+
+```latex
+single\_bird
+rc\_fixed\_wing
+weather\_cell
+```
+
+with:
+
+```latex
+single bird
+RC fixed-wing
+weather cell
+```
+
+## 13.3 Table XV family labels
+
+Replace the family entries:
+
+```latex
+bird\_flock
+clutter\_only
+ground\_vehicle
+multipath\_ghost
+rc\_fixed\_wing
+rfi\_burst
+single\_bird
+terrain\_glint
+weather\_cell
+wind\_turbine
+```
+
+with:
+
+```latex
+bird flock
+clutter only
+ground vehicle
+multipath ghost
+RC fixed-wing
+RFI burst
+single bird
+terrain glint
+weather cell
+wind turbine
+```
+
+This makes the manuscript reader-facing while the evidence bundle can keep code labels.
+
+---
+
+# 14. Add a figure quality gate
+
+Add this to `paper/validate_paper.py` after `validate_figures()` or as a helper called inside it:
+
+```python
+def validate_figure_dimensions(figures_dir: Path) -> None:
+    """Catch accidental tiny or blank paper figures before LaTeX build."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return
+
+    minimums = {
+        "architecture_stack.png": (2400, 1000),
+        "monte_carlo_split_flow.png": (2400, 1200),
+        "kpi_ranking.png": (2400, 1200),
+        "phase_kpi.png": (2400, 1100),
+        "iq_drone_samples.png": (2400, 1200),
+        "iq_negative_samples.png": (2400, 1200),
+        "detector_ml_pipeline.png": (2400, 1100),
+        "locked_algorithm.png": (2200, 900),
+    }
+
+    too_small: list[str] = []
+    for name, (min_w, min_h) in minimums.items():
+        path = figures_dir / name
+        if not path.exists():
+            continue
+        with Image.open(path) as image:
+            width, height = image.size
+        if width < min_w or height < min_h:
+            too_small.append(f"{name}={width}x{height}, expected at least {min_w}x{min_h}")
+
+    if too_small:
+        fail("paper figure(s) too small for IEEE layout: " + "; ".join(too_small))
+```
+
+Then in `main()` or wherever `validate_figures(figures_dir)` is called, call:
+
+```python
+validate_figure_dimensions(args.figures_dir)
+```
+
+This will not detect every overlap, but it prevents the agent from returning postage-stamp figures.
+
+---
+
+# 15. Validation commands after edits
+
+Run exactly:
+
+```bash
+python3 -m detection.paper_evidence_major_upgrade_v1 \
+  --training-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --baseline-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --advanced-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
+  --anchor-root outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1 \
+  --out-root outputs/paper-evidence/major-upgrade-v1 \
+  --force
+
+python3 paper/generate_figures_major_upgrade_v2.py \
+  --training-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --baseline-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --advanced-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1 \
+  --anchor-root outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1 \
+  --strict
+
+bash paper/build.sh --copy-tracked
+```
+
+Then manually inspect these pages at 100% zoom and at “fit page”:
+
+```text
+Page with Fig. 1: no right-side text collision.
+Page with Fig. 3: primary KPI readable in five seconds.
+Page with Fig. 4: red Recall@≤1%FPR markers visible and legend clear.
+Page with Fig. 5: no y-label/value-label overlap between panels.
+Page with Fig. 6: no table text collision; Pulses/CPI must be 24.
+Page with Fig. 7: left labels and y-axis labels must not overlap.
+Page with Fig. 8: KTH overlay must be full-width and readable.
+```
+
+---
+
+# 16. Priority order for the agent
+
+Do not let the agent make piecemeal cosmetic tweaks. Apply in this order:
+
+1. Replace global style helpers and `_save_figure`.
+2. Replace Fig. 6 function first.
+3. Replace Fig. 3 function second.
+4. Replace Fig. 5 and Fig. 4.
+5. Replace Fig. 1, Fig. 2, Fig. 7, Fig. 8.
+6. Apply LaTeX edits.
+7. Run strict generation and validation.
+8. Compare the rendered PDF visually.
+
+The current paper’s scientific framing is much stronger than the visual execution. These edits make the visuals match the claim boundary: strict-open, public-proxy, low-FPR evidence, readable enough for a top-tier reviewer to audit rather than squint at.
+

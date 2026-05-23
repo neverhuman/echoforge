@@ -1,0 +1,455 @@
+I studied the uploaded PDF and the current GitHub paper lane. The core problem is bigger than “make fonts larger”: the figure code mixes different metrics on the same visual channel, uses inconsistent labels, packs too many panels into IEEE column space, and lets internal artifact language leak into the reader-facing paper. The current `paper/` folder includes the exact files that need to be changed: `echoforge_ieee.tex`, `generate_figures_major_upgrade_v2.py`, `validate_paper.py`, `validate_visuals.py`, `build.sh`, and the `figures/` directory. ([GitHub][1]) The tracked figure set currently includes `phase_kpi`, `kpi_ranking`, `detector_ml_pipeline`, `iq_drone_samples`, `iq_negative_samples`, and a misleading `locked_algorithm` figure file that should be renamed or at least retitled. ([GitHub][2])
+
+I wrote the full engineering handoff as a markdown spec with exact replacements and code snippets here:
+
+[Download the EchoForge tier-1 figure/code repair spec](sandbox:/mnt/data/echoforge_tier1_figure_spec.md)
+
+## Highest-priority diagnosis
+
+The current abstract and body still foreground “locked candidate,” with the author shown as “EchoForge Project.” The abstract claims the 0.833 point Recall@≤1%FPR and 0.699 LCB95 result, but it needs to say **Engineered Intelligence (EI)** and tighten the claim to “better low-FPR benchmark behavior,” not broad detector dominance. 
+
+The strange lines in **Fig. 4** are not random rendering artifacts. They are the selected candidate’s Recall@≤1%FPR plotted as red horizontal ticks on top of AP bars. That makes the left panel visually ambiguous because the bars are AP while the red ticks are recall, and the legend only says baseline AP / selected AP. The fix is to delete the tick overlay entirely and use four explicit bars per phase: baseline AP, baseline R@≤1%FPR, EI AP, and EI R@≤1%FPR. The current Fig. 4 page shows exactly why this is confusing. 
+
+The paper also needs a richer appendix. The existing fixed-wing pusher-prop appendix says there is no measured Iranian-drone radar signature, no operational route/evasion modeling, no payload-effects inference, and no deployment-performance claim, but it is too thin for a tier-1 review surface.  The limitations already admit the small holdout, single seed, simplified radar physics, lack of HIL evidence, and no measured positive validation; those caveats should remain, but the appendix should make the source/noise/detector assumptions auditable rather than merely defensive. 
+
+## Exact top-level changes
+
+### 1. Rename reader-facing “locked candidate” to EI
+
+Use this rule:
+
+Reader-facing paper text, figures, legends, captions, and tables should say:
+
+```text
+Engineered Intelligence (EI)
+EI candidate
+EI AP
+EI Recall@≤1%FPR
+EI selection lock
+```
+
+Keep these exact internal artifact names only where they refer to files:
+
+```text
+selection_lock.json
+selected_component_scores.csv
+selected_component_human_weights.csv
+selected_component_ablations.csv
+selected_threshold_confusion_matrix.csv
+```
+
+### 2. Replace the author block
+
+In `paper/echoforge_ieee.tex`, replace:
+
+```tex
+\author{EchoForge Project}
+```
+
+with:
+
+```tex
+\author{Jeppson Taylor, Lead Author, and the NeverHumqn Research Group%
+\thanks{Jeppson Taylor is the lead author. NeverHumqn Research Group is the paper-facing authoring group.}}
+```
+
+### 3. Replace the abstract
+
+Use this replacement:
+
+```tex
+\begin{abstract}
+EchoForge is a strict-open synthetic sensing benchmark for low-altitude uncrewed aerial-system (UAS) radar and multimodal detection research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty, not a measured-platform claim. EchoForge contributes a radar-first signal-chain model card, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, hard-negative false-alarm analysis, compare-only measured-anchor checks, and holdout-isolated evaluation. In the v2 single-seed run, 10,000 scenario groups produce 30,000 phase records, with 50 positive groups total. On the 4,500-record blind holdout, containing 24 positive records from eight positive scenario groups, the Engineered Intelligence (EI) candidate reaches point Recall@$\leq$1\%FPR of 0.833 and LCB95 Recall@$\leq$1\%FPR of 0.699; the prior fusion baseline reaches 0.292 and 0.083. EI improves AP and low-FPR recall while its ROC AUC is lower than the prior fusion baseline, so the claim is better low-FPR benchmark behavior rather than universal rank dominance. These results are synthetic public-proxy evidence under declared assumptions, not measured truth or operational performance claims.
+\end{abstract}
+```
+
+That preserves the strong headline result while avoiding an overclaim. This is especially important because the paper itself reports only 24 positive holdout records from eight positive scenario groups. 
+
+## Exact figure-code changes
+
+### Global style additions for `paper/generate_figures_major_upgrade_v2.py`
+
+Insert these after the existing color constants:
+
+```python
+EI_LABEL = "Engineered Intelligence (EI)"
+EI_SHORT = "EI candidate"
+BASELINE_LABEL = "Prior fusion baseline"
+
+NIGHT = "#111827"
+TEXT = "#1f2937"
+MUTED_TEXT = "#4b5563"
+GRID_LIGHT = "#e5e7eb"
+GRID_MED = "#cbd5e1"
+PANEL_BG = "#ffffff"
+
+EI_COLOR = "#0f766e"
+BASELINE_COLOR = "#475569"
+ACCENT_COLOR = "#b45309"
+NEG_COLOR = "#9f1239"
+POS_COLOR = "#166534"
+NEUTRAL_COLOR = "#f8fafc"
+
+NIGHT_RED_GREEN = LinearSegmentedColormap.from_list(
+    "night_red_green",
+    ("#2b1117", "#7f1d1d", "#f8fafc", "#14532d", "#052e16"),
+    N=256,
+)
+DELTA_CMAP = LinearSegmentedColormap.from_list(
+    "echoforge_delta",
+    ("#7f1d1d", "#f8fafc", "#14532d"),
+    N=256,
+)
+FAMILY_CMAP = plt.get_cmap("Dark2")
+
+
+def _reader_label(label: Any) -> str:
+    text = str(label).replace("_", " ")
+    replacements = {
+        "locked candidate": EI_SHORT,
+        "selected candidate": EI_SHORT,
+        "selected": "EI",
+        "layered fusion c2": BASELINE_LABEL,
+        "prior fusion": BASELINE_LABEL,
+        "high resolution xku cuas": "High-res. X/Ku radar",
+        "tactical s band aesa": "Tactical S-band",
+        "gbad 3d4d cueing": "GBAD 3D/4D",
+        "distributed acoustic cue": "Acoustic cue",
+        "tabular ml baseline": "Tabular ML",
+        "sequence ml proxy": "Sequence ML",
+        "passive rf only": "Passive-RF only",
+        "radar rf": "Radar + passive-RF",
+    }
+    return replacements.get(text.lower(), text.title())
+
+
+def _style_axis(ax: Any, *, grid_axis: str = "x", title_size: float = 9.2) -> None:
+    ax.set_facecolor(PANEL_BG)
+    if grid_axis in ("x", "both"):
+        ax.xaxis.grid(True, color=GRID_LIGHT, linewidth=0.7)
+    if grid_axis in ("y", "both"):
+        ax.yaxis.grid(True, color=GRID_LIGHT, linewidth=0.7)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    for spine in ("left", "bottom"):
+        ax.spines[spine].set_linewidth(0.7)
+        ax.spines[spine].set_color(GRID_MED)
+    ax.tick_params(axis="both", labelsize=7.4, colors=MUTED_TEXT, length=2.5)
+    ax.title.set_fontsize(title_size)
+    ax.title.set_weight("bold")
+    ax.title.set_color(TEXT)
+
+
+def _delta_color(value: float, *, scale: float = 0.75) -> tuple[float, float, float, float]:
+    if not math.isfinite(value):
+        return (0.8, 0.8, 0.8, 1.0)
+    normalized = 0.5 + 0.5 * max(-1.0, min(1.0, value / scale))
+    return DELTA_CMAP(normalized)
+
+
+def _metric_shade(value: float, *, vmin: float = 0.0, vmax: float = 1.0) -> tuple[float, float, float, float]:
+    if not math.isfinite(value):
+        return (0.95, 0.95, 0.95, 1.0)
+    normalized = max(0.0, min(1.0, (value - vmin) / max(vmax - vmin, 1e-9)))
+    return NIGHT_RED_GREEN(normalized)
+```
+
+### Fig. 4: delete the bad overlay
+
+In `figure_phase_kpi`, delete this entire pattern:
+
+```python
+for idx, value in enumerate(selected_recall):
+    ax.plot([idx - 0.12, idx + 0.12], [value, value], color=RED, linewidth=2.0)
+```
+
+Replace the left panel with grouped bars:
+
+```python
+series = [
+    ("Baseline AP", baseline_ap, BASELINE_COLOR),
+    ("Baseline R@≤1%FPR", baseline_recall, "#94a3b8"),
+    ("EI AP", ei_ap, EI_COLOR),
+    ("EI R@≤1%FPR", ei_recall, POS_COLOR),
+]
+
+offsets = (-1.5 * width, -0.5 * width, 0.5 * width, 1.5 * width)
+for (label, values, color), offset in zip(series, offsets):
+    bars = ax.bar(
+        x + offset,
+        values,
+        width,
+        color=color,
+        edgecolor="white",
+        linewidth=0.6,
+        label=label,
+    )
+    for bar in bars:
+        value = float(bar.get_height())
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            min(value + 0.025, 1.01),
+            f"{value:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=6.2,
+            color=MUTED_TEXT,
+        )
+```
+
+Also rename the figure title:
+
+```python
+fig.suptitle(
+    "Per-phase EI performance and cross-method false-alarm burden",
+    fontsize=12.0,
+    weight="bold",
+    y=1.02,
+)
+```
+
+The downloadable spec contains a full drop-in replacement for `figure_phase_kpi`.
+
+## Figure-by-figure repair list
+
+**Fig. 1 — architecture stack.** Keep the idea, but rename it “EchoForge radar evidence stack,” use the new EI-independent style helpers, and make the model-card snapshot a real card with consistent box widths. This figure is not broken, but it looks like a slide more than a tier-1 paper diagram.
+
+**Fig. 2 — scenario balance/leakage.** Change `figure_monte_carlo_split_flow` to `figsize=(11.0, 6.6)` and `constrained_layout=True`. The title and panel labels currently collide, and the bottom footnote sits too close to axes. Use `FAMILY_CMAP` for bar colors, one consistent x-axis label “Scenario groups,” and move the audit sentence into a single bottom note.
+
+**Fig. 3 — KPI/supporting diagnostics.** Use `EI candidate`, not `Locked candidate` or `selected`. The AP ranking label text is too small, the ROC/PR legends interfere with the data, and calibration bin labels are unreadable. Set calibration x-ticks to bin lower edges like `0.0, 0.1, …, 0.9`, not rotated `0.0-0.1` strings. The figure should still preserve the point result, LCB95 result, AP diagnostic, low-FPR ROC, PR curve, and calibration counts. 
+
+**Fig. 4 — phase behavior.** Replace the misleading recall tick overlay with explicit grouped bars. This is the highest-priority visual fix. 
+
+**Fig. 5 — EI components.** Rename the figure to “Engineered Intelligence components and comparable holdout deltas.” Use `EI nonnegative fusion weight` on the left axis, and color delta bars with the red-white-green diverging colormap. The current figure is conceptually useful, but labels are too cramped and the `selected` language is wrong. The companion Table IX is important because passive-RF-only has higher AP and fixed-FPR recall than full EI but worse F1/ECE; the paper should keep that guardrail. 
+
+**Fig. 6 — radar model card.** Keep it, but enlarge table font to at least 7.4, scale rows to 1.30, and show receiver impairments in a two-column card rather than cramped mini-text. The current figure exposes the right facts but still reads like a packed poster. 
+
+**Fig. 7 — range-Doppler proxy.** Use the same `NIGHT_RED_GREEN` colormap family, larger panel labels, and one shared colorbar. Keep it raster if needed, but force high resolution and consistent axis labels.
+
+**Fig. 8 — anchor overlay.** Do not call the file or visible title `locked_algorithm`. Rename the visible title to “Compare-only measured-anchor overlay.” Ideally rename the output files from `locked_algorithm.png/pdf` to `compare_only_anchor_overlay.png/pdf`, then update `VECTOR_FIGURES`, `REQUIRED_FIGURES`, `generate_all`, and the TeX `\includegraphics`. The current concept is good because it uses normalized z-scores rather than mixed raw units. 
+
+## Table and color formatting
+
+Add this to the TeX preamble:
+
+```tex
+\usepackage[table]{xcolor}
+\definecolor{EchoPos}{HTML}{DDEFE3}
+\definecolor{EchoNeg}{HTML}{F4D6D6}
+\definecolor{EchoNeu}{HTML}{F7F8FA}
+\definecolor{EchoHead}{HTML}{EAF2F8}
+\newcommand{\poscell}[1]{\cellcolor{EchoPos}{#1}}
+\newcommand{\negcell}[1]{\cellcolor{EchoNeg}{#1}}
+\newcommand{\neucell}[1]{\cellcolor{EchoNeu}{#1}}
+```
+
+Use these in comparison tables, especially Table IX:
+
+```tex
+passive-RF-only view & \poscell{0.847} & \poscell{+0.022} & \poscell{0.958} & \poscell{+0.125} & 0.732 & \negcell{0.228} \\
+radar-only view & \negcell{0.126} & \negcell{-0.699} & \negcell{0.250} & \negcell{-0.583} & 0.139 & \negcell{0.447} \\
+```
+
+This gives the red-green comparison you asked for while keeping it safe for print and colorblind review because the signed numbers remain visible.
+
+## Rich appendix additions
+
+Add a new appendix section before limitations:
+
+```tex
+\section{Source, Noise, Detector, and Assumption Appendix}
+```
+
+It should include a source ledger table with these rows:
+
+```text
+Public fixed-wing pusher-prop reports
+Small-UAS micro-Doppler literature
+KTH 77 GHz FMCW
+Public detector product pages
+Regional bird and RC source pack
+```
+
+For each row, include:
+
+```text
+Used for
+Not used for
+Evidence artifact
+```
+
+Then add a second table:
+
+```tex
+\caption{Noise, Clutter, RFI, and Receiver Assumption Families}
+```
+
+with rows:
+
+```text
+Weibull/K-like clutter
+RFI burst / passive-RF missingness
+Multipath / ghosting
+Receiver impairments
+Bird and RC hard negatives
+```
+
+This directly addresses the source/noise/detector/configuration concern and makes the Iranian-drone boundary unmistakable without turning the appendix into a code dump.
+
+## EI workflow and code-origin appendix
+
+Add:
+
+```tex
+\section{Engineered Intelligence Workflow and Code-Origin Appendix}
+```
+
+Use this high-level workflow table:
+
+```text
+Scenario generation
+Detector-view export
+Candidate discovery
+Sparse EI fusion
+Holdout scoring
+Evidence packaging
+```
+
+For each row:
+
+```text
+Input
+Output
+Leakage guard
+```
+
+Then surface the code-origin audit as generated TeX macros. The repo already has `paper/docs/generative_origin_manifest.json` in the paper docs folder. ([GitHub][3]) The evidence script should write a small generated `paper_appendix_snippets.tex` file from the existing generative-origin audit rather than hard-coding percentages in the TeX.
+
+Add to `detection/paper_evidence_major_upgrade_v1.py`:
+
+```python
+def _write_paper_appendix_snippets(out_root: Path, generative_summary: dict[str, Any]) -> None:
+    gen_pct = _safe_float(generative_summary.get("percentage_generative_loc"), 0.0)
+    human_pct = _safe_float(generative_summary.get("percentage_human_standard_loc"), 0.0)
+    classified_loc = _safe_int(generative_summary.get("classified_loc"), 0)
+    total_loc = _safe_int(generative_summary.get("total_loc"), 0)
+    lines = [
+        r"% Auto-generated by detection.paper_evidence_major_upgrade_v1; do not edit by hand.",
+        rf"\newcommand{{\EchoForgeGenerativePercent}}{{{gen_pct:.1f}}}",
+        rf"\newcommand{{\EchoForgeHumanPercent}}{{{human_pct:.1f}}}",
+        rf"\newcommand{{\EchoForgeClassifiedLoc}}{{{classified_loc:,}}}",
+        rf"\newcommand{{\EchoForgeTotalAuditedLoc}}{{{total_loc:,}}}",
+        "",
+    ]
+    _write_text(out_root / "paper_appendix_snippets.tex", "\n".join(lines))
+```
+
+Then load it in TeX:
+
+```tex
+\InputIfFileExists{outputs/paper-evidence/major-upgrade-v1/paper_appendix_snippets.tex}{}{
+  \newcommand{\EchoForgeGenerativePercent}{not generated}
+  \newcommand{\EchoForgeHumanPercent}{not generated}
+  \newcommand{\EchoForgeClassifiedLoc}{not generated}
+}
+```
+
+And use:
+
+```tex
+The code-origin audit is a manifest-based self-classification of tracked source LOC. It is not proof of authorship history. The current evidence bundle reports \textbf{\EchoForgeGenerativePercent\%} generative/AI-inspired LOC and \textbf{\EchoForgeHumanPercent\%} human-standard LOC over \EchoForgeClassifiedLoc\ classified non-empty lines.
+```
+
+## Validation gates the agent should add
+
+`paper/validate_visuals.py` currently checks only figure existence and byte size. That will not catch unreadable plots. Add a Pillow image-size gate:
+
+```python
+from PIL import Image
+
+MIN_WIDTH = 1800
+MIN_HEIGHT = 1200
+
+for name in REQUIRED_PNGS:
+    with Image.open(FIGURES_DIR / name) as im:
+        width, height = im.size
+    if width < MIN_WIDTH or height < MIN_HEIGHT:
+        fail(f"low-resolution figure preview: {name} is {width}x{height}")
+```
+
+Add Pillow install in `paper/build.sh`:
+
+```bash
+if ! python3 - <<'PY'
+import importlib.util, sys
+sys.exit(0 if importlib.util.find_spec("PIL") is not None else 1)
+PY
+then
+  python3 -m pip install --user --quiet pillow
+fi
+```
+
+In `paper/validate_paper.py`, require the new author and appendix content:
+
+```python
+if "NeverHumqn Research Group" not in text:
+    fail("paper text is missing the official NeverHumqn Research Group author string")
+if "Jeppson Taylor" not in text:
+    fail("paper text is missing Jeppson Taylor as lead author")
+if "Source, Noise, Detector, and Assumption Appendix" not in text:
+    fail("paper text is missing the source/noise/detector appendix")
+if "High-Level EI Workflow" not in text:
+    fail("paper text is missing the EI workflow table")
+if "EchoForgeGenerativePercent" not in text:
+    fail("paper text is missing code-origin audit macros")
+```
+
+Also add a visible-terminology ban for the paper body, with artifact exceptions handled carefully:
+
+```python
+FORBIDDEN_READER_PATTERNS = (
+    r"\bLocked candidate\b",
+    r"\blocked candidate\b",
+    r"\bselected AP\b",
+    r"\bselected candidate\b",
+)
+```
+
+Do **not** ban `selection_lock.json` or `selected_component_ablations.csv`; those are artifact names.
+
+## Build sequence for the agent
+
+Use this after applying changes:
+
+```bash
+python3 -m detection.paper_evidence_major_upgrade_v1 \
+  --training-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --baseline-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --advanced-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
+  --anchor-root outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1 \
+  --out-root outputs/paper-evidence/major-upgrade-v1 \
+  --force
+
+python3 paper/generate_figures_major_upgrade_v2.py \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1 \
+  --strict
+
+bash paper/build.sh --copy-tracked
+
+python3 paper/validate_visuals.py
+
+python3 paper/validate_paper.py \
+  --tex paper/echoforge_ieee.tex \
+  --bib paper/references.bib \
+  --pdf target/paper/echoforge_ieee.pdf \
+  --figures-dir paper/figures \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+```
+
+The most important single instruction to give the agent is: **do not just regenerate the same plots at higher DPI**. The metric encoding has to change, especially Fig. 4. The paper will not look tier-1 until the visual grammar is consistent: EI terminology, explicit metric bars, no hidden overlays, readable tables, and the same color logic across every comparison.
+
+[1]: https://github.com/neverhuman/echoforge/tree/main/paper "echoforge/paper at main · neverhuman/echoforge · GitHub"
+[2]: https://github.com/neverhuman/echoforge/tree/main/paper/figures "echoforge/paper/figures at main · neverhuman/echoforge · GitHub"
+[3]: https://github.com/neverhuman/echoforge/tree/main/paper/docs "echoforge/paper/docs at main · neverhuman/echoforge · GitHub"
+
