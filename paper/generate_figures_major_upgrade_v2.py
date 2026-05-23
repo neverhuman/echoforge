@@ -103,7 +103,7 @@ NIGHT_RED_LIGHT = "#f2d6db"
 NIGHT_GREEN_LIGHT = "#d9efe7"
 EI_LABEL = "Engineered Intelligence (EI)"
 EI_SHORT = "EI candidate"
-BASELINE_LABEL = "Prior fusion baseline"
+BASELINE_LABEL = "Accepted prior fusion"
 PRIMARY_KPI_TEXT = "Recall@<=1%FPR"
 
 # IEEE-ready visual style. Figures are authored at final paper size so labels
@@ -142,6 +142,7 @@ VECTOR_FIGURES = {
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "appendix_modeling_map.png",
 }
 HEATMAP_FIGURES = {"iq_negative_samples.png"}
 
@@ -1321,13 +1322,13 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         _note_fallback(filename, "evaluation summary missing; using deterministic defaults")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = _paper_fig(4.45, constrained=False)
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.78, bottom=0.15, wspace=0.78, hspace=0.66)
-    gs = fig.add_gridspec(2, 4, width_ratios=[1.30, 0.10, 0.86, 0.86])
+    fig = _paper_fig(4.70, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.77, bottom=0.16, wspace=0.76, hspace=0.68)
+    gs = fig.add_gridspec(2, 4, width_ratios=[1.44, 0.08, 0.86, 0.86])
     fig.text(
         0.08,
         0.952,
-        "Holdout KPI: EI vs prior fusion",
+        "Holdout KPI: EI vs accepted prior fusion",
         fontsize=FONT_TITLE,
         weight="bold",
         ha="left",
@@ -1335,7 +1336,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
     fig.text(
         0.08,
         0.910,
-        "Primary KPI gain: +742% LCB95 vs prior fusion; point Recall@<=1%FPR +185%",
+        "Primary KPI gain vs best practice: +742% LCB95; +185% point recall; selected FP 49->1",
         fontsize=FONT_SUBTITLE,
         color=GREEN,
         ha="left",
@@ -1357,6 +1358,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
     lcb_values = [
         _safe_float(row.get("primary_kpi", {}).get("value")) for _label, row, _color in methods
     ]
+    fp_counts = [_safe_float(row.get("fp")) for _label, row, _color in methods]
     colors = [color for _label, _row, color in methods]
     kpi_ax.barh(y, point_values, color=colors, alpha=0.88, edgecolor="white", label="Point recall")
     for idx, (point, lcb) in enumerate(zip(point_values, lcb_values)):
@@ -1372,30 +1374,65 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
             )
     kpi_ax.set_yticks(y)
     kpi_ax.set_yticklabels([label for label, _row, _color in methods], fontsize=FONT_AXIS)
+    if all(math.isfinite(value) for value in lcb_values):
+        lcb_display = [round(value, 3) for value in lcb_values]
+        lcb_gain = lcb_display[1] - lcb_display[0]
+        rel_gain = (lcb_gain / lcb_display[0]) if lcb_display[0] else float("nan")
+        kpi_ax.annotate(
+            f"LCB95 +{rel_gain * 100:.0f}%\n(+{lcb_gain:.3f})",
+            xy=(lcb_values[1], 1),
+            xytext=(0.53, 1.43),
+            arrowprops={"arrowstyle": "->", "color": RED, "linewidth": 0.9},
+            fontsize=FONT_TINY,
+            color=RED,
+            ha="center",
+            va="center",
+        )
+    if all(math.isfinite(value) for value in point_values + lcb_values):
+        point_gain = point_values[1] - point_values[0]
+        kpi_ax.text(
+            0.05,
+            -0.47,
+            f"red tick = LCB95 lower bound; point recall +{point_gain:.3f}",
+            fontsize=FONT_TINY,
+            color=RED,
+            ha="left",
+            va="center",
+        )
+    if all(math.isfinite(value) for value in fp_counts) and fp_counts[0] > 0.0:
+        fp_drop = (1.0 - fp_counts[1] / fp_counts[0]) * 100.0
+        kpi_ax.text(
+            0.05,
+            -0.65,
+            f"selected-threshold FP {int(fp_counts[0])}->{int(fp_counts[1])} ({fp_drop:.1f}% fewer)",
+            fontsize=FONT_TINY,
+            color=MUTED,
+            ha="left",
+            va="center",
+        )
     kpi_ax.set_xlim(0.0, 1.02)
+    kpi_ax.set_ylim(-0.82, 1.70)
     kpi_ax.set_xlabel("Recall at FPR <= 1%", fontsize=FONT_AXIS)
     kpi_ax.set_title(
         "Primary KPI: group-block LCB95 vs prior fusion", fontsize=FONT_SUBTITLE, weight="bold"
     )
     _clean_axes(kpi_ax, xgrid=True)
     kpi_ax.text(
-        0.02,
-        0.05,
-        f"{primary_label}: {primary_value:.3f}",
-        fontsize=FONT_TINY,
-        color=MUTED,
-        transform=kpi_ax.transAxes,
+        0.03, 1.56, f"{primary_label}: {primary_value:.3f}", fontsize=FONT_TINY, color=MUTED
     )
     kpi_handles = [
         Patch(facecolor=GREEN, edgecolor="white", label=BASELINE_LABEL),
         Patch(facecolor=INK, edgecolor="white", label=EI_SHORT),
         Line2D([0], [0], color=RED, linewidth=2.3, label="LCB95 lower bound"),
     ]
-    kpi_ax.legend(
+    fig.legend(
         handles=kpi_handles,
-        loc="lower right",
+        loc="upper left",
+        bbox_to_anchor=(0.08, 0.845),
         fontsize=FONT_TINY,
         frameon=False,
+        ncol=3,
+        columnspacing=1.1,
     )
 
     rank_ax = fig.add_subplot(gs[0, 2])
@@ -1537,8 +1574,8 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         _note_fallback(filename, "phase metrics missing; using deterministic defaults")
         if STRICT_MODE:
             _require_no_fallback(filename)
-    fig = _paper_fig(4.05, constrained=False)
-    fig.subplots_adjust(left=0.08, right=0.98, top=0.76, bottom=0.22, wspace=0.44)
+    fig = _paper_fig(4.45, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.98, top=0.70, bottom=0.24, wspace=0.46)
     gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.0])
     fig.text(
         0.08,
@@ -1554,7 +1591,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
     baseline = phase_metrics.get("layered_fusion_c2", {})
     phase_order = list(PHASES)
     x = np.arange(len(phase_order))
-    width = 0.17
+    width = 0.30
     ax = fig.add_subplot(gs[0, 0])
     selected_ap = [selected.get(phase, {}).get("average_precision", 0.0) for phase in phase_order]
     selected_recall = [
@@ -1565,12 +1602,10 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         baseline.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
     ]
     series = [
-        ("Prior AP", baseline_ap, PALE_GREEN, GREEN),
-        ("Prior Recall@<=1%FPR", baseline_recall, PALE_BLUE, BLUE),
-        ("EI AP", selected_ap, INK, INK),
-        ("EI Recall@<=1%FPR", selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+        ("Accepted prior fusion", baseline_recall, PALE_GREEN, GREEN),
+        (EI_SHORT, selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
     ]
-    offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * width
+    offsets = np.array([-0.5, 0.5]) * width
     for offset, (label, values, face, edge) in zip(offsets, series):
         bars = ax.bar(
             x + offset,
@@ -1582,24 +1617,35 @@ def figure_phase_kpi(context: FigureContext) -> Path:
             label=label,
         )
         _annotate_vertical_bars(ax, bars, dy=0.012)
+    for idx, (base_ap, ei_ap) in enumerate(zip(baseline_ap, selected_ap)):
+        ax.text(
+            idx,
+            0.045,
+            f"AP: base {base_ap:.2f} / EI {ei_ap:.2f}",
+            ha="center",
+            va="bottom",
+            fontsize=FONT_TINY,
+            color=MUTED,
+            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.78, "pad": 0.6},
+        )
     ax.set_xticks(x)
     ax.set_xticklabels(
         [f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order], fontsize=FONT_TINY
     )
-    ax.set_ylabel("Holdout metric value", fontsize=FONT_AXIS)
+    ax.set_ylabel("Fixed-FPR recall", fontsize=FONT_AXIS)
     ax.set_ylim(0.0, 1.02)
     _clean_axes(ax, ygrid=True)
     ax.legend(
         loc="lower center",
-        bbox_to_anchor=(0.5, 1.18),
+        bbox_to_anchor=(0.5, 1.29),
         fontsize=FONT_TINY,
         frameon=False,
         ncol=2,
         columnspacing=0.8,
-        title="Phase legend",
+        title="Fixed-FPR recall",
         title_fontsize=FONT_TINY,
     )
-    ax.set_title("Per-phase AP and low-FPR recall", fontsize=FONT_SUBTITLE, weight="bold")
+    ax.set_title("Fixed-FPR recall by phase", fontsize=FONT_SUBTITLE, weight="bold")
     fig.text(
         0.08,
         0.06,
@@ -1650,35 +1696,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         method_to_summary[row.get("method", "")] = row
     y_positions = np.arange(len(method_rows))
     max_total = 0.0
-    legend_handles = []
-    for bucket in [
-        "bird",
-        "rc_fixed_wing",
-        "weather",
-        "clutter_only",
-        "rfi",
-        "multipath",
-        "terrain_glint",
-        "wind_turbine",
-        "ground_vehicle",
-        "other",
-    ]:
-        legend_handles.append(
-            Patch(
-                facecolor=family_palette[bucket],
-                edgecolor="white",
-                label=_family_label(bucket),
-            )
-        )
-    legend_handles.append(
-        Patch(
-            facecolor=PALE_GREEN,
-            edgecolor=GREEN,
-            hatch="///",
-            alpha=0.30,
-            label="Near-threshold negatives",
-        )
-    )
+    present_buckets: set[str] = set()
     for idx, method in enumerate(selected_methods):
         summary = method_to_summary.get(method, {})
         near_total = sum(
@@ -1688,7 +1706,11 @@ def figure_phase_kpi(context: FigureContext) -> Path:
         bucket_counts: dict[str, float] = defaultdict(float)
         for row in method_to_family_rows.get(method, []):
             bucket = _family_bucket(row.get("family", "other"))
-            bucket_counts[bucket] += _safe_float(row.get("false_alarm_count"))
+            false_count = _safe_float(row.get("false_alarm_count"))
+            near_count = _safe_float(row.get("near_threshold_count"))
+            bucket_counts[bucket] += false_count
+            if false_count > 0.0 or near_count > 0.0:
+                present_buckets.add(bucket)
         total_fp = sum(bucket_counts.values())
         max_total = max(max_total, near_total, total_fp)
         fa_ax.barh(
@@ -1749,11 +1771,37 @@ def figure_phase_kpi(context: FigureContext) -> Path:
     fa_ax.xaxis.set_major_locator(MaxNLocator(nbins=5, integer=True))
     fa_ax.set_xlim(0.0, max_total * 1.20 if max_total > 0 else 1.0)
     fa_ax.set_title("Cross-method false-alarm burden", fontsize=FONT_SUBTITLE, weight="bold")
+    bucket_order = [
+        "bird",
+        "rc_fixed_wing",
+        "weather",
+        "clutter_only",
+        "rfi",
+        "multipath",
+        "terrain_glint",
+        "wind_turbine",
+        "ground_vehicle",
+        "other",
+    ]
+    legend_handles = [
+        Patch(facecolor=family_palette[bucket], edgecolor="white", label=_family_label(bucket))
+        for bucket in bucket_order
+        if bucket in present_buckets
+    ]
+    legend_handles.append(
+        Patch(
+            facecolor=PALE_GREEN,
+            edgecolor=GREEN,
+            hatch="///",
+            alpha=0.30,
+            label="Near-threshold total",
+        )
+    )
     fa_ax.legend(
         handles=legend_handles,
-        title="Family legend",
+        title="False-alarm family legend",
         loc="lower center",
-        bbox_to_anchor=(0.5, 1.16),
+        bbox_to_anchor=(0.5, 1.24),
         fontsize=FONT_TINY,
         frameon=False,
         ncol=3,
@@ -2315,6 +2363,18 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
             fontsize=FONT_TINY,
             color=MUTED,
         )
+    weight_ax.legend(
+        handles=[
+            Patch(facecolor=TEAL, edgecolor="white", label="passive RF"),
+            Patch(facecolor=GOLD, edgecolor="white", label="motion/geometry"),
+            Patch(facecolor=BLUE, edgecolor="white", label="radar/mixed"),
+        ],
+        title="Weight color",
+        loc="lower right",
+        fontsize=FONT_TINY,
+        title_fontsize=FONT_TINY,
+        frameon=False,
+    )
 
     delta_ax = fig.add_subplot(gs[0, 1])
     delta_labels = [
@@ -2359,6 +2419,7 @@ def figure_detector_ml_pipeline(context: FigureContext) -> Path:
     delta_ax.set_title(
         "Comparable controls: bars AP, dots recall", fontsize=FONT_SUBTITLE, weight="bold"
     )
+    delta_ax.legend(loc="lower right", fontsize=FONT_TINY, frameon=False)
     _clean_axes(delta_ax, xgrid=True)
     xmin = min(delta_ap + delta_recall + [0.0]) - 0.08
     xmax = max(delta_ap + delta_recall + [0.0]) + 0.10
@@ -2574,6 +2635,119 @@ def figure_ei_workflow(context: FigureContext) -> Path:
     return _save_figure(fig, filename)
 
 
+def figure_appendix_modeling_map(context: FigureContext) -> Path:
+    filename = "appendix_modeling_map.png"
+    card = context.evidence.get("public_proxy_positive_class_card", {})
+    radar = context.evidence.get("radar_model_card", {})
+    if card and radar:
+        _note_source(filename, "public proxy positive-class card and radar model card")
+    else:
+        _note_fallback(
+            filename, "positive-class/radar model card missing; using declared appendix labels"
+        )
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.70), constrained_layout=False)
+    fig.subplots_adjust(left=0.03, right=0.98, top=0.88, bottom=0.08)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6)
+    ax.axis("off")
+    ax.text(
+        0.0,
+        5.78,
+        "Appendix modeling map: positive proxy, environment, and detector views",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
+        va="top",
+    )
+    ax.text(
+        0.0,
+        5.42,
+        "Review surface only: assumptions are auditable without expanding the measured-truth claim.",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
+    columns = [
+        (
+            0.20,
+            "Fixed-wing pusher-prop public proxy",
+            [
+                "geometry: delta/swept wing plus rear pusher",
+                "speed: 45--60 m/s",
+                "prop micro-Doppler: 150--217 Hz",
+                "RCS/aspect: -28 to -2 dBsm",
+                "no measured Iranian-drone radar truth",
+            ],
+            PALE_BLUE,
+            BLUE,
+        ),
+        (
+            3.48,
+            "Environment and receiver stress",
+            [
+                "Weibull/K-like clutter",
+                "weather, sea, terrain glint",
+                "multipath ghosts and RFI bursts",
+                "AGC, drift, quantization, CPI loss",
+                "no site-measured clutter truth",
+            ],
+            PALE_GOLD,
+            GOLD,
+        ),
+        (
+            6.76,
+            "Detector views and fusion",
+            [
+                "X/Ku, S-band, GBAD summaries",
+                "acoustic cadence and passive-RF provenance",
+                "accepted human fusion comparator",
+                "EI sparse calibrated late fusion",
+                "labels, group IDs, split fields denied",
+            ],
+            PALE_GREEN,
+            GREEN,
+        ),
+    ]
+    for x, title, lines, face, edge in columns:
+        rect = Rectangle((x, 1.05), 2.82, 4.22, facecolor=face, edgecolor=edge, linewidth=1.1)
+        ax.add_patch(rect)
+        ax.text(
+            x + 0.15,
+            4.95,
+            _wrap_compact(title, 25),
+            ha="left",
+            va="top",
+            fontsize=FONT_AXIS,
+            weight="bold",
+            color=INK,
+        )
+        for idx, line in enumerate(lines):
+            ax.text(
+                x + 0.18,
+                4.30 - idx * 0.66,
+                "- " + _wrap_compact(line, 31),
+                ha="left",
+                va="top",
+                fontsize=FONT_TINY,
+                color=INK,
+                linespacing=1.08,
+            )
+    _add_arrow(ax, (3.02, 3.22), (3.48, 3.22), color=MUTED)
+    _add_arrow(ax, (6.30, 3.22), (6.76, 3.22), color=MUTED)
+    ax.text(
+        0.20,
+        0.36,
+        "Evidence rows: public_proxy_model_detail_rows.csv, environment_impairment_model_rows.csv, detector_view_schema_evidence.csv",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+
+
 def _fallback_false_alarm_rows() -> list[dict[str, Any]]:
     return [
         {"family": "single_bird", "false_alarm_count": 1},
@@ -2594,6 +2768,7 @@ def generate_all(context: FigureContext) -> list[Path]:
         figure_detector_ml_pipeline(context),
         figure_anchor_overlay(context),
         figure_ei_workflow(context),
+        figure_appendix_modeling_map(context),
     ]
 
 
