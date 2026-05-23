@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-publishers
+          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-publishers texlive-science
       - name: Fast lane
         shell: bash
         env:
