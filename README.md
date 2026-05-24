@@ -7,7 +7,7 @@
 EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. It publishes public-proxy object signatures, uncertainty-scored radar artifacts, and reproducible validation evidence so downstream work can be inspected, rerun, and compared without claiming measured truth or proprietary-equivalent sensor behavior.
 
 The claim boundary stays narrow: public-source priors only, explicit uncertainty, hard negatives treated as robustness work, and no classified, vendor-private, or exact field-performance claims.
-The paper KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%, reported as `LCB95 Recall@≤1%FPR`; AP, ROC AUC, calibration, and false-positive burden remain guardrails. On the blind holdout, the accepted human-engineered prior fusion baseline reaches 0.083 LCB95 / 0.292 point Recall@≤1%FPR, while the EI sparse calibrated late-fusion candidate reaches 0.699 / 0.833, with +61.6 pp / +742% / 8.42x LCB95 gain, +54.1 pp / +185% / 2.85x point Recall@≤1%FPR gain, and 49 -> 1 selected-threshold false positives (98.0% fewer false alarms). EI AP rises from 0.128 to 0.825, but EI ROC AUC is 0.917 versus 0.938 for prior fusion, so the claim is improved low-FPR operating behavior rather than universal rank dominance.
+The paper KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%, reported as `LCB95 Recall@≤1%FPR`; AP, ROC AUC, calibration, and false-positive burden remain guardrails. On the blind holdout, the accepted human-engineered prior fusion baseline reaches 0.083 LCB95 / 0.292 point Recall@≤1%FPR, while the EI sparse calibrated late-fusion candidate reaches 0.713 / 0.833, with +63.0 pp / +760.0% / 7.60x LCB95 gain, +54.2 pp / +185.7% / 2.85x point Recall@≤1%FPR gain, and 49 -> 3 selected-threshold false positives (93.9% fewer false alarms). EI AP rises from 0.128 to 0.830, but EI ROC AUC is 0.916 versus 0.938 for prior fusion, so the claim is improved low-FPR operating behavior rather than universal rank dominance.
 
 ## Studio Preview
 
@@ -71,18 +71,19 @@ IEEE-style paper: [paper/echoforge_ieee.pdf](./paper/echoforge_ieee.pdf).
 
 Paper figure strip:
 
-| Radar model card | KPI ranking | Anchor compare-only |
+| Simulator stack | Phase ladder | EI evolution |
 | --- | --- | --- |
-| ![Radar model card](./paper/figures/iq_drone_samples.png) | ![KPI ranking](./paper/figures/kpi_ranking.png) | ![Anchor compare-only](./paper/figures/anchor_overlay.png) |
+| ![Simulator stack](./paper/figures/architecture_stack.png) | ![Phase ladder](./paper/figures/phase_method_ladder.png) | ![EI evolution](./paper/figures/ei_evolution_money_plot.png) |
 
 Paper lane:
 
 ```bash
-rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
-rtk python3 paper/generate_figures_major_upgrade_v2.py --strict
+rtk python3 -m detection.paper_evidence --strict-ei-trace --force
+rtk python3 paper/generate_metric_macros.py --strict
+rtk python3 paper/generate_figures_focused.py --strict
 rtk python3 paper/validate_visuals.py
 rtk bash paper/build.sh --copy-tracked
-rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/tier1-final
 ```
 
 Paper artifact map:
@@ -91,10 +92,11 @@ Paper artifact map:
 | --- | --- |
 | `paper/echoforge_ieee.tex` | IEEE-style source with strict public-proxy claim boundaries |
 | `paper/echoforge_ieee.pdf` | tracked compiled paper for direct review |
-| `paper/figures/kpi_ranking.png` | holdout ranking with the `Recall@≤1%FPR` KPI and calibration diagnostics |
-| `paper/figures/phase_kpi.png` | phase behavior and cross-method false-positive burden |
-| `paper/figures/detector_ml_pipeline.png` | engineered-intelligence transparency and ablation summary |
-| `paper/figures/anchor_overlay.png` | compare-only KTH anchor overlay for hard-negative realism checks |
+| `paper/figures/architecture_stack.png` | readable simulator/evidence stack and model-card summary |
+| `paper/figures/phase_method_ladder.png` | phase-wise human detector ladder through accepted fusion and EI |
+| `paper/figures/ei_evolution_money_plot.png` | train/CV EI evolution trace with selected-lock marker |
+| `paper/figures/false_alarm_breakdown.png` | selected-threshold false-positive burden by method and family |
+| `paper/figures/radar_positive_vs_false_positive.png` | qualitative synthetic range-Doppler positives and false positives |
 | `paper/validate_paper.py` | page, citation, bibliography, required-figure, and no-fallback-metadata checks |
 
 ```bash

@@ -1,68 +1,69 @@
 {
-	"version": "tier1-source-appendix-v1",
-	"notes": [
-		"Generated source listings are a review surface, not a replacement for repository source.",
-		"Claim-critical reproduction code remains visible in the repository.",
-		"Escrow/redacted regions are duplicate explanatory material only."
-	],
-	"blocks": [
-		{
-			"id": "human_cfar_mtd_track",
-			"title": "Human-Origin Radar Baseline Scores",
-			"path": "detection/main_run_detectors.py",
-			"symbols": ["_cfar_score", "_mtd_score", "_track_score"],
-			"origin": "human-origin"
-		},
-		{
-			"id": "human_calibration_reporting",
-			"title": "Human-Origin Calibration and Reporting",
-			"path": "detection/main_run_detectors.py",
-			"symbols": [
-				"_fit_gaussian_log_odds",
-				"_calibrated_predictions",
-				"_build_performance_reports"
-			],
-			"origin": "human-origin"
-		},
-		{
-			"id": "ei_candidate_structures",
-			"title": "Mixed-Origin EI Candidate Structures",
-			"path": "detection/advanced_main_run_detectors.py",
-			"symbols": ["CandidateSpec", "MetaFusionSpec"],
-			"origin": "mixed-origin"
-		},
-		{
-			"id": "ei_feature_lifts",
-			"title": "Generated/Evolved-Origin EI Feature Lifts",
-			"path": "detection/advanced_main_run_detectors.py",
-			"symbols": ["_haar_packet_energy", "_topology_proxy", "_dmd_summary"],
-			"origin": "generated-evolved-origin"
-		},
-		{
-			"id": "ei_selection_lock",
-			"title": "Mixed-Origin EI Selection and Lock",
-			"path": "detection/advanced_main_run_detectors.py",
-			"symbols": ["run_advanced_main_run_detectors"],
-			"origin": "mixed-origin"
-		},
-		{
-			"id": "paper_evidence_generation",
-			"title": "Human-Origin Paper Evidence Generation",
-			"path": "detection/paper_evidence_major_upgrade_v1.py",
-			"symbols": ["build_paper_evidence"],
-			"origin": "human-origin"
-		}
-	],
-	"ip_escrow": {
-		"id": "ei_optional_escrow_duplicate",
-		"title": "Optional EI Escrow Duplicate",
-		"path": "detection/advanced_main_run_detectors.py",
-		"symbols": [
-			"_build_meta_fusion_candidates",
-			"_fit_calibration",
-			"_score_selected_candidate"
-		],
-		"encrypt_env_var": "ECHOFORGE_IP_APPENDIX_KEY",
-		"claim_boundary": "Duplicate escrow material only; not required to reproduce the paper KPI."
-	}
+  "version": "runtime-code-appendix-v2",
+  "notes": [
+    "The appendix intentionally contains core detector, calibration, and fusion math only.",
+    "File I/O, JSON/CSV writers, report builders, validation wrappers, and CLI plumbing are excluded.",
+    "Rendered paper code blocks hide repository paths; path and hash metadata remain in generated review metadata."
+  ],
+  "blocks": [
+    {
+      "id": "human_radar_scores",
+      "title": "Human Radar Score Routines",
+      "path": "paper/runtime_code_appendix.py",
+      "symbols": ["robust_scale", "cfar_range_doppler_score", "mtd_doppler_score", "track_continuity_score"],
+      "origin": "human-origin"
+    },
+    {
+      "id": "human_cue_scores",
+      "title": "Human Cue Score Routines",
+      "path": "paper/runtime_code_appendix.py",
+      "symbols": ["distributed_acoustic_score", "passive_rf_provenance_score"],
+      "origin": "human-origin"
+    },
+    {
+      "id": "human_accepted_fusion",
+      "title": "Accepted Human Fusion",
+      "path": "paper/runtime_code_appendix.py",
+      "symbols": ["accepted_prior_fusion"],
+      "origin": "human-origin"
+    },
+    {
+      "id": "ei_calibration_and_sparse_fusion",
+      "title": "EI Sparse Fusion and Geodesic-Odds Calibration",
+      "path": "paper/runtime_code_appendix.py",
+      "symbols": ["geodesic_odds_calibration", "ei_sparse_geodesic_fusion"],
+      "origin": "mixed-origin",
+      "line_origin_spans": {
+        "geodesic_odds_calibration": [
+          {
+            "start": 1,
+            "end": 2,
+            "origin": "human-origin"
+          },
+          {
+            "start": 3,
+            "end": 15,
+            "origin": "mixed-origin"
+          }
+        ],
+        "ei_sparse_geodesic_fusion": [
+          {
+            "start": 1,
+            "end": 5,
+            "origin": "human-origin"
+          },
+          {
+            "start": 6,
+            "end": 15,
+            "origin": "generated-evolved-origin"
+          },
+          {
+            "start": 16,
+            "end": 19,
+            "origin": "mixed-origin"
+          }
+        ]
+      }
+    }
+  ]
 }

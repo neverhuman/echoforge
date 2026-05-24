@@ -3645,8 +3645,12 @@ def _cli_reproduction_commands() -> list[dict[str, Any]]:
             "command": "rtk python3 paper/generate_source_appendix.py --strict",
         },
         {
+            "stage": "generate_metric_macros",
+            "command": "rtk python3 paper/generate_metric_macros.py --strict",
+        },
+        {
             "stage": "generate_figures",
-            "command": "rtk python3 paper/generate_figures.py --strict",
+            "command": "rtk python3 paper/generate_figures_focused.py --strict",
         },
         {
             "stage": "build_pdf",
