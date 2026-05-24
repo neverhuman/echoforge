@@ -145,14 +145,17 @@ python3 -m detection.paper_evidence \
   --strict-ei-trace \
   --force
 
+python3 paper/generate_metric_macros.py \
+  --paper-evidence-root "$paper_evidence_root" \
+  --strict
+
 python3 paper/generate_source_appendix.py --strict
 
-python3 paper/generate_figures.py \
+python3 paper/generate_figures_focused.py \
   --training-root "$training_root" \
   --baseline-root "$baseline_root" \
   --advanced-root "$advanced_root" \
   --paper-evidence-root "$paper_evidence_root" \
-  --anchor-root "$anchor_root" \
   --strict
 
 python3 paper/validate_visuals.py

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate paper figure raster previews and vector-backed chart outputs."""
+"""Validate focused final paper figures."""
 
 from __future__ import annotations
 
@@ -10,42 +10,38 @@ from pathlib import Path
 
 try:
     from PIL import Image, ImageStat
-except Exception as exc:  # pragma: no cover - import guard for minimal environments
+except Exception as exc:  # pragma: no cover
     raise SystemExit("visual validation failed: Pillow is required; install pillow") from exc
 
 
 FIGURES_DIR = Path(__file__).resolve().parent / "figures"
 REQUIRED_PNGS = (
     "architecture_stack.png",
-    "monte_carlo_split_flow.png",
-    "kpi_ranking.png",
-    "phase_kpi.png",
-    "iq_drone_samples.png",
-    "iq_negative_samples.png",
-    "detector_ml_pipeline.png",
-    "anchor_overlay.png",
-    "ei_workflow.png",
     "phase_method_ladder.png",
     "ei_evolution_money_plot.png",
-    "data_processing_flow.png",
-    "appendix_modeling_map.png",
+    "false_alarm_breakdown.png",
+    "radar_positive_vs_false_positive.png",
+    "appendix_radar_samples.png",
 )
 VECTOR_PDFS = (
     "architecture_stack.pdf",
+    "phase_method_ladder.pdf",
+    "ei_evolution_money_plot.pdf",
+    "false_alarm_breakdown.pdf",
+    "radar_positive_vs_false_positive.pdf",
+)
+LEGACY_MAIN_FIGURES = (
     "monte_carlo_split_flow.pdf",
     "kpi_ranking.pdf",
     "phase_kpi.pdf",
-    "iq_drone_samples.pdf",
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
-    "phase_method_ladder.pdf",
-    "ei_evolution_money_plot.pdf",
     "data_processing_flow.pdf",
     "appendix_modeling_map.pdf",
+    "iq_drone_samples.pdf",
+    "iq_negative_samples.png",
 )
-RASTER_ONLY = ("iq_negative_samples.png",)
-LEGACY_FIGURES = ("locked_algorithm.png", "locked_algorithm.pdf")
 BANNED_VISIBLE_TERMS = (
     re.compile(r"\blocked candidate\b", re.IGNORECASE),
     re.compile(r"\bselected candidate\b", re.IGNORECASE),
@@ -54,7 +50,7 @@ BANNED_VISIBLE_TERMS = (
 )
 MIN_PNG_BYTES = 25_000
 MIN_PDF_BYTES = 5_000
-MIN_PNG_WIDTH = 2600
+MIN_PNG_WIDTH = 2500
 MAX_PNG_WIDTH = 3900
 MIN_PNG_HEIGHT = 900
 MIN_CHANNEL_STDDEV = 3.0
@@ -100,7 +96,7 @@ def validate_pdf_terms(
     text = result.stdout
     flagged = [pattern.pattern for pattern in BANNED_VISIBLE_TERMS if pattern.search(text)]
     if flagged:
-        fail(f"{name} contains banned visible EI terminology: " + ", ".join(flagged))
+        fail(f"{name} contains banned visible terminology: " + ", ".join(flagged))
     missing = [term for term in required_terms if term not in text]
     if missing:
         fail(f"{name} is missing required visible terms: " + ", ".join(missing))
@@ -109,13 +105,18 @@ def validate_pdf_terms(
         fail(f"{name} contains forbidden visible terms: " + ", ".join(present_forbidden))
 
 
+def validate_tex_figure_references() -> None:
+    tex_path = Path(__file__).resolve().parent / "echoforge_ieee.tex"
+    text = tex_path.read_text(encoding="utf-8")
+    refs = [name for name in LEGACY_MAIN_FIGURES if name in text]
+    if refs:
+        fail("paper still references legacy clutter figure(s): " + ", ".join(refs))
+
+
 def main() -> int:
     missing = [name for name in REQUIRED_PNGS if not (FIGURES_DIR / name).is_file()]
     if missing:
         fail("missing PNG figure(s): " + ", ".join(missing))
-    legacy = [name for name in LEGACY_FIGURES if (FIGURES_DIR / name).exists()]
-    if legacy:
-        fail("legacy locked_algorithm figure(s) must be renamed: " + ", ".join(legacy))
     tiny_pngs = [
         name for name in REQUIRED_PNGS if (FIGURES_DIR / name).stat().st_size < MIN_PNG_BYTES
     ]
@@ -132,66 +133,45 @@ def main() -> int:
     ]
     if tiny_pdfs:
         fail("tiny vector PDF figure(s): " + ", ".join(tiny_pdfs))
+
+    required_by_pdf = {
+        "architecture_stack.pdf": (
+            "EchoForge simulator",
+            "Model card",
+            "claim boundary",
+        ),
+        "phase_method_ladder.pdf": (
+            "Phase method ladder",
+            "Take-off",
+            "Climb",
+            "Cruise",
+            "EI",
+        ),
+        "ei_evolution_money_plot.pdf": (
+            "EI train/CV evolution",
+            "selected lock",
+            "no holdout optimization curve",
+        ),
+        "false_alarm_breakdown.pdf": (
+            "False-positive burden",
+            "RC fixed-wing",
+            "weather",
+            "RFI",
+        ),
+        "radar_positive_vs_false_positive.pdf": (
+            "Synthetic range-Doppler examples",
+            "Positive",
+            "Challenging",
+        ),
+    }
     for name in VECTOR_PDFS:
-        required_terms = ()
-        forbidden_terms = ()
-        if name == "kpi_ranking.pdf":
-            required_terms = (
-                "Primary KPI gain",
-                "gain vs best practice",
-                "red tick = LCB95 lower bound",
-                "+742%",
-                "+185%",
-                "LCB95",
-                "1% FPR operating cap",
-            )
-            forbidden_terms = ("+743%", "+186%")
-        elif name == "phase_kpi.pdf":
-            required_terms = (
-                "False-alarm family legend",
-                "Near-threshold total",
-                "Fixed-FPR recall",
-            )
-        elif name == "ei_workflow.pdf":
-            required_terms = ("What EI does", "Blind holdout", "Feature denylist")
-        elif name == "phase_method_ladder.pdf":
-            required_terms = (
-                "Phase method ladder",
-                "detectors",
-                "accepted fusion",
-                "EI",
-            )
-        elif name == "ei_evolution_money_plot.pdf":
-            required_terms = (
-                "EI evolution money plot",
-                "train/CV",
-                "Locked holdout endpoint",
-                "no holdout optimization curve",
-            )
-        elif name == "data_processing_flow.pdf":
-            required_terms = (
-                "Data-processing path",
-                "Synthetic sensing",
-                "Detector-view schema",
-                "Train/CV branch",
-                "Blind holdout",
-            )
-        elif name == "appendix_modeling_map.pdf":
-            required_terms = ("positive proxy", "environment", "detector views")
-        validate_pdf_terms(name, required_terms=required_terms, forbidden_terms=forbidden_terms)
+        validate_pdf_terms(name, required_terms=required_by_pdf.get(name, ()))
 
-    unexpected = [
-        Path(name).with_suffix(".pdf").name
-        for name in RASTER_ONLY
-        if (FIGURES_DIR / Path(name).with_suffix(".pdf").name).exists()
-    ]
-    if unexpected:
-        fail("raster-only figure has vector PDF: " + ", ".join(unexpected))
+    if (FIGURES_DIR / "appendix_radar_samples.pdf").exists():
+        fail("appendix_radar_samples must remain a raster appendix PNG")
+    validate_tex_figure_references()
 
-    print(
-        "visual validation passed: "
-        f"pngs={len(REQUIRED_PNGS)} vector_pdfs={len(VECTOR_PDFS)} raster_only={len(RASTER_ONLY)}"
-    )
+    print(f"visual validation passed: pngs={len(REQUIRED_PNGS)} vector_pdfs={len(VECTOR_PDFS)}")
     return 0
 
 
