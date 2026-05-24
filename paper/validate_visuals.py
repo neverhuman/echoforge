@@ -25,6 +25,8 @@ REQUIRED_PNGS = (
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "phase_method_ladder.png",
+    "ei_evolution_money_plot.png",
     "data_processing_flow.png",
     "appendix_modeling_map.png",
 )
@@ -37,6 +39,8 @@ VECTOR_PDFS = (
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
+    "phase_method_ladder.pdf",
+    "ei_evolution_money_plot.pdf",
     "data_processing_flow.pdf",
     "appendix_modeling_map.pdf",
 )
@@ -150,6 +154,20 @@ def main() -> int:
             )
         elif name == "ei_workflow.pdf":
             required_terms = ("What EI does", "Blind holdout", "Feature denylist")
+        elif name == "phase_method_ladder.pdf":
+            required_terms = (
+                "Phase method ladder",
+                "detectors",
+                "accepted fusion",
+                "EI",
+            )
+        elif name == "ei_evolution_money_plot.pdf":
+            required_terms = (
+                "EI evolution money plot",
+                "train/CV",
+                "Locked holdout endpoint",
+                "no holdout optimization curve",
+            )
         elif name == "data_processing_flow.pdf":
             required_terms = (
                 "Data-processing path",

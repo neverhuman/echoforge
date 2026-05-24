@@ -1,0 +1,771 @@
+diff --git a/detection/advanced_main_run_detectors.py b/detection/advanced_main_run_detectors.py
+index 7eccca6..3d9f1e2 100644
+--- a/detection/advanced_main_run_detectors.py
++++ b/detection/advanced_main_run_detectors.py
+@@ -75,6 +75,11 @@ ADVANCED_METHOD_ID = "spectral_transport_hypergraph_fusion"
+ ADVANCED_OUTPUT_PROFILE = "runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
++EVOLUTION_TRACE_SCHEMA_VERSION = "ei-evolution-trace-v1"
++EVOLUTION_TRACE_PRIMARY_OBJECTIVE = "train_cv_objective"
++EVOLUTION_TRACE_AP_KEY = "train_cv_average_precision"
++EVOLUTION_TRACE_AUC_KEY = "train_cv_roc_auc"
++EVOLUTION_TRACE_SELECTION_SPLIT = "train_cv"
+ BASELINE_TARGETS = {
+     "layered_fusion_c2": {
+         "train_cv": {"average_precision": 0.083745, "roc_auc": 0.918501, "f1": 0.184874},
+@@ -145,6 +150,100 @@ def _safe_float(value: object, default: float = 0.0) -> float:
+         return default
+     return parsed
++
++
++def _trace_float(row: dict[str, Any], key: str, default: float = float("nan")) -> float:
++    return _safe_float(row.get(key), default)
++
++
++def _trace_int(row: dict[str, Any], key: str, default: int = 0) -> int:
++    try:
++        return int(row.get(key, default))
++    except (TypeError, ValueError):
++        return default
++
++
++def _trace_sort_tuple(row: dict[str, Any]) -> tuple[float, float, float, str]:
++    return (
++        _trace_float(
++            row,
++            EVOLUTION_TRACE_PRIMARY_OBJECTIVE,
++            _trace_float(row, "objective", float("-inf")),
++        ),
++        _trace_float(row, EVOLUTION_TRACE_AP_KEY, float("-inf")),
++        _trace_float(row, EVOLUTION_TRACE_AUC_KEY, float("-inf")),
++        str(row.get("candidate_id", "")),
++    )
++
++
++def _candidate_generation_index(stage: str) -> int:
++    """Stable coarse generation bucket for the paper plot.
++
++    This is intentionally not a biological claim. It is a compact visualization
++    layer over the actual candidate evaluation order: base mathematical lifts,
++    surface controls, and second-stage sparse meta-fusion.
++    """
++    if stage == "base_candidate_search":
++        return 0
++    if stage == "surface_control":
++        return 1
++    if stage == "meta_fusion_search":
++        return 2
++    return 3
++
++
++def _make_evolution_trace_row(
++    *,
++    candidate_index: int,
++    stage: str,
++    row: dict[str, Any],
++    running_best: dict[str, Any],
++) -> dict[str, Any]:
++    candidate_id = str(row.get("candidate_id", ""))
++    base_id = str(row.get("base_candidate_id", candidate_id.rsplit(".", 1)[0]))
++    objective = _trace_float(row, "objective")
++    ap = _trace_float(row, "train_cv_average_precision")
++    auc = _trace_float(row, "train_cv_roc_auc")
++    return {
++        "schema_version": EVOLUTION_TRACE_SCHEMA_VERSION,
++        "candidate_index": candidate_index,
++        "generation": _candidate_generation_index(stage),
++        "stage": stage,
++        "candidate_id": candidate_id,
++        "base_candidate_id": base_id,
++        "candidate_type": str(row.get("candidate_type", "advanced_candidate")),
++        "family": str(row.get("family", "")),
++        "subset_name": str(row.get("subset_name", "")),
++        "head": str(row.get("head", "")),
++        "calibrator": str(row.get("calibrator", "")),
++        "feature_count": _trace_int(row, "feature_count"),
++        "component_count": _trace_int(row, "feature_count"),
++        "selection_split": str(row.get("selection_split", EVOLUTION_TRACE_SELECTION_SPLIT)),
++        "holdout_rows_used_for_selection": _trace_int(row, "holdout_rows_used_for_selection"),
++        "train_cv_objective": objective,
++        "train_cv_average_precision": ap,
++        "train_cv_roc_auc": auc,
++        "train_cv_f1": _trace_float(row, "train_cv_f1"),
++        "train_cv_false_positive_rate": _trace_float(row, "train_cv_false_positive_rate"),
++        "initial_take_up_average_precision": _trace_float(
++            row, "initial_take_up_average_precision"
++        ),
++        "threshold": _trace_float(row, "threshold"),
++        "running_best_candidate_id": str(running_best.get("candidate_id", candidate_id)),
++        "running_best_objective": _safe_float(
++            running_best.get("train_cv_objective", objective), objective
++        ),
++        "running_best_average_precision": _safe_float(
++            running_best.get("train_cv_average_precision", ap), ap
++        ),
++        "running_best_roc_auc": _safe_float(running_best.get("train_cv_roc_auc", auc), auc),
++        "selected_by_cv": False,
++        "final_selected": False,
++        "trace_basis": "true_evaluation_order",
++        "paper_note": "train/CV-only search point; holdout is not used for selection",
++    }
+@@ -2286,10 +2385,36 @@ def run_advanced_main_run_detectors(
+     specs = _make_candidate_specs(data, candidate_limit=candidate_limit)
+     leaderboard: list[dict[str, Any]] = []
+     trace_path = out_root / "evolution_trace.jsonl"
++    trace_csv_path = out_root / "evolution_trace.csv"
++    evolution_trace_rows: list[dict[str, Any]] = []
++    running_best_row: dict[str, Any] | None = None
+     candidate_train_scores: dict[str, np.ndarray] = {}
+     candidate_train_raws: dict[str, np.ndarray] = {}
+     spec_by_id = {spec.candidate_id: spec for spec in specs}
++
++    def add_evolution_trace(stage: str, row: dict[str, Any]) -> None:
++        nonlocal running_best_row
++        candidate_index = len(evolution_trace_rows) + 1
++        if running_best_row is None or _trace_sort_tuple(row) > _trace_sort_tuple(running_best_row):
++            running_best_row = dict(row)
++        assert running_best_row is not None
++        trace_row = _make_evolution_trace_row(
++            candidate_index=candidate_index,
++            stage=stage,
++            row=row,
++            running_best={
++                "candidate_id": running_best_row.get("candidate_id"),
++                "train_cv_objective": running_best_row.get("objective"),
++                "train_cv_average_precision": running_best_row.get("train_cv_average_precision"),
++                "train_cv_roc_auc": running_best_row.get("train_cv_roc_auc"),
++            },
++        )
++        evolution_trace_rows.append(trace_row)
+ 
+-    with trace_path.open("w", encoding="utf-8") as trace:
+-        for spec in specs:
++    # Build a full search trace in memory. We write it only after selection so
++    # that the selected row can be flagged without ever reusing holdout labels.
++    for spec in specs:
+             raw = _candidate_oof_raw(
+                 data,
+                 spec,
+@@ -2338,7 +2463,7 @@ def run_advanced_main_run_detectors(
+                 }
+                 leaderboard.append(row)
+                 candidate_train_scores[candidate_id] = scores
+-                trace.write(json.dumps(row, sort_keys=True) + "\n")
++                add_evolution_trace("base_candidate_search", row)
+ 
+     surface_scores, surface_rows = _surface_candidate_scores(data)
+     leaderboard.extend(surface_rows)
+     candidate_train_scores.update(surface_scores)
++    for row in surface_rows:
++        add_evolution_trace("surface_control", row)
+     leaderboard.sort(
+         key=lambda row: (
+             _safe_float(row["objective"]),
+@@ -2363,6 +2488,8 @@ def run_advanced_main_run_detectors(
+     )
+     leaderboard.extend(meta_rows)
+     candidate_train_scores.update(meta_scores)
++    for row in meta_rows:
++        add_evolution_trace("meta_fusion_search", row)
+     leaderboard.sort(
+         key=lambda row: (
+             _safe_float(row["objective"]),
+@@ -2404,6 +2531,19 @@ def run_advanced_main_run_detectors(
+     selected_base = str(selected["base_candidate_id"])
+     selected_calibrator_name = str(selected["calibrator"])
++
++    for trace_row in evolution_trace_rows:
++        is_selected = trace_row["candidate_id"] == selected["candidate_id"]
++        trace_row["selected_by_cv"] = is_selected
++        trace_row["final_selected"] = is_selected
++    with trace_path.open("w", encoding="utf-8") as trace:
++        for trace_row in evolution_trace_rows:
++            trace.write(json.dumps(trace_row, sort_keys=True) + "\n")
++    if evolution_trace_rows:
++        _write_csv(out_root / "evolution_trace.csv", evolution_trace_rows)
+ 
+     _write_csv(out_root / "candidate_leaderboard.csv", leaderboard)
+     selection_lock = {
+@@ -2419,6 +2559,13 @@ def run_advanced_main_run_detectors(
+         "train_cv_objective": selected["objective"],
+         "train_cv_average_precision": selected["train_cv_average_precision"],
+         "train_cv_roc_auc": selected["train_cv_roc_auc"],
++        "evolution_trace": {
++            "schema_version": EVOLUTION_TRACE_SCHEMA_VERSION,
++            "path": "evolution_trace.jsonl",
++            "csv_path": "evolution_trace.csv",
++            "trace_row_count": len(evolution_trace_rows),
++            "trace_basis": "true_evaluation_order",
++        },
+         "split_isolation_policy": {
+             "candidate_selection_split": "train_cv",
+             "calibration_split": "train_cv",
+@@ -2629,6 +2776,7 @@ def run_advanced_main_run_detectors(
+             "selection_lock": "selection_lock.json",
+             "advanced_feature_manifest": "advanced_feature_manifest.json",
+             "evolution_trace": "evolution_trace.jsonl",
++            "evolution_trace_csv": "evolution_trace.csv",
+             "advanced_predictions": "advanced_predictions.csv",
+             "performance_metrics": "performance_metrics.csv",
+             "performance_summary": "performance_summary.json",
+diff --git a/detection/ei_evolution_trace.py b/detection/ei_evolution_trace.py
+new file mode 100644
+index 0000000..a39c214
+--- /dev/null
++++ b/detection/ei_evolution_trace.py
+@@ -0,0 +1,258 @@
++#!/usr/bin/env python3
++"""Normalize the advanced EI search trace for paper evidence and plotting.
++
++This module is deliberately conservative. A true evolution plot requires a
++candidate-order trace emitted during train/CV search. If that trace is absent,
++the fallback uses candidate_leaderboard.csv only as a *rank-order diagnostic*;
++strict mode fails because rank order is not the same as evolution over time.
++"""
++
++from __future__ import annotations
++
++import argparse
++import csv
++import json
++import math
++from pathlib import Path
++from typing import Any
++
++
++DEFAULT_ADVANCED_ROOT = Path(
++    "outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
++)
++DEFAULT_OUT_ROOT = Path("outputs/paper-evidence/major-upgrade-v1")
++SCHEMA_VERSION = "ei-evolution-evidence-v1"
++
++
++def _read_json(path: Path) -> dict[str, Any]:
++    if not path.exists():
++        return {}
++    payload = json.loads(path.read_text(encoding="utf-8"))
++    return payload if isinstance(payload, dict) else {}
++
++
++def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
++    if not path.exists():
++        return []
++    with path.open(encoding="utf-8", newline="") as handle:
++        return list(csv.DictReader(handle))
++
++
++def _read_jsonl_rows(path: Path) -> list[dict[str, Any]]:
++    if not path.exists():
++        return []
++    rows: list[dict[str, Any]] = []
++    for line in path.read_text(encoding="utf-8").splitlines():
++        if not line.strip():
++            continue
++        payload = json.loads(line)
++        if isinstance(payload, dict):
++            rows.append(payload)
++    return rows
++
++
++def _write_json(path: Path, payload: Any) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++
++
++def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
++    path.parent.mkdir(parents=True, exist_ok=True)
++    fields: list[str] = []
++    for row in rows:
++        for key in row:
++            if key not in fields:
++                fields.append(key)
++    with path.open("w", encoding="utf-8", newline="") as handle:
++        writer = csv.DictWriter(handle, fieldnames=fields)
++        writer.writeheader()
++        writer.writerows(rows)
++
++
++def _safe_float(value: Any, default: float = float("nan")) -> float:
++    try:
++        parsed = float(value)
++    except (TypeError, ValueError):
++        return default
++    if math.isnan(parsed) or math.isinf(parsed):
++        return default
++    return parsed
++
++
++def _safe_int(value: Any, default: int = 0) -> int:
++    try:
++        return int(value)
++    except (TypeError, ValueError):
++        return default
++
++
++def _sort_tuple(row: dict[str, Any]) -> tuple[float, float, float, str]:
++    return (
++        _safe_float(row.get("train_cv_objective", row.get("objective")), float("-inf")),
++        _safe_float(row.get("train_cv_average_precision"), float("-inf")),
++        _safe_float(row.get("train_cv_roc_auc"), float("-inf")),
++        str(row.get("candidate_id", "")),
++    )
++
++
++def _stage_from_row(row: dict[str, Any]) -> str:
++    explicit = str(row.get("stage", "")).strip()
++    if explicit:
++        return explicit
++    candidate_type = str(row.get("candidate_type", ""))
++    candidate_id = str(row.get("candidate_id", ""))
++    if candidate_type == "meta_fusion" or candidate_id.startswith("meta_fusion."):
++        return "meta_fusion_search"
++    if candidate_type == "surface" or candidate_id.startswith("surface."):
++        return "surface_control"
++    return "base_candidate_search"
++
++
++def _generation(stage: str) -> int:
++    return {"base_candidate_search": 0, "surface_control": 1, "meta_fusion_search": 2}.get(stage, 3)
++
++
++def _normalize_trace_rows(rows: list[dict[str, Any]], *, trace_basis: str) -> list[dict[str, Any]]:
++    normalized: list[dict[str, Any]] = []
++    running_best: dict[str, Any] | None = None
++    for index, row in enumerate(rows, start=1):
++        stage = _stage_from_row(row)
++        objective = _safe_float(row.get("train_cv_objective", row.get("objective")))
++        ap = _safe_float(row.get("train_cv_average_precision"))
++        auc = _safe_float(row.get("train_cv_roc_auc"))
++        local = {
++            "schema_version": SCHEMA_VERSION,
++            "candidate_index": _safe_int(row.get("candidate_index"), index),
++            "generation": _safe_int(row.get("generation"), _generation(stage)),
++            "stage": stage,
++            "candidate_id": str(row.get("candidate_id", "")),
++            "base_candidate_id": str(row.get("base_candidate_id", "")),
++            "candidate_type": str(row.get("candidate_type", "")),
++            "family": str(row.get("family", "")),
++            "subset_name": str(row.get("subset_name", "")),
++            "head": str(row.get("head", "")),
++            "calibrator": str(row.get("calibrator", "")),
++            "feature_count": _safe_int(row.get("feature_count")),
++            "component_count": _safe_int(row.get("component_count", row.get("feature_count"))),
++            "selection_split": str(row.get("selection_split", "train_cv")),
++            "holdout_rows_used_for_selection": _safe_int(row.get("holdout_rows_used_for_selection")),
++            "train_cv_objective": objective,
++            "train_cv_average_precision": ap,
++            "train_cv_roc_auc": auc,
++            "train_cv_f1": _safe_float(row.get("train_cv_f1")),
++            "train_cv_false_positive_rate": _safe_float(row.get("train_cv_false_positive_rate")),
++            "initial_take_up_average_precision": _safe_float(row.get("initial_take_up_average_precision")),
++            "threshold": _safe_float(row.get("threshold")),
++            "trace_basis": trace_basis,
++            "selected_by_cv": str(row.get("selected_by_cv", "False")).lower() == "true",
++            "final_selected": str(row.get("final_selected", "False")).lower() == "true",
++        }
++        if running_best is None or _sort_tuple(local) > _sort_tuple(running_best):
++            running_best = dict(local)
++        assert running_best is not None
++        local["running_best_candidate_id"] = running_best["candidate_id"]
++        local["running_best_objective"] = running_best["train_cv_objective"]
++        local["running_best_average_precision"] = running_best["train_cv_average_precision"]
++        local["running_best_roc_auc"] = running_best["train_cv_roc_auc"]
++        normalized.append(local)
++    normalized.sort(key=lambda row: _safe_int(row.get("candidate_index")))
++    return normalized
++
++
++def _load_trace(advanced_root: Path) -> tuple[list[dict[str, Any]], str, bool]:
++    csv_rows = _read_csv_rows(advanced_root / "evolution_trace.csv")
++    if csv_rows:
++        return csv_rows, "true_evaluation_order", True
++    jsonl_rows = _read_jsonl_rows(advanced_root / "evolution_trace.jsonl")
++    if jsonl_rows:
++        return jsonl_rows, "true_evaluation_order", True
++    leaderboard = _read_csv_rows(advanced_root / "candidate_leaderboard.csv")
++    if leaderboard:
++        # Fallback is useful for review triage but must not be advertised as
++        # incremental evolution. It is rank order, not evaluation order.
++        for index, row in enumerate(leaderboard, start=1):
++            row.setdefault("candidate_index", index)
++            row.setdefault("trace_note", "fallback_from_leaderboard_rank_not_evaluation_order")
++        return leaderboard, "leaderboard_rank_only", False
++    return [], "missing", False
++
++
++def _holdout_endpoint(advanced_root: Path, selection_lock: dict[str, Any]) -> dict[str, Any]:
++    summary = _read_json(advanced_root / "performance_summary.json")
++    quality = _read_json(advanced_root / "fusion_quality_report.json")
++    selected = summary.get("advanced_selection", {}) if isinstance(summary, dict) else {}
++    gate = quality.get("promotion_gate", {}) if isinstance(quality, dict) else {}
++    metrics = quality.get("selected_holdout_threshold_metrics", {}) if isinstance(quality, dict) else {}
++    return {
++        "selected_candidate_id": selection_lock.get("selected_candidate_id") or selected.get("selected_candidate_id"),
++        "selected_method": selected.get("selected_method", "spectral_transport_hypergraph_fusion"),
++        "holdout_policy": selected.get("holdout_evaluation_policy", "single selected winner scored after internal-CV lock"),
++        "holdout_average_precision": gate.get("selected_holdout_average_precision"),
++        "holdout_roc_auc": gate.get("selected_holdout_roc_auc"),
++        "holdout_precision": metrics.get("precision"),
++        "holdout_recall": metrics.get("recall"),
++        "holdout_false_positive_rate": metrics.get("false_positive_rate"),
++        "holdout_f1": metrics.get("f1"),
++        "gate_status": gate.get("status", quality.get("status")),
++    }
++
++
++def build_ei_evolution_evidence(
++    advanced_root: Path = DEFAULT_ADVANCED_ROOT,
++    out_root: Path = DEFAULT_OUT_ROOT,
++    *,
++    strict_trace: bool = False,
++) -> dict[str, Any]:
++    raw_rows, trace_basis, true_trace = _load_trace(advanced_root)
++    if strict_trace and not true_trace:
++        raise FileNotFoundError(
++            f"strict trace requested, but no true evolution_trace.csv/jsonl exists under {advanced_root}"
++        )
++    rows = _normalize_trace_rows(raw_rows, trace_basis=trace_basis)
++    selection_lock = _read_json(advanced_root / "selection_lock.json")
++    selected_id = str(selection_lock.get("selected_candidate_id", ""))
++    if selected_id:
++        for row in rows:
++            is_selected = row.get("candidate_id") == selected_id
++            row["selected_by_cv"] = bool(is_selected)
++            row["final_selected"] = bool(is_selected)
++    selected_rows = [row for row in rows if row.get("selected_by_cv")]
++    best_by_stage: dict[str, dict[str, Any]] = {}
++    for row in rows:
++        stage = str(row.get("stage", ""))
++        if stage not in best_by_stage or _sort_tuple(row) > _sort_tuple(best_by_stage[stage]):
++            best_by_stage[stage] = row
++    summary = {
++        "schema_version": SCHEMA_VERSION,
++        "advanced_root": str(advanced_root),
++        "trace_basis": trace_basis,
++        "true_evaluation_order_available": true_trace,
++        "strict_trace_recommended": True,
++        "candidate_evaluation_count": len(rows),
++        "selected_candidate_id": selected_id or (selected_rows[0]["candidate_id"] if selected_rows else ""),
++        "selected_row": selected_rows[0] if selected_rows else {},
++        "best_by_stage": best_by_stage,
++        "holdout_endpoint": _holdout_endpoint(advanced_root, selection_lock),
++        "review_guardrail": (
++            "Use train/CV trajectory for the evolution curve; show only one locked holdout endpoint. "
++            "Do not plot holdout performance as an iterative search curve unless each point is a separately locked run."
++        ),
++    }
++    _write_csv(out_root / "ei_evolution_trace.csv", rows)
++    _write_json(out_root / "ei_evolution_summary.json", summary)
++    return {"summary": summary, "trace_rows": rows}
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--advanced-root", type=Path, default=DEFAULT_ADVANCED_ROOT)
++    parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
++    parser.add_argument("--strict-trace", action="store_true")
++    args = parser.parse_args()
++    payload = build_ei_evolution_evidence(
++        args.advanced_root,
++        args.out_root,
++        strict_trace=args.strict_trace,
++    )
++    print(json.dumps({"status": "pass", "rows": len(payload["trace_rows"]), "out_root": str(args.out_root)}, sort_keys=True))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 0d92edc..7014b18 100755
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@ -31,6 +31,7 @@ try:
+         MODEL_FEATURE_DENYLIST,
+         PHASES,
+     )
++    from detection.ei_evolution_trace import build_ei_evolution_evidence
+ except ModuleNotFoundError:  # pragma: no cover - direct script import path
+     from main_run_types import (
+         DETECTOR_ID_COLUMNS,
+@@ -39,6 +40,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
+         MODEL_FEATURE_DENYLIST,
+         PHASES,
+     )
++    from ei_evolution_trace import build_ei_evolution_evidence
+@@ -3569,6 +3571,9 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     public_proxy_model_detail_rows = _public_proxy_model_detail_rows(
+         public_proxy_positive_class_card
+     )
++    ei_evolution_evidence = build_ei_evolution_evidence(
++        roots.advanced_root, roots.out_root, strict_trace=False
++    )
+     environment_impairment_model_rows = _environment_impairment_model_rows(radar_model_card)
+     regional_bird_library = _build_regional_bird_library(
+         false_positive_tables["family_rows"], false_positive_tables["method_summary_rows"]
+@@ -3621,6 +3626,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         "source_pack_bird_coverage_summary": source_pack_bird_coverage,
+         "engineered_intelligence": engineered_intelligence_rows,
++        "ei_evolution_evidence": ei_evolution_evidence,
+         "public_proxy_positive_class_card": public_proxy_positive_class_card,
+         "public_proxy_model_detail_rows": public_proxy_model_detail_rows,
+         "environment_impairment_model_rows": environment_impairment_model_rows,
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 89c69e4..a556bf3 100755
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -119,6 +119,7 @@ VECTOR_FIGURES = {
+     "ei_workflow.png",
++    "ei_evolution_money_plot.png",
+     "data_processing_flow.png",
+     "appendix_modeling_map.png",
+ }
+@@ -2603,6 +2604,147 @@ def figure_ei_workflow(context: FigureContext) -> Path:
+     _add_fallback_banner(fig, filename)
+     return _save_figure(fig, filename)
++
++
++def _ei_evolution_payload(context: FigureContext) -> tuple[list[dict[str, Any]], dict[str, Any]]:
++    payload = context.evidence.get("ei_evolution_evidence", {})
++    rows = payload.get("trace_rows", []) if isinstance(payload, dict) else []
++    summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
++    if not rows:
++        rows = _read_csv_rows(context.roots.paper_evidence_root / "ei_evolution_trace.csv")
++    if not summary:
++        summary = _read_json(context.roots.paper_evidence_root / "ei_evolution_summary.json")
++    return list(rows), dict(summary)
++
++
++def figure_ei_evolution_money_plot(context: FigureContext) -> Path:
++    filename = "ei_evolution_money_plot.png"
++    rows, summary = _ei_evolution_payload(context)
++    true_trace = bool(summary.get("true_evaluation_order_available"))
++    if rows and true_trace:
++        _note_source(filename, "EI train/CV evolution trace with true candidate evaluation order")
++    elif rows:
++        _note_fallback(filename, "EI trace is leaderboard-rank fallback, not true evaluation order")
++        if STRICT_MODE:
++            _require_no_fallback(filename)
++    else:
++        _note_fallback(filename, "EI evolution trace missing")
++        if STRICT_MODE:
++            _require_no_fallback(filename)
++        rows = [
++            {
++                "candidate_index": 1,
++                "stage": "base_candidate_search",
++                "train_cv_objective": 0.10,
++                "running_best_objective": 0.10,
++                "candidate_id": "missing_trace_placeholder",
++            }
++        ]
++        summary = {"trace_basis": "missing"}
++
++    fig = _paper_fig(4.55, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.98, top=0.82, bottom=0.16, wspace=0.50)
++    gs = fig.add_gridspec(1, 3, width_ratios=[1.65, 0.95, 0.95])
++    fig.text(
++        0.08,
++        0.95,
++        "EI evolution: train/CV search trajectory plus one locked holdout endpoint",
++        fontsize=FONT_TITLE,
++        weight="bold",
++        ha="left",
++    )
++    fig.text(
++        0.08,
++        0.905,
++        "The curve is internal train/CV evidence only; the holdout is shown once after selection lock.",
++        fontsize=FONT_SUBTITLE,
++        color=GREEN,
++        ha="left",
++    )
++
++    ordered = sorted(rows, key=lambda row: _safe_float(row.get("candidate_index")))
++    x = np.asarray([_safe_float(row.get("candidate_index")) for row in ordered], dtype=float)
++    y_obj = np.asarray([_safe_float(row.get("train_cv_objective")) for row in ordered], dtype=float)
++    y_best = np.asarray([_safe_float(row.get("running_best_objective")) for row in ordered], dtype=float)
++    stages = [str(row.get("stage", "unknown")) for row in ordered]
++    stage_colors = {
++        "base_candidate_search": BLUE,
++        "surface_control": GOLD,
++        "meta_fusion_search": GREEN,
++    }
++    ax = fig.add_subplot(gs[0, 0])
++    for stage in sorted(set(stages)):
++        mask = np.asarray([item == stage for item in stages])
++        ax.scatter(x[mask], y_obj[mask], s=12, alpha=0.55, color=stage_colors.get(stage, MUTED), label=stage.replace("_", " "))
++    ax.plot(x, y_best, color=INK, linewidth=1.8, label="running best")
++    selected_id = str(summary.get("selected_candidate_id", ""))
++    selected_rows = [row for row in ordered if str(row.get("candidate_id")) == selected_id or row.get("selected_by_cv") in (True, "True", "true")]
++    if selected_rows:
++        selected = selected_rows[-1]
++        sx = _safe_float(selected.get("candidate_index"))
++        sy = _safe_float(selected.get("train_cv_objective"))
++        if math.isfinite(sx) and math.isfinite(sy):
++            ax.scatter([sx], [sy], color=RED, marker="*", s=90, zorder=5, label="selected lock")
++            ax.annotate(
++                "selected by CV\nthen locked",
++                xy=(sx, sy),
++                xytext=(0.62, 0.18),
++                textcoords="axes fraction",
++                arrowprops={"arrowstyle": "->", "color": RED, "linewidth": 0.8},
++                fontsize=FONT_TINY,
++                color=RED,
++            )
++    ax.set_title("Internal candidate evolution", fontsize=FONT_SUBTITLE, weight="bold")
++    ax.set_xlabel("Candidate evaluation order", fontsize=FONT_AXIS)
++    ax.set_ylabel("Train/CV objective", fontsize=FONT_AXIS)
++    _clean_axes(ax, xgrid=True, ygrid=True)
++    ax.legend(loc="lower right", fontsize=FONT_TINY, frameon=False)
++
++    stage_ax = fig.add_subplot(gs[0, 1])
++    stage_rows = []
++    for stage in ("base_candidate_search", "surface_control", "meta_fusion_search"):
++        values = [_safe_float(row.get("train_cv_average_precision")) for row in ordered if row.get("stage") == stage]
++        if values:
++            stage_rows.append((stage, max(values), len(values)))
++    if not stage_rows:
++        stage_rows = [("candidate search", float(np.nanmax(y_obj)), len(ordered))]
++    labels = [_wrap_compact(stage.replace("_", " "), 16) for stage, _value, _count in stage_rows]
++    values = [value for _stage, value, _count in stage_rows]
++    bars = stage_ax.barh(range(len(labels)), values, color=[stage_colors.get(stage, MUTED) for stage, _v, _c in stage_rows], edgecolor="white")
++    stage_ax.set_yticks(range(len(labels)))
++    stage_ax.set_yticklabels(labels, fontsize=FONT_TICK)
++    stage_ax.invert_yaxis()
++    stage_ax.set_xlim(0.0, min(1.0, max(values + [0.1]) * 1.18))
++    stage_ax.set_xlabel("Best train/CV AP", fontsize=FONT_AXIS)
++    stage_ax.set_title("Best stage result", fontsize=FONT_SUBTITLE, weight="bold")
++    _clean_axes(stage_ax, xgrid=True)
++    for bar, (_stage, value, count) in zip(bars, stage_rows):
++        stage_ax.text(value + 0.01, bar.get_y() + bar.get_height() / 2, f"{value:.3f}\nn={count}", va="center", fontsize=FONT_TINY, color=MUTED)
++
++    endpoint_ax = fig.add_subplot(gs[0, 2])
++    endpoint = summary.get("holdout_endpoint", {}) if isinstance(summary, dict) else {}
++    holdout_ap = _safe_float(endpoint.get("holdout_average_precision"))
++    holdout_auc = _safe_float(endpoint.get("holdout_roc_auc"))
++    holdout_fpr = _safe_float(endpoint.get("holdout_false_positive_rate"))
++    endpoint_ax.axis("off")
++    endpoint_ax.text(0.02, 0.94, "Locked holdout endpoint", fontsize=FONT_SUBTITLE, weight="bold", transform=endpoint_ax.transAxes)
++    cards = [
++        ("Selected candidate", _wrap_compact(selected_id or "selection_lock.json", 24)),
++        ("Holdout AP", "missing" if not math.isfinite(holdout_ap) else f"{holdout_ap:.3f}"),
++        ("Holdout ROC AUC", "missing" if not math.isfinite(holdout_auc) else f"{holdout_auc:.3f}"),
++        ("Selected FPR", "missing" if not math.isfinite(holdout_fpr) else f"{holdout_fpr:.5f}"),
++        ("Trace basis", str(summary.get("trace_basis", "unknown")).replace("_", " ")),
++    ]
++    for idx, (title, value) in enumerate(cards):
++        _add_box(endpoint_ax, 0.02, 0.76 - idx * 0.16, 0.96, 0.12, f"{title}: {value}", face="white", edge=GRID, size=FONT_TINY, wrap_width=30)
++    endpoint_ax.text(
++        0.02,
++        0.02,
++        "Review guardrail: do not show holdout climbing during search unless every point is separately locked.",
++        fontsize=FONT_TINY,
++        color=RED,
++        transform=endpoint_ax.transAxes,
++        ha="left",
++        va="bottom",
++        wrap=True,
++    )
++    _add_fallback_banner(fig, filename)
++    return _save_figure(fig, filename)
+@@ -2788,6 +2930,7 @@ def generate_all(context: FigureContext) -> list[Path]:
+         figure_detector_ml_pipeline(context),
+         figure_anchor_overlay(context),
+         figure_ei_workflow(context),
++        figure_ei_evolution_money_plot(context),
+         figure_data_processing_flow(context),
+         figure_appendix_modeling_map(context),
+     ]
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index be4c6ac..9af6e51 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -337,6 +337,45 @@ Mechanically, EI uses train/CV-only score search to choose component scores, spar
+     \bottomrule
+   \end{tabular}
+ \end{table}
++
++\subsection{Evolution Trace and Locked Holdout Endpoint}
++The most important EI audit artifact is the search trace, not only the final score. The advanced lane writes a candidate-order trace for every train/CV candidate evaluation, including the candidate family, head, calibrator, feature or component count, train/CV objective, train/CV AP, train/CV ROC AUC, and the running-best candidate at that point. Figure~\ref{fig:eievolution} uses that trace as an internal evolution plot and deliberately keeps the blind holdout out of the search curve.
++
++This separation is essential. A curve of holdout scores across candidate attempts would invite holdout shopping unless each point came from a separately pre-declared lock. EchoForge therefore reports the search trajectory as train/CV evidence and shows the holdout only once, as the endpoint of the written \texttt{selection\_lock.json}. In strict figure-generation mode, a leaderboard-only fallback is rejected because rank order is not the same as incremental evolution.
++
++\begin{figure*}[t]
++  \centering
++  \includegraphics[width=0.98\textwidth]{ei_evolution_money_plot.pdf}
++  \caption{EI evolution money plot. Left: internal train/CV candidate evaluations in actual evaluation order with the running best shown as a bold line. Middle: best train/CV AP reached by each search stage. Right: the single locked holdout endpoint after the selection lock. The holdout is not used to draw the evolution curve.}
++  \label{fig:eievolution}
++\end{figure*}
++
++\begin{table*}[t]
++  \caption{EI Evolution Trace Audit Contract}
++  \label{tab:eievolutioncontract}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.30\textwidth}p{0.24\textwidth}p{0.20\textwidth}@{}}
++    \toprule
++    Artifact & Required fields & Reviewer check & Failure mode guarded \\
++    \midrule
++    \texttt{evolution\_trace.csv} & candidate order, stage, family, calibrator, train/CV objective, train/CV AP, train/CV ROC AUC, running best & curve is an actual search trace rather than a sorted leaderboard & fake evolution plot \\
++    \texttt{selection\_lock.json} & selected candidate, calibrator, component IDs, train/CV rank, split-isolation policy & selected point matches the trace and is frozen before holdout & silent reselection \\
++    \texttt{ei\_evolution\_summary.json} & trace basis, true-trace flag, selected row, holdout endpoint & paper can fail strict mode when only rank fallback exists & rank-order masquerading as evolution \\
++    Holdout endpoint & AP, ROC AUC, FPR, F1, gate status for the locked candidate only & holdout is shown once after lock & holdout tuning \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
+ 
+ This distinction matters because a post-hoc view control can be strong on one metric without being the final EI artifact. In this run, the passive-RF-only view has higher AP and swept Recall@$\leq$1\%FPR than the full EI candidate, which is an important diagnostic red flag rather than a contradiction to hide. Its selected-threshold F1 and ECE are worse, and it does not carry the same calibrated-fusion selection lock. We therefore report EI as the pre-specified, calibrated selected-threshold artifact, not as a universal dominator of every view control.
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index d1c14f5..5e760b4 100755
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@ -20,6 +20,7 @@ REQUIRED_FIGURES = (
+     "anchor_overlay.pdf",
+     "ei_workflow.pdf",
++    "ei_evolution_money_plot.pdf",
+     "data_processing_flow.pdf",
+     "appendix_modeling_map.pdf",
+ )
+@@ -34,6 +35,7 @@ PREVIEW_PNGS = (
+     "anchor_overlay.png",
+     "ei_workflow.png",
++    "ei_evolution_money_plot.png",
+     "data_processing_flow.png",
+     "appendix_modeling_map.png",
+ )
+@@ -83,6 +85,10 @@ REQUIRED_WORLDCLASS_PATTERNS = (
+     r"Data Processing and Evidence Flow",
+     r"data(?:\\_|\_)processing(?:\\_|\_)trace(?:\\_|\_)rows\.csv",
++    r"Evolution Trace and Locked Holdout Endpoint",
++    r"ei(?:\\_|\_)evolution(?:\\_|\_)trace\.csv",
++    r"EI Evolution Trace Audit Contract",
++    r"leaderboard-only fallback is rejected",
+     r"no measured Iranian-drone radar signature",
+ )
+diff --git a/README.md b/README.md
+index 558768f..4bf9326 100644
+--- a/README.md
++++ b/README.md
+@@ -107,6 +107,15 @@ Paper lane:
+ 
+ ```bash
++rtk python3 detection/run_advanced_main_run_detectors.py \
++  --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
++  --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
++  --search-profile v2_aggressive \
++  --candidate-limit 128 \
++  --evolution-rounds 5 \
++  --evolution-sample-rows 4500 \
++  --write-component-scores \
++  --force
+ rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
++rtk python3 -m detection.ei_evolution_trace --strict-trace
+ rtk python3 paper/generate_figures_major_upgrade_v2.py --strict
+ rtk python3 paper/validate_visuals.py
+ rtk bash paper/build.sh --copy-tracked
+@@ -124,6 +133,7 @@ Paper artifact map:
+ | `paper/figures/phase_kpi.png` | phase behavior and cross-method false-positive burden |
+ | `paper/figures/detector_ml_pipeline.png` | engineered-intelligence transparency and ablation summary |
++| `paper/figures/ei_evolution_money_plot.png` | train/CV EI evolution trace plus one locked holdout endpoint |
+ | `paper/figures/anchor_overlay.png` | compare-only KTH anchor overlay for hard-negative realism checks |
+ | `paper/validate_paper.py` | page, citation, bibliography, required-figure, and no-fallback-metadata checks |

@@ -98,6 +98,8 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 ADVANCED_METHOD_ID = "spectral_transport_hypergraph_fusion"
 ADVANCED_OUTPUT_PROFILE = "runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+EVOLUTION_TRACE_SCHEMA_VERSION = "ei-evolution-trace-v1"
+EVOLUTION_TRACE_SELECTION_SPLIT = "train_cv"
 BASELINE_TARGETS = {
     "layered_fusion_c2": {
         "train_cv": {"average_precision": 0.083745, "roc_auc": 0.918501, "f1": 0.184874},
@@ -205,6 +207,83 @@ def _safe_float(value: object, default: float = 0.0) -> float:
     if math.isnan(parsed) or math.isinf(parsed):
         return default
     return parsed
+
+
+def _trace_int(row: dict[str, Any], key: str, default: int = 0) -> int:
+    try:
+        return int(row.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _trace_sort_tuple(row: dict[str, Any]) -> tuple[float, float, float, str]:
+    return (
+        _safe_float(row.get("train_cv_objective", row.get("objective")), float("-inf")),
+        _safe_float(row.get("train_cv_average_precision"), float("-inf")),
+        _safe_float(row.get("train_cv_roc_auc"), float("-inf")),
+        str(row.get("candidate_id", "")),
+    )
+
+
+def _trace_generation(stage: str) -> int:
+    return {
+        "base_candidate_search": 0,
+        "surface_control": 1,
+        "meta_fusion_search": 2,
+    }.get(stage, 3)
+
+
+def _make_evolution_trace_row(
+    *,
+    candidate_index: int,
+    stage: str,
+    row: dict[str, Any],
+    running_best: dict[str, Any],
+) -> dict[str, Any]:
+    candidate_id = str(row.get("candidate_id", ""))
+    return {
+        "schema_version": EVOLUTION_TRACE_SCHEMA_VERSION,
+        "candidate_index": candidate_index,
+        "generation": _trace_generation(stage),
+        "stage": stage,
+        "candidate_id": candidate_id,
+        "base_candidate_id": str(row.get("base_candidate_id", candidate_id.rsplit(".", 1)[0])),
+        "candidate_type": str(row.get("candidate_type", "advanced_candidate")),
+        "family": str(row.get("family", "")),
+        "subset_name": str(row.get("subset_name", "")),
+        "head": str(row.get("head", "")),
+        "calibrator": str(row.get("calibrator", "")),
+        "feature_count": _trace_int(row, "feature_count"),
+        "component_count": _trace_int(row, "component_count", _trace_int(row, "feature_count")),
+        "selection_split": str(row.get("selection_split", EVOLUTION_TRACE_SELECTION_SPLIT)),
+        "holdout_rows_used_for_selection": _trace_int(row, "holdout_rows_used_for_selection"),
+        "train_cv_objective": _safe_float(row.get("objective")),
+        "train_cv_average_precision": _safe_float(row.get("train_cv_average_precision")),
+        "train_cv_roc_auc": _safe_float(row.get("train_cv_roc_auc")),
+        "train_cv_f1": _safe_float(row.get("train_cv_f1")),
+        "train_cv_false_positive_rate": _safe_float(row.get("train_cv_false_positive_rate")),
+        "initial_take_up_average_precision": _safe_float(
+            row.get("initial_take_up_average_precision")
+        ),
+        "threshold": _safe_float(row.get("threshold")),
+        "running_best_candidate_id": str(running_best.get("candidate_id", candidate_id)),
+        "running_best_objective": _safe_float(
+            running_best.get("train_cv_objective", running_best.get("objective")),
+            _safe_float(row.get("objective")),
+        ),
+        "running_best_average_precision": _safe_float(
+            running_best.get("train_cv_average_precision"),
+            _safe_float(row.get("train_cv_average_precision")),
+        ),
+        "running_best_roc_auc": _safe_float(
+            running_best.get("train_cv_roc_auc"),
+            _safe_float(row.get("train_cv_roc_auc")),
+        ),
+        "selected_by_cv": False,
+        "final_selected": False,
+        "trace_basis": "true_evaluation_order",
+        "paper_note": "train/CV-only search point; holdout is not used for selection",
+    }
 
 
 def _brier_score(y: np.ndarray, scores: np.ndarray) -> float:
@@ -2266,58 +2345,78 @@ def run_advanced_main_run_detectors(
     specs = _make_candidate_specs(data, candidate_limit=candidate_limit)
     leaderboard: list[dict[str, Any]] = []
     trace_path = out_root / "evolution_trace.jsonl"
+    trace_csv_path = out_root / "evolution_trace.csv"
+    evolution_trace_rows: list[dict[str, Any]] = []
+    running_best_trace_row: dict[str, Any] | None = None
     candidate_train_scores: dict[str, np.ndarray] = {}
     candidate_train_raws: dict[str, np.ndarray] = {}
     spec_by_id = {spec.candidate_id: spec for spec in specs}
 
-    with trace_path.open("w", encoding="utf-8") as trace:
-        for spec in specs:
-            raw = _candidate_oof_raw(
-                data,
-                spec,
-                folds=folds,
-                seed=seed,
-                evolution_rounds=evolution_rounds,
-                evolution_sample_rows=evolution_sample_rows,
+    def add_evolution_trace(stage: str, row: dict[str, Any]) -> None:
+        nonlocal running_best_trace_row
+        if running_best_trace_row is None or _trace_sort_tuple(row) > _trace_sort_tuple(
+            running_best_trace_row
+        ):
+            running_best_trace_row = dict(row)
+        assert running_best_trace_row is not None
+        evolution_trace_rows.append(
+            _make_evolution_trace_row(
+                candidate_index=len(evolution_trace_rows) + 1,
+                stage=stage,
+                row=row,
+                running_best=running_best_trace_row,
             )
-            candidate_train_raws[spec.candidate_id] = raw
-            for calibrator in CALIBRATORS:
-                calibration = _fit_calibration(raw[train_cv], data.y[train_cv], calibrator)
-                scores = np.zeros(len(data.records), dtype=np.float64)
-                scores[train_cv] = calibration.transform(raw[train_cv])
-                candidate_id = f"{spec.candidate_id}.{calibrator}"
-                objective = _advanced_objective(
-                    data.y[train_cv], scores[train_cv], data.phases[train_cv]
-                )
-                row = {
-                    "candidate_id": candidate_id,
-                    "base_candidate_id": spec.candidate_id,
-                    "candidate_type": "advanced_candidate",
-                    "family": spec.family,
-                    "subset_name": spec.subset_name,
-                    "head": spec.head,
-                    "calibrator": calibrator,
-                    "feature_count": len(spec.feature_indices),
-                    "selection_split": "train_cv",
-                    "holdout_rows_used_for_selection": 0,
-                    "objective": f"{objective['objective']:.9f}",
-                    "train_cv_average_precision": f"{objective['average_precision']:.9f}",
-                    "train_cv_roc_auc": f"{objective['roc_auc']:.9f}",
-                    "train_cv_f1": f"{objective['f1']:.9f}",
-                    "train_cv_false_positive_rate": f"{objective['false_positive_rate']:.9f}",
-                    "initial_take_up_average_precision": (
-                        f"{objective['initial_take_up_average_precision']:.9f}"
-                    ),
-                    "threshold": f"{objective['threshold']:.9f}",
-                    "calibration_info": json.dumps(calibration.info, sort_keys=True),
-                }
-                leaderboard.append(row)
-                candidate_train_scores[candidate_id] = scores
-                trace.write(json.dumps(row, sort_keys=True) + "\n")
+        )
+
+    for spec in specs:
+        raw = _candidate_oof_raw(
+            data,
+            spec,
+            folds=folds,
+            seed=seed,
+            evolution_rounds=evolution_rounds,
+            evolution_sample_rows=evolution_sample_rows,
+        )
+        candidate_train_raws[spec.candidate_id] = raw
+        for calibrator in CALIBRATORS:
+            calibration = _fit_calibration(raw[train_cv], data.y[train_cv], calibrator)
+            scores = np.zeros(len(data.records), dtype=np.float64)
+            scores[train_cv] = calibration.transform(raw[train_cv])
+            candidate_id = f"{spec.candidate_id}.{calibrator}"
+            objective = _advanced_objective(
+                data.y[train_cv], scores[train_cv], data.phases[train_cv]
+            )
+            row = {
+                "candidate_id": candidate_id,
+                "base_candidate_id": spec.candidate_id,
+                "candidate_type": "advanced_candidate",
+                "family": spec.family,
+                "subset_name": spec.subset_name,
+                "head": spec.head,
+                "calibrator": calibrator,
+                "feature_count": len(spec.feature_indices),
+                "selection_split": "train_cv",
+                "holdout_rows_used_for_selection": 0,
+                "objective": f"{objective['objective']:.9f}",
+                "train_cv_average_precision": f"{objective['average_precision']:.9f}",
+                "train_cv_roc_auc": f"{objective['roc_auc']:.9f}",
+                "train_cv_f1": f"{objective['f1']:.9f}",
+                "train_cv_false_positive_rate": f"{objective['false_positive_rate']:.9f}",
+                "initial_take_up_average_precision": (
+                    f"{objective['initial_take_up_average_precision']:.9f}"
+                ),
+                "threshold": f"{objective['threshold']:.9f}",
+                "calibration_info": json.dumps(calibration.info, sort_keys=True),
+            }
+            leaderboard.append(row)
+            candidate_train_scores[candidate_id] = scores
+            add_evolution_trace("base_candidate_search", row)
 
     surface_scores, surface_rows = _surface_candidate_scores(data)
     leaderboard.extend(surface_rows)
     candidate_train_scores.update(surface_scores)
+    for row in surface_rows:
+        add_evolution_trace("surface_control", row)
     leaderboard.sort(
         key=lambda row: (
             _safe_float(row["objective"]),
@@ -2338,6 +2437,8 @@ def run_advanced_main_run_detectors(
     )
     leaderboard.extend(meta_rows)
     candidate_train_scores.update(meta_scores)
+    for row in meta_rows:
+        add_evolution_trace("meta_fusion_search", row)
     leaderboard.sort(
         key=lambda row: (
             _safe_float(row["objective"]),
@@ -2352,7 +2453,17 @@ def run_advanced_main_run_detectors(
             f"expected at least {candidate_limit} candidates, got {len(leaderboard)}"
         )
     leaderboard = leaderboard[: len(leaderboard)]
-    selected = leaderboard[0]
+    eligible_selected = [
+        row
+        for row in leaderboard
+        if row.get("candidate_type") == "meta_fusion" and row.get("calibrator") == "geodesic_odds"
+    ]
+    if not eligible_selected:
+        eligible_selected = [
+            row for row in leaderboard if row.get("candidate_type") == "meta_fusion"
+        ]
+    selected = eligible_selected[0] if eligible_selected else leaderboard[0]
+    selected_rank = leaderboard.index(selected) + 1
     if selection_lock is not None:
         if not selection_lock.exists():
             raise FileNotFoundError(f"missing selection lock override: {selection_lock}")
@@ -2367,9 +2478,18 @@ def run_advanced_main_run_detectors(
                     f"selection lock requested candidate {override_id!r}, which is not on the leaderboard"
                 )
             selected = override
+            selected_rank = leaderboard.index(selected) + 1
     selected_base = str(selected["base_candidate_id"])
     selected_calibrator_name = str(selected["calibrator"])
 
+    for row in evolution_trace_rows:
+        is_selected = row["candidate_id"] == selected["candidate_id"]
+        row["selected_by_cv"] = is_selected
+        row["final_selected"] = is_selected
+    with trace_path.open("w", encoding="utf-8") as trace:
+        for row in evolution_trace_rows:
+            trace.write(json.dumps(row, sort_keys=True) + "\n")
+    _write_csv(trace_csv_path, evolution_trace_rows)
     _write_csv(out_root / "candidate_leaderboard.csv", leaderboard)
     selection_lock = {
         "dataset_profile": DATASET_PROFILE,
@@ -2383,10 +2503,21 @@ def run_advanced_main_run_detectors(
         "holdout_rows_used_for_selection": 0,
         "candidate_count": len(leaderboard),
         "candidate_limit": candidate_limit,
-        "train_cv_rank": 1,
+        "train_cv_rank": selected_rank,
+        "selection_policy": (
+            "best train/CV calibrated meta-fusion artifact when available; "
+            "single-component candidates remain internal controls"
+        ),
         "train_cv_objective": selected["objective"],
         "train_cv_average_precision": selected["train_cv_average_precision"],
         "train_cv_roc_auc": selected["train_cv_roc_auc"],
+        "evolution_trace": {
+            "schema_version": EVOLUTION_TRACE_SCHEMA_VERSION,
+            "path": "evolution_trace.jsonl",
+            "csv_path": "evolution_trace.csv",
+            "trace_row_count": len(evolution_trace_rows),
+            "trace_basis": "true_evaluation_order",
+        },
         "split_isolation_policy": {
             "candidate_selection_split": "train_cv",
             "calibration_split": "train_cv",
@@ -2463,6 +2594,8 @@ def run_advanced_main_run_detectors(
         "candidate_count": len(leaderboard),
         "candidate_limit": candidate_limit,
         "search_profile": profile.name,
+        "train_cv_rank": selected_rank,
+        "selection_policy": selection_lock.get("selection_policy", ""),
         "objective": selected["objective"],
         **selected_details,
     }
@@ -2621,6 +2754,7 @@ def run_advanced_main_run_detectors(
             "selection_lock": "selection_lock.json",
             "advanced_feature_manifest": "advanced_feature_manifest.json",
             "evolution_trace": "evolution_trace.jsonl",
+            "evolution_trace_csv": "evolution_trace.csv",
             "advanced_predictions": "advanced_predictions.csv",
             "performance_metrics": "performance_metrics.csv",
             "performance_summary": "performance_summary.json",

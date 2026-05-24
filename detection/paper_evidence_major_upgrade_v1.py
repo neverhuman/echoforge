@@ -10,7 +10,9 @@ tables, and writes the paper-facing report bundle under
 from __future__ import annotations
 
 import argparse
+import ast
 import csv
+import hashlib
 import json
 import math
 import os
@@ -30,6 +32,7 @@ try:
         MODEL_FEATURE_DENYLIST,
         PHASES,
     )
+    from detection.ei_evolution_trace import build_ei_evolution_evidence
 except ModuleNotFoundError:  # pragma: no cover - direct script import path
     from main_run_types import (
         DETECTOR_ID_COLUMNS,
@@ -37,6 +40,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
         MODEL_FEATURE_DENYLIST,
         PHASES,
     )
+    from ei_evolution_trace import build_ei_evolution_evidence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -55,12 +59,12 @@ DEFAULT_ADVANCED_ROOT = (
 DEFAULT_ANCHOR_ROOT = (
     REPO_ROOT / "outputs" / "real-data" / "kth-drone-bird-human-77ghz" / "kth-measured-v1"
 )
-DEFAULT_OUT_ROOT = REPO_ROOT / "outputs" / "paper-evidence" / "major-upgrade-v1"
+DEFAULT_OUT_ROOT = REPO_ROOT / "outputs" / "paper-evidence" / "tier1-final"
 DEFAULT_FEEDBACK_MATRIX = REPO_ROOT / "paper" / "docs" / "paper_feedback_coverage_matrix.md"
 DEFAULT_GENERATIVE_ORIGIN_MANIFEST = (
     REPO_ROOT / "paper" / "docs" / "generative_origin_manifest.json"
 )
-PAPER_EVIDENCE_VERSION = "major-upgrade-v2"
+PAPER_EVIDENCE_VERSION = "tier1-final"
 THRESHOLD_TARGET_FPR = 0.01
 BOOTSTRAP_ROUNDS = 200
 BOOTSTRAP_SEED = 20260522
@@ -3408,7 +3412,326 @@ def _data_processing_trace_rows(split_summary: dict[str, Any]) -> list[dict[str,
     ]
 
 
-def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+def _simulation_best_practice_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "practice": "waveform_and_resolution_disclosure",
+            "implementation": "carrier, bandwidth, CPI, PRF/CRF, chirp count, range bins, dR, dfD, and dv are emitted as radar model rows",
+            "evidence_artifact": "radar_model_card.json; radar_model_detail_rows.csv",
+            "claim_boundary": "branch-card assumptions only; not hardware qualification",
+        },
+        {
+            "practice": "public_proxy_target_modeling",
+            "implementation": "fixed-wing pusher-prop geometry, speed, aspect RCS envelope, and broad pusher-prop micro-Doppler prior",
+            "evidence_artifact": "public_proxy_positive_class_card.json; public_proxy_model_detail_rows.csv",
+            "claim_boundary": "no measured Iranian-drone radar signature or named-platform truth",
+        },
+        {
+            "practice": "hard_negative_modeling",
+            "implementation": "bird, RC, weather, clutter-only, terrain, multipath, RFI, ground vehicle, and wind-turbine families",
+            "evidence_artifact": "regional_hard_negative_taxonomy.csv; regional_bird_library.csv",
+            "claim_boundary": "robustness diagnostics, not evasion optimization or field-rate modeling",
+        },
+        {
+            "practice": "clutter_noise_and_receiver_stress",
+            "implementation": "thermal/SNR buckets, Weibull/K-like clutter, RFI, multipath, AGC, clock drift, quantization, dropped CPI, Doppler folding, and calibration offset",
+            "evidence_artifact": "environment_impairment_model_rows.csv",
+            "claim_boundary": "synthetic stress envelope, not site-measured clutter or receiver truth",
+        },
+        {
+            "practice": "detector_view_isolation",
+            "implementation": "detector-view schema blocks labels, split keys, group IDs, time locks, audit headers, and generator internals",
+            "evidence_artifact": "detector_view_schema_evidence.csv",
+            "claim_boundary": "audit fields are visible to validators but denied to model-facing matrices",
+        },
+        {
+            "practice": "group_block_uncertainty",
+            "implementation": "scenario groups are the split and bootstrap unit; phase rows are diagnostic slices",
+            "evidence_artifact": "primary_kpi_table.csv; group_level_operating_metrics.csv",
+            "claim_boundary": "row-level uncertainty is not treated as independent evidence",
+        },
+    ]
+
+
+def _monte_carlo_setup_rows(split_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "stage": "scenario_group_sampling",
+            "modeled_dimension": "site, range, aspect, weather/noise, hard-negative role, and positive role",
+            "reviewer_check": f"{_safe_int(split_summary.get('scenario_group_count'))} scenario groups are emitted before phase expansion",
+            "boundary": "coverage design only; not population prevalence",
+        },
+        {
+            "stage": "group_locked_split",
+            "modeled_dimension": "scenario_group_id, split_role, and cv_fold",
+            "reviewer_check": f"holdout has {_safe_int(split_summary.get('holdout_group_count'))} groups and {_safe_int(split_summary.get('holdout_positive_group_count'))} positive groups",
+            "boundary": "prevents repeated-phase leakage across train/CV and holdout",
+        },
+        {
+            "stage": "phase_expansion",
+            "modeled_dimension": "initial_take_up, climb_transition, cruise_altitude",
+            "reviewer_check": "each scenario group expands into the same three phase windows",
+            "boundary": "phase metrics are diagnostic because positive holdout groups are sparse",
+        },
+        {
+            "stage": "rare_positive_stress",
+            "modeled_dimension": "positive and negative group balance",
+            "reviewer_check": f"holdout records include {_safe_int(split_summary.get('holdout_positive_record_count'))} positive records and {_safe_int(split_summary.get('holdout_negative_record_count'))} negative records",
+            "boundary": "low-FPR KPI is required; AP alone is insufficient",
+        },
+    ]
+
+
+def _detector_processing_baseline_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "lane": "high_resolution_xku_cuas",
+            "processing": "CFAR-style local contrast, range-Doppler concentration, micro-Doppler spread, and clutter stress",
+            "input_view": "X/Ku radar detector-view summaries",
+            "comparison_role": "high-resolution radar branch baseline",
+        },
+        {
+            "lane": "tactical_s_band_aesa",
+            "processing": "MTD/Doppler concentration, coarser range-velocity summaries, and track confidence",
+            "input_view": "S-band detector-view summaries",
+            "comparison_role": "tactical radar branch stress check",
+        },
+        {
+            "lane": "gbad_3d4d_cueing",
+            "processing": "revisit delay, radar-horizon stress, stale-track state, and cue confidence",
+            "input_view": "GBAD cueing detector-view summaries",
+            "comparison_role": "wide-area cueing branch baseline",
+        },
+        {
+            "lane": "distributed_acoustic_cue",
+            "processing": "spectral cadence, amplitude stability, and cross-node agreement",
+            "input_view": "acoustic cue summaries",
+            "comparison_role": "independent propulsion-cadence cue",
+        },
+        {
+            "lane": "passive_rf_context",
+            "processing": "no-signal, RFI burst, provenance quality, clock offset, and sparse cue geometry",
+            "input_view": "passive-RF provenance summaries",
+            "comparison_role": "missingness and multimodal confirmation stress",
+        },
+        {
+            "lane": "prior_ml_controls",
+            "processing": "tabular and sequence learners over denylisted detector-view features",
+            "input_view": "detector-view matrices after MODEL_FEATURE_DENYLIST",
+            "comparison_role": "ordinary learned controls under the same split",
+        },
+        {
+            "lane": "layered_fusion_c2",
+            "processing": "human-engineered late fusion with train/CV thresholding and calibration",
+            "input_view": "radar, acoustic, passive-RF, and cue confidence scores",
+            "comparison_role": "accepted human-engineered prior fusion comparator",
+        },
+    ]
+
+
+def _fusion_baseline_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "component": "active_radar_branches",
+            "input": "X/Ku, S-band, and GBAD score summaries",
+            "fusion_role": "active sensing evidence for range-Doppler and track structure",
+            "known_risk": "birds, RC aircraft, weather, and multipath can create radar-only false alarms",
+        },
+        {
+            "component": "acoustic_cue",
+            "input": "cadence, amplitude stability, and node agreement",
+            "fusion_role": "independent propulsion-cadence support",
+            "known_risk": "weather, traffic, and geometry can degrade cue quality",
+        },
+        {
+            "component": "passive_rf_context",
+            "input": "no-signal, RFI, clock, and provenance-quality geometry",
+            "fusion_role": "sparse confirmation, contradiction, and missingness evidence",
+            "known_risk": "can rank well while having weaker selected-threshold calibration",
+        },
+        {
+            "component": "accepted_prior_fusion",
+            "input": "human-designed branch score combination",
+            "fusion_role": "main non-EI comparator before candidate evolution",
+            "known_risk": "lower low-FPR recall than EI in this declared run",
+        },
+    ]
+
+
+def _ei_objective_rows() -> list[dict[str, Any]]:
+    return [
+        {
+            "objective": "LCB95 Recall@<=1%FPR",
+            "what_it_rewards": "conservative group-block low-FPR detection",
+            "current_role": "headline KPI after holdout lock",
+        },
+        {
+            "objective": "train_cv_candidate_objective",
+            "what_it_rewards": "internal AP plus ROC support with false-positive and weak-phase penalties",
+            "current_role": "selection search objective; holdout rows used for selection = 0",
+        },
+        {
+            "objective": "calibration_aware_f1",
+            "what_it_rewards": "selected-threshold precision/recall with reliable probability estimates",
+            "current_role": "guardrail against high-ranking but poorly calibrated controls",
+        },
+        {
+            "objective": "hard_negative_burden",
+            "what_it_rewards": "few false alarms by bird, RC, weather, clutter, multipath, and RFI family",
+            "current_role": "diagnostic and future objective",
+        },
+        {
+            "objective": "phase_minimum_recall",
+            "what_it_rewards": "worst-phase low-FPR recall across take-up, climb, and cruise",
+            "current_role": "future objective for take-up robustness",
+        },
+    ]
+
+
+def _phase_method_ladder_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    phase_metrics = eval_summary.get("phase_metrics", {})
+    selected_method = str(eval_summary.get("selected_method", ""))
+    method_labels = {
+        "high_resolution_xku_cuas": "X/Ku radar branch",
+        "tactical_s_band_aesa": "S-band radar branch",
+        "gbad_3d4d_cueing": "GBAD cueing branch",
+        "distributed_acoustic_cue": "Acoustic cue branch",
+        "tabular_ml_baseline": "Tabular ML control",
+        "sequence_ml_proxy": "Sequence ML control",
+        "layered_fusion_c2": "Accepted prior fusion",
+        selected_method: "Engineered Intelligence",
+    }
+    rows: list[dict[str, Any]] = []
+    for method, phases in phase_metrics.items():
+        for phase, metrics in phases.items():
+            if not isinstance(metrics, dict):
+                continue
+            rows.append(
+                {
+                    "method": method,
+                    "method_label": method_labels.get(method, method.replace("_", " ")),
+                    "phase": phase,
+                    "fixed_fpr_recall": _safe_float(metrics.get("fixed_fpr_recall")),
+                    "average_precision": _safe_float(metrics.get("average_precision")),
+                    "roc_auc": _safe_float(metrics.get("roc_auc")),
+                    "positive_count": _safe_int(metrics.get("positive_count")),
+                    "negative_count": _safe_int(metrics.get("negative_count")),
+                    "claim_boundary": "phase rows are diagnostic; main claim remains aggregate group-locked holdout KPI",
+                }
+            )
+    return rows
+
+
+def _cli_reproduction_commands() -> list[dict[str, Any]]:
+    return [
+        {
+            "stage": "generate_training_data",
+            "command": "rtk python3 -m detection.generate_main_run --profile fixed-wing-pusher-proxy-v2 --out-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --scenario-groups 10000 --seed 202605210136 --force",
+        },
+        {
+            "stage": "run_baseline_detectors",
+            "command": "rtk python3 -m detection.run_main_run_detectors --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run --folds 5 --seed 202605210136 --force",
+        },
+        {
+            "stage": "run_ei_advanced_detectors",
+            "command": "rtk python3 -m detection.run_advanced_main_run_detectors --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution --folds 5 --seed 202605210136 --search-profile v2_aggressive --candidate-limit 128 --evolution-rounds 5 --evolution-sample-rows 4500 --write-component-scores --force",
+        },
+        {
+            "stage": "generate_paper_evidence",
+            "command": "rtk python3 -m detection.paper_evidence --strict-ei-trace --force",
+        },
+        {
+            "stage": "generate_source_appendix",
+            "command": "rtk python3 paper/generate_source_appendix.py --strict",
+        },
+        {
+            "stage": "generate_figures",
+            "command": "rtk python3 paper/generate_figures.py --strict",
+        },
+        {
+            "stage": "build_pdf",
+            "command": "rtk bash paper/build.sh --copy-tracked",
+        },
+        {
+            "stage": "validate_paper",
+            "command": "rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf target/paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/tier1-final",
+        },
+    ]
+
+
+def _source_appendix_hashes() -> list[dict[str, Any]]:
+    manifest_path = REPO_ROOT / "paper" / "source_appendix_manifest.json"
+    if not manifest_path.exists():
+        return []
+    manifest = _read_json(manifest_path)
+    rows: list[dict[str, Any]] = []
+    for block in manifest.get("blocks", []):
+        if not isinstance(block, dict):
+            continue
+        rel_path = str(block.get("path", ""))
+        source_path = REPO_ROOT / rel_path
+        if not source_path.is_file():
+            rows.append(
+                {
+                    "block_id": block.get("id", ""),
+                    "path": rel_path,
+                    "origin": block.get("origin", ""),
+                    "symbols": "|".join(map(str, block.get("symbols", []))),
+                    "line_start": "",
+                    "line_end": "",
+                    "sha256": "",
+                    "status": "missing_source",
+                }
+            )
+            continue
+        text = source_path.read_text(encoding="utf-8")
+        file_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        symbol_spans: dict[str, tuple[int, int]] = {}
+        try:
+            tree = ast.parse(text)
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    symbol_spans[node.name] = (
+                        int(node.lineno),
+                        int(getattr(node, "end_lineno", node.lineno)),
+                    )
+        except SyntaxError:
+            symbol_spans = {}
+        for symbol in [str(item) for item in block.get("symbols", [])]:
+            start, end = symbol_spans.get(symbol, (0, 0))
+            excerpt = "\n".join(text.splitlines()[max(start - 1, 0) : end]) if start and end else ""
+            rows.append(
+                {
+                    "block_id": block.get("id", ""),
+                    "path": rel_path,
+                    "origin": block.get("origin", ""),
+                    "symbols": symbol,
+                    "line_start": start or "",
+                    "line_end": end or "",
+                    "sha256": hashlib.sha256(excerpt.encode("utf-8")).hexdigest()
+                    if excerpt
+                    else file_digest,
+                    "status": "included" if excerpt else "file_hash_only",
+                }
+            )
+    ip_excerpt = manifest.get("ip_escrow", {})
+    if isinstance(ip_excerpt, dict):
+        rows.append(
+            {
+                "block_id": ip_excerpt.get("id", "ip_escrow"),
+                "path": ip_excerpt.get("path", ""),
+                "origin": "redacted_escrow_only",
+                "symbols": "|".join(map(str, ip_excerpt.get("symbols", []))),
+                "line_start": "",
+                "line_end": "",
+                "sha256": "",
+                "status": "duplicate_optional_not_claim_critical",
+            }
+        )
+    return rows
+
+
+def build_paper_evidence(roots: EvidenceRoots, *, strict_ei_trace: bool = False) -> dict[str, Any]:
     if roots.out_root.exists():
         shutil.rmtree(roots.out_root)
     roots.out_root.mkdir(parents=True, exist_ok=True)
@@ -3429,6 +3752,13 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
     generative_origin_audit = _run_generative_origin_audit(roots.out_root)
     detector_view_schema_evidence = _detector_view_schema_evidence(roots.training_root)
     data_processing_trace_rows = _data_processing_trace_rows(split_summary)
+    simulation_best_practice_rows = _simulation_best_practice_rows()
+    monte_carlo_setup_rows = _monte_carlo_setup_rows(split_summary)
+    detector_processing_baseline_rows = _detector_processing_baseline_rows()
+    fusion_baseline_rows = _fusion_baseline_rows()
+    ei_objective_rows = _ei_objective_rows()
+    cli_reproduction_commands = _cli_reproduction_commands()
+    source_appendix_hashes = _source_appendix_hashes()
 
     holdout_records = [row for row in records if row.get("split_role") == "holdout"]
     holdout_scenarios = [row for row in scenarios if row.get("split_role") == "holdout"]
@@ -3516,6 +3846,12 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
     leakage.update(_stratum_and_metadata_baselines(scenarios, holdout_records))
 
     eval_summary = _build_evaluation_summary(roots.baseline_root, roots.advanced_root)
+    phase_method_ladder_rows = _phase_method_ladder_rows(eval_summary)
+    ei_evolution_evidence = build_ei_evolution_evidence(
+        roots.advanced_root,
+        roots.out_root,
+        strict_trace=strict_ei_trace,
+    )
     component_transparency = _load_component_transparency(roots.advanced_root)
     anchor_summary = _load_anchor_summary(roots.anchor_root)
     normalized_anchor_comparison = _normalized_anchor_comparison(anchor_summary)
@@ -3592,6 +3928,16 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         "split_summary": split_summary,
         "detector_view_schema_evidence": detector_view_schema_evidence,
         "data_processing_trace_rows": data_processing_trace_rows,
+        "simulation_best_practice_rows": simulation_best_practice_rows,
+        "monte_carlo_setup_rows": monte_carlo_setup_rows,
+        "detector_processing_baseline_rows": detector_processing_baseline_rows,
+        "fusion_baseline_rows": fusion_baseline_rows,
+        "ei_objective_rows": ei_objective_rows,
+        "phase_method_ladder_rows": phase_method_ladder_rows,
+        "cli_reproduction_commands": cli_reproduction_commands,
+        "source_appendix_hashes": source_appendix_hashes,
+        "ei_evolution_summary": ei_evolution_evidence.get("summary", {}),
+        "ei_evolution_evidence": ei_evolution_evidence,
         "leakage_diagnostics": leakage,
         "evaluation_summary": eval_summary,
         "component_transparency": component_transparency,
@@ -3736,6 +4082,78 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
             "output_artifacts",
             "reviewer_check",
             "claim_boundary",
+        ],
+    )
+    _write_json(
+        roots.out_root / "simulation_best_practice_rows.json", simulation_best_practice_rows
+    )
+    _write_csv(
+        roots.out_root / "simulation_best_practice_rows.csv",
+        simulation_best_practice_rows,
+        ["practice", "implementation", "evidence_artifact", "claim_boundary"],
+    )
+    _write_json(roots.out_root / "monte_carlo_setup_rows.json", monte_carlo_setup_rows)
+    _write_csv(
+        roots.out_root / "monte_carlo_setup_rows.csv",
+        monte_carlo_setup_rows,
+        ["stage", "modeled_dimension", "reviewer_check", "boundary"],
+    )
+    _write_json(
+        roots.out_root / "detector_processing_baseline_rows.json",
+        detector_processing_baseline_rows,
+    )
+    _write_csv(
+        roots.out_root / "detector_processing_baseline_rows.csv",
+        detector_processing_baseline_rows,
+        ["lane", "processing", "input_view", "comparison_role"],
+    )
+    _write_json(roots.out_root / "fusion_baseline_rows.json", fusion_baseline_rows)
+    _write_csv(
+        roots.out_root / "fusion_baseline_rows.csv",
+        fusion_baseline_rows,
+        ["component", "input", "fusion_role", "known_risk"],
+    )
+    _write_json(roots.out_root / "ei_objective_rows.json", ei_objective_rows)
+    _write_csv(
+        roots.out_root / "ei_objective_rows.csv",
+        ei_objective_rows,
+        ["objective", "what_it_rewards", "current_role"],
+    )
+    _write_json(roots.out_root / "phase_method_ladder_rows.json", phase_method_ladder_rows)
+    _write_csv(
+        roots.out_root / "phase_method_ladder_rows.csv",
+        phase_method_ladder_rows,
+        [
+            "method",
+            "method_label",
+            "phase",
+            "fixed_fpr_recall",
+            "average_precision",
+            "roc_auc",
+            "positive_count",
+            "negative_count",
+            "claim_boundary",
+        ],
+    )
+    _write_json(roots.out_root / "cli_reproduction_commands.json", cli_reproduction_commands)
+    _write_csv(
+        roots.out_root / "cli_reproduction_commands.csv",
+        cli_reproduction_commands,
+        ["stage", "command"],
+    )
+    _write_json(roots.out_root / "source_appendix_hashes.json", source_appendix_hashes)
+    _write_csv(
+        roots.out_root / "source_appendix_hashes.csv",
+        source_appendix_hashes,
+        [
+            "block_id",
+            "path",
+            "origin",
+            "symbols",
+            "line_start",
+            "line_end",
+            "sha256",
+            "status",
         ],
     )
     _write_csv(
@@ -4104,6 +4522,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--advanced-root", type=Path, default=DEFAULT_ADVANCED_ROOT)
     parser.add_argument("--anchor-root", type=Path, default=DEFAULT_ANCHOR_ROOT)
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT_ROOT)
+    parser.add_argument("--strict-ei-trace", action="store_true")
     parser.add_argument("--force", action="store_true")
     return parser.parse_args()
 
@@ -4119,7 +4538,7 @@ def main() -> int:
     )
     if roots.out_root.exists() and not args.force:
         raise FileExistsError(f"{roots.out_root} already exists; pass --force to replace it")
-    payload = build_paper_evidence(roots)
+    payload = build_paper_evidence(roots, strict_ei_trace=args.strict_ei_trace)
     print(
         json.dumps(
             {"status": "pass", "out_root": str(roots.out_root), "version": payload["version"]},

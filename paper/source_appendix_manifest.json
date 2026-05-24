@@ -1,0 +1,68 @@
+{
+	"version": "tier1-source-appendix-v1",
+	"notes": [
+		"Generated source listings are a review surface, not a replacement for repository source.",
+		"Claim-critical reproduction code remains visible in the repository.",
+		"Escrow/redacted regions are duplicate explanatory material only."
+	],
+	"blocks": [
+		{
+			"id": "human_cfar_mtd_track",
+			"title": "Human-Origin Radar Baseline Scores",
+			"path": "detection/main_run_detectors.py",
+			"symbols": ["_cfar_score", "_mtd_score", "_track_score"],
+			"origin": "human-origin"
+		},
+		{
+			"id": "human_calibration_reporting",
+			"title": "Human-Origin Calibration and Reporting",
+			"path": "detection/main_run_detectors.py",
+			"symbols": [
+				"_fit_gaussian_log_odds",
+				"_calibrated_predictions",
+				"_build_performance_reports"
+			],
+			"origin": "human-origin"
+		},
+		{
+			"id": "ei_candidate_structures",
+			"title": "Mixed-Origin EI Candidate Structures",
+			"path": "detection/advanced_main_run_detectors.py",
+			"symbols": ["CandidateSpec", "MetaFusionSpec"],
+			"origin": "mixed-origin"
+		},
+		{
+			"id": "ei_feature_lifts",
+			"title": "Generated/Evolved-Origin EI Feature Lifts",
+			"path": "detection/advanced_main_run_detectors.py",
+			"symbols": ["_haar_packet_energy", "_topology_proxy", "_dmd_summary"],
+			"origin": "generated-evolved-origin"
+		},
+		{
+			"id": "ei_selection_lock",
+			"title": "Mixed-Origin EI Selection and Lock",
+			"path": "detection/advanced_main_run_detectors.py",
+			"symbols": ["run_advanced_main_run_detectors"],
+			"origin": "mixed-origin"
+		},
+		{
+			"id": "paper_evidence_generation",
+			"title": "Human-Origin Paper Evidence Generation",
+			"path": "detection/paper_evidence_major_upgrade_v1.py",
+			"symbols": ["build_paper_evidence"],
+			"origin": "human-origin"
+		}
+	],
+	"ip_escrow": {
+		"id": "ei_optional_escrow_duplicate",
+		"title": "Optional EI Escrow Duplicate",
+		"path": "detection/advanced_main_run_detectors.py",
+		"symbols": [
+			"_build_meta_fusion_candidates",
+			"_fit_calibration",
+			"_score_selected_candidate"
+		],
+		"encrypt_env_var": "ECHOFORGE_IP_APPENDIX_KEY",
+		"claim_boundary": "Duplicate escrow material only; not required to reproduce the paper KPI."
+	}
+}

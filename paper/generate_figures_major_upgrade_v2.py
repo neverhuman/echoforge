@@ -60,7 +60,7 @@ DEFAULT_ADVANCED_ROOT = (
     / "detection"
     / "runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
 )
-DEFAULT_PAPER_EVIDENCE_ROOT = REPO_ROOT / "outputs" / "paper-evidence" / "major-upgrade-v1"
+DEFAULT_PAPER_EVIDENCE_ROOT = REPO_ROOT / "outputs" / "paper-evidence" / "tier1-final"
 DEFAULT_ANCHOR_ROOT = (
     REPO_ROOT / "outputs" / "real-data" / "kth-drone-bird-human-77ghz" / "kth-measured-v1"
 )
@@ -142,6 +142,8 @@ VECTOR_FIGURES = {
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "phase_method_ladder.png",
+    "ei_evolution_money_plot.png",
     "data_processing_flow.png",
     "appendix_modeling_map.png",
 }
@@ -481,6 +483,12 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _format_metric(value: float, *, digits: int = 3) -> str:
+    if not math.isfinite(value):
+        return "missing"
+    return f"{value:.{digits}f}"
 
 
 def _wrap(value: Any, width: int = 28) -> str:
@@ -2663,6 +2671,348 @@ def figure_ei_workflow(context: FigureContext) -> Path:
     return _save_figure(fig, filename)
 
 
+def _phase_ladder_rows(context: FigureContext) -> list[dict[str, Any]]:
+    rows = context.evidence.get("phase_method_ladder_rows", [])
+    if not rows:
+        rows = _read_csv_rows(context.roots.paper_evidence_root / "phase_method_ladder_rows.csv")
+    existing = {
+        (str(row.get("method", "")), str(row.get("phase", "")))
+        for row in rows
+        if isinstance(row, dict)
+    }
+    for row in context.baseline_metrics:
+        if row.get("split_role") != "holdout" or row.get("phase_id") in {"", "all"}:
+            continue
+        key = (str(row.get("method", "")), str(row.get("phase_id", "")))
+        if key in existing:
+            continue
+        rows.append(
+            {
+                "method": row.get("method", ""),
+                "method_label": _short_branch_label(row.get("method", "")),
+                "phase": row.get("phase_id", ""),
+                "fixed_fpr_recall": "",
+                "average_precision": row.get("average_precision", ""),
+                "roc_auc": row.get("roc_auc", ""),
+                "positive_count": row.get("positive_count", ""),
+                "negative_count": row.get("negative_count", ""),
+                "claim_boundary": "branch phase AP diagnostic; fixed-FPR recall unavailable for this row",
+            }
+        )
+    return rows
+
+
+def _ladder_metric(row: dict[str, Any]) -> float:
+    fixed = _safe_float(row.get("fixed_fpr_recall"))
+    if math.isfinite(fixed):
+        return fixed
+    return _safe_float(row.get("average_precision"), 0.0)
+
+
+def figure_phase_method_ladder(context: FigureContext) -> Path:
+    filename = "phase_method_ladder.png"
+    rows = _phase_ladder_rows(context)
+    if rows:
+        _note_source(filename, "phase method ladder evidence and baseline phase metrics")
+    else:
+        _note_fallback(filename, "phase method ladder rows missing")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+    selected_method = str(_evaluation_summary(context).get("selected_method", ""))
+    method_order = [
+        "high_resolution_xku_cuas",
+        "tactical_s_band_aesa",
+        "gbad_3d4d_cueing",
+        "distributed_acoustic_cue",
+        "tabular_ml_baseline",
+        "sequence_ml_proxy",
+        "layered_fusion_c2",
+        selected_method,
+    ]
+    method_order = [method for method in method_order if method]
+    label_map = {
+        "high_resolution_xku_cuas": "X/Ku",
+        "tactical_s_band_aesa": "S-band",
+        "gbad_3d4d_cueing": "GBAD",
+        "distributed_acoustic_cue": "Acoustic",
+        "tabular_ml_baseline": "Tabular ML",
+        "sequence_ml_proxy": "Seq. ML",
+        "layered_fusion_c2": "Accepted fusion",
+        selected_method: "EI",
+    }
+    row_map = {
+        (str(row.get("method", "")), str(row.get("phase", row.get("phase_id", "")))): row
+        for row in rows
+        if isinstance(row, dict)
+    }
+    fig = _paper_fig(3.35, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.985, top=0.78, bottom=0.20)
+    ax = fig.add_subplot(111)
+    fig.text(
+        0.08,
+        0.94,
+        "Phase method ladder: detectors -> accepted fusion -> EI",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
+    )
+    fig.text(
+        0.08,
+        0.895,
+        "Branch rows use holdout AP when fixed-FPR recall is unavailable; fusion and EI use the low-FPR operating metric.",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
+    x = np.arange(len(PHASES))
+    width = min(0.10, 0.72 / max(len(method_order), 1))
+    offsets = (np.arange(len(method_order)) - (len(method_order) - 1) / 2.0) * width
+    colors = [BLUE, TEAL, GOLD, "#b84a4a", "#7b8794", "#9aa5b1", GREEN, INK]
+    for idx, method in enumerate(method_order):
+        values = [_ladder_metric(row_map.get((method, phase), {})) for phase in PHASES]
+        bars = ax.bar(
+            x + offsets[idx],
+            values,
+            width,
+            color=colors[idx % len(colors)],
+            edgecolor="white",
+            linewidth=0.4,
+            label=label_map.get(method, _short_branch_label(method)),
+        )
+        if method in {"layered_fusion_c2", selected_method}:
+            _annotate_vertical_bars(ax, bars, dy=0.012)
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}" for phase in PHASES],
+        fontsize=FONT_TINY,
+    )
+    ax.set_ylim(0.0, 1.04)
+    ax.set_ylabel("LCB-aware low-FPR recall or AP diagnostic", fontsize=FONT_AXIS)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, 1.22), ncol=4, frameon=False)
+    _clean_axes(ax, ygrid=True)
+    ax.text(
+        0.0,
+        -0.18,
+        "Same three scenario panels make the progression readable: human detectors, accepted fusion, then EI.",
+        transform=ax.transAxes,
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+
+
+def _ei_evolution_payload(context: FigureContext) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    payload = context.evidence.get("ei_evolution_evidence", {})
+    rows = payload.get("trace_rows", []) if isinstance(payload, dict) else []
+    summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+    if not rows:
+        rows = _read_csv_rows(context.roots.paper_evidence_root / "ei_evolution_trace.csv")
+    if not summary:
+        summary = _read_json(context.roots.paper_evidence_root / "ei_evolution_summary.json")
+    return list(rows), dict(summary)
+
+
+def figure_ei_evolution_money_plot(context: FigureContext) -> Path:
+    filename = "ei_evolution_money_plot.png"
+    rows, summary = _ei_evolution_payload(context)
+    true_trace = bool(summary.get("true_evaluation_order_available"))
+    if rows and true_trace:
+        _note_source(filename, "EI train/CV evolution trace with true candidate evaluation order")
+    elif rows:
+        _note_fallback(filename, "EI trace is leaderboard rank only, not true evaluation order")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+    else:
+        _note_fallback(filename, "EI evolution trace missing")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+        rows = [
+            {
+                "candidate_index": 1,
+                "stage": "missing_trace",
+                "train_cv_objective": 0.0,
+                "running_best_objective": 0.0,
+                "candidate_id": "missing_trace",
+            }
+        ]
+        summary = {"trace_basis": "missing"}
+
+    ordered = sorted(rows, key=lambda row: _safe_float(row.get("candidate_index"), 0.0))
+    x = np.asarray(
+        [_safe_float(row.get("candidate_index"), idx + 1) for idx, row in enumerate(ordered)]
+    )
+    y_obj = np.asarray([_safe_float(row.get("train_cv_objective"), 0.0) for row in ordered])
+    y_best = np.asarray([_safe_float(row.get("running_best_objective"), 0.0) for row in ordered])
+    stages = [str(row.get("stage", "unknown")) for row in ordered]
+    stage_colors = {
+        "base_candidate_search": BLUE,
+        "surface_control": GOLD,
+        "meta_fusion_search": GREEN,
+        "missing_trace": MUTED,
+    }
+
+    fig = _paper_fig(4.55, constrained=False)
+    fig.subplots_adjust(left=0.08, right=0.985, top=0.82, bottom=0.16, wspace=0.50)
+    grid = fig.add_gridspec(1, 3, width_ratios=[1.65, 0.95, 0.95])
+    fig.text(
+        0.08,
+        0.95,
+        "EI evolution money plot: train/CV search plus one locked holdout endpoint",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
+    )
+    fig.text(
+        0.08,
+        0.905,
+        "The curve is internal train/CV evidence only; the holdout appears once after selection lock.",
+        fontsize=FONT_SUBTITLE,
+        color=GREEN,
+        ha="left",
+    )
+
+    ax = fig.add_subplot(grid[0, 0])
+    for stage in sorted(set(stages)):
+        mask = np.asarray([item == stage for item in stages])
+        ax.scatter(
+            x[mask],
+            y_obj[mask],
+            s=12,
+            alpha=0.55,
+            color=stage_colors.get(stage, MUTED),
+            label=stage.replace("_", " "),
+        )
+    ax.plot(x, y_best, color=INK, linewidth=1.8, label="running best")
+    selected_id = str(summary.get("selected_candidate_id", ""))
+    selected_rows = [
+        row
+        for row in ordered
+        if str(row.get("candidate_id")) == selected_id
+        or str(row.get("selected_by_cv", "")).lower() == "true"
+    ]
+    if selected_rows:
+        selected = selected_rows[-1]
+        sx = _safe_float(selected.get("candidate_index"))
+        sy = _safe_float(selected.get("train_cv_objective"))
+        if math.isfinite(sx) and math.isfinite(sy):
+            ax.scatter([sx], [sy], color=RED, marker="*", s=88, zorder=5, label="selected lock")
+            ax.annotate(
+                "selected by CV\nthen locked",
+                xy=(sx, sy),
+                xytext=(0.58, 0.18),
+                textcoords="axes fraction",
+                arrowprops={"arrowstyle": "->", "color": RED, "linewidth": 0.8},
+                fontsize=FONT_TINY,
+                color=RED,
+            )
+    ax.set_title("Internal candidate evolution", fontsize=FONT_SUBTITLE, weight="bold")
+    ax.set_xlabel("Candidate evaluation order", fontsize=FONT_AXIS)
+    ax.set_ylabel("Train/CV objective", fontsize=FONT_AXIS)
+    _clean_axes(ax, xgrid=True, ygrid=True)
+    ax.legend(loc="lower right", fontsize=FONT_TINY, frameon=False)
+
+    stage_ax = fig.add_subplot(grid[0, 1])
+    stage_rows: list[tuple[str, float, int]] = []
+    for stage in ("base_candidate_search", "surface_control", "meta_fusion_search"):
+        values = [
+            _safe_float(row.get("train_cv_average_precision"))
+            for row in ordered
+            if row.get("stage") == stage
+        ]
+        values = [value for value in values if math.isfinite(value)]
+        if values:
+            stage_rows.append((stage, max(values), len(values)))
+    if not stage_rows:
+        finite = y_obj[np.isfinite(y_obj)]
+        stage_rows = [
+            ("candidate search", float(np.max(finite)) if len(finite) else 0.0, len(ordered))
+        ]
+    labels = [_wrap_compact(stage.replace("_", " "), 16) for stage, _value, _count in stage_rows]
+    values = [value for _stage, value, _count in stage_rows]
+    bars = stage_ax.barh(
+        range(len(labels)),
+        values,
+        color=[stage_colors.get(stage, MUTED) for stage, _value, _count in stage_rows],
+        edgecolor="white",
+    )
+    stage_ax.set_yticks(range(len(labels)))
+    stage_ax.set_yticklabels(labels, fontsize=FONT_TICK)
+    stage_ax.invert_yaxis()
+    stage_ax.set_xlim(0.0, min(1.0, max(values + [0.1]) * 1.18))
+    stage_ax.set_xlabel("Best train/CV AP", fontsize=FONT_AXIS)
+    stage_ax.set_title("Best stage result", fontsize=FONT_SUBTITLE, weight="bold")
+    _clean_axes(stage_ax, xgrid=True)
+    for bar, (_stage, value, count) in zip(bars, stage_rows):
+        stage_ax.text(
+            value + 0.01,
+            bar.get_y() + bar.get_height() / 2,
+            f"{value:.3f}\nn={count}",
+            va="center",
+            fontsize=FONT_TINY,
+            color=MUTED,
+        )
+
+    endpoint_ax = fig.add_subplot(grid[0, 2])
+    endpoint = summary.get("holdout_endpoint", {}) if isinstance(summary, dict) else {}
+    endpoint_ax.axis("off")
+    endpoint_ax.text(
+        0.02,
+        0.94,
+        "Locked holdout endpoint",
+        fontsize=FONT_SUBTITLE,
+        weight="bold",
+        transform=endpoint_ax.transAxes,
+    )
+    cards = [
+        ("Selected", _wrap_compact(selected_id or "selection_lock.json", 24)),
+        ("Holdout AP", _format_metric(_safe_float(endpoint.get("holdout_average_precision")))),
+        ("Holdout ROC AUC", _format_metric(_safe_float(endpoint.get("holdout_roc_auc")))),
+        (
+            "Selected FPR",
+            _format_metric(_safe_float(endpoint.get("holdout_false_positive_rate")), digits=5),
+        ),
+        ("Trace basis", str(summary.get("trace_basis", "unknown")).replace("_", " ")),
+    ]
+    for idx, (title, value) in enumerate(cards):
+        _add_box(
+            endpoint_ax,
+            0.02,
+            0.76 - idx * 0.16,
+            0.96,
+            0.12,
+            f"{title}: {value}",
+            face="white",
+            edge=GRID,
+            size=FONT_TINY,
+            wrap_width=30,
+        )
+    endpoint_ax.text(
+        0.02,
+        0.02,
+        "Guardrail: no holdout optimization curve. Holdout is scored once after lock.",
+        fontsize=FONT_TINY,
+        color=RED,
+        transform=endpoint_ax.transAxes,
+        ha="left",
+        va="bottom",
+        wrap=True,
+    )
+    endpoint_ax.text(
+        0.02,
+        0.10,
+        "no holdout optimization curve",
+        fontsize=FONT_TINY,
+        color=RED,
+        transform=endpoint_ax.transAxes,
+        ha="left",
+        va="bottom",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+
+
 def figure_data_processing_flow(context: FigureContext) -> Path:
     filename = "data_processing_flow.png"
     trace_rows = context.evidence.get("data_processing_trace_rows", [])
@@ -2954,11 +3304,13 @@ def generate_all(context: FigureContext) -> list[Path]:
         figure_monte_carlo_split_flow(context),
         figure_kpi_ranking(context),
         figure_phase_kpi(context),
+        figure_phase_method_ladder(context),
         figure_iq_drone_samples(context),
         figure_iq_negative_samples(context),
         figure_detector_ml_pipeline(context),
         figure_anchor_overlay(context),
         figure_ei_workflow(context),
+        figure_ei_evolution_money_plot(context),
         figure_data_processing_flow(context),
         figure_appendix_modeling_map(context),
     ]
