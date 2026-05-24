@@ -47,11 +47,15 @@ BANNED_VISIBLE_TERMS = (
     re.compile(r"\bselected candidate\b", re.IGNORECASE),
     re.compile(r"\bselected AP\b", re.IGNORECASE),
     re.compile(r"NeverHumqn", re.IGNORECASE),
+    re.compile(r"(?<!\d)0\.0\s*GHz", re.IGNORECASE),
+    re.compile(r"burn-through calculation", re.IGNORECASE),
+    re.compile(r"jammer power recipe", re.IGNORECASE),
+    re.compile(r"target-specific delay program", re.IGNORECASE),
 )
 MIN_PNG_BYTES = 25_000
 MIN_PDF_BYTES = 5_000
 MIN_PNG_WIDTH = 2500
-MAX_PNG_WIDTH = 3900
+MAX_PNG_WIDTH = 5200
 MIN_PNG_HEIGHT = 900
 MIN_CHANNEL_STDDEV = 3.0
 
@@ -137,7 +141,9 @@ def main() -> int:
     required_by_pdf = {
         "architecture_stack.pdf": (
             "EchoForge simulator",
-            "Model card",
+            "Radar Branches",
+            "64 x 96",
+            "jamming/deception",
             "claim boundary",
         ),
         "phase_method_ladder.pdf": (
@@ -159,9 +165,10 @@ def main() -> int:
             "RFI",
         ),
         "radar_positive_vs_false_positive.pdf": (
-            "Synthetic range-Doppler examples",
+            "Range-Doppler diagnostic gallery",
             "Positive",
-            "Challenging",
+            "EW",
+            "not measured imagery",
         ),
     }
     for name in VECTOR_PDFS:
@@ -169,6 +176,15 @@ def main() -> int:
 
     if (FIGURES_DIR / "appendix_radar_samples.pdf").exists():
         fail("appendix_radar_samples must remain a raster appendix PNG")
+    radar_png = FIGURES_DIR / "radar_positive_vs_false_positive.png"
+    with Image.open(radar_png) as image:
+        image.load()
+        width, height = image.size
+        if width < 3000 or height < 1400:
+            fail(
+                "radar_positive_vs_false_positive.png must be at least "
+                f"3000x1400 px, got {width}x{height}"
+            )
     validate_tex_figure_references()
 
     print(f"visual validation passed: pngs={len(REQUIRED_PNGS)} vector_pdfs={len(VECTOR_PDFS)}")

@@ -71,17 +71,26 @@ def _origin_for_relative_line(spans: list[dict[str, Any]], rel_line: int, defaul
     return default
 
 
-def _emit_codebox(title: str, lines: list[str], *, origin: str) -> str:
-    color = ORIGIN_BACKGROUNDS.get(origin, "CodeBg")
+def _line_background_option(origins: list[str]) -> str:
+    clauses = []
+    for line_number, origin in enumerate(origins, start=1):
+        color = ORIGIN_BACKGROUNDS.get(origin)
+        if color:
+            clauses.append(rf"\ifnum\value{{lstnumber}}={line_number}\color{{{color}}}\fi")
+    return "linebackgroundcolor={" + "".join(clauses) + "}"
+
+
+def _emit_codebox(title: str, lines: list[str], *, origins: list[str]) -> str:
     body = "\n".join(lines)
+    listing_options = "style=EchoForgePython," + _line_background_option(origins)
     return "\n".join(
         [
             (
                 "\\begin{tcolorbox}[enhanced,breakable,"
-                f"title={{{_tex_escape(title)}}},colback={color},colframe=CodeFrame,"
+                f"title={{{_tex_escape(title)}}},colback=CodeBg,colframe=CodeFrame,"
                 "fonttitle=\\bfseries\\small]"
             ),
-            "\\begin{lstlisting}[style=EchoForgePython]",
+            f"\\begin{{lstlisting}}[{listing_options}]",
             body,
             "\\end{lstlisting}",
             "\\end{tcolorbox}",
@@ -89,33 +98,13 @@ def _emit_codebox(title: str, lines: list[str], *, origin: str) -> str:
     )
 
 
-def _emit_symbol(
+def _symbol_line_origins(
     *,
-    symbol: str,
-    lines: list[str],
+    line_count: int,
     origin: str,
     spans: list[dict[str, Any]],
-) -> str:
-    if not spans:
-        return _emit_codebox(symbol, lines, origin=origin)
-
-    chunks: list[str] = []
-    current_origin = _origin_for_relative_line(spans, 1, origin)
-    current_lines: list[str] = []
-    for idx, line in enumerate(lines, start=1):
-        line_origin = _origin_for_relative_line(spans, idx, origin)
-        if line_origin != current_origin and current_lines:
-            chunks.append(
-                _emit_codebox(f"{symbol} ({current_origin})", current_lines, origin=current_origin)
-            )
-            current_lines = []
-            current_origin = line_origin
-        current_lines.append(line)
-    if current_lines:
-        chunks.append(
-            _emit_codebox(f"{symbol} ({current_origin})", current_lines, origin=current_origin)
-        )
-    return "\n".join(chunks)
+) -> list[str]:
+    return [_origin_for_relative_line(spans, idx, origin) for idx in range(1, line_count + 1)]
 
 
 def build(manifest_path: Path, out_path: Path, metadata_path: Path, *, strict: bool) -> None:
@@ -131,6 +120,7 @@ def build(manifest_path: Path, out_path: Path, metadata_path: Path, *, strict: b
         ),
     ]
     metadata_rows: list[dict[str, Any]] = []
+    included_block_count = 0
     for block in manifest.get("blocks", []):
         if not isinstance(block, dict):
             continue
@@ -143,13 +133,23 @@ def build(manifest_path: Path, out_path: Path, metadata_path: Path, *, strict: b
                 raise FileNotFoundError(path)
             continue
 
-        chunks.append(f"\\subsection{{{_tex_escape(title)}}}")
         line_origin_spans = block.get("line_origin_spans", {})
+        block_lines: list[str] = []
+        block_origins: list[str] = []
+        block_metadata: list[dict[str, Any]] = []
         for symbol in [str(item) for item in block.get("symbols", [])]:
             start, end, lines, digest = _extract_symbol(path, symbol)
             spans = line_origin_spans.get(symbol, []) if isinstance(line_origin_spans, dict) else []
-            chunks.append(_emit_symbol(symbol=symbol, lines=lines, origin=origin, spans=spans))
-            metadata_rows.append(
+            if block_lines:
+                block_lines.append("")
+                block_origins.append("mixed-origin")
+            block_lines.append(f"# {symbol}")
+            block_origins.append(origin)
+            block_lines.extend(lines)
+            block_origins.extend(
+                _symbol_line_origins(line_count=len(lines), origin=origin, spans=spans)
+            )
+            block_metadata.append(
                 {
                     "block_id": block.get("id", ""),
                     "title": title,
@@ -161,16 +161,32 @@ def build(manifest_path: Path, out_path: Path, metadata_path: Path, *, strict: b
                     "sha256": digest,
                 }
             )
+        if block_lines:
+            chunks.append(f"\\subsection{{{_tex_escape(title)}}}")
+            chunks.append(_emit_codebox(title, block_lines, origins=block_origins))
+            metadata_rows.extend(block_metadata)
+            included_block_count += 1
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text("\n\n".join(chunks) + "\n", encoding="utf-8")
+    output_text = "\n\n".join(chunks) + "\n"
+    tcolorbox_count = output_text.count("\\begin{tcolorbox}")
+    listing_count = output_text.count("\\begin{lstlisting}")
+    if strict and (tcolorbox_count != included_block_count or listing_count != included_block_count):
+        raise AssertionError(
+            "source appendix box/listing count mismatch: "
+            f"blocks={included_block_count} boxes={tcolorbox_count} listings={listing_count}"
+        )
+    out_path.write_text(output_text, encoding="utf-8")
     metadata_path.write_text(
         json.dumps(
             {
-                "version": manifest.get("version"),
+                "manifest_id": manifest.get("version"),
                 "manifest": str(manifest_path.relative_to(REPO_ROOT)),
                 "generated_tex": str(out_path.relative_to(REPO_ROOT)),
+                "manifest_block_count": included_block_count,
+                "tcolorbox_count": tcolorbox_count,
+                "listing_count": listing_count,
                 "listings": metadata_rows,
             },
             indent=2,

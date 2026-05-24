@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_EVIDENCE_ROOT = Path("outputs/paper-evidence/tier1-final")
+DEFAULT_EVIDENCE_ROOT = Path("outputs/paper-evidence/current")
 DEFAULT_OUT = Path("target/paper/generated_metrics.tex")
 
 
@@ -80,8 +80,8 @@ def _confusion_label(row: dict[str, str]) -> str:
 
 def build_macros(evidence_root: Path) -> list[str]:
     manifest = _read_json(evidence_root / "paper_evidence_manifest.json")
-    if manifest.get("version") != "tier1-final":
-        raise ValueError("paper evidence manifest version must be tier1-final")
+    if manifest.get("version") != "current":
+        raise ValueError("paper evidence manifest must be current")
 
     gain_rows = _index_gain_rows(_read_csv(evidence_root / "main_kpi_gain_table.csv"))
     confusion_rows = _read_csv(evidence_root / "selected_threshold_confusion_matrix.csv")

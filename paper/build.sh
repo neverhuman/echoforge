@@ -19,11 +19,11 @@ done
 
 mkdir -p "$out_dir"
 cd "$repo_root"
-training_root="outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run"
-baseline_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run"
-advanced_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
-paper_evidence_root="outputs/paper-evidence/tier1-final"
-anchor_root="outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1"
+training_root="outputs/training-data/fixed-wing-pusher-proxy-main-run"
+baseline_root="outputs/detection/fixed-wing-pusher-proxy-main-run"
+advanced_root="outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution"
+paper_evidence_root="outputs/paper-evidence/current"
+anchor_root="outputs/real-data/kth-drone-bird-human-77ghz/kth-measured"
 real_data_root="${ECHOFORGE_REAL_DATA_ROOT:-$HOME/.cache/echoforge/real-data}"
 kth_cache_root="$real_data_root/kth-drone-bird-human-77ghz"
 training_records="$training_root/records.csv"
@@ -94,17 +94,18 @@ fi
 if [[ ! -s "$anchor_report" ]]; then
   python3 -m detection.real_data.cli build-report \
     --dataset-id kth-drone-bird-human-77ghz \
-    --run-id kth-measured-v1 \
+    --run-id kth-measured \
     --raw-root "$real_data_root" \
     --out-root outputs/real-data
 fi
 
 if [[ ! -s "$training_records" ]]; then
   python3 -m detection.generate_main_run \
-    --profile fixed-wing-pusher-proxy-v2 \
+    --profile fixed-wing-pusher-proxy \
     --out-root "$training_root" \
     --scenario-groups 10000 \
     --seed 202605210136 \
+    --jamming-deception-rate 0.15 \
     --force
 fi
 
@@ -122,13 +123,13 @@ fi
 if [[ ! -s "$advanced_lock" || ! -s "$advanced_trace" || \
       detection/advanced_main_run_detectors.py -nt "$advanced_trace" || \
       detection/ei_evolution_trace.py -nt "$advanced_trace" || \
-      detection/paper_evidence_major_upgrade_v1.py -nt "$advanced_trace" ]]; then
+      detection/paper_evidence_builder.py -nt "$advanced_trace" ]]; then
   python3 -m detection.run_advanced_main_run_detectors \
     --data-root "$training_root" \
     --out-root "$advanced_root" \
     --folds 5 \
     --seed 202605210136 \
-    --search-profile v2_aggressive \
+    --search-profile aggressive \
     --candidate-limit 128 \
     --evolution-rounds 5 \
     --evolution-sample-rows 4500 \

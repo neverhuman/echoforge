@@ -20,12 +20,14 @@ try:
         ACTIVE_RADAR_SENSORS,
         ASPECT_BUCKETS,
         DATASET_PROFILE,
+        DEFAULT_JAMMING_DECEPTION_RATE,
         DEFAULT_FOLDS,
         DEFAULT_HOLDOUT_GROUPS,
         DEFAULT_HOLDOUT_POSITIVES,
         DEFAULT_POSITIVE_GROUPS,
         DEFAULT_SCENARIO_GROUPS,
         DEFAULT_SEED,
+        DEFAULT_SHARD_SIZE,
         DETECTOR_ID_COLUMNS,
         DETECTOR_VIEW_IDS,
         FUSION_VIEW_ID,
@@ -39,6 +41,14 @@ try:
         SITE_ARCHETYPES,
         TIMESTAMP_EPOCH_NS,
     )
+    from detection.jamming_deception_models import (
+        SAFE_PUBLIC_PROXY_JD_BOUNDARY,
+        apply_jamming_deception,
+        jamming_deception_features,
+        jamming_deception_model_card,
+        scenario_jamming_deception_fields,
+        validate_jamming_deception_rate,
+    )
 except ModuleNotFoundError:  # pragma: no cover - direct script import path
     from main_run_types import (
         ACOUSTIC_NODE_COUNT,
@@ -47,12 +57,14 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
         ACTIVE_RADAR_SENSORS,
         ASPECT_BUCKETS,
         DATASET_PROFILE,
+        DEFAULT_JAMMING_DECEPTION_RATE,
         DEFAULT_FOLDS,
         DEFAULT_HOLDOUT_GROUPS,
         DEFAULT_HOLDOUT_POSITIVES,
         DEFAULT_POSITIVE_GROUPS,
         DEFAULT_SCENARIO_GROUPS,
         DEFAULT_SEED,
+        DEFAULT_SHARD_SIZE,
         DETECTOR_ID_COLUMNS,
         DETECTOR_VIEW_IDS,
         FUSION_VIEW_ID,
@@ -65,6 +77,14 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
         RANGE_BANDS,
         SITE_ARCHETYPES,
         TIMESTAMP_EPOCH_NS,
+    )
+    from jamming_deception_models import (
+        SAFE_PUBLIC_PROXY_JD_BOUNDARY,
+        apply_jamming_deception,
+        jamming_deception_features,
+        jamming_deception_model_card,
+        scenario_jamming_deception_fields,
+        validate_jamming_deception_rate,
     )
 
 
@@ -89,8 +109,8 @@ def split_counts(
 ) -> tuple[int, int, int, int]:
     """Return holdout/train and positive allocations.
 
-    The v1 10,000-group / 250-positive run intentionally locks to the
-    requested 1,500-group holdout with 38 positive groups. The v2
+    The original 10,000-group / 250-positive run intentionally locks to the
+    requested 1,500-group holdout with 38 positive groups. The current
     10,000-group / 50-positive run follows the same 15 percent holdout ratio
     and rounds to 8 positive holdout groups and 42 train/CV positives.
     Smaller smoke runs keep the same 15 percent holdout ratio with a
@@ -119,6 +139,40 @@ def split_counts(
     return holdout_groups, train_groups, holdout_positives, train_positives
 
 
+def _jamming_deception_active_groups(
+    *,
+    all_group_indices: list[int],
+    holdout_indices: set[int],
+    positive_indices: set[int],
+    seed: int,
+    rate: float,
+) -> set[int]:
+    if rate == 0.0:
+        return set()
+    by_cell: dict[tuple[str, bool], list[int]] = {}
+    for idx in all_group_indices:
+        split_role = "holdout" if idx in holdout_indices else "train_cv"
+        is_positive = idx in positive_indices
+        by_cell.setdefault((split_role, is_positive), []).append(idx)
+
+    active: set[int] = set()
+    for (split_role, is_positive), members in by_cell.items():
+        count = len(members)
+        target = int(round(count * rate))
+        lower = math.ceil(0.10 * count)
+        upper = math.floor(0.20 * count)
+        if lower <= upper:
+            target = min(max(target, lower), upper)
+        target = min(max(target, 0), count)
+        ordered = _stable_order(
+            members,
+            seed,
+            f"jamming-deception-active-{split_role}-{int(is_positive)}",
+        )
+        active.update(ordered[:target])
+    return active
+
+
 def build_scenario_manifest(
     *,
     scenario_groups: int = DEFAULT_SCENARIO_GROUPS,
@@ -127,7 +181,9 @@ def build_scenario_manifest(
     folds: int = DEFAULT_FOLDS,
     holdout_policy: str = "group_random",
     holdout_value: str | None = None,
+    jamming_deception_rate: float = DEFAULT_JAMMING_DECEPTION_RATE,
 ) -> list[dict[str, Any]]:
+    jamming_deception_rate = validate_jamming_deception_rate(jamming_deception_rate)
     holdout_count, _train_count, holdout_pos_count, train_pos_count = split_counts(
         scenario_groups, positive_groups
     )
@@ -173,6 +229,13 @@ def build_scenario_manifest(
     )
     train_positive = set(_stable_order(train_indices, seed, "train-positive")[:train_pos_count])
     positive_indices = holdout_positive | train_positive
+    jamming_deception_active_groups = _jamming_deception_active_groups(
+        all_group_indices=all_group_indices,
+        holdout_indices=holdout_indices,
+        positive_indices=positive_indices,
+        seed=seed,
+        rate=jamming_deception_rate,
+    )
 
     train_positive_order = _stable_order(train_positive, seed, "fold-positive")
     train_negative_order = _stable_order(
@@ -205,6 +268,12 @@ def build_scenario_manifest(
             ]
             confuser_family = target_role
             target_class = "confuser_or_artifact"
+        jd_fields = scenario_jamming_deception_fields(
+            group_index=group_index,
+            seed=seed,
+            rate=jamming_deception_rate,
+            active_override=group_index in jamming_deception_active_groups,
+        )
         rows.append(
             {
                 "scenario_group_id": scenario_group_id,
@@ -226,6 +295,7 @@ def build_scenario_manifest(
                 "scenario_seed": stable_seed(seed, group_index, "scenario"),
                 "split_key": f"{split_role}:{fold_by_index.get(group_index, 'holdout')}",
                 "audit_metadata_role": "restricted_not_model_feature",
+                **jd_fields,
             }
         )
     return rows
@@ -325,6 +395,77 @@ def _signal_profile(
     return amplitude * sensor_gain, cadence_hz, doppler_norm
 
 
+def _add_scatterer_cloud(
+    iq: np.ndarray,
+    *,
+    rng: np.random.Generator,
+    amplitude: float,
+    target_bin: int,
+    doppler_norm: float,
+    scatterer_count: int,
+    spread_bins: float,
+) -> None:
+    pulses, range_bins = iq.shape
+    pulse_axis = np.arange(pulses, dtype=np.float32)
+    range_axis = np.arange(range_bins, dtype=np.float32)
+    migration = np.linspace(-0.7, 0.7, pulses, dtype=np.float32)
+    for _ in range(scatterer_count):
+        offset = float(rng.normal(0.0, spread_bins))
+        width = max(0.9, float(rng.normal(1.8, 0.42)))
+        doppler = doppler_norm + float(rng.normal(0.0, 0.018))
+        phase_noise = rng.normal(0.0, 0.08, size=pulses).astype(np.float32)
+        center = target_bin + offset + migration * float(rng.uniform(-1.0, 1.0))
+        envelope = np.exp(-0.5 * ((range_axis[None, :] - center[:, None]) / width) ** 2)
+        phase = 2.0 * np.pi * doppler * pulse_axis + phase_noise
+        iq += (
+            amplitude
+            * float(rng.uniform(0.12, 0.42))
+            * np.exp(1j * phase)[:, None]
+            * envelope
+        )
+
+
+def _add_family_morphology(
+    iq: np.ndarray,
+    *,
+    record: dict[str, Any],
+    scenario: dict[str, Any],
+    rng: np.random.Generator,
+    amplitude: float,
+) -> None:
+    family = str(scenario.get("target_role", ""))
+    pulses, range_bins = iq.shape
+    pulse_axis = np.arange(pulses, dtype=np.float32)
+    range_axis = np.arange(range_bins, dtype=np.float32)
+    if family in {"wind_turbine", "bird_flock"}:
+        for _ in range(5):
+            center = float(rng.uniform(0.12, 0.88) * range_bins)
+            width = float(rng.uniform(1.2, 4.8))
+            doppler = float(rng.uniform(-0.20, 0.20))
+            envelope = np.exp(-0.5 * ((range_axis - center) / width) ** 2)
+            phase = 2.0 * np.pi * doppler * pulse_axis
+            iq += amplitude * rng.uniform(0.06, 0.20) * np.exp(1j * phase)[:, None] * envelope
+    elif family in {"weather_cell", "terrain_glint", "clutter_only_counterfactual"}:
+        center = float(rng.uniform(0.18, 0.82) * range_bins)
+        width = float(rng.uniform(7.0, 18.0))
+        envelope = np.exp(-0.5 * ((range_axis - center) / width) ** 2)
+        shimmer = 0.65 + 0.35 * rng.random((pulses, range_bins))
+        iq += amplitude * 0.22 * envelope[None, :] * shimmer
+    elif family == "multipath_ghost" or record["noise_regime"] == "multipath_masking":
+        source_bin = int(np.argmax(np.mean(np.abs(iq) ** 2, axis=0)))
+        for offset in (4, 9):
+            center = float((source_bin + offset) % range_bins)
+            envelope = np.exp(-0.5 * ((range_axis - center) / 2.2) ** 2)
+            phase = 2.0 * np.pi * float(rng.uniform(-0.05, 0.05)) * pulse_axis
+            iq += amplitude * 0.18 * np.exp(1j * phase)[:, None] * envelope
+    elif family == "rc_fixed_wing":
+        source_bin = int(np.argmax(np.mean(np.abs(iq) ** 2, axis=0)))
+        for offset in (-2, 2):
+            envelope = np.exp(-0.5 * ((range_axis - ((source_bin + offset) % range_bins)) / 1.4) ** 2)
+            phase = 2.0 * np.pi * float(rng.uniform(0.10, 0.28)) * pulse_axis
+            iq += amplitude * 0.16 * np.exp(1j * phase)[:, None] * envelope
+
+
 def _make_active_iq(
     record: dict[str, Any],
     scenario: dict[str, Any],
@@ -345,19 +486,45 @@ def _make_active_iq(
     imag = rng.normal(0.0, noise_scale, size=(sensor.pulses, sensor.range_bins))
     iq = real + 1j * imag
     amplitude, _cadence_hz, doppler_norm = _signal_profile(record, scenario, sensor.channel_gain)
-    target_bin = 3 + int(stable_seed(record["scenario_group_id"], sensor.sensor_id) % 14)
+    target_bin = 6 + int(
+        stable_seed(record["scenario_group_id"], sensor.sensor_id) % max(8, sensor.range_bins - 12)
+    )
     pulses = np.arange(sensor.pulses, dtype=np.float32)
-    phase = 2.0 * np.pi * doppler_norm * pulses
+    phase = 2.0 * np.pi * doppler_norm * pulses + rng.normal(0.0, 0.035, size=sensor.pulses)
     if record["noise_regime"] == "doppler_folding":
         phase *= -0.72
-    envelope = np.exp(-0.5 * ((np.arange(sensor.range_bins) - target_bin) / 1.4) ** 2)
+    range_axis = np.arange(sensor.range_bins, dtype=np.float32)
+    migration = np.linspace(-0.55, 0.55, sensor.pulses, dtype=np.float32)
+    envelope = np.exp(
+        -0.5 * ((range_axis[None, :] - (target_bin + migration[:, None])) / 1.65) ** 2
+    )
     if record["noise_regime"] == "dropped_cpi":
-        drop_start = int(stable_seed(record["record_id"], sensor.sensor_id, "drop") % 12)
-        iq[drop_start : drop_start + 4] *= 0.18
-    iq += amplitude * np.exp(1j * phase)[:, None] * envelope[None, :]
+        drop_start = int(
+            stable_seed(record["record_id"], sensor.sensor_id, "drop") % max(1, sensor.pulses - 5)
+        )
+        iq[drop_start : drop_start + 5] *= 0.18
+    shimmer = 1.0 + rng.normal(0.0, 0.05, size=sensor.pulses)
+    iq += amplitude * shimmer[:, None] * np.exp(1j * phase)[:, None] * envelope
+    _add_scatterer_cloud(
+        iq,
+        rng=rng,
+        amplitude=amplitude,
+        target_bin=target_bin,
+        doppler_norm=doppler_norm,
+        scatterer_count=4 if int(record["label_id"]) else 3,
+        spread_bins=3.0 if int(record["label_id"]) else 5.6,
+    )
+    _add_family_morphology(iq, record=record, scenario=scenario, rng=rng, amplitude=amplitude)
     if record["noise_regime"] == "rfi_burst":
         burst_bin = int(stable_seed(record["record_id"], "rfi-bin") % sensor.range_bins)
         iq[:, burst_bin] += (0.9 + 0.7j) * (1.0 + sensor_index * 0.15)
+    iq, _profile = apply_jamming_deception(
+        iq,
+        record=record,
+        scenario=scenario,
+        sensor_id=sensor.sensor_id,
+        seed=seed,
+    )
     return iq.astype(np.complex64)
 
 
@@ -412,7 +579,7 @@ def _active_features(iq: np.ndarray) -> dict[str, float]:
     top_doppler = float(np.max(doppler_power))
     range_contrast = float(np.max(range_power) / (np.mean(range_power) + 1e-6))
     cadence_stability = float(1.0 / (1.0 + np.std(np.diff(pulse_power))))
-    return {
+    features = {
         "mean_power": float(np.mean(power)),
         "peak_power": peak,
         "cfar_proxy_score": float((peak - median) / mad),
@@ -420,6 +587,8 @@ def _active_features(iq: np.ndarray) -> dict[str, float]:
         "doppler_concentration": float(top_doppler / (np.mean(doppler_power) + 1e-6)),
         "track_continuity_score": cadence_stability,
     }
+    features.update(jamming_deception_features(iq))
+    return features
 
 
 def _acoustic_features(acoustic: np.ndarray) -> dict[str, float]:
@@ -448,6 +617,21 @@ def _fusion_input_features(
         "gbad_track_proxy": active_rows["gbad_3d4d_cueing"]["track_continuity_score"],
         "acoustic_cadence_proxy": acoustic_row["cadence_contrast"],
         "passive_rf_provenance_quality": float(passive_rf[3]),
+        "jd_spectral_flatness": float(
+            np.mean([row["jd_spectral_flatness"] for row in active_rows.values()])
+        ),
+        "jd_range_line_occupancy": float(
+            np.mean([row["jd_range_line_occupancy"] for row in active_rows.values()])
+        ),
+        "jd_pulse_burstiness": float(
+            np.mean([row["jd_pulse_burstiness"] for row in active_rows.values()])
+        ),
+        "jd_ghost_peak_count": float(
+            np.mean([row["jd_ghost_peak_count"] for row in active_rows.values()])
+        ),
+        "jd_low_doppler_cloud_mass": float(
+            np.mean([row["jd_low_doppler_cloud_mass"] for row in active_rows.values()])
+        ),
         "source_freshness_s": 0.0,
     }
 
@@ -524,7 +708,7 @@ def write_raw_streams_and_views(
                         **base_identity,
                         "sensor_id": sensor.sensor_id,
                         "sensor_band": sensor.band,
-                        "view_feature_version": "main-run-active-v1",
+                        "view_feature_contract": "main-run-active",
                         **features,
                     }
                 )
@@ -534,7 +718,7 @@ def write_raw_streams_and_views(
                     **base_identity,
                     "sensor_id": ACOUSTIC_VIEW_ID,
                     "sensor_band": "acoustic",
-                    "view_feature_version": "main-run-acoustic-v1",
+                    "view_feature_contract": "main-run-acoustic",
                     **acoustic_features,
                 }
             )
@@ -543,7 +727,7 @@ def write_raw_streams_and_views(
                     **base_identity,
                     "sensor_id": FUSION_VIEW_ID,
                     "sensor_band": "fusion",
-                    "view_feature_version": "main-run-fusion-input-v1",
+                    "view_feature_contract": "main-run-fusion-input",
                     "source_provenance": "active_radar+acoustic+passive_rf",
                     **_fusion_input_features(active_feature_rows, acoustic_features, passive_rf),
                 }
@@ -653,7 +837,7 @@ def write_raw_streams_and_views(
                         "sensor_id",
                         "sensor_band",
                         "source_provenance",
-                        "view_feature_version",
+                        "view_feature_contract",
                     }
                 ],
             }
@@ -702,6 +886,31 @@ def _quality_report(
         "climb_transition": [30.0, 90.0],
         "cruise_altitude": [90.0, 150.0],
     }
+    jd_active_count = int(
+        sum(int(scenario.get("jamming_deception_active", 0) or 0) for scenario in scenarios)
+    )
+    jd_rate = jd_active_count / max(len(scenarios), 1)
+    jd_policy = str(scenarios[0].get("jamming_deception_rate_policy", "")) if scenarios else ""
+    jd_counts_by_split_label: dict[str, dict[str, int]] = {}
+    for scenario in scenarios:
+        key = f"{scenario.get('split_role', '')}:{int(scenario.get('is_positive', 0))}"
+        summary = jd_counts_by_split_label.setdefault(key, {"groups": 0, "active": 0})
+        summary["groups"] += 1
+        summary["active"] += int(scenario.get("jamming_deception_active", 0) or 0)
+    jd_rates_by_split_label = {
+        key: {
+            **summary,
+            "active_rate": float(summary["active"] / max(summary["groups"], 1)),
+        }
+        for key, summary in sorted(jd_counts_by_split_label.items())
+    }
+    jd_status = (
+        "pass"
+        if jd_policy == "ablation_zero" and jd_active_count == 0
+        else "pass"
+        if 0.10 <= jd_rate <= 0.20
+        else "fail"
+    )
     positive_label_ok = all(
         scenario["target_role"] == POSITIVE_MODEL_LABEL
         for scenario in scenarios
@@ -725,6 +934,7 @@ def _quality_report(
         and all(count == len(PHASES) for count in group_phase_counts.values())
         and positive_label_ok
         and phase_windows_ok
+        and jd_status == "pass"
         and fold_values == list(range(folds))
         and leakage_guard_status
         else "fail"
@@ -743,6 +953,11 @@ def _quality_report(
         "phase_positive_counts": phase_positive_counts,
         "split_counts_by_group": split_counts_by_group,
         "split_positive_counts_by_group": split_positive_by_group,
+        "jamming_deception_active_group_count": jd_active_count,
+        "jamming_deception_active_group_rate": jd_rate,
+        "jamming_deception_rate_policy": jd_policy,
+        "jamming_deception_rates_by_split_label": jd_rates_by_split_label,
+        "jamming_deception_stress_status": jd_status,
         "fold_values": fold_values,
         "phase_windows_status": "pass" if phase_windows_ok else "fail",
         "positive_label_status": "pass" if positive_label_ok else "fail",
@@ -752,6 +967,7 @@ def _quality_report(
         "detector_view_identity_status": "pass",
         "leakage_guard_status": "pass" if leakage_guard_status else "fail",
         "raw_stream_summary": stream_summary,
+        "jamming_deception_model_card": jamming_deception_model_card(),
         "status": status,
     }
 
@@ -768,6 +984,11 @@ def _write_restricted_truth(out_root: Path, scenarios: list[dict[str, Any]]) -> 
             "scenario_seed": scenario["scenario_seed"],
             "split_key": scenario["split_key"],
             "monte_carlo_stratum": scenario["monte_carlo_stratum"],
+            "jamming_deception_active": scenario["jamming_deception_active"],
+            "jamming_deception_profile": scenario["jamming_deception_profile"],
+            "jamming_deception_family": scenario["jamming_deception_family"],
+            "jamming_deception_rate_policy": scenario["jamming_deception_rate_policy"],
+            "jamming_deception_policy": SAFE_PUBLIC_PROXY_JD_BOUNDARY,
             "policy": "audit metadata only; not a detector feature export",
         }
         _write_json(
@@ -782,12 +1003,13 @@ def build_main_run_dataset(
     positive_groups: int = DEFAULT_POSITIVE_GROUPS,
     seed: int = DEFAULT_SEED,
     folds: int = DEFAULT_FOLDS,
-    shard_size: int = 512,
+    shard_size: int = DEFAULT_SHARD_SIZE,
     force: bool = False,
     smoke: bool = False,
-    paper_profile: str = "fixed-wing-pusher-proxy-v1",
+    paper_profile: str = "fixed-wing-pusher-proxy",
     holdout_policy: str = "group_random",
     holdout_value: str | None = None,
+    jamming_deception_rate: float = DEFAULT_JAMMING_DECEPTION_RATE,
 ) -> dict[str, Any]:
     if out_root.exists():
         if not force:
@@ -810,6 +1032,7 @@ def build_main_run_dataset(
         folds=folds,
         holdout_policy=holdout_policy,
         holdout_value=holdout_value,
+        jamming_deception_rate=jamming_deception_rate,
     )
     records = build_records(scenarios, shard_size=shard_size)
     _write_csv(out_root / "scenario_manifest.csv", scenarios)
@@ -836,6 +1059,11 @@ def build_main_run_dataset(
         "record_count": len(records),
         "holdout_policy": holdout_policy,
         "holdout_value": holdout_value or "",
+        "jamming_deception_rate": validate_jamming_deception_rate(jamming_deception_rate),
+        "jamming_deception_rate_policy": scenarios[0]["jamming_deception_rate_policy"]
+        if scenarios
+        else "",
+        "jamming_deception_model_card": jamming_deception_model_card(),
         "phase_ids": [phase.phase_id for phase in PHASES],
         "phase_windows_s": {phase.phase_id: [phase.start_s, phase.end_s] for phase in PHASES},
         "model_labels": [POSITIVE_MODEL_LABEL, NEGATIVE_MODEL_LABEL],
@@ -844,6 +1072,7 @@ def build_main_run_dataset(
         "strict_open_claim_boundary": (
             "public-proxy synthetic artifacts with uncertainty-bearing detector views"
         ),
+        "jamming_deception_stress_policy": SAFE_PUBLIC_PROXY_JD_BOUNDARY,
         "outputs_are_generated": True,
     }
     _write_json(out_root / "dataset_manifest.json", manifest)

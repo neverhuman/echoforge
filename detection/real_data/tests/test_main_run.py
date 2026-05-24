@@ -20,6 +20,8 @@ from detection.main_run_types import (
     DETECTOR_VIEW_IDS,
     MODEL_FEATURE_DENYLIST,
     POSITIVE_MODEL_LABEL,
+    RADAR_PULSES_PER_CPI,
+    RADAR_RANGE_BINS,
 )
 
 
@@ -99,7 +101,7 @@ class MainRunDatasetTests(unittest.TestCase):
         self.assertEqual(windows["climb_transition"], (30.0, 90.0))
         self.assertEqual(windows["cruise_altitude"], (90.0, 150.0))
 
-    def test_v2_split_counts(self) -> None:
+    def test_low_prevalence_split_counts(self) -> None:
         holdout_groups, train_groups, holdout_positives, train_positives = split_counts(
             10_000,
             50,
@@ -108,6 +110,33 @@ class MainRunDatasetTests(unittest.TestCase):
         self.assertEqual(train_groups, 8_500)
         self.assertEqual(holdout_positives, 8)
         self.assertEqual(train_positives, 42)
+
+    def test_jamming_deception_rate_and_iq_shape(self) -> None:
+        self.assertEqual(self.quality["jamming_deception_stress_status"], "pass")
+        self.assertGreaterEqual(self.quality["jamming_deception_active_group_rate"], 0.10)
+        self.assertLessEqual(self.quality["jamming_deception_active_group_rate"], 0.20)
+        shard = self.data_root / "raw_complex_iq" / "active_radar_shard_0000.npz"
+        with np.load(shard, allow_pickle=False) as loaded:
+            iq = loaded["iq"]
+        self.assertEqual(iq.shape[1:], (3, RADAR_PULSES_PER_CPI, RADAR_RANGE_BINS))
+
+    def test_jamming_deception_features_are_detector_only(self) -> None:
+        radar_rows = _read_csv(
+            self.data_root / "detector_views" / "high_resolution_xku_cuas.csv"
+        )
+        header = set(radar_rows[0])
+        self.assertIn("jd_spectral_flatness", header)
+        self.assertIn("jd_range_line_occupancy", header)
+        self.assertIn("jd_pulse_burstiness", header)
+        self.assertFalse(
+            {
+                "jamming_deception_active",
+                "jamming_deception_profile",
+                "jamming_deception_family",
+                "jamming_deception_rate_policy",
+            }
+            & header
+        )
 
     def test_shahed_only_positive_labeling(self) -> None:
         positives = [row for row in self.scenarios if row["is_positive"] == "1"]
@@ -443,20 +472,20 @@ class MainRunDatasetTests(unittest.TestCase):
         )
 
     def test_advanced_feature_policy_and_clean_room_manifest(self) -> None:
-        v2_root = Path(self._tmp.name) / "advanced_detection_v2_manifest"
+        advanced_manifest_root = Path(self._tmp.name) / "advanced_detection_manifest"
         run_advanced_main_run_detectors(
             self.data_root,
-            v2_root,
+            advanced_manifest_root,
             folds=5,
             seed=202605210136,
             force=True,
             candidate_limit=128,
             evolution_rounds=1,
-            search_profile="v2_aggressive",
+            search_profile="aggressive",
             evolution_sample_rows=900,
         )
-        manifest = json.loads((v2_root / "advanced_feature_manifest.json").read_text())
-        self.assertEqual(manifest["candidate_generation_policy"]["search_profile"], "v2_aggressive")
+        manifest = json.loads((advanced_manifest_root / "advanced_feature_manifest.json").read_text())
+        self.assertEqual(manifest["candidate_generation_policy"]["search_profile"], "aggressive")
         self.assertIn("clean_room_inspiration", manifest)
         self.assertIn("split_isolation_policy", manifest)
         self.assertIn(

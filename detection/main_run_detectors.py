@@ -13,8 +13,10 @@ import numpy as np
 
 try:
     from detection.main_run_types import DATASET_PROFILE
+    from detection.jamming_deception_models import jamming_deception_features
 except ModuleNotFoundError:  # pragma: no cover - direct script import path
     from main_run_types import DATASET_PROFILE
+    from jamming_deception_models import jamming_deception_features
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:
@@ -90,7 +92,7 @@ def _load_detector_features(data_root: Path) -> tuple[list[dict[str, str]], np.n
     acoustic_by_record = {row["record_id"]: row for row in acoustic_rows}
     active_cache: dict[str, Any] = {}
     acoustic_cache: dict[str, Any] = {}
-    features = np.zeros((len(records), 4), dtype=np.float64)
+    features = np.zeros((len(records), 9), dtype=np.float64)
     for idx, record in enumerate(records):
         active_index = index_by_record[record["record_id"]]
         active_path = str(active_index["shard_path"])
@@ -113,6 +115,14 @@ def _load_detector_features(data_root: Path) -> tuple[list[dict[str, str]], np.n
         features[idx, 1] = math.log1p(_mtd_score(iq[1]))
         features[idx, 2] = math.log1p(_track_score(iq[2]))
         features[idx, 3] = math.log1p(_acoustic_score(acoustic))
+        jd_high = jamming_deception_features(iq[0])
+        jd_sband = jamming_deception_features(iq[1])
+        jd_gbad = jamming_deception_features(iq[2])
+        features[idx, 4] = jd_high["jd_spectral_flatness"]
+        features[idx, 5] = jd_high["jd_range_line_occupancy"]
+        features[idx, 6] = jd_high["jd_pulse_burstiness"]
+        features[idx, 7] = math.log1p(jd_gbad["jd_ghost_peak_count"])
+        features[idx, 8] = jd_sband["jd_low_doppler_cloud_mass"]
     return records, features
 
 
@@ -379,6 +389,12 @@ def _calibrated_predictions(
             "sband_mtd_log1p",
             "gbad_track_log1p",
             "acoustic_cadence_log1p",
+            "jd_spectral_flatness",
+            "jd_range_line_occupancy",
+            "jd_pulse_burstiness",
+            "jd_ghost_peak_count",
+            "jd_ghost_peak_count_log1p",
+            "jd_low_doppler_cloud_mass",
         ],
         "status": "pass" if int(np.sum(holdout)) > 0 and int(np.sum(train_cv)) > 0 else "fail",
     }
@@ -404,8 +420,8 @@ def run_main_run_detectors(
         records, features, folds=folds
     )
     probabilities = _sigmoid(log_odds)
-    tabular_scores = np.mean(features[:, :3], axis=1)
-    sequence_scores = 0.65 * features[:, 1] + 0.35 * features[:, 3]
+    tabular_scores = np.mean(features[:, [0, 1, 2, 4, 5, 6, 7, 8]], axis=1)
+    sequence_scores = 0.55 * features[:, 1] + 0.25 * features[:, 3] + 0.20 * features[:, 6]
     method_scores = {
         "high_resolution_xku_cuas": features[:, 0],
         "tactical_s_band_aesa": features[:, 1],
@@ -435,6 +451,12 @@ def run_main_run_detectors(
                 "high_res_cfar_log1p": f"{features[idx, 0]:.6f}",
                 "sband_mtd_log1p": f"{features[idx, 1]:.6f}",
                 "gbad_track_log1p": f"{features[idx, 2]:.6f}",
+                "jd_spectral_flatness": f"{features[idx, 4]:.6f}",
+                "jd_range_line_occupancy": f"{features[idx, 5]:.6f}",
+                "jd_pulse_burstiness": f"{features[idx, 6]:.6f}",
+                "jd_ghost_peak_count": f"{math.expm1(features[idx, 7]):.6f}",
+                "jd_ghost_peak_count_log1p": f"{features[idx, 7]:.6f}",
+                "jd_low_doppler_cloud_mass": f"{features[idx, 8]:.6f}",
                 "processing_family": "ca_os_cfar_mti_mtd_track_lifecycle",
             }
         )

@@ -1,5 +1,5 @@
 {
-	"version": 1,
+	"manifest_id": "current",
 	"scope": "Tracked paper-lane source and governance files. This is an auditable self-classification of source LOC, not proof of authorship history.",
 	"notes": [
 		"Count only tracked source-style files matched by the category globs.",
@@ -16,7 +16,7 @@
 				"detection/generate_main_run.py",
 				"detection/main_run_generation.py",
 				"detection/advanced_main_run_detectors.py",
-				"detection/paper_evidence_major_upgrade_v1.py"
+				"detection/paper_evidence_builder.py"
 			],
 			"reason": "Paper synthesis, evidence orchestration, and benchmark-generation automation."
 		},
