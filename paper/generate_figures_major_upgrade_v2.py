@@ -321,7 +321,9 @@ def _headline_gain_text(evaluation: dict[str, Any]) -> str:
     fp_text = "selected FP n/a"
     if math.isfinite(selected_fp) and math.isfinite(baseline_fp):
         fp_text = f"selected FP {int(baseline_fp)}->{int(selected_fp)}"
-    return f"Primary KPI gain vs best practice: {lcb_gain} LCB95; {point_gain} point recall; {fp_text}"
+    return (
+        f"Primary KPI gain vs best practice: {lcb_gain} LCB95; {point_gain} point recall; {fp_text}"
+    )
 
 
 def _short_feature_label(value: Any) -> str:
@@ -1451,6 +1453,14 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         frameon=False,
         ncol=3,
         columnspacing=1.1,
+    )
+    fig.text(
+        0.08,
+        0.060,
+        "KPI gains: +742% LCB95; +185% point recall; 49->1 selected FP",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
     )
 
     rank_ax = fig.add_subplot(gs[0, 2])
