@@ -1,0 +1,956 @@
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index 9ffbaa0..review-fix 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -8,6 +8,7 @@
+ \usepackage{siunitx}
+ \usepackage{threeparttable}
+ \usepackage{url}
++\usepackage[table]{xcolor}
+ \urlstyle{tt}
+ \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+ \renewcommand{\arraystretch}{1.12}
+@@ -18,6 +19,10 @@
+   table-number-alignment=center
+ }
+ 
++\definecolor{NeverHumanGreen}{HTML}{1F7A5A}
++\definecolor{NeverHumanBlue}{HTML}{2F6F9F}
++\newcommand{\kpigain}[1]{\textcolor{NeverHumanGreen}{\textbf{#1}}}
++\newcommand{\kpibase}[1]{\textcolor{NeverHumanBlue}{\textbf{#1}}}
+ \graphicspath{{paper/figures/}{figures/}}
+ 
+ \begin{document}
+@@ -25,12 +30,12 @@
+ \title{EchoForge: A Strict-Open Synthetic Benchmark for Low-Altitude UAS Radar and Multimodal Sensing}
+ 
+ \author{Jeppson Taylor, Lead Author\\
+-NeverHumqn Research Group}
++NeverHuman Research Group}
+ 
+ \maketitle
+ 
+ \begin{abstract}
+-EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal sensing research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty; it is not a measured-platform claim and is not a fielded-sensor surrogate. EchoForge combines a radar signal-chain model card, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, hard-negative false-alarm analysis, compare-only measured-anchor checks, and holdout-isolated evaluation into a reproducible evidence package. The v2 single-seed run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records. On the 4,500-record blind holdout, with 24 positive records from eight positive scenario groups, the Engineered Intelligence (EI) candidate reaches point Recall@$\leq$1\%FPR of 0.833 and LCB95 Recall@$\leq$1\%FPR of 0.699; the prior fusion baseline reaches 0.292 and 0.083, respectively. EI improves average precision, selected-threshold false-positive control, and low-FPR recall for this synthetic public-proxy benchmark, while its ROC AUC is lower than the prior fusion baseline. These results should be read as reproducible benchmark evidence under declared assumptions, not as measured truth, named-platform equivalence, or operational performance.
++EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal sensing research. Strict-open means that assumptions, code, configuration, detector-view schemas, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty; it is not a measured-platform claim and is not a fielded-sensor surrogate. The v2 single-seed experiment contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records, with 4,500 records in a blind holdout. The accepted best-practice comparator is the prior layered fusion baseline. Against that comparator, the Engineered Intelligence (EI) candidate raises point Recall@$\leq$1\%FPR from \kpibase{0.292} to \kpigain{0.833} (\kpigain{+185\% relative gain}) and raises the headline LCB95 Recall@$\leq$1\%FPR from \kpibase{0.083} to \kpigain{0.699} (\kpigain{+742\% relative gain}). At the selected threshold, false positives drop from \kpibase{49} to \kpigain{1} (\kpigain{98\% fewer false alarms}), while AP rises from \kpibase{0.128} to \kpigain{0.825}. EI improves low-FPR recall and selected-threshold false-positive control for this synthetic public-proxy benchmark, while its ROC AUC is lower than the prior fusion baseline. These results should be read as reproducible benchmark evidence under declared assumptions, not as measured truth, named-platform equivalence, or operational performance.
+ \end{abstract}
+@@ -221,7 +226,7 @@ Figure~\ref{fig:kpi} shows the primary KPI first and keeps AP, ROC/PR curves, a
+     \toprule
+     Method & AP & ROC AUC & F1 & ECE & Threshold source & TP/FP/FN & Sel. FPR & Recall@$\leq$1\%FPR & LCB95 \\
+     \midrule
+-    layered\_fusion\_c2 & 0.128 & 0.938 & 0.241 & 0.016 & train/CV max-F1 & 10/49/14 & 0.010947 & 0.292 & 0.083 \\
++    accepted best-practice fusion & 0.128 & 0.938 & 0.241 & 0.016 & train/CV max-F1 & 10/49/14 & 0.010947 & 0.292 & 0.083 \\
+     EI candidate & 0.825 & 0.917 & 0.837 & 0.002 & EI selection lock & 18/1/6 & 0.000223 & 0.833 & 0.699 \\
+     \bottomrule
+   \end{tabular}
+@@ -236,7 +241,7 @@ The evidence bundle also records the canary forbidden-feature test, the label-sh
+ \begin{figure*}[t]
+   \centering
+   \includegraphics[width=0.98\textwidth]{phase_kpi.pdf}
+-  \caption{Per-phase behavior and cross-method false-positive burden. The left panel compares phase-wise AP and fixed-FPR recall for the baseline and EI candidate; the right panel sorts false alarms by family for the strongest methods together with near-threshold context. Each phase has only eight positive holdout records from eight positive groups, so phase conclusions are diagnostic.}
++  \caption{Per-phase low-FPR recall and cross-method false-positive burden. The left panel keeps the operating metric simple: bars are Recall@$\leq$1\%FPR for the accepted best-practice fusion baseline and EI candidate, with AP printed only as a small diagnostic note. The right panel sorts false alarms by hard-negative family, and the legend identifies every color used in the stacked bars together with the pale near-threshold context bar. Each phase has only eight positive holdout records from eight positive groups, so phase conclusions are diagnostic.}
+   \label{fig:phasekpi}
+ \end{figure*}
+@@ -247,22 +252,24 @@ Figure~\ref{fig:phasekpi} highlights that the initial take-up window remains th
+ The advanced lane is reported as engineered intelligence rather than as an opaque model handle. The reader-facing story is train/CV-only candidate discovery, evolved feature families, sparse calibrated fusion, and a single blind holdout score pass after the lock. The evidence bundle keeps the raw component handles and search traces in appendix artifacts, while the paper foregrounds the stage summaries that matter for review.
+ 
+ \begin{table}[t]
+-  \caption{Engineered Intelligence Transparency Summary}
+-  \label{tab:engineered}
++  \caption{Main Experiment Ladder and Comparator Roles}
++  \label{tab:experimentladder}
+   \centering
+   \small
+-  \begin{tabular}{@{}p{0.28\columnwidth}p{0.50\columnwidth}p{0.14\columnwidth}@{}}
++  \begin{tabular}{@{}p{0.27\columnwidth}p{0.43\columnwidth}p{0.20\columnwidth}@{}}
+     \toprule
+-    Stage & Reader-facing summary & Status \\
++    Lane & What it tests & Role in the paper \\
+     \midrule
+-    Agentic decomposition & Multiple train/CV branches are explored before any holdout scoring occurs. & pass \\
+-    Train/CV-only candidate discovery & Ranking, calibration, and thresholding stay on train/CV rows. & pass \\
+-    Evolved feature families & Sparse radar, passive-RF, and transport-style families contribute to the lock. & pass \\
+-    Sparse calibrated fusion & A small nonnegative weight vector is calibrated with a monotone odds map. & pass \\
+-    Holdout-only final scoring & The blind holdout is scored once after the lock, with no further tuning. & pass \\
++    Sensor branches & Individual radar/acoustic/passive-RF detector views under the same group-locked split. & sanity and failure-slice baselines \\
++    Prior ML & Tabular and sequence learners trained only on detector-facing rows. & learned baseline, not the main comparator \\
++    Accepted best-practice fusion & Human-designed layered fusion with train/CV thresholding. & primary baseline \\
++    EI sparse fusion & Train/CV-discovered nonnegative component fusion with odds calibration and a locked holdout pass. & challenger algorithm \\
+     \bottomrule
+   \end{tabular}
+ \end{table}
++
++Table~\ref{tab:experimentladder} defines the experiment ladder used throughout the paper: branch-only sanity checks, prior ML, accepted best-practice fusion, and the EI challenger. This keeps the main story focused before the appendix exposes component handles and source-pack details.
+@@ -270,7 +277,7 @@ The advanced lane is reported as engineered intelligence rather than as an opaqu
+ \begin{figure*}[t]
+   \centering
+   \includegraphics[width=0.98\textwidth]{ei_workflow.pdf}
+-  \caption{Engineered Intelligence workflow and audit boundaries. Detector-view tables, train/CV-only candidate discovery, sparse nonnegative fusion, geodesic-odds calibration, EI selection lock, and blind holdout scoring are separated from group-lock, feature-denylist, claim-boundary, and code-disclosure rails.}
++  \caption{Engineered Intelligence workflow and audit boundaries. Detector-view tables, train/CV-only search, sparse nonnegative fusion, geodesic-odds calibration, EI selection lock, and blind holdout scoring are separated from group-lock, feature-denylist, claim-boundary, and code-disclosure rails.}
+   \label{fig:eiworkflow}
+ \end{figure*}
+@@ -534,7 +541,7 @@ The phase table and the false-alarm tables fill in the operational interpretatio
+ 
+-Finally, the engineered-intelligence stage table, component weights, and comparable view-control rows are audit trails, not claims about a universal ranking of features. They show what the EI meta-fusion candidate uses and keep ablation-internal scores separate from Table-IV-compatible holdout metrics. That makes the EI result interpretable in the same way the compare-only KTH overlay is interpretable: as evidence about the benchmark and detector behavior, not as a platform truth claim.
++Finally, the experiment ladder, component weights, and comparable view-control rows are audit trails, not claims about a universal ranking of features. They show what the EI meta-fusion candidate uses and keep ablation-internal scores separate from the main holdout metric basis. That makes the EI result interpretable in the same way the compare-only KTH overlay is interpretable: as evidence about the benchmark and detector behavior, not as a platform truth claim.
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 708a6e9..review-fix 100644
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -31,7 +31,7 @@ try:
+     warnings.filterwarnings("ignore", message="Unable to import Axes3D.*", category=UserWarning)
+     import matplotlib.pyplot as plt
+     from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+-    from matplotlib.patches import FancyArrowPatch, Rectangle
++    from matplotlib.patches import FancyArrowPatch, Patch, Rectangle
+ except Exception as exc:  # pragma: no cover - import guard for minimal environments
+     raise SystemExit(
+         "matplotlib is required to render paper figures; install matplotlib or run this script in the repository dev environment."
+@@ -82,7 +82,7 @@ NIGHT_GREEN_LIGHT = "#d9efe7"
+ EI_LABEL = "Engineered Intelligence (EI)"
+ EI_SHORT = "EI candidate"
+-BASELINE_LABEL = "Prior fusion baseline"
++BASELINE_LABEL = "Accepted best-practice fusion"
+ PRIMARY_KPI_TEXT = "Recall@<=1%FPR"
+@@ -258,6 +258,14 @@ def _short_family_label(value: Any) -> str:
+         "seabird_cormorant": "Seabird",
+         "seasonal_migratory_density": "Migration",
+         "rc_fixed_wing": "RC fixed-wing",
++        "weather_cell": "Weather cell",
++        "clutter_only": "Clutter only",
++        "clutter_only_counterfactual": "Clutter-only",
++        "ground_vehicle": "Ground vehicle",
++        "multipath_ghost": "Multipath ghost",
++        "rfi_burst": "RFI burst",
++        "terrain_glint": "Terrain glint",
++        "wind_turbine": "Wind turbine",
+     }
+     return mapping.get(str(value), str(value).replace("_", " "))
+@@ -596,6 +604,7 @@ def _add_box(
+     color: str = INK,
+     weight: str = "normal",
+     size: float = FONT_CARD,
++    wrap_width: int = 24,
+ ) -> None:
+     rect = Rectangle((x, y), w, h, linewidth=1.0, edgecolor=edge, facecolor=face)
+     ax.add_patch(rect)
+@@ -604,13 +613,14 @@ def _add_box(
+         x + w / 2,
+         y + h / 2,
+-        _wrap_compact(text, 24),
++        _wrap_compact(text, wrap_width),
+         ha="center",
+         va="center",
+         fontsize=size,
+         color=color,
+         weight=weight,
+         linespacing=1.15,
++        clip_on=True,
+     )
+@@ -1135,17 +1145,19 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
+         _note_fallback(filename, "scenario balance missing; using summary placeholders")
+         if STRICT_MODE:
+             _require_no_fallback(filename)
+-    fig = _paper_fig(4.10, constrained=True)
+-    gs = fig.add_gridspec(2, 3, width_ratios=[1.15, 1.15, 0.92], hspace=0.42, wspace=0.36)
+-    fig.suptitle(
+-        "Scenario balance and leakage diagnostics", fontsize=FONT_TITLE, weight="bold", y=0.995
+-    )
++    fig = _paper_fig(4.35, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.985, top=0.80, bottom=0.13, hspace=0.62, wspace=0.52)
++    gs = fig.add_gridspec(2, 3, width_ratios=[1.18, 1.18, 0.92])
+     fig.text(
+-        0.02,
+-        0.02,
++        0.08,
++        0.965,
++        "Scenario balance and leakage diagnostics",
++        fontsize=FONT_TITLE,
++        weight="bold",
++        ha="left",
++    )
++    fig.text(
++        0.08,
++        0.915,
+         "Scenario groups are locked before phase expansion. The paper evidence keeps label, site, range, aspect, noise, and hard-negative family counts together.",
+         fontsize=FONT_TINY,
+         color=MUTED,
+@@ -1194,6 +1206,7 @@ def figure_monte_carlo_split_flow(context: FigureContext) -> Path:
+         ax.set_yticks(range(len(names)))
+         ax.set_yticklabels(display_names, fontsize=FONT_TICK)
++        ax.tick_params(axis="y", pad=2)
+         ax.set_title(title, fontsize=FONT_SUBTITLE, weight="bold")
+         _clean_axes(ax, xgrid=True)
+         for i, value in enumerate(values):
+@@ -1273,7 +1286,18 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+         "Holdout KPI and supporting diagnostics",
+         fontsize=FONT_TITLE,
+         weight="bold",
+         ha="left",
+     )
+@@ -1296,6 +1320,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+     point_values = [_safe_float(row.get("fixed_fpr_recall")) for _label, row, _color in methods]
+     lcb_values = [
+         _safe_float(row.get("primary_kpi", {}).get("value")) for _label, row, _color in methods
+     ]
++    fp_counts = [_safe_float(row.get("fp")) for _label, row, _color in methods]
+     colors = [color for _label, _row, color in methods]
+     kpi_ax.barh(y, point_values, color=colors, alpha=0.88, edgecolor="white", label="Point recall")
+     for idx, (point, lcb) in enumerate(zip(point_values, lcb_values)):
+@@ -1304,6 +1329,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+             kpi_ax.plot([lcb, lcb], [idx - 0.28, idx + 0.28], color=RED, linewidth=2.3)
+             kpi_ax.text(
+                 min(point + 0.02, 0.97),
+                 idx,
+@@ -1315,6 +1341,38 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+                 weight="bold" if method == EI_METHOD_ID else "normal",
+             )
++    if all(math.isfinite(value) and value > 0 for value in (point_values[0], lcb_values[0])):
++        point_gain = (point_values[1] / point_values[0] - 1.0) * 100.0
++        lcb_gain = (lcb_values[1] / lcb_values[0] - 1.0) * 100.0
++        fp_note = ""
++        if all(math.isfinite(value) for value in fp_counts) and fp_counts[0] > 0:
++            fp_drop = (1.0 - fp_counts[1] / fp_counts[0]) * 100.0
++            fp_note = f"; selected FP {int(fp_counts[0])}\u2192{int(fp_counts[1])} ({fp_drop:.0f}% fewer)"
++        fig.text(
++            0.08,
++            0.885,
++            f"gain vs best practice: +{point_gain:.0f}% point recall and +{lcb_gain:.0f}% LCB95{fp_note}",
++            fontsize=FONT_AXIS,
++            color=NIGHT_GREEN,
++            weight="bold",
++            ha="left",
++        )
++    kpi_ax.annotate(
++        "red tick = LCB95 lower bound",
++        xy=(lcb_values[1], 1),
++        xytext=(0.35, 1.35),
++        textcoords="data",
++        arrowprops={"arrowstyle": "-|>", "color": RED, "lw": 0.9},
++        fontsize=FONT_TINY,
++        color=RED,
++        ha="left",
++    )
+@@ -1334,10 +1392,15 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+             )
+             ax2.set_xlabel("False-positive rate", fontsize=FONT_AXIS)
+             ax2.set_ylabel("True-positive rate", fontsize=FONT_AXIS)
+             ax2.set_title("ROC low-FPR inset", fontsize=FONT_SUBTITLE, weight="bold")
+-            ax2.axvline(0.01, color=RED, linewidth=1.0, linestyle="--")
+-            ax2.text(0.011, 0.07, "1% FPR", fontsize=FONT_TINY, color=RED)
++            ax2.axvspan(0.0095, 0.0105, color=RED, alpha=0.16, zorder=0)
++            ax2.axvline(0.01, color=RED, linewidth=1.4, linestyle="--", zorder=4)
++            ax2.annotate(
++                "1% FPR operating limit",
++                xy=(0.01, 0.72),
++                xytext=(0.014, 0.42),
++                arrowprops={"arrowstyle": "-|>", "color": RED, "lw": 0.8},
++                fontsize=FONT_TINY,
++                color=RED,
++            )
+             ax2.set_xlim(0.0, 0.025)
+             ax2.set_ylim(0.0, 1.02)
+@@ -1408,7 +1471,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+         _note_fallback(filename, "phase metrics missing; using deterministic defaults")
+         if STRICT_MODE:
+             _require_no_fallback(filename)
+-    fig = _paper_fig(3.55, constrained=False)
+-    fig.subplots_adjust(left=0.08, right=0.98, top=0.82, bottom=0.20, wspace=0.42)
++    fig = _paper_fig(3.95, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.98, top=0.82, bottom=0.26, wspace=0.44)
+@@ -1443,22 +1506,22 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+     baseline_recall = [
+         baseline.get(phase, {}).get("fixed_fpr_recall", 0.0) for phase in phase_order
+     ]
+     series = [
+-        ("Baseline AP", baseline_ap, PALE_GREEN, GREEN),
+-        ("Baseline R@<=1%FPR", baseline_recall, PALE_BLUE, BLUE),
+-        ("EI AP", selected_ap, INK, INK),
+-        ("EI R@<=1%FPR", selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
++        ("Best-practice fusion", baseline_recall, PALE_GREEN, GREEN),
++        (EI_SHORT, selected_recall, NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+     ]
+-    offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * width
++    width = 0.30
++    offsets = np.array([-0.5, 0.5]) * width
+     for offset, (label, values, face, edge) in zip(offsets, series):
+         bars = ax.bar(
+             x + offset,
+             values,
+             width,
+@@ -1470,6 +1533,17 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+         )
+         _annotate_vertical_bars(ax, bars, dy=0.012)
++    for idx, (base_ap, ei_ap) in enumerate(zip(baseline_ap, selected_ap)):
++        ax.text(
++            idx,
++            0.045,
++            f"AP: base {base_ap:.2f} / EI {ei_ap:.2f}",
++            ha="center",
++            va="bottom",
++            fontsize=FONT_TINY,
++            color=MUTED,
++            bbox={"facecolor": "white", "edgecolor": "none", "alpha": 0.78, "pad": 0.6},
++        )
+@@ -1483,8 +1557,8 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+     ax.set_ylim(0.0, 1.02)
+     _clean_axes(ax, ygrid=True)
+-    ax.legend(loc="upper left", fontsize=FONT_TINY, frameon=False, ncol=2, columnspacing=0.8)
+-    ax.set_title("Per-phase AP and low-FPR recall", fontsize=FONT_SUBTITLE, weight="bold")
++    ax.legend(loc="upper left", fontsize=FONT_TINY, frameon=False)
++    ax.set_title("Fixed-FPR recall by phase", fontsize=FONT_SUBTITLE, weight="bold")
+@@ -1519,6 +1593,14 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+         "rc_fixed_wing": INK,
++        "weather_cell": BLUE,
++        "clutter_only": "#6b7280",
++        "clutter_only_counterfactual": "#6b7280",
++        "ground_vehicle": "#4b5563",
++        "multipath_ghost": "#f2ad4d",
++        "rfi_burst": "#9467bd",
++        "terrain_glint": "#9ca3af",
++        "wind_turbine": "#6d8a48",
+     }
+@@ -1577,6 +1661,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+             color=PALE_GREEN,
+             edgecolor=GRID,
+             linewidth=0.8,
+             alpha=0.35,
+-            label=None,
++            label="Near-threshold total" if idx == 0 else None,
+         )
+@@ -1630,6 +1715,18 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+     _clean_axes(fa_ax, xgrid=True)
+     fa_ax.set_xlim(0.0, max_total * 1.15 if max_total > 0 else 1.0)
+     fa_ax.set_title("Cross-method false-alarm burden", fontsize=FONT_SUBTITLE, weight="bold")
++    legend_handles = [
++        Patch(facecolor=family_palette.get(family, BLUE), edgecolor="white", label=_short_family_label(family))
++        for family in family_names
++    ]
++    legend_handles.append(
++        Patch(facecolor=PALE_GREEN, edgecolor=GRID, alpha=0.35, label="Near-threshold total")
++    )
++    fa_ax.legend(
++        handles=legend_handles,
++        title="False-alarm family legend",
++        loc="upper center",
++        bbox_to_anchor=(0.50, -0.18),
++        ncol=2,
++        fontsize=FONT_TINY,
++        title_fontsize=FONT_TINY,
++        frameon=False,
++    )
+@@ -2305,8 +2402,8 @@ def figure_ei_workflow(context: FigureContext) -> Path:
+ 
+-    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.25), constrained_layout=False)
+-    fig.subplots_adjust(left=0.02, right=0.98, top=0.88, bottom=0.08)
++    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.55), constrained_layout=False)
++    fig.subplots_adjust(left=0.02, right=0.98, top=0.88, bottom=0.10)
+@@ -2320,12 +2417,12 @@ def figure_ei_workflow(context: FigureContext) -> Path:
+     )
+     stages = [
+-        ("Detector\nviews", PALE_BLUE, BLUE),
+-        ("Train/CV\ndiscovery", PALE_TEAL, TEAL),
+-        ("Sparse\nnonnegative fusion", PALE_GOLD, GOLD),
+-        ("Geodesic-odds\ncalibration", "white", GRID),
+-        ("EI selection\nlock", NIGHT_GREEN_LIGHT, NIGHT_GREEN),
+-        ("Holdout\nscoring", SLATE, INK),
++        ("Detector views", PALE_BLUE, BLUE),
++        ("Train/CV search", PALE_TEAL, TEAL),
++        ("Sparse fusion", PALE_GOLD, GOLD),
++        ("Odds calibration", "white", GRID),
++        ("EI selection lock", NIGHT_GREEN_LIGHT, NIGHT_GREEN),
++        ("Blind holdout", SLATE, INK),
+     ]
+-    x0 = 0.28
++    x0 = 0.22
+     y0 = 3.42
+-    box_w = 1.34
+-    gap = 0.25
++    box_w = 1.40
++    gap = 0.16
+     for idx, (label, face, edge) in enumerate(stages):
+         x = x0 + idx * (box_w + gap)
+-        _add_box(ax, x, y0, box_w, 1.10, label, face=face, edge=edge, weight="bold", size=FONT_TINY)
++        _add_box(ax, x, y0, box_w, 1.10, label, face=face, edge=edge, weight="bold", size=FONT_TINY, wrap_width=15)
+         if idx < len(stages) - 1:
+             _add_arrow(ax, (x + box_w + 0.02, y0 + 0.55), (x + box_w + gap - 0.02, y0 + 0.55))
+@@ -2337,24 +2434,32 @@ def figure_ei_workflow(context: FigureContext) -> Path:
+         ("Code-disclosure boundary", "reviewable workflow; generated arrays stay out of Git"),
+     ]
+     for idx, (title, body) in enumerate(rails):
+-        x = 0.40 + (idx % 2) * 4.70
+-        y = 1.78 - (idx // 2) * 0.82
+-        _add_box(
+-            ax,
+-            x,
+-            y,
+-            4.20,
+-            0.64,
+-            f"{title}: {body}",
+-            face="white",
+-            edge=GRID,
+-            size=FONT_TINY,
+-        )
++        x = 0.35 + (idx % 2) * 4.75
++        y = 1.92 - (idx // 2) * 0.95
++        rect = Rectangle((x, y), 4.30, 0.74, linewidth=0.85, edgecolor=GRID, facecolor="white")
++        ax.add_patch(rect)
++        ax.text(
++            x + 0.12,
++            y + 0.53,
++            title,
++            ha="left",
++            va="center",
++            fontsize=FONT_TINY,
++            weight="bold",
++            color=INK,
++        )
++        ax.text(
++            x + 0.12,
++            y + 0.30,
++            _wrap_compact(body, 42),
++            ha="left",
++            va="center",
++            fontsize=FONT_TINY,
++            color=MUTED,
++            linespacing=1.05,
++        )
+diff --git a/paper/validate_visuals.py b/paper/validate_visuals.py
+index c16e599..review-fix 100644
+--- a/paper/validate_visuals.py
++++ b/paper/validate_visuals.py
+@@ -36,6 +36,16 @@ BANNED_VISIBLE_TERMS = (
+     re.compile(r"\blocked candidate\b", re.IGNORECASE),
+     re.compile(r"\bselected candidate\b", re.IGNORECASE),
+     re.compile(r"\bselected AP\b", re.IGNORECASE),
++    re.compile(r"NeverHumqn", re.IGNORECASE),
++)
++REQUIRED_TERMS_BY_PDF = {
++    "kpi_ranking.pdf": (
++        "gain vs best practice",
++        "red tick = LCB95 lower bound",
++        "1% FPR operating limit",
++    ),
++    "phase_kpi.pdf": ("False-alarm family legend", "Near-threshold total", "Fixed-FPR recall"),
++    "ei_workflow.pdf": ("Blind holdout", "Feature denylist"),
+ }
+ MIN_PNG_BYTES = 25_000
+ MIN_PDF_BYTES = 5_000
+@@ -78,6 +88,11 @@ def validate_pdf_terms(name: str) -> None:
+     flagged = [pattern.pattern for pattern in BANNED_VISIBLE_TERMS if pattern.search(result.stdout)]
+     if flagged:
+         fail(f"{name} contains banned visible EI terminology: " + ", ".join(flagged))
++    missing_required = [
++        term for term in REQUIRED_TERMS_BY_PDF.get(name, ()) if term not in result.stdout
++    ]
++    if missing_required:
++        fail(f"{name} is missing required reader-facing visual term(s): " + ", ".join(missing_required))
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index 1ba0ad6..review-fix 100644
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@ -39,6 +39,7 @@ FORBIDDEN_PAPER_PATTERNS = (
+     r"operational\s+parity",
+     r"matches\s+classified\s+fidelity",
+     r"matches\s+proprietary-equivalent\s+behavior",
++    r"NeverHumqn",
+ )
+@@ -191,6 +192,14 @@ def validate_paper_text(tex_path: Path) -> None:
+         fail("paper text is missing the exact LCB95 Recall@<=1%FPR label")
+     if "n/a" in text:
+         fail("paper text still contains unresolved n/a values")
++    if "\\kpigain{" not in text:
++        fail("paper text must color the abstract KPI gain values with \\kpigain")
++    for required in ("+185\\%", "+742\\%", "98\\% fewer false alarms"):
++        if required not in text:
++            fail(f"paper text is missing required abstract gain statement: {required}")
++    if "Main Experiment Ladder and Comparator Roles" not in text:
++        fail("generic EI pass/fail table must be replaced with the experiment ladder table")
+diff --git a/paper/build.sh b/paper/build.sh
+index 96837ef..review-fix 100755
+--- a/paper/build.sh
++++ b/paper/build.sh
+@@ -148,6 +148,8 @@ python3 paper/generate_figures_major_upgrade_v2.py \
+   --anchor-root "$anchor_root" \
+   --strict
+ 
++python3 paper/validate_visuals.py
++
+ latexmk \
+   -pdf \
+   -bibtex \
+
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index review-fix..worldclass 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -6,6 +6,7 @@
+ \usepackage{graphicx}
+ \usepackage{amsmath}
+ \usepackage{tabularx}
++\usepackage{enumitem}
+ \usepackage{makecell}
+ \usepackage{siunitx}
+ \usepackage{threeparttable}
+@@ -40,6 +41,35 @@ EchoForge is a strict-open synthetic benchmark for low-altitude uncrewed aerial
+ \section{Claim Boundary and Contributions}
+ EchoForge is intentionally narrower than a measured radar collection. It publishes public-proxy signatures and detector-facing products with explicit uncertainty and validation tiers, while keeping generated arrays, solver outputs, and measured raw files out of Git. The radar and detection framing follows standard signal-processing and CFAR practice rather than a sensor-surrogate claim \cite{skolnik2008,richards2014,rohling1983}. The paper uses repository-compatible legacy identifiers only where required for tooling; the paper-facing positive class is named \emph{fixed-wing pusher-prop public proxy}. No measured-platform truth, proprietary-equivalent behavior, or classified fidelity is claimed for any object, platform, or sensor.
++
++\subsection{Core Experiment in One Paragraph}
++The main experiment is intentionally simple. We compare detector branches, prior ML, and the accepted human-engineered layered-fusion comparator against one EI sparse-fusion challenger. All methods use the same group-locked split. Train/CV rows are used for candidate discovery, calibration, and thresholding; the blind holdout is scored once after the lock. The result that matters is not a leaderboard of every diagnostic metric. It is whether EI improves the low-false-alarm operating point over accepted fusion practice while preserving the claim boundary.
++
++\begin{table*}[!t]
++  \caption{Core Experiment Roadmap}
++  \label{tab:experimentroadmap}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.30\textwidth}p{0.23\textwidth}p{0.21\textwidth}@{}}
++    \toprule
++    Lane & What is modeled & Why it is in the paper & Reader-facing conclusion \\
++    \midrule
++    Sensor branches & X/Ku radar, S-band radar, GBAD cueing, acoustic cueing, and passive-RF provenance. & Shows the component evidence available before fusion. & Branches are sanity checks and failure-slice baselines. \\
++    Prior ML & Tabular and sequence learners trained only on detector-facing features. & Tests ordinary learned baselines under the same split. & Useful controls, not the accepted-practice comparator. \\
++    Accepted fusion & Human-engineered layered fusion with train/CV thresholding. & Represents the best-practice fusion baseline. & Main comparator for EI. \\
++    EI sparse fusion & Train/CV candidate discovery, sparse nonnegative component fusion, monotone odds calibration, and one locked holdout pass. & Tests whether the new EI lane improves the low-FPR operating point. & Main challenger; claims are limited to the synthetic public-proxy benchmark. \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++Table~\ref{tab:experimentroadmap} is the reader's map. The detailed evidence ledger, source cards, Iranian-drone public-proxy card, noise/clutter/RFI assumptions, bird/RC taxonomy, component handles, and measured-anchor checks belong in the appendix unless they directly explain this experiment.
+ 
+ The upgrade in this paper is substantive rather than cosmetic. We move from a governance-heavy benchmark report to a radar-first paper with:
+-\begin{itemize}
++\begin{itemize}[leftmargin=*]
+@@ -246,6 +276,7 @@ Figure~\ref{fig:phasekpi} highlights that the initial take-up window remains th
+ \section{Engineered Intelligence}
+ The advanced lane is reported as engineered intelligence rather than as an opaque model handle. The reader-facing story is train/CV-only candidate discovery, evolved feature families, sparse calibrated fusion, and a single blind holdout score pass after the lock. The evidence bundle keeps the raw component handles and search traces in appendix artifacts, while the paper foregrounds the stage summaries that matter for review.
++Mechanically, EI uses train/CV-only score search to choose component scores, sparse nonnegative late fusion to keep the lock interpretable, geodesic-odds calibration for monotone probability mapping, and a written selection lock before the single blind holdout score. The component weights and modality/control tables below are interpretability controls rather than separate main-claim evidence.
+@@ -456,6 +487,8 @@ The compare-only measured anchor is KTH, a 77 GHz FMCW drone/bird/human collect
+ \section{Evidence Ledger}
+ The paper evidence bundle is intentionally split into a small number of human-readable artifacts so that a reviewer can reconstruct the claim boundary without chasing generator internals. The radar model card and detail rows define the public-proxy carrier bands, bandwidths, CPI, PRF/CRF, chirp count, range span, range/Doppler/velocity resolutions, unambiguous-velocity proxy, clutter/noise/RFI priors, RCS prior, and cue definitions. Those are not operational sensor facts; they are explicit synthetic assumptions that make the signal chain legible and make the detector outputs comparable across runs.
++
++\input{paper/appendix_modeling}
+@@ -571,7 +604,7 @@ The appendix-only public proxy card records the assumed geometry and flight enve
+ The appendix uses open visual reporting and public summaries \cite{osmpShahed131136,armyRecognitionShahed136,csisPutinMissileWar} together with small-UAS radar literature \cite{rahman2018,molchanov2014}. Prohibited inferences are equally explicit:
+-\begin{itemize}
++\begin{itemize}[leftmargin=*]
+   \item no measured Iranian-drone radar signature;
+   \item no operational route or evasion modelling;
+   \item no payload-effects inference;
+diff --git a/paper/appendix_modeling.tex b/paper/appendix_modeling.tex
+new file mode 100644
+index 0000000..worldclass
+--- /dev/null
++++ b/paper/appendix_modeling.tex
+@@ -0,0 +1,171 @@
++\section{Rich Modeling Appendix: Positive Class, Noise, and Detector Evidence}
++This appendix is intentionally richer than the main narrative. The main paper only needs the experiment ladder and the KPI result. Reviewers who want to audit the synthetic radar assumptions can use the following tables to see what is modeled, what evidence artifact owns the assumption, and what claims remain prohibited.
++
++\begin{table*}[!t]
++  \caption{Fixed-Wing Pusher-Prop / Iranian-Drone Public-Proxy Modeling Card}
++  \label{tab:publicproxymodel}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.25\textwidth}p{0.25\textwidth}p{0.22\textwidth}@{}}
++    \toprule
++    Modeling item & Public-proxy assumption & Radar consequence & Explicit boundary \\
++    \midrule
++    Airframe geometry & Delta or swept fixed wing, rear pusher propulsor, approximate 3.3--3.7 m length, 2.3--2.7 m span, 0.35--0.75 m height. & Aspect-dependent projected area and RCS envelope. & Public visual/summary proxy only; no measured Iranian-platform signature. \\
++    Launch/take-up & Rail/catapult take-up proxy with short booster-assist stress in the first 0--30 s. & Initial phase has ground coupling, multipath, and less settled kinematics. & No route, launch-site, operational, or evasion model. \\
++    Kinematics & 45--60 m/s speed envelope across take-up, climb, and cruise windows. & Doppler centroid and track-rate priors for branch summaries. & Broad public kinematic envelope only. \\
++    Propulsion micro-Doppler & Pusher-prop cadence proxy of 150--217 Hz. & Narrow high-cadence modulation family distinct from many bird wingbeat bands but overlapping RC prop cadence. & Not a measured micro-Doppler signature. \\
++    RCS/aspect & -28 to -2 dBsm aspect envelope with Swerling-like fluctuation proxy. & Controls per-branch detectability and hard-negative overlap. & Synthetic stress envelope; no sensor-specific Pd/Pfa claim. \\
++    Phase labels & Initial take-up 0--30 s, climb transition 30--90 s, cruise altitude 90--150 s. & Phase-stratified AP, Recall@\(\leq\)1\%FPR, and false-alarm diagnostics. & Phase conclusions are diagnostic because the holdout has eight positive groups. \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++\begin{table*}[!t]
++  \caption{Noise, Clutter, RFI, and Receiver Modeling Details}
++  \label{tab:noisemodeling}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.27\textwidth}p{0.25\textwidth}p{0.20\textwidth}@{}}
++    \toprule
++    Family & What is generated & Why it matters for radar review & Boundary \\
++    \midrule
++    Thermal/SNR stress & Synthetic SNR/CNR buckets attached to radar branches and detector-view features. & Prevents a trivial clean-signal benchmark. & Not a calibrated receiver-noise figure for hardware. \\
++    Weibull/K-like clutter & Terrain, sea, vegetation, and mixed-scene clutter stressors. & Covers non-Gaussian clutter regimes used in radar detection literature. & Site-measured clutter truth is not claimed. \\
++    Weather and sea clutter & Rain/dust/weather-cell, coastal haze, and sea/terrain glint families. & Creates near-threshold false-track pressure. & Not a meteorological rate model. \\
++    Multipath ghosts & Synthetic ghost tracks and reflection-like interference. & Tests whether fusion overreacts to plausible false tracks. & No deployment geometry or site-specific ray tracing. \\
++    RFI bursts and passive-RF missingness & Sparse RF cues, no-signal behavior, burst contamination, clock-offset, and provenance quality. & Tests multimodal fusion when RF is absent, sparse, or contaminated. & No emitter library, payload command, operator, or exploitation claim. \\
++    Receiver impairment & AGC compression, clock drift, quantization, dropped CPI, Doppler folding, and calibration offset. & Forces detector views to tolerate sensor-like imperfections. & Simplified impairment families, not hardware qualification. \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++\begin{table*}[!t]
++  \caption{Detector-View Modeling Contract}
++  \label{tab:detectorviewcontract}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.16\textwidth}p{0.24\textwidth}p{0.27\textwidth}p{0.23\textwidth}@{}}
++    \toprule
++    View & Model-facing features & What it can support & What it cannot support \\
++    \midrule
++    X/Ku radar & Range-Doppler concentration, micro-Doppler spread, CFAR/MTD-style scores, clutter stress. & High-resolution radar branch comparison. & Proprietary sensitivity, ECCM, or exact vendor Pd/Pfa. \\
++    S-band radar & Coarser velocity/range summaries, track confidence, multipath stress. & Tactical branch stress and cue comparison. & Any claimed match to a fielded AESA/MHR implementation. \\
++    GBAD cueing & Cue confidence, horizon/revisit stress, stale-track state. & Wide-area cueing behavior under a public role envelope. & Engagement-quality behavior or operator workflow. \\
++    Acoustic & Spectral cadence, node agreement, weather/traffic stress. & Supporting propulsion-cadence cue. & Exact microphone layout or field localization performance. \\
++    Passive RF & No-signal, RFI burst, sparse RF cue, provenance-quality geometry. & RF silence/missingness and provenance-quality stress. & Emitter identification, command links, payload inference, or operator identity. \\
++    Fusion & Source confidence, stale-track penalty, cross-sensor confirmation, false-track accounting. & Accepted-practice comparator and EI input context. & Operational C2 equivalence. \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++\begin{table*}[!t]
++  \caption{Ablation and Appendix Artifact Map}
++  \label{tab:appendixartifactmap}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.20\textwidth}p{0.34\textwidth}p{0.36\textwidth}@{}}
++    \toprule
++    Artifact & Contents & Reviewer question answered \\
++    \midrule
++    \texttt{public\_proxy\_model\_detail\_rows.csv} & Positive-class geometry, kinematics, RCS, micro-Doppler, launch, phase, and prohibited-inference rows. & How exactly is the Iranian-drone public proxy represented without claiming measured truth? \\
++    \texttt{environment\_impairment\_model\_rows.csv} & Clutter, noise, weather, RFI, multipath, receiver impairment, and stress-family rows. & What noise and artifact regimes are actually modeled? \\
++    \texttt{detector\_view\_schema\_evidence.csv} & Allowed feature families and denied audit-only fields for every detector view. & Are labels, split keys, group IDs, or generator state leaking into models? \\
++    \texttt{false\_alarm\_by\_method\_family.csv} & Family-wise false alarms for EI and the strongest comparator methods. & Which hard negatives generate false alarms and what do the colors in Fig.~\ref{fig:phasekpi} mean? \\
++    \texttt{selected\_component\_human\_weights.csv} & Reader-facing EI component weights, modalities, calibrators, and cumulative weights. & What does EI actually fuse at a high level? \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++The appendix is not a claim-expansion device. It is a review surface. It explains the synthetic assumptions behind the benchmark while keeping the paper's central claim narrow: EI improves the low-FPR operating point over accepted fusion practice on this declared synthetic public-proxy run.
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 9f0d324..worldclass 100644
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@ -3108,6 +3108,114 @@ def _public_proxy_positive_class_card() -> dict[str, Any]:
+         "source_dossier_excerpt_length": len(physics_dossier.splitlines()),
+     }
++
++
++def _public_proxy_model_detail_rows(card: dict[str, Any]) -> list[dict[str, Any]]:
++    """Appendix-facing positive-class modeling rows.
++
++    These rows deliberately separate public-source proxy assumptions from
++    measured-truth claims. They are suitable for tables and reviewer audit but
++    are not detector features.
++    """
++    assumptions = card.get("public_source_assumptions", {}) if isinstance(card, dict) else {}
++    geometry = assumptions.get("geometry", {}) if isinstance(assumptions, dict) else {}
++    rows = [
++        {
++            "model_item": "airframe_geometry",
++            "public_proxy_assumption": json.dumps(geometry, sort_keys=True),
++            "radar_consequence": "aspect-dependent projected area and RCS stress",
++            "evidence_basis": "public visual/source summary envelope",
++            "prohibited_inference": "no measured Iranian-platform radar signature",
++        },
++        {
++            "model_item": "kinematics",
++            "public_proxy_assumption": json.dumps(
++                {"speed_envelope_mps": assumptions.get("speed_envelope_mps")}, sort_keys=True
++            ),
++            "radar_consequence": "Doppler centroid and track-rate priors",
++            "evidence_basis": "public-source speed envelope",
++            "prohibited_inference": "no route, tasking, or evasion model",
++        },
++        {
++            "model_item": "launch_take_up",
++            "public_proxy_assumption": str(assumptions.get("launch_proxy", "")),
++            "radar_consequence": "initial phase ground coupling, multipath, and unsettled track state",
++            "evidence_basis": "public-proxy launch abstraction",
++            "prohibited_inference": "no site or operational launch model",
++        },
++        {
++            "model_item": "rcs_aspect_envelope",
++            "public_proxy_assumption": json.dumps(
++                {"dbsm": assumptions.get("rcs_aspect_envelope_dbsm")}, sort_keys=True
++            ),
++            "radar_consequence": "branch-level detectability and aspect stress",
++            "evidence_basis": "public-proxy RCS envelope",
++            "prohibited_inference": "no sensor-specific Pd/Pfa or classified-fidelity claim",
++        },
++        {
++            "model_item": "prop_micro_doppler",
++            "public_proxy_assumption": json.dumps(
++                {"hz": assumptions.get("prop_micro_doppler_hz")}, sort_keys=True
++            ),
++            "radar_consequence": "pusher-prop modulation family and RC overlap stress",
++            "evidence_basis": "small-UAS radar literature and public-proxy propulsion envelope",
++            "prohibited_inference": "no measured propeller signature claim",
++        },
++        {
++            "model_item": "phase_windows",
++            "public_proxy_assumption": json.dumps(assumptions.get("phase_windows", {}), sort_keys=True),
++            "radar_consequence": "phase-specific holdout metrics and diagnostic slices",
++            "evidence_basis": "benchmark time-window definition",
++            "prohibited_inference": "phase slices are diagnostic, not field-rate estimates",
++        },
++    ]
++    return rows
++
++
++def _environment_impairment_model_rows(radar_model_card: dict[str, Any]) -> list[dict[str, Any]]:
++    """Appendix-facing environment/noise/clutter/RFI model rows."""
++    priors = radar_model_card.get("clutter_and_artifact_priors", {}) if isinstance(radar_model_card, dict) else {}
++    clutter = priors.get("clutter", []) if isinstance(priors, dict) else []
++    noise_rfi = priors.get("noise_and_rfi", []) if isinstance(priors, dict) else []
++    hard_negatives = priors.get("hard_negative_families", []) if isinstance(priors, dict) else []
++    receiver_impairments = radar_model_card.get("receiver_impairments", []) if isinstance(radar_model_card, dict) else []
++    return [
++        {
++            "family": "thermal_snr_stress",
++            "generated_proxy": "SNR/CNR stress buckets attached to branch summaries",
++            "radar_review_role": "prevents a clean-signal-only benchmark",
++            "source_values": "synthetic detector-view stress values",
++            "claim_boundary": "not a calibrated receiver-noise figure",
++        },
++        {
++            "family": "clutter",
++            "generated_proxy": "|".join(map(str, clutter)),
++            "radar_review_role": "non-Gaussian and site-style clutter pressure",
++            "source_values": "radar_model_card.clutter_and_artifact_priors.clutter",
++            "claim_boundary": "not measured site clutter truth",
++        },
++        {
++            "family": "weather_sea_terrain",
++            "generated_proxy": "weather cell, sea clutter, terrain glint, coastal haze, vegetation motion",
++            "radar_review_role": "near-threshold false-track pressure",
++            "source_values": "scenario noise/site strata and hard-negative roles",
++            "claim_boundary": "not a meteorological population model",
++        },
++        {
++            "family": "rfi_passive_rf_missingness",
++            "generated_proxy": "|".join(map(str, noise_rfi)),
++            "radar_review_role": "tests sparse and contaminated multimodal cues",
++            "source_values": "radar_model_card.clutter_and_artifact_priors.noise_and_rfi",
++            "claim_boundary": "no emitter library, payload command, or operator inference",
++        },
++        {
++            "family": "receiver_impairment",
++            "generated_proxy": "|".join(map(str, receiver_impairments)),
++            "radar_review_role": "forces tolerance to AGC, drift, quantization, CPI loss, and calibration offset",
++            "source_values": "radar_model_card.receiver_impairments",
++            "claim_boundary": "simplified impairment families, not hardware qualification",
++        },
++        {
++            "family": "hard_negative_taxonomy",
++            "generated_proxy": "|".join(map(str, hard_negatives)),
++            "radar_review_role": "explains false-alarm family colors and robustness slices",
++            "source_values": "regional_hard_negative_taxonomy + false_alarm_by_method_family",
++            "claim_boundary": "robustness diagnostics, not evasion guidance or field rates",
++        },
++    ]
+@@ -3156,6 +3264,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     public_proxy_positive_class_card = _public_proxy_positive_class_card()
++    public_proxy_model_detail_rows = _public_proxy_model_detail_rows(public_proxy_positive_class_card)
++    environment_impairment_model_rows = _environment_impairment_model_rows(radar_model_card)
+     regional_bird_library = _build_regional_bird_library(
+         false_positive_tables["family_rows"], false_positive_tables["method_summary_rows"]
+     )
+@@ -3210,6 +3324,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         "engineered_intelligence": engineered_intelligence_rows,
+         "public_proxy_positive_class_card": public_proxy_positive_class_card,
++        "public_proxy_model_detail_rows": public_proxy_model_detail_rows,
++        "environment_impairment_model_rows": environment_impairment_model_rows,
+         "feedback_coverage": feedback_coverage,
+         "generative_origin_audit": generative_origin_audit,
+         "source_roots": {
+@@ -3689,6 +3805,35 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     _write_json(
+         roots.out_root / "public_proxy_positive_class_card.json",
+         public_proxy_positive_class_card,
+     )
++    _write_json(
++        roots.out_root / "public_proxy_model_detail_rows.json",
++        public_proxy_model_detail_rows,
++    )
++    _write_csv(
++        roots.out_root / "public_proxy_model_detail_rows.csv",
++        public_proxy_model_detail_rows,
++        [
++            "model_item",
++            "public_proxy_assumption",
++            "radar_consequence",
++            "evidence_basis",
++            "prohibited_inference",
++        ],
++    )
++    _write_json(
++        roots.out_root / "environment_impairment_model_rows.json",
++        environment_impairment_model_rows,
++    )
++    _write_csv(
++        roots.out_root / "environment_impairment_model_rows.csv",
++        environment_impairment_model_rows,
++        [
++            "family",
++            "generated_proxy",
++            "radar_review_role",
++            "source_values",
++            "claim_boundary",
++        ],
++    )
+ 
+     if component_transparency.get("selection_lock"):
+         _write_json(
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index review-fix..worldclass 100644
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -126,6 +126,7 @@ VECTOR_FIGURES = {
+     "anchor_overlay.png",
+     "ei_workflow.png",
++    "appendix_modeling_map.png",
+ }
+@@ -2362,6 +2363,74 @@ def figure_ei_workflow(context: FigureContext) -> Path:
+     _add_fallback_banner(fig, filename)
+     return _save_figure(fig, filename)
++
++
++def figure_appendix_modeling_map(context: FigureContext) -> Path:
++    filename = "appendix_modeling_map.png"
++    card = context.evidence.get("public_proxy_positive_class_card", {})
++    radar = context.evidence.get("radar_model_card", {})
++    if card and radar:
++        _note_source(filename, "public proxy positive-class card and radar model card")
++    else:
++        _note_fallback(filename, "positive-class/radar model card missing; using declared appendix labels")
++        if STRICT_MODE:
++            _require_no_fallback(filename)
++    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.70), constrained_layout=False)
++    fig.subplots_adjust(left=0.03, right=0.98, top=0.88, bottom=0.08)
++    ax.set_xlim(0, 10)
++    ax.set_ylim(0, 6)
++    ax.axis("off")
++    ax.text(0.0, 5.78, "Appendix modeling map: positive proxy, environment, and detector views", fontsize=FONT_TITLE, weight="bold", ha="left", va="top")
++    ax.text(0.0, 5.42, "This is a review surface: it explains assumptions without expanding the measured-truth claim.", fontsize=FONT_TINY, color=MUTED, ha="left")
++    columns = [
++        (
++            0.20,
++            "Fixed-wing pusher-prop public proxy",
++            [
++                "geometry: delta/swept wing + rear pusher",
++                "speed: 45--60 m/s",
++                "prop micro-Doppler: 150--217 Hz",
++                "RCS/aspect: -28 to -2 dBsm",
++                "no measured Iranian-drone radar truth",
++            ],
++            PALE_BLUE,
++            BLUE,
++        ),
++        (
++            3.48,
++            "Environment + receiver stress",
++            [
++                "Weibull/K-like clutter",
++                "weather, sea, terrain glint",
++                "multipath ghosts + RFI bursts",
++                "AGC, drift, quantization, CPI loss",
++                "no site-measured clutter truth",
++            ],
++            PALE_GOLD,
++            GOLD,
++        ),
++        (
++            6.76,
++            "Detector views + fusion",
++            [
++                "X/Ku, S-band, GBAD radar summaries",
++                "acoustic cadence + passive-RF provenance",
++                "accepted human fusion comparator",
++                "EI sparse calibrated late fusion",
++                "labels/group/split fields denied",
++            ],
++            PALE_GREEN,
++            GREEN,
++        ),
++    ]
++    for x, title, lines, face, edge in columns:
++        rect = Rectangle((x, 1.05), 2.82, 4.22, facecolor=face, edgecolor=edge, linewidth=1.1)
++        ax.add_patch(rect)
++        ax.text(x + 0.15, 4.95, _wrap_compact(title, 25), ha="left", va="top", fontsize=FONT_AXIS, weight="bold", color=INK)
++        for idx, line in enumerate(lines):
++            ax.text(x + 0.18, 4.30 - idx * 0.66, "• " + _wrap_compact(line, 31), ha="left", va="top", fontsize=FONT_TINY, color=INK, linespacing=1.08)
++    _add_arrow(ax, (3.02, 3.22), (3.48, 3.22), color=MUTED)
++    _add_arrow(ax, (6.30, 3.22), (6.76, 3.22), color=MUTED)
++    ax.text(0.20, 0.36, "Evidence rows: public_proxy_model_detail_rows.csv, environment_impairment_model_rows.csv, detector_view_schema_evidence.csv", fontsize=FONT_TINY, color=MUTED, ha="left")
++    _add_fallback_banner(fig, filename)
++    return _save_figure(fig, filename)
+@@ -2372,6 +2441,7 @@ def generate_all(context: FigureContext) -> list[Path]:
+         figure_detector_ml_pipeline(context),
+         figure_anchor_overlay(context),
+         figure_ei_workflow(context),
++        figure_appendix_modeling_map(context),
+     ]
+diff --git a/paper/validate_visuals.py b/paper/validate_visuals.py
+index review-fix..worldclass 100644
+--- a/paper/validate_visuals.py
++++ b/paper/validate_visuals.py
+@@ -20,6 +20,7 @@ REQUIRED_PNGS = (
+     "detector_ml_pipeline.png",
+     "anchor_overlay.png",
+     "ei_workflow.png",
++    "appendix_modeling_map.png",
+ )
+@@ -30,6 +31,7 @@ VECTOR_PDFS = (
+     "detector_ml_pipeline.pdf",
+     "anchor_overlay.pdf",
+     "ei_workflow.pdf",
++    "appendix_modeling_map.pdf",
+ )
+@@ -46,6 +48,7 @@ REQUIRED_TERMS_BY_PDF = {
+     "kpi_ranking.pdf": (
+         "gain vs best practice",
+         "red tick = LCB95 lower bound",
+         "1% FPR operating limit",
+     ),
+     "phase_kpi.pdf": ("False-alarm family legend", "Near-threshold total", "Fixed-FPR recall"),
+     "ei_workflow.pdf": ("Blind holdout", "Feature denylist"),
++    "appendix_modeling_map.pdf": ("positive proxy", "environment", "detector views"),
+ }
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index review-fix..worldclass 100644
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@ -18,6 +18,7 @@ REQUIRED_FIGURES = (
+     "detector_ml_pipeline.pdf",
+     "anchor_overlay.pdf",
+     "ei_workflow.pdf",
++    "appendix_modeling_map.pdf",
+ )
+@@ -29,6 +30,7 @@ PREVIEW_PNGS = (
+     "detector_ml_pipeline.png",
+     "anchor_overlay.png",
+     "ei_workflow.png",
++    "appendix_modeling_map.png",
+ )
+@@ -204,6 +206,14 @@ def validate_paper_text(tex_path: Path) -> None:
+     if "Main Experiment Ladder and Comparator Roles" not in text:
+         fail("generic EI pass/fail table must be replaced with the experiment ladder table")
++    for required in (
++        "Core Experiment Roadmap",
++        "Fixed-Wing Pusher-Prop / Iranian-Drone Public-Proxy Modeling Card",
++        "Noise, Clutter, RFI, and Receiver Modeling Details",
++        "Detector-View Modeling Contract",
++    ):
++        if required not in text:
++            fail(f"paper text is missing rich appendix/roadmap content: {required}")
+@@ -245,6 +253,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
+         "engineered_intelligence",
+         "public_proxy_positive_class_card",
++        "public_proxy_model_detail_rows",
++        "environment_impairment_model_rows",
+     ):
+         value = manifest.get(key)
+         if not value:
+@@ -301,7 +311,7 @@ def main() -> None:
+ 
+     pages = pdf_page_count(args.pdf)
+-    if not 8 <= pages <= 14:
+-        fail(f"page count {pages} outside 8-14")
++    if not 8 <= pages <= 18:
++        fail(f"page count {pages} outside 8-18")

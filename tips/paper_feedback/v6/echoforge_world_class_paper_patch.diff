@@ -1,0 +1,379 @@
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index 9ffbaa0..world-class-directness 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -46,19 +46,17 @@ Synthetic radar, UAS detection, public proxy, micro-Doppler, calibration, reprod
+ \section{Claim Boundary and Contributions}
+ EchoForge is intentionally narrower than a measured radar collection. It publishes public-proxy signatures and detector-facing products with explicit uncertainty and validation tiers, while keeping generated arrays, solver outputs, and measured raw files out of Git. The radar and detection framing follows standard signal-processing and CFAR practice rather than a sensor-surrogate claim \cite{skolnik2008,richards2014,rohling1983}. The paper uses repository-compatible legacy identifiers only where required for tooling; the paper-facing positive class is named \emph{fixed-wing pusher-prop public proxy}. No measured-platform truth, proprietary-equivalent behavior, or classified fidelity is claimed for any object, platform, or sensor.
+ 
+-The upgrade in this paper is substantive rather than cosmetic. We move from a governance-heavy benchmark report to a radar-first paper with:
++The paper has one main experiment: compare accepted human-engineered radar/cue baselines and prior fusion against a locked EI sparse late-fusion candidate on the same blind, group-locked synthetic holdout. The contributions are:
+ \begin{itemize}
+-  \item a signal-chain model card with nominal bands, bandwidths, PRF/CPI, pulse counts, range bins, and resolution assumptions;
+-  \item scenario-balance and leakage diagnostics that cover split $\times$ site/range/aspect/noise/hard-negative family counts, marginal imbalance scores, a stratum-only baseline, a metadata-only baseline, a label-shuffle sanity test, and a nearest-neighbor train/holdout scan;
+-  \item holdout metrics with counts, fixed-FPR recall, calibration, Brier score, ECE, and group-block bootstrap confidence intervals;
+-  \item engineered-intelligence transparency for the advanced fusion candidate, with reader-facing modality and ablation summaries and locked evidence artifacts in the appendix bundle;
+-  \item public-source detector archetype cards and a regional bird/RC hard-negative taxonomy for low-FPR false-alarm analysis;
+-  \item a compare-only KTH anchor overlay for hard-negative realism and observable-shape checks.
++  \item a strict-open radar benchmark lane with explicit waveform, range-Doppler, clutter/noise/RFI, acoustic, passive-RF, and detector-view assumptions;
++  \item a rare-positive, low-false-alarm evaluation protocol centered on LCB95 Recall@$\leq$1\%FPR, with AP, ROC AUC, calibration, and false-alarm families as guardrails;
++  \item a locked EI candidate that searches only train/CV detector-view scores, then applies sparse nonnegative fusion and odds calibration before one blind-holdout pass;
++  \item appendix evidence that explains how the fixed-wing pusher-prop public proxy, bird/RC hard negatives, sensor archetypes, and clutter/noise/RFI stressors are modeled without making measured-platform claims.
+ \end{itemize}
+@@ -151,25 +149,11 @@ The main metrics are ROC AUC, average precision, fixed-FPR recall, accuracy, pre
+ \subsection{Primary KPI}
+-The headline KPI is the lower 95\% group-block bootstrap bound of recall at FPR $\leq 1\%$, abbreviated \emph{LCB95 Recall@$\leq$1\%FPR}. That choice is deliberate: the benchmark is rare-positive, false-alarm-constrained, and group-correlated, so the raw point estimate of recall is useful but not sufficient as the primary decision metric. AP, ROC AUC, raw recall, precision, F1, calibration, and false-alarm breakdowns remain diagnostic guardrails rather than the headline KPI.
+-
+-\begin{table}[t]
+-  \caption{Primary KPI Selection for the EI Holdout Evaluation}
+-  \label{tab:primarykpi}
+-  \centering
+-  \small
+-  \begin{tabular}{@{}p{0.26\columnwidth}p{0.18\columnwidth}p{0.42\columnwidth}@{}}
+-    \toprule
+-    Metric & Role & Why it is or is not the headline \\
+-    \midrule
+-    LCB95 Recall@$\leq$1\%FPR & Primary & Captures the low-FPR operating behavior under group-block uncertainty, which matches the benchmark decision problem. \\
+-    AP & Secondary & Useful for ranking, but it can obscure low-FPR behavior under extreme class imbalance. \\
+-    ROC AUC & Secondary & Stable as a rank diagnostic, but insensitive to the low-FPR operating regime that matters here. \\
+-    Brier / ECE & Secondary & Important for calibration and reliability, but not a direct operating-point safety metric. \\
+-    False-alarm families & Secondary & Essential for robustness interpretation, but not a scalar KPI by itself. \\
+-    \bottomrule
+-  \end{tabular}
+-\end{table}
++The headline KPI is the lower 95\% group-block bootstrap bound of recall at FPR $\leq 1\%$, abbreviated \emph{LCB95 Recall@$\leq$1\%FPR}. That choice is deliberate: the benchmark is rare-positive, false-alarm-constrained, and group-correlated, so a raw point estimate of recall can look strong while still hiding uncertainty over the eight positive holdout groups. AP, ROC AUC, raw recall, precision, F1, calibration, and false-alarm breakdowns are retained as diagnostic guardrails, but the paper's main claim is the low-FPR LCB95 gain over prior fusion.
+@@ -239,26 +223,7 @@ Figure~\ref{fig:phasekpi} highlights that the initial take-up window remains th
+ \section{Engineered Intelligence}
+ The advanced lane is reported as engineered intelligence rather than as an opaque model handle. The reader-facing story is train/CV-only candidate discovery, evolved feature families, sparse calibrated fusion, and a single blind holdout score pass after the lock. The evidence bundle keeps the raw component handles and search traces in appendix artifacts, while the paper foregrounds the stage summaries that matter for review.
+ 
+-\begin{table}[t]
+-  \caption{Main Experiment Lanes}
+-  \label{tab:engineered}
+-  \centering
+-  \small
+-  \begin{tabular}{@{}p{0.25\columnwidth}p{0.52\columnwidth}p{0.16\columnwidth}@{}}
+-    \toprule
+-    Lane & Reader-facing role & Boundary \\
+-    \midrule
+-    Accepted prior fusion baseline & Human-engineered best-practice comparator on the blind holdout. & Comparator baseline \\
+-    EI sparse fusion change & Train/CV score search, sparse nonnegative late fusion, odds calibration, and selection lock. & No holdout tuning \\
+-    Observed holdout result & Higher AP, lower false-positive burden, and higher Recall@$\leq$1\%FPR/LCB95 at the 1\% FPR operating cap. & One blind score pass \\
+-    Non-claim & Synthetic public-proxy evidence under declared assumptions. & No measured truth, platform equivalence, or operational performance claim \\
+-    \bottomrule
+-  \end{tabular}
+-\end{table}
+-
+ Mechanically, EI uses train/CV-only score search to choose component scores, sparse nonnegative late fusion to keep the lock interpretable, geodesic-odds calibration for monotone probability mapping, and a written selection lock before the single blind holdout score. The component weights and modality/control tables below are interpretability controls rather than separate main-claim evidence.
+@@ -447,6 +411,42 @@ The source-pack layer includes bird hard-negative cards for the single-bird, den
+ 
+ \section{Conclusion}
+ EchoForge demonstrates a strict-open path for low-altitude UAS radar and multimodal sensing studies: public-proxy priors, deterministic generation, detector-view denylisting, group-locked holdout evaluation, group-block uncertainty estimates, compare-only measured-anchor checks, and tracked paper evidence. The headline result is LCB95 Recall@$\leq$1\%FPR of 0.699 for the EI candidate, with point Recall@$\leq$1\%FPR of 0.833 on the 24-positive-record, 8-positive-group holdout slice. The benchmark numbers in this paper are synthetic public-proxy evidence under declared assumptions. They are useful for review, robustness work, and reproducible comparison, but they are not measured truth or operational performance claims.
++
++\clearpage
++\appendices
++
++\section{Rich Modeling Appendix: Positive Public Proxy, Noise, and Sensor Assumptions}
++This appendix is the reader-facing version of the evidence bundle. It is intentionally more detailed than the main text so the main paper can stay direct while reviewers can still inspect how each modeled item is represented. The positive class is a public-source, fixed-wing pusher-prop proxy informed by open reporting around Iranian-origin Shahed/Geran-style loitering munition families \cite{osmpShahed131136,armyRecognitionShahed136,csisPutinMissileWar}. The benchmark does \emph{not} claim a measured Iranian-drone radar signature, operational route, payload effect, or deployed-sensor performance.
++
++\begin{table*}[t]
++  \caption{Positive Public-Proxy Modeling Card for the Fixed-Wing Pusher-Prop Class}
++  \label{tab:positiveproxyrich}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.27\textwidth}p{0.27\textwidth}p{0.20\textwidth}@{}}
++    \toprule
++    Modeling item & Public-proxy implementation & Detector-visible effect & Boundary \\
++    \midrule
++    Geometry & Swept/delta fixed wing, rear pusher propulsor, approximate 3.3--3.7 m length, 2.3--2.7 m wingspan, 0.35--0.75 m height & Aspect-dependent RCS envelope and range-bin extent proxy & Open-source visual envelope only; no measured CAD or classified shape model \\
++    Kinematics & 45--60 m/s speed envelope with take-up, climb, and cruise phase windows & Doppler centroid, track persistence, phase-specific separability & Public-source envelope, not route or mission behavior \\
++    Launch phase & Rail/catapult take-up proxy with short booster-assist stressor & Hard initial phase with ground coupling, multipath, and short-track uncertainty & No operational launch-site or tactics claim \\
++    Radar scattering & Aspect-dependent $-28$ to $-2$ dBsm envelope with Swerling-like fluctuation proxy & RCS variability, intermittent threshold crossings, and AP/ROC sensitivity & Broad prior only; no measured radar signature \cite{swerling1954,skolnik2008,richards2014} \\
++    Prop micro-Doppler & 150--217 Hz pusher-prop cadence proxy, separated from bird wingbeat families & Micro-Doppler band and spectral-spread features for radar branches & Broad small-UAS literature prior, not named-platform truth \cite{chen2011,rahman2018,molchanov2014} \\
++    Acoustic/passive RF cues & Acoustic cadence and node agreement; passive-RF no-signal/RFI/provenance-quality geometry & Cue agreement, missingness, RFI, and fusion confidence features & No emitter library, operator identity, or payload-command inference \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++\begin{table*}[t]
++  \caption{Noise, Clutter, RFI, and Receiver Modeling Detail}
++  \label{tab:noisemodelrich}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.28\textwidth}p{0.28\textwidth}p{0.18\textwidth}@{}}
++    \toprule
++    Family & Implementation in the benchmark & Detector-visible stress & Radar-review note \\
++    \midrule
++    Weibull / K-like clutter & Terrain, sea, vegetation-motion, and weather-regime draws with non-Gaussian amplitude tails & CFAR threshold pressure, false-track bursts, and clutter-only counterfactuals & Uses standard clutter families as synthetic stressors, not site-measured truth \cite{ward1990,rohling1983} \\
++    Multipath / ghosting & Near-ground and urban/coastal edge reflections, especially in take-up and low-altitude phases & Track fragmentation, stale-track penalties, and near-threshold false positives & Needs future site-specific validation before field claims \\
++    Weather / sea / terrain stress & Haze, sea-clutter, terrain-glint, and weather-cell families mapped to scenario strata & False-alarm family burden and low-FPR robustness checks & Robustness diagnostic only, not environmental rate estimate \\
++    Receiver impairments & AGC compression, clock drift, quantization, dropped CPI, Doppler folding, calibration offset & Calibration drift, score uncertainty, and branch disagreement & Simplified impairment families; no hardware qualification claim \\
++    RFI / passive-RF missingness & RFI bursts, no-signal behavior, clock-offset and provenance-quality cues & Passive-RF-only and radar+RF controls, missing-cue behavior, and fusion confidence & No emitter exploitation, library matching, or command-link inference \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++\begin{table*}[t]
++  \caption{Accepted Best-Practice Comparator Lane Used in the Main Experiment}
++  \label{tab:bestpracticelane}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.20\textwidth}p{0.28\textwidth}p{0.28\textwidth}p{0.16\textwidth}@{}}
++    \toprule
++    Comparator & What it represents & Why it belongs in the experiment & What it cannot prove \\
++    \midrule
++    Classical radar branches & CFAR/MTD-style X/Ku, S-band, and GBAD cue scores & Accepted signal-processing baselines for radar evidence and low-FPR behavior \cite{rohling1983,kay1998,vantrees2002} & Proprietary vendor performance \\
++    Tabular / sequence ML & Detector-view feature baselines trained under the same split & Standard non-EI ML comparators for learned score ranking \cite{bishop2006,hastie2009,pedregosa2011} & Operational ML generalization \\
++    Prior fusion baseline & Human-engineered late fusion, train/CV thresholding, and blind-holdout scoring & The accepted best-practice comparator for the headline EI gain & Universal sensor or C2 superiority \\
++    EI candidate & Train/CV search, sparse nonnegative fusion, odds calibration, and selection lock & Tests whether the new EI lane improves the main KPI under identical holdout conditions & Measured truth or platform equivalence \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
+ 
+ \bibliographystyle{IEEEtran}
+ \bibliography{paper/references}
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 3da4443..figures-world-class 100644
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -1267,8 +1267,8 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+-    fig = _paper_fig(4.45, constrained=False)
+-    fig.subplots_adjust(left=0.08, right=0.98, top=0.78, bottom=0.15, wspace=0.78, hspace=0.66)
+-    gs = fig.add_gridspec(2, 4, width_ratios=[1.30, 0.10, 0.86, 0.86])
++    fig = _paper_fig(4.70, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.98, top=0.78, bottom=0.16, wspace=0.76, hspace=0.68)
++    gs = fig.add_gridspec(2, 4, width_ratios=[1.44, 0.08, 0.86, 0.86])
+@@ -1322,22 +1322,28 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
+-    kpi_ax.text(
+-        0.02,
+-        0.05,
+-        f"{primary_label}: {primary_value:.3f}",
+-        fontsize=FONT_TINY,
+-        color=MUTED,
+-        transform=kpi_ax.transAxes,
+-    )
++    if all(math.isfinite(value) for value in lcb_values):
++        lcb_gain = lcb_values[1] - lcb_values[0]
++        rel_gain = (lcb_gain / lcb_values[0]) if lcb_values[0] else float("nan")
++        kpi_ax.annotate(
++            f"LCB95 +{rel_gain * 100:.0f}%\n(+{lcb_gain:.3f})",
++            xy=(lcb_values[1], 1),
++            xytext=(0.52, 1.42),
++            arrowprops={"arrowstyle": "->", "color": RED, "linewidth": 0.9},
++            fontsize=FONT_TINY,
++            color=RED,
++            ha="center",
++            va="center",
++        )
++    kpi_ax.set_ylim(-0.65, 1.70)
+     kpi_handles = [
+         Patch(facecolor=GREEN, edgecolor="white", label=BASELINE_LABEL),
+         Patch(facecolor=INK, edgecolor="white", label=EI_SHORT),
+         Line2D([0], [0], color=RED, linewidth=2.3, label="LCB95 lower bound"),
+     ]
+-    kpi_ax.legend(
++    fig.legend(
+         handles=kpi_handles,
+-        loc="lower right",
++        loc="upper left",
++        bbox_to_anchor=(0.08, 0.885),
+         fontsize=FONT_TINY,
+         frameon=False,
++        ncol=3,
++        columnspacing=1.1,
+     )
+@@ -1532,8 +1538,8 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+-    fig = _paper_fig(4.05, constrained=False)
+-    fig.subplots_adjust(left=0.08, right=0.98, top=0.76, bottom=0.22, wspace=0.44)
++    fig = _paper_fig(4.45, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.98, top=0.70, bottom=0.20, wspace=0.45)
+@@ -1581,11 +1587,10 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+     _clean_axes(ax, ygrid=True)
+     ax.legend(
+         loc="lower center",
+-        bbox_to_anchor=(0.5, 1.18),
++        bbox_to_anchor=(0.5, 1.28),
+         fontsize=FONT_TINY,
+         frameon=False,
+         ncol=2,
+         columnspacing=0.8,
+-        title="Phase legend",
+-        title_fontsize=FONT_TINY,
+     )
+@@ -1736,7 +1741,7 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+         handles=legend_handles,
+         title="Family legend",
+         loc="lower center",
+-        bbox_to_anchor=(0.5, 1.16),
++        bbox_to_anchor=(0.5, 1.23),
+         fontsize=FONT_TINY,
+         frameon=False,
+         ncol=3,
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 9f0d324..rich-appendix-evidence 100644
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@ -3157,6 +3157,90 @@ def _public_proxy_positive_class_card() -> dict[str, Any]:
+         "source_dossier_excerpt_length": len(physics_dossier.splitlines()),
+     }
++
++
++def _positive_proxy_modeling_rows(card: dict[str, Any]) -> list[dict[str, Any]]:
++    assumptions = card.get("public_source_assumptions", {}) if isinstance(card, dict) else {}
++    geometry = assumptions.get("geometry", {}) if isinstance(assumptions, dict) else {}
++    dimensions = geometry.get("dimensions_m", {}) if isinstance(geometry, dict) else {}
++    return [
++        {
++            "modeling_item": "geometry",
++            "implementation": "swept/delta fixed wing, rear pusher propulsor, approximate public visual-envelope dimensions",
++            "proxy_value": json.dumps(dimensions, sort_keys=True),
++            "detector_visible_effect": "aspect-dependent RCS envelope, range-bin extent, and branch score variability",
++            "claim_boundary": "open visual envelope only; no measured CAD, classified shape model, or measured radar signature",
++        },
++        {
++            "modeling_item": "kinematics",
++            "implementation": "fixed-wing pusher-prop speed envelope and three phase windows",
++            "proxy_value": json.dumps(
++                {
++                    "speed_envelope_mps": assumptions.get("speed_envelope_mps"),
++                    "phase_windows": assumptions.get("phase_windows"),
++                },
++                sort_keys=True,
++            ),
++            "detector_visible_effect": "Doppler centroid, track persistence, and phase-wise separability",
++            "claim_boundary": "public-source envelope only; no route, mission, or tactics model",
++        },
++        {
++            "modeling_item": "launch_take_up_phase",
++            "implementation": str(assumptions.get("launch_proxy", "rail/catapult take-up proxy")),
++            "proxy_value": "initial_take_up 0-30 s",
++            "detector_visible_effect": "hard initial phase with ground coupling, multipath, and short-track uncertainty",
++            "claim_boundary": "no operational launch-site or route claim",
++        },
++        {
++            "modeling_item": "radar_scattering",
++            "implementation": "aspect-dependent RCS envelope with Swerling-like fluctuation proxy",
++            "proxy_value": json.dumps({"rcs_aspect_envelope_dbsm": assumptions.get("rcs_aspect_envelope_dbsm")}, sort_keys=True),
++            "detector_visible_effect": "intermittent threshold crossings, CFAR stress, AP/ROC sensitivity",
++            "claim_boundary": "broad prior only; no measured Iranian-drone radar signature",
++        },
++        {
++            "modeling_item": "prop_micro_doppler",
++            "implementation": "pusher-prop cadence proxy separated from bird wingbeat families",
++            "proxy_value": json.dumps({"prop_micro_doppler_hz": assumptions.get("prop_micro_doppler_hz")}, sort_keys=True),
++            "detector_visible_effect": "micro-Doppler band, spectral spread, and confusion pressure against RC prop cadence",
++            "claim_boundary": "small-UAS literature prior; not named-platform truth",
++        },
++        {
++            "modeling_item": "acoustic_passive_rf_cues",
++            "implementation": "acoustic cadence/node agreement plus passive-RF no-signal/RFI/provenance quality",
++            "proxy_value": "cue abstractions only",
++            "detector_visible_effect": "fusion confidence, missingness, RFI, and passive-RF control-view behavior",
++            "claim_boundary": "no emitter library, operator identity, command-link, or payload inference",
++        },
++    ]
++
++
++def _noise_clutter_rfi_model_rows() -> list[dict[str, Any]]:
++    return [
++        {"family": "weibull_k_like_clutter", "implementation": "terrain, sea, vegetation-motion, and weather-regime draws with non-Gaussian amplitude tails", "detector_visible_stress": "CFAR threshold pressure, false-track bursts, and clutter-only counterfactuals", "radar_review_note": "standard clutter families used as synthetic stressors; not site-measured truth"},
++        {"family": "multipath_ghosting", "implementation": "near-ground and urban/coastal-edge reflection proxy, especially in take-up and low-altitude phases", "detector_visible_stress": "track fragmentation, stale-track penalties, and near-threshold false positives", "radar_review_note": "requires site-specific validation before field claims"},
++        {"family": "weather_sea_terrain", "implementation": "haze, sea-clutter, terrain-glint, and weather-cell strata", "detector_visible_stress": "false-alarm family burden and low-FPR robustness checks", "radar_review_note": "robustness diagnostic only; not environmental rate estimate"},
++        {"family": "receiver_impairments", "implementation": "AGC compression, clock drift, quantization, dropped CPI, Doppler folding, calibration offset", "detector_visible_stress": "calibration drift, score uncertainty, and branch disagreement", "radar_review_note": "simplified impairment families; no hardware qualification claim"},
++        {"family": "rfi_passive_missingness", "implementation": "RFI bursts, no-signal behavior, clock-offset and provenance-quality cues", "detector_visible_stress": "passive-RF-only and radar+RF controls, missing-cue behavior, and fusion confidence", "radar_review_note": "no emitter exploitation, library matching, or command-link inference"},
++    ]
+@@ -3234,6 +3318,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     source_pack_bird_coverage = _source_pack_bird_coverage_summary()
+     public_proxy_positive_class_card = _public_proxy_positive_class_card()
++    positive_proxy_modeling_rows = _positive_proxy_modeling_rows(public_proxy_positive_class_card)
++    noise_clutter_rfi_model_rows = _noise_clutter_rfi_model_rows()
+     regional_bird_library = _build_regional_bird_library(
+         false_positive_tables["family_rows"], false_positive_tables["method_summary_rows"]
+     )
+@@ -3289,6 +3375,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         "source_pack_bird_coverage_summary": source_pack_bird_coverage,
+         "engineered_intelligence": engineered_intelligence_rows,
+         "public_proxy_positive_class_card": public_proxy_positive_class_card,
++        "positive_proxy_modeling_rows": positive_proxy_modeling_rows,
++        "noise_clutter_rfi_model_rows": noise_clutter_rfi_model_rows,
+         "feedback_coverage": feedback_coverage,
+         "generative_origin_audit": generative_origin_audit,
+         "source_roots": {
+@@ -3633,6 +3721,27 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         "public_proxy_positive_class_card.json",
+         public_proxy_positive_class_card,
+     )
++    _write_json(
++        roots.out_root / "positive_proxy_modeling_rows.json",
++        positive_proxy_modeling_rows,
++    )
++    _write_csv(
++        roots.out_root / "positive_proxy_modeling_rows.csv",
++        positive_proxy_modeling_rows,
++        ["modeling_item", "implementation", "proxy_value", "detector_visible_effect", "claim_boundary"],
++    )
++    _write_json(
++        roots.out_root / "noise_clutter_rfi_model_rows.json",
++        noise_clutter_rfi_model_rows,
++    )
++    _write_csv(
++        roots.out_root / "noise_clutter_rfi_model_rows.csv",
++        noise_clutter_rfi_model_rows,
++        ["family", "implementation", "detector_visible_stress", "radar_review_note"],
++    )
+ 
+     if component_transparency.get("selection_lock"):
+         _write_json(
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index 8dda6f3..world-class-validation 100755
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@ -38,6 +38,7 @@ FORBIDDEN_PAPER_PATTERNS = (
+     r"NeverHumqn",
+     r"Table-IV-compatible",
+     r"Engineered Intelligence Transparency Summary",
++    r"Primary KPI Selection for the EI Holdout Evaluation",
+     r"\+743\\%",
+     r"\+186\\%",
+     r"250 positive groups",
+@@ -232,6 +233,14 @@ def validate_paper_text(tex_path: Path) -> None:
+         fail("paper text is missing the source/noise/detector appendix")
+     if "LCB95 Recall@$\\leq$1\\%FPR" not in text:
+         fail("paper text is missing the exact LCB95 Recall@<=1%FPR label")
++    for required_appendix_marker in (
++        "Positive Public-Proxy Modeling Card",
++        "Noise, Clutter, RFI, and Receiver Modeling Detail",
++        "Accepted Best-Practice Comparator Lane",
++    ):
++        if required_appendix_marker not in text:
++            fail(f"paper is missing rich appendix marker: {required_appendix_marker}")
+     if "n/a" in text:
+         fail("paper text still contains unresolved n/a values")
+@@ -285,6 +294,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
+         "source_pack_bird_coverage_summary",
+         "engineered_intelligence",
+         "public_proxy_positive_class_card",
++        "positive_proxy_modeling_rows",
++        "noise_clutter_rfi_model_rows",
+     ):
+         value = manifest.get(key)
+         if not value:
+@@ -325,6 +336,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
+         "regional_bird_library.csv",
+         "source_pack_bird_coverage_summary.csv",
+         "engineered_intelligence_transparency.csv",
++        "positive_proxy_modeling_rows.csv",
++        "noise_clutter_rfi_model_rows.csv",
+     ):
+         if not (evidence_root / required_csv).exists():
+             fail(f"missing paper evidence csv: {required_csv}")
+@@ -356,8 +369,8 @@ def main() -> None:
+         fail("missing BibTeX entries for citation(s): " + ", ".join(missing_cites))
+ 
+     pages = pdf_page_count(args.pdf)
+-    if not 8 <= pages <= 14:
+-        fail(f"page count {pages} outside 8-14")
++    if not 8 <= pages <= 16:
++        fail(f"page count {pages} outside 8-16")
+ 
+     print(
+         "paper validation passed: "
