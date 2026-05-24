@@ -506,6 +506,26 @@ def figure_architecture_stack(roots: Roots, context: Context) -> Path:
     x_gap = 0.13
     y_gap = 0.34
     header_h = 0.36
+
+    def draw_card_body(x: float, y: float, lines: list[str]) -> None:
+        body_y = y + card_h - header_h - 0.30
+        line_step = 0.18
+        paragraph_gap = 0.06
+        for line_idx, line in enumerate(lines[:4]):
+            wrapped = _wrap(line, 24)
+            line_count = max(1, wrapped.count("\n") + 1)
+            ax.text(
+                x + 0.10,
+                body_y,
+                wrapped,
+                fontsize=5.55,
+                color=INK if line_idx == 0 else MUTED,
+                va="top",
+                linespacing=1.0,
+                clip_on=True,
+            )
+            body_y -= line_step * line_count + paragraph_gap
+
     for idx, (header, lines) in enumerate(ledger_cards):
         col = idx % cols
         row = idx // cols
@@ -516,15 +536,7 @@ def figure_architecture_stack(roots: Roots, context: Context) -> Path:
             Rectangle((x, y + card_h - header_h), card_w, header_h, facecolor=PALE_SLATE, edgecolor=GRID, linewidth=0.9)
         )
         ax.text(x + 0.08, y + card_h - 0.23, header, fontsize=7.1, weight="bold", color=INK, va="center")
-        for line_idx, line in enumerate(lines[:4]):
-            ax.text(
-                x + 0.10,
-                y + card_h - header_h - 0.33 - line_idx * 0.45,
-                _wrap(line, 24),
-                fontsize=5.8,
-                color=INK if line_idx == 0 else MUTED,
-                va="top",
-            )
+        draw_card_body(x, y, lines)
     return _save(fig, roots, "architecture_stack.png")
 
 
