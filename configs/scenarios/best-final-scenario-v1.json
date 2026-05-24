@@ -1,0 +1,85 @@
+{
+  "scenario_id": "best-final-scenario-v1",
+  "purpose": "strict-open public-proxy radar benchmark for defensive early detection and false-alarm robustness",
+  "validation_tier": "V1 public-proxy",
+  "dataset": {
+    "output_dir": "outputs/training-data/best-final-scenario-v1",
+    "records": 3900,
+    "positives_per_class_per_sensor": 100,
+    "negatives_per_sensor": 1000,
+    "generated_artifacts_policy": "generated datasets, tensors, trained models, and solver outputs remain under outputs/ and out of Git"
+  },
+  "smoke_dataset": {
+    "output_dir": "outputs/training-data/best-final-scenario-v1-smoke",
+    "records": 30,
+    "positives_per_class_per_sensor": 2,
+    "negatives_per_sensor": 4
+  },
+  "sensors": [
+    {
+      "sensor_id": "saab-giraffe-1x",
+      "label": "Saab Giraffe 1X",
+      "band_public_proxy": "X-band/short-range C-UAS public proxy",
+      "source_urls": ["https://www.saab.com/products/giraffe-1x"]
+    },
+    {
+      "sensor_id": "rtx-kurfs",
+      "label": "RTX KuRFS",
+      "band_public_proxy": "Ku-band 360-degree C-UAS/RAM public proxy",
+      "source_urls": ["https://www.raytheonemirates.com/en/what-we-do/iamd/counter-uas/kurfs"]
+    },
+    {
+      "sensor_id": "hensoldt-spexer-2000-3d-mkiii",
+      "label": "HENSOLDT SPEXER 2000 3D MkIII",
+      "band_public_proxy": "X-band short-range UAS-capable radar public proxy",
+      "source_urls": [
+        "https://www.hensoldt.net/",
+        "https://www.janes.com/defence-intelligence-insights/defence-news-details/c4isr/hensoldt-to-deliver-trml-4d-and-spexer-2000-3d-mkiii-radars-to-ukraine"
+      ]
+    }
+  ],
+  "positive_classes": [
+    "shahed-136-geran-2",
+    "shahed-131-geran-1",
+    "mohajer-6"
+  ],
+  "optional_positive_classes": ["geran-3-jet-variant"],
+  "phase_targets": ["early_takeoff", "mid_ramp", "cruise_altitude"],
+  "hard_negative_families": [
+    "single_bird",
+    "bird_flock",
+    "bat_insect_cloud",
+    "hobby_drone",
+    "balloon_weather",
+    "kite",
+    "windborne_debris",
+    "ground_vehicle",
+    "power_line_pylon",
+    "wind_turbine",
+    "terrain_only",
+    "rain_cell",
+    "dust_haze",
+    "rfi_burst",
+    "sensor_dropout",
+    "multipath_ghost"
+  ],
+  "stressor_families": [
+    "thermal_noise",
+    "phase_noise",
+    "amplitude_scintillation",
+    "k_weibull_lognormal_clutter",
+    "ground_sea_glints",
+    "two_ray_multipath",
+    "rain_atmospheric_loss",
+    "receiver_dropout",
+    "co_channel_emitters",
+    "rfi_bursts",
+    "calibration_drift",
+    "sensor_saturation"
+  ],
+  "guardrails": [
+    "public-proxy outputs only",
+    "no measured-truth or proprietary-equivalent claim",
+    "AUC is a synthetic benchmark diagnostic, not real-world measured performance"
+  ]
+}

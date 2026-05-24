@@ -1,0 +1,119 @@
+# EchoForge weather_profile card — Mediterranean Clear Air (standard atmosphere)
+# Schema: schemas/weather_profile.schema.json
+#
+# Eastern Mediterranean spring / early-summer: near-textbook standard
+# atmosphere, light westerly wind, mostly clear sky with thin cirrus
+# overhead, exceptional visibility, no precipitation. Drives the radar /
+# EO-IR chain in its low-loss reference regime: useful baseline for any
+# benchmarking that wants to isolate sensor / waveform effects from
+# weather.
+id: "ef:weather_profile:mediterranean-clear-air:0000000000000000:1"
+kind: weather_profile
+schema_version: "1.0.0"
+public_proxy_id: mediterranean-clear-air
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "ITU-R P.453-14 (standard mid-latitude N(0) = 315 N-units, gradient -40 N/km)"
+    - "ITU-R P.840-8 (thin cirrus LWC ~ 0.02 g/m^3)"
+    - "ITU-R P.676-13 (gas attenuation, near-standard atmosphere)"
+    - "Pierson & Moskowitz 1964 — fully developed wind-sea spectrum"
+    - "WMO Beaufort scale (Code Table 1100)"
+    - "WMO Douglas sea state scale"
+    - "Eastern Mediterranean climate atlas (ECMWF ERA5 reanalysis seasonal mean)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T23:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public ITU-R / WMO / climate-atlas references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.25
+  checks:
+    - name: ranges_in_plausible_bounds
+      status: pass
+      message: "T=295 K (22 C), RH=0.55, U_10=4 m/s, oktas=1, 25 km visibility all inside Eastern Mediterranean spring climatology."
+    - name: pierson_moskowitz_self_consistent
+      status: pass
+      message: "H_s(U_10=4) = 0.21*16/9.81 = 0.34 m matches declared 0.35 m; ω_peak = 0.877*9.81/4 = 2.15 rad/s matches declared 2.15."
+    - name: refractivity_standard_consistent
+      status: pass
+      message: "N(0)=315, gradient -40 N/km, k_factor 4/3 reproduces ITU-R P.453 reference atmosphere."
+    - name: beaufort_consistent
+      status: pass
+      message: "U_10=4 m/s -> Beaufort 3 (gentle breeze); declared 3 matches."
+  fidelity_class: primitive_decomposed
+display_name: "Mediterranean Clear Air (standard atmosphere baseline)"
+regime_class: clear_air_standard
+cloud_cover:
+  oktas: 1
+  cloud_type: cirrus
+  cloud_base_m_agl: 8000
+  cloud_top_m_agl: 9500
+  liquid_water_content_g_per_m3: 0.01
+  ice_water_content_g_per_m3: 0.02
+rain:
+  rain_rate_mm_per_h: 0.0
+fog:
+  visibility_m: 25000
+  fog_type: none
+  liquid_water_content_g_per_m3: 0.0
+sea_state:
+  douglas_state: 2
+  beaufort_force: 3
+  significant_wave_height_m: 0.35
+  wave_peak_period_s: 3.5
+  wind_speed_u10_mps: 4.0
+  pierson_moskowitz_peak_freq_rad_s: 2.15
+  sea_spike_kurtosis: 3.5
+wind_vector_mps: { x: 3.0, y: 2.5, z: 0.0 }
+wind_profile_log_law_z0_m: 0.0002
+refractivity_profile:
+  n_at_msl: 315
+  gradient_n_per_km: -40
+  k_factor_earth: 1.333
+  surface_duct_present: false
+  surface_duct_height_m: 0.0
+  elevated_duct_present: false
+  evaporation_duct_height_m: 8.0
+temperature_k: 295.0
+pressure_pa: 101325.0
+humidity_relative: 0.55
+humidity_absolute_g_per_m3: 11.3
+temperature_inversion_present: false
+eo_ir_transmission_bands:
+  - band: vis
+    range_m: 5000
+    transmission: 0.92
+    aerosol_optical_depth: 0.10
+  - band: nir
+    range_m: 5000
+    transmission: 0.93
+    aerosol_optical_depth: 0.09
+  - band: swir
+    range_m: 5000
+    transmission: 0.85
+    aerosol_optical_depth: 0.08
+  - band: mwir
+    range_m: 5000
+    transmission: 0.70
+    aerosol_optical_depth: 0.07
+  - band: lwir
+    range_m: 5000
+    transmission: 0.62
+    aerosol_optical_depth: 0.06
+source_refs:
+  - citation_id: itu-r-p-453
+    url: "https://www.itu.int/rec/R-REC-P.453"
+    title: "ITU-R P.453 — The radio refractive index"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: itu-r-p-676
+    url: "https://www.itu.int/rec/R-REC-P.676"
+    title: "ITU-R P.676 — Atmospheric gases attenuation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: pierson-moskowitz-1964
+    url: "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/JZ069i024p05181"
+    title: "Pierson & Moskowitz — A proposed spectral form for fully developed wind seas"
+    retrieved_utc: "2026-05-18T20:00:00Z"

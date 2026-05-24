@@ -1,0 +1,24 @@
+[package]
+name = "echoforge-solver-sagitta"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Stub adapter for the SagittaSBR open-source SBR solver.
+#
+# This crate provides a formal SolverAdapter trait implementation that
+# does NOT pretend to compute RCS. Until a SagittaSBR container is wired
+# in (see receipt under `.agents/receipts/sagittasbr-adapter/`), every
+# `run()` call returns `SolverError::Unsupported` with a "stub" message.
+# Capabilities are declared honestly from SagittaSBR's published
+# capability surface so the planner can still reason about scheduling.
+
+[dependencies]
+echoforge-core = { path = "../echoforge-core" }
+echoforge-solver-contract = { path = "../echoforge-solver-contract" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]

@@ -1,0 +1,72 @@
+# EchoForge detector_card — SO-CFAR (Trunk 1978) default
+# Schema: schemas/detector_card.schema.json
+#
+# Smallest-of CFAR: noise estimate is min(mean_lead, mean_lag), making
+# the detector robust against two-target masking when an interfering
+# target sits in one training window. Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/so_cfar.rs (SoCfarDetector).
+id: "ef:detector_card:so-cfar-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: so-cfar-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Trunk, Range resolution of targets using automatic detectors, IEEE Trans. AES 14(5) 1978 (SO-CFAR introduction)"
+    - "Skolnik 3rd ed. §7.7.2 (CFAR family overview)"
+    - "crates/echoforge-radar/src/detectors/so_cfar.rs (SoCfarDetector)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: two_target_masking_regression
+      status: pass
+      message: "so_cfar_handles_two_target_masking_better_than_ca_cfar unit test: SO target_hits >= CA target_hits on two-target masking fixture"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built SoCfarDetector::new(CfarParams::new(10, 3, 1e-3)) byte-for-byte on pinned RD fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "SO-CFAR (Trunk 1978)"
+algorithm_family: so_cfar
+parameters:
+  training_cells: 10
+  guard_cells: 3
+  pfa: 1.0e-3
+  clutter_assumption: "rayleigh_thermal_with_anti_masking"
+default_thresholds:
+  pfa: 1.0e-3
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - rcs-0p01-m2
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.72
+      pd_max: 0.90
+    snr_db_required_range:
+      min: 13.5
+      max: 16.5
+    citation_id: trunk-1978-so-cfar
+citations:
+  - citation_id: trunk-1978-so-cfar
+    title: "Range resolution of targets using automatic detectors"
+    authors: "Trunk"
+    publisher: "IEEE Trans. AES 14(5) 1978"
+  - citation_id: skolnik-3rd-ch7-7-2
+    title: "Skolnik 3rd ed. §7.7.2 (CFAR family overview)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"

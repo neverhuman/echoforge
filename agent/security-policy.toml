@@ -1,0 +1,30 @@
+advisory_tools = [
+    "jankurai doctor",
+    "jankurai audit",
+    "gitleaks",
+    "cargo audit",
+    "npm audit",
+]
+enabled_tools = [
+    "rtk",
+    "cargo",
+    "node",
+    "python3",
+    "gitleaks",
+    "cargo audit",
+    "npm audit",
+]
+required_tools = []
+schema_version = "1.9.0"
+
+[banlist]
+enforce_via = "tools/vendor_scrub.mjs"
+file = "agent/banned-terms.toml"
+
+[receipts]
+filename_pattern = '^\d{8}T\d{6}Z?(?:-\d{4})?\.md$'
+guard = "tools/receipt_guard.mjs"
+required = true
+
+[severity_thresholds]
+fail_lane_on = "critical"

@@ -1,0 +1,41 @@
+[[zone]]
+command = "rtk cargo test --workspace --locked"
+path = "target"
+read_only = false
+source = "rtk cargo test --workspace --locked"
+write_policy = "generator_only"
+
+[[zone]]
+command = "rtk jankurai doctor . --fail-on critical --json target/jankurai/doctor.json --md target/jankurai/doctor.md"
+path = "target/jankurai"
+read_only = false
+source = "rtk jankurai doctor . --fail-on critical"
+write_policy = "auditor_output"
+
+[[zone]]
+command = "rtk just science-smoke"
+path = "outputs"
+read_only = false
+source = "science and deployment smoke outputs"
+write_policy = "generator_only"
+
+[[zone]]
+command = "rtk just fast"
+path = "*.log"
+read_only = false
+source = "runtime logging"
+write_policy = "auditor_output"
+
+[[zone]]
+command = "cargo run -p echoforge-studio --bin studio -- export-catalog"
+path = "contracts/schema_catalog.json"
+read_only = false
+source = "contracts/schema_catalog.json"
+write_policy = "generator_only"
+
+[[zone]]
+command = "cargo run -p echoforge-studio --bin studio -- export-events"
+path = "contracts/events/event_base.schema.json"
+read_only = false
+source = "contracts/events/event_base.schema.json"
+write_policy = "generator_only"

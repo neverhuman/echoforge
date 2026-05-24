@@ -1,0 +1,612 @@
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index be4c6ac..v8-narrative 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -8,10 +8,16 @@
+ \usepackage{xcolor}
+ \usepackage{amsmath}
+ \usepackage{tabularx}
++\usepackage{longtable}
+ \usepackage{makecell}
+ \usepackage{siunitx}
+ \usepackage{threeparttable}
+ \usepackage{url}
++\usepackage{listings}
++\usepackage{fancyvrb}
++\usepackage{tcolorbox}
++\usepackage{ifthen}
+ \urlstyle{tt}
+ \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+ \renewcommand{\arraystretch}{1.12}
+@@ -24,8 +30,35 @@
+ \definecolor{EchoGain}{RGB}{22,115,72}
+ \definecolor{EchoWarn}{RGB}{171,52,42}
+ \definecolor{EchoMuted}{RGB}{84,94,106}
++\definecolor{EchoCodeBlue}{RGB}{227,241,255}
++\definecolor{EchoCodeHuman}{RGB}{250,250,250}
++\definecolor{EchoCodeEncrypted}{RGB}{255,235,210}
+ \newcommand{\kpigain}[1]{\textbf{\textcolor{EchoGain}{#1}}}
+ \newcommand{\kpicaveat}[1]{\textbf{\textcolor{EchoWarn}{#1}}}
++\newcommand{\codeoriginlegend}{\noindent\fcolorbox{black}{EchoCodeHuman}{\strut human-authored / conventional implementation}\quad\fcolorbox{black}{EchoCodeBlue}{\strut generative-origin or EI-discovered implementation}\quad\fcolorbox{black}{EchoCodeEncrypted}{\strut encrypted high-IP excerpt in printed appendix}}
++\lstdefinestyle{echoforgecode}{
++  basicstyle=\ttfamily\scriptsize,
++  keywordstyle=\color{blue!70!black}\bfseries,
++  commentstyle=\color{green!45!black},
++  stringstyle=\color{red!55!black},
++  numbers=left,
++  numberstyle=\tiny\color{EchoMuted},
++  breaklines=true,
++  breakatwhitespace=false,
++  columns=fullflexible,
++  frame=single,
++  framerule=0.2pt,
++  xleftmargin=1.4em,
++  framexleftmargin=1.1em,
++  keepspaces=true,
++  tabsize=2
++}
+ 
+ \graphicspath{{paper/figures/}{figures/}}
+@@ -69,6 +102,10 @@ The paper has one main experiment: compare accepted human-engineered radar/cue ba
+   \item appendix evidence that explains how the fixed-wing pusher-prop public proxy, bird/RC hard negatives, sensor archetypes, and clutter/noise/RFI stressors are modeled without making measured-platform claims.
+ \end{itemize}
++
++The paper is organized as a straight processing narrative: public-proxy simulation assumptions, Monte Carlo scenario construction, detector-view processing, accepted prior fusion, EI discovery, blind-holdout evaluation, and appendix-level modeling and source-code evidence. The main text is intentionally short on governance prose and long on traceability: what was simulated, what each detector saw, what was blocked, and what metric was scored.
+@@ -122,6 +159,41 @@ Figure~\ref{fig:dataprocessing} is the reviewer-facing processing trace. EchoFo
+ \end{table*}
++
++\section{Simulation Design Best Practices}
++Radar simulation is useful only when the claim boundary is explicit. EchoForge follows four practices that a radar reviewer should expect. First, it separates the public-proxy target model from detector-facing features: airframe geometry, speed, RCS/aspect, phase, and clutter parameters are generator-side assumptions, while the model sees only derived detector-view summaries. Second, it separates scenario grouping from phase rows: take-up, climb, and cruise records from one scenario group inherit the same split assignment. Third, it records every sensor branch as a role-compatible public envelope rather than a fielded-sensor replica. Fourth, it scores the blind holdout once, after train/CV thresholds, calibrators, and EI selection locks are written.
++
++\subsection{Monte Carlo Scenario Construction}
++The Monte Carlo run samples public-proxy positives and hard negatives across site archetype, range band, target aspect, noise/clutter regime, and phase. The three phase windows are not cosmetic labels. Initial take-up is deliberately hardest because near-ground coupling, rail/catapult launch proxy, transient kinematics, and multipath are strongest in the first 0--30~s. Climb transition keeps changing geometry and increasing separation over 30--90~s. Cruise altitude is the most settled 90--150~s interval and should therefore be the easiest phase if the generator and detectors are behaving sensibly. This is why the phase figure is a sanity check as much as a performance chart.
++
++\subsection{Positive Public Proxy and Hard Negatives}
++The fixed-wing pusher-prop public proxy uses open-source geometry and kinematic envelopes for an Iranian-drone-like fixed-wing pusher family, but it does not import measured radar truth. The appendix maps this proxy to length/span/height, speed, launch/take-up, RCS/aspect, and pusher-prop micro-Doppler bands. Birds and RC aircraft are modeled as hard negatives because they stress the same low-altitude radar observables: small body returns, wingbeat or prop cadence, coastal clutter, and track fragmentation. The generator therefore asks a narrow question: under these declared public priors, can a detector keep low-FPR recall high without overreacting to benign aerial clutter?
++
++\subsection{Noise, Clutter, RFI, and Receiver Effects}
++The environment is not treated as white noise only. The evidence bundle records thermal/SNR and CNR stress buckets, Weibull/K-like clutter families, sea/weather/terrain glint, vegetation motion, multipath ghosts, RFI bursts, passive-RF missingness, AGC compression, clock drift, quantization, dropped CPIs, Doppler folding, and calibration offset. These are synthetic stressors rather than site-measured truth. Their purpose is to prevent a clean-signal benchmark and to expose failure modes in branch detectors and fusion logic.
++
++\subsection{Raw Data Processing Best Practices}
++The recommended processing order is conventional: form range-Doppler summaries, apply CFAR/MTD-style detection features, compute micro-Doppler concentration and spread, construct track/cue confidence, calibrate scores on train/CV rows, and evaluate rare-positive behavior with precision-recall and low-FPR operating metrics. EchoForge follows standard radar detection and classifier-calibration practice by reporting ROC AUC, AP, selected-threshold counts, Recall@$\leq$1\%FPR, Brier score, ECE, and group-block bootstrap uncertainty rather than relying on a single leaderboard number \cite{rohling1983,richards2014,kay1998,fawcett2006,davis2006,saito2015,platt1999,niculescu2005}.
++
++\section{Detector Processing and Sensor Fusion}
++The detector branches are best read as progressively stronger processing lanes. First, the individual radar and cue branches test whether a single observable family carries useful signal. Second, tabular and sequence ML baselines test ordinary learned processing on detector-facing features. Third, accepted human-engineered fusion combines source confidence, stale-track penalties, and cross-sensor confirmation. Finally, EI searches train/CV detector-view scores for sparse calibrated fusion components and freezes the selected solution before holdout scoring.
++
++\begin{figure*}[t]
++  \centering
++  \includegraphics[width=0.98\textwidth]{method_ladder_phase_kpi.pdf}
++  \caption{Method ladder by phase. The same three phase windows are shown for individual best branch, prior ML, accepted fusion, and EI. The plot is intentionally familiar: it adds processing strength one layer at a time so the reader can see where fusion helps and where EI changes the operating point. Error bars are group-block bootstrap intervals when available; otherwise the figure prints the point estimate only.}
++  \label{fig:methodladder}
++\end{figure*}
+@@ -238,6 +310,12 @@ Figure~\ref{fig:kpi} shows the primary KPI first and keeps AP, ROC/PR curves, a
+ The evidence bundle also records the canary forbidden-feature test, the label-shuffle sanity test, the stratum-only baseline, the metadata-only baseline, and the nearest-neighbor train/holdout scan. Those tests are not leaderboard scores; they are leakage and realism diagnostics that make the benchmark harder to overfit.
++
++Figure~\ref{fig:methodladder} is the bridge between conventional processing and EI. If only individual branches are shown, the paper looks like a detector shootout. If only EI is shown, the paper looks like a leaderboard jump. The method ladder shows the missing middle: sensor fusion improves the low-FPR objective over individual branches, and EI then improves the locked operating point over accepted fusion on the same split.
+@@ -257,6 +335,28 @@ The advanced lane is reported as engineered intelligence rather than as an opaque
+ Mechanically, EI uses train/CV-only score search to choose component scores, sparse nonnegative late fusion to keep the lock interpretable, geodesic-odds calibration for monotone probability mapping, and a written selection lock before the single blind holdout score. The component weights and modality/control tables below are interpretability controls rather than separate main-claim evidence.
++
++\subsection{Autonomous Algorithm Decomposition}
++The EI lane treats detector design as a decomposable search problem. Agentic decomposition splits the problem into candidate score families, modality subsets, calibration choices, sparse weights, threshold policy, and low-FPR objective tradeoffs. Evolutionary search explores those choices on train/CV rows only, then locks the selected composition. This framing matters because EI is not a black-box sensor and not an unreviewable neural monolith: the selected component IDs, weights, calibrator, threshold source, and score outputs are emitted as evidence artifacts and the source code remains reviewable.
++
++\begin{figure*}[t]
++  \centering
++  \includegraphics[width=0.98\textwidth]{ei_discovery_progress.pdf}
++  \caption{EI discovery trace. When candidate-leaderboard artifacts are available, the plot shows train/CV discovery progress and the final locked holdout score. If only the lock and holdout evidence exist, the figure falls back to an audit trace that distinguishes train/CV discovery from blind-holdout scoring.}
++  \label{fig:eiprogress}
++\end{figure*}
++
++\subsection{Human-Origin, Generative-Origin, and Reviewability}
++The repository source is reviewable, but the paper separates implementation origin from claim strength. Human-origin code covers conventional detector processing, evidence emission, figure generation, validation, and reproducibility glue. Generative-origin or EI-discovered code covers search-inspired candidate composition and evolved score families. The printed appendix includes a source-code ledger that marks these origins. For the highest-IP excerpt, the appendix may include a cryptographic encrypted excerpt plus a digest rather than plain printed code, while the repository and evidence manifest remain the authoritative review surface.
++
++\subsection{Alternative Objectives}
++The present paper optimizes a rare-positive, low-FPR objective. The same EI machinery can chase other reviewable KPIs: group-level false-alarm rate, time-to-first-detection, calibration under distribution shift, phase-balanced recall, worst-family false-alarm burden, cross-seed stability, or a cost-weighted utility that penalizes single-bird, RC, and weather false alarms differently. These are future benchmark objectives; they are not retroactively optimized in the present holdout claim.
+@@ -566,6 +666,61 @@ The appendix ledger separates what each source family is used for from what it i
+ class, hard negatives, detector archetypes, and compare-only measured anchors.
++
++\subsection{Reproducing the Simulation and Paper Evidence}
++The command path below is appendix evidence, not an operational deployment recipe. It rebuilds synthetic data, detection outputs, paper evidence, figures, and validation artifacts using repository code and local output roots.
++
++\begin{lstlisting}[style=echoforgecode,language=bash,caption={EchoForge paper reproduction command path.}]
++# From the repository root.
++rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
++rtk python3 paper/generate_figures.py --strict
++rtk bash paper/build.sh --copy-tracked
++rtk python3 paper/validate_paper.py \
++  --tex paper/echoforge_ieee.tex \
++  --bib paper/references.bib \
++  --pdf paper/echoforge_ieee.pdf \
++  --figures-dir paper/figures \
++  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
++
++# Optional appendix source-code generation.
++rtk python3 paper/generate_code_appendix.py \
++  --out paper/generated_code_appendix.tex \
++  --manifest outputs/paper-evidence/major-upgrade-v1/code_appendix_manifest.json
++\end{lstlisting}
++
++\subsection{Appendix Code and Origin Ledger}
++\codeoriginlegend
++
++\IfFileExists{paper/generated_code_appendix.tex}{\input{paper/generated_code_appendix.tex}}{\noindent\emph{Code appendix not generated in this build. Run \texttt{paper/generate\_code\_appendix.py} after paper evidence generation to include full source listings, origin highlighting, checksums, and encrypted high-IP excerpts.}}
++
++\subsection{Detailed Synthetic Radar Simulation Processing}
++\begin{table*}[t]
++  \caption{Best-Practice Synthetic Radar Processing Checklist}
++  \label{tab:radarsimdetailv8}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.30\textwidth}p{0.26\textwidth}p{0.18\textwidth}@{}}
++    \toprule
++    Step & What EchoForge models & Why a radar expert cares & Boundary \\
++    \midrule
++    Geometry and phase & take-up, climb, cruise, range band, aspect, speed envelope, launch proxy & phase-conditioned observability and Doppler/range migration should change over time & no route or site truth \\
++    Target return & aspect RCS envelope, Swerling-like fluctuation, complex amplitude, Doppler centroid & avoids treating target strength as a constant scalar & no measured signature \\
++    Micro-Doppler & pusher-prop cadence and bird/RC cadence stressors & makes the hard-negative problem physically interpretable & broad prior bands only \\
++    Clutter and weather & Weibull/K-like clutter, weather cells, sea/terrain glint, vegetation motion & controls false alarms and near-threshold pressure & not site-measured clutter \\
++    Receiver/RFI & AGC, drift, quantization, CPI drop, folding, calibration offset, RFI burst & prevents clean-signal overclaiming & not hardware qualification \\
++    Detector contract & derived range-Doppler, CFAR/MTD, cue, provenance, and fusion features & makes the model-facing data inspectable & labels/splits/groups denied \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
+@@ -642,6 +797,8 @@ EchoForge demonstrates a strict-open path for low-altitude UAS radar and multimo
+ evidence. The headline result is LCB95 Recall@$\leq$1\%FPR of 0.699 for the EI candidate versus 0.083 for accepted prior fusion, a +742\% relative gain, with point Recall@$\leq$1\%FPR of 0.833 versus 0.292. The benchmark numbers in this paper are synthetic public-proxy evidence under declared assumptions. They are useful for review, robustness work, and reproducible comparison, but they are not measured truth or operational performance claims.
++
++The larger contribution is a reviewable method for making synthetic radar papers harder to misunderstand: state the claim boundary first, show the data-processing path, name the accepted comparator, separate selected-threshold counts from swept low-FPR recall, expose false-alarm families, and keep the rich modeling and source-code evidence in a one-column appendix where it can be inspected without derailing the main result.
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 3da4443..v8-narrative 100644
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -126,6 +126,8 @@ VECTOR_FIGURES = {
+     "anchor_overlay.png",
+     "ei_workflow.png",
+     "data_processing_flow.png",
++    "method_ladder_phase_kpi.png",
++    "ei_discovery_progress.png",
+ }
+@@ -1480,6 +1482,120 @@ def figure_phase_kpi(context: FigureContext) -> Path:
+     return _save_figure(fig, filename)
++
++
++def _phase_value(evaluation: dict[str, Any], method: str, phase: str, key: str) -> float:
++    phase_metrics = evaluation.get("phase_metrics", {})
++    return _safe_float(phase_metrics.get(method, {}).get(phase, {}).get(key), 0.0)
++
++
++def figure_method_ladder_phase_kpi(context: FigureContext) -> Path:
++    """Show the familiar phase plot while adding processing strength one layer at a time."""
++    filename = "method_ladder_phase_kpi.png"
++    evaluation = _evaluation_summary(context)
++    if evaluation:
++        _note_source(filename, "evaluation summary phase metrics")
++    else:
++        _note_fallback(filename, "evaluation summary missing; using zeros")
++        if STRICT_MODE:
++            _require_no_fallback(filename)
++
++    selected_method = evaluation.get("selected_method", "")
++    phase_order = list(PHASES)
++    ladder = [
++        ("Best sensor branch", "high_resolution_xku_cuas", BLUE),
++        ("Best prior ML", "tabular_ml_baseline", TEAL),
++        ("Accepted fusion", "layered_fusion_c2", GREEN),
++        ("EI candidate", selected_method, INK),
++    ]
++    fig = _paper_fig(3.45, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.98, top=0.82, bottom=0.18, wspace=0.24)
++    gs = fig.add_gridspec(1, 3)
++    fig.text(
++        0.08,
++        0.93,
++        "Method ladder by phase: branch -> ML -> fusion -> EI",
++        fontsize=FONT_TITLE,
++        weight="bold",
++        ha="left",
++    )
++    fig.text(
++        0.08,
++        0.885,
++        "Each panel uses the same y-axis: Recall@<=1%FPR. This makes the incremental effect of fusion and EI visible.",
++        fontsize=FONT_TINY,
++        color=MUTED,
++        ha="left",
++    )
++    for idx, phase in enumerate(phase_order):
++        ax = fig.add_subplot(gs[0, idx])
++        labels = [label for label, _method, _color in ladder]
++        values = [_phase_value(evaluation, method, phase, "fixed_fpr_recall") for _label, method, _color in ladder]
++        colors = [color for _label, _method, color in ladder]
++        x = np.arange(len(ladder))
++        bars = ax.bar(x, values, color=colors, edgecolor="white", linewidth=0.8)
++        _annotate_vertical_bars(ax, bars, dy=0.012)
++        ax.set_xticks(x)
++        ax.set_xticklabels([_wrap_compact(label, 10) for label in labels], fontsize=FONT_TINY, rotation=0)
++        ax.set_ylim(0.0, 1.02)
++        if idx == 0:
++            ax.set_ylabel("Recall@<=1%FPR", fontsize=FONT_AXIS)
++        ax.set_title(f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}", fontsize=FONT_SUBTITLE, weight="bold")
++        _clean_axes(ax, ygrid=True)
++    fig.text(
++        0.08,
++        0.055,
++        "Phase estimates are diagnostic because the holdout has eight positive groups; use them to inspect failure modes, not field rates.",
++        fontsize=FONT_TINY,
++        color=MUTED,
++    )
++    _add_fallback_banner(fig, filename)
++    return _save_figure(fig, filename)
++
++
++def figure_ei_discovery_progress(context: FigureContext) -> Path:
++    """Plot train/CV discovery trace if a leaderboard is available; otherwise plot lock audit steps."""
++    filename = "ei_discovery_progress.png"
++    evaluation = _evaluation_summary(context)
++    leaderboard_path = context.roots.advanced_root / "candidate_leaderboard.csv"
++    rows = _read_csv_rows(leaderboard_path)
++    fig = _paper_fig(3.20, constrained=False)
++    fig.subplots_adjust(left=0.10, right=0.98, top=0.82, bottom=0.18)
++    fig.text(0.10, 0.93, "EI discovery progress and locked holdout score", fontsize=FONT_TITLE, weight="bold", ha="left")
++    ax = fig.add_subplot(111)
++    selected = evaluation.get("selected", {})
++    baseline = evaluation.get("baseline", {})
++    holdout_lcb = _safe_float(selected.get("primary_kpi", {}).get("value"))
++    baseline_lcb = _safe_float(baseline.get("primary_kpi", {}).get("value"))
++    if rows:
++        _note_source(filename, "candidate leaderboard and evaluation summary")
++        values = [_safe_float(row.get("cv_primary_kpi", row.get("cv_average_precision"))) for row in rows]
++        values = [value for value in values if math.isfinite(value)]
++        if values:
++            best_so_far = np.maximum.accumulate(np.asarray(values, dtype=np.float64))
++            ax.plot(np.arange(1, len(best_so_far) + 1), best_so_far, color=INK, linewidth=1.8, label="Train/CV best so far")
++            ax.axhline(holdout_lcb, color=GREEN, linewidth=1.3, linestyle="--", label="Locked holdout LCB95")
++            ax.axhline(baseline_lcb, color=RED, linewidth=1.0, linestyle=":", label="Prior fusion LCB95")
++            ax.set_xlabel("Candidate rank / iteration", fontsize=FONT_AXIS)
++            ax.set_ylabel("Primary KPI proxy", fontsize=FONT_AXIS)
++        else:
++            rows = []
++    if not rows:
++        _note_source(filename, "selection lock and evaluation summary")
++        stages = ["prior fusion", "train/CV search", "selection lock", "holdout LCB95"]
++        vals = [baseline_lcb, baseline_lcb, holdout_lcb, holdout_lcb]
++        ax.plot(range(len(stages)), vals, marker="o", color=INK, linewidth=1.8)
++        ax.set_xticks(range(len(stages)))
++        ax.set_xticklabels([_wrap_compact(stage, 13) for stage in stages], fontsize=FONT_TINY)
++        ax.set_ylabel("LCB95 Recall@<=1%FPR", fontsize=FONT_AXIS)
++        for idx, value in enumerate(vals):
++            ax.text(idx, value + 0.025, f"{value:.3f}", ha="center", fontsize=FONT_TINY)
++    ax.set_ylim(0.0, 1.02)
++    ax.set_title("Discovery trace: train/CV work is separate from blind holdout scoring", fontsize=FONT_SUBTITLE, weight="bold")
++    _clean_axes(ax, xgrid=True, ygrid=True)
++    ax.legend(loc="lower right", fontsize=FONT_TINY, frameon=False)
++    _add_fallback_banner(fig, filename)
++    return _save_figure(fig, filename)
+@@ -2368,6 +2484,8 @@ def generate_all(context: FigureContext) -> list[Path]:
+         figure_kpi_ranking(context),
+         figure_phase_kpi(context),
++        figure_method_ladder_phase_kpi(context),
++        figure_ei_discovery_progress(context),
+         figure_iq_drone_samples(context),
+         figure_iq_negative_samples(context),
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 9f0d324..v8-narrative 100644
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@ -2860,6 +2860,57 @@ def _primary_kpi_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
+     return rows
++
++
++def _main_kpi_gain_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
++    baseline = eval_summary.get("baseline", {})
++    selected = eval_summary.get("selected", {})
++    rows: list[dict[str, Any]] = []
++    specs = [
++        ("LCB95 Recall@<=1%FPR", baseline.get("primary_kpi", {}).get("value"), selected.get("primary_kpi", {}).get("value"), "higher"),
++        ("Point Recall@<=1%FPR", baseline.get("fixed_fpr_recall"), selected.get("fixed_fpr_recall"), "higher"),
++        ("Average precision", baseline.get("average_precision"), selected.get("average_precision"), "higher"),
++        ("Selected-threshold false positives", baseline.get("fp"), selected.get("fp"), "lower"),
++        ("F1", baseline.get("f1"), selected.get("f1"), "higher"),
++        ("ROC AUC", baseline.get("roc_auc"), selected.get("roc_auc"), "guardrail"),
++    ]
++    for metric, prior_raw, ei_raw, direction in specs:
++        prior = _safe_float(prior_raw)
++        ei = _safe_float(ei_raw)
++        absolute = ei - prior if math.isfinite(prior) and math.isfinite(ei) else float("nan")
++        if direction == "lower" and prior > 0:
++            rel = (prior - ei) / prior
++            reader = f"{rel * 100.0:.1f}% fewer"
++        elif prior != 0 and math.isfinite(prior) and math.isfinite(ei):
++            rel = absolute / abs(prior)
++            reader = f"{rel * 100.0:+.1f}%"
++        else:
++            rel = float("nan")
++            reader = "n/a"
++        rows.append({"metric": metric, "prior_fusion": prior, "ei_candidate": ei, "absolute_change": absolute, "relative_change": rel, "direction": direction, "reader_summary": reader})
++    return rows
++
++
++def _cli_reproduction_rows() -> list[dict[str, Any]]:
++    return [
++        {"step": 1, "command": "rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force", "purpose": "regenerate paper-facing evidence artifacts"},
++        {"step": 2, "command": "rtk python3 paper/generate_figures.py --strict", "purpose": "render deterministic figures from evidence artifacts"},
++        {"step": 3, "command": "rtk bash paper/build.sh --copy-tracked", "purpose": "compile the IEEE PDF"},
++        {"step": 4, "command": "rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/major-upgrade-v1", "purpose": "validate figures, citations, evidence bundle, and textual guardrails"},
++        {"step": 5, "command": "rtk python3 paper/generate_code_appendix.py --out paper/generated_code_appendix.tex --manifest outputs/paper-evidence/major-upgrade-v1/code_appendix_manifest.json", "purpose": "generate optional one-column source-code appendix"},
++    ]
+@@ -3528,6 +3579,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     engineered_intelligence_rows = _engineered_intelligence_rows(
+         eval_summary, component_transparency, modality_transparency
+     )
++    main_kpi_gain_rows = _main_kpi_gain_rows(eval_summary)
++    cli_reproduction_rows = _cli_reproduction_rows()
+@@ -3580,6 +3633,8 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         "engineered_intelligence": engineered_intelligence_rows,
+         "public_proxy_positive_class_card": public_proxy_positive_class_card,
++        "main_kpi_gain_rows": main_kpi_gain_rows,
++        "cli_reproduction_rows": cli_reproduction_rows,
+@@ -3826,6 +3881,18 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         roots.out_root / "public_proxy_positive_class_card.json",
+         public_proxy_positive_class_card,
+     )
++    _write_csv(
++        roots.out_root / "main_kpi_gain_table.csv",
++        main_kpi_gain_rows,
++        ["metric", "prior_fusion", "ei_candidate", "absolute_change", "relative_change", "direction", "reader_summary"],
++    )
++    _write_csv(
++        roots.out_root / "cli_reproduction_commands.csv",
++        cli_reproduction_rows,
++        ["step", "command", "purpose"],
++    )
++    _write_json(roots.out_root / "cli_reproduction_commands.json", cli_reproduction_rows)
+diff --git a/paper/generate_code_appendix.py b/paper/generate_code_appendix.py
+new file mode 100755
+index 0000000..v8-narrative
+--- /dev/null
++++ b/paper/generate_code_appendix.py
+@@ -0,0 +1,236 @@
++#!/usr/bin/env python3
++"""Generate the one-column EchoForge source-code appendix.
++
++The generated appendix is intentionally explicit: it lists conventional human
++baseline files, fusion files, EI/evolution files, line-origin coloring, SHA256
++digests, and a printed encrypted excerpt for the highest-IP EI core. The source
++repository remains the authoritative review surface; the PDF appendix is a
++reader-facing index plus printable evidence.
++"""
++
++from __future__ import annotations
++
++import argparse
++import base64
++import hashlib
++import json
++import os
++from dataclasses import dataclass
++from pathlib import Path
++
++
++REPO_ROOT = Path(__file__).resolve().parents[1]
++
++
++@dataclass(frozen=True)
++class CodeFile:
++    role: str
++    path: Path
++    origin: str
++    reason: str
++
++
++def _discover(patterns: list[str]) -> list[Path]:
++    found: list[Path] = []
++    for pattern in patterns:
++        found.extend(REPO_ROOT.glob(pattern))
++    return sorted({path for path in found if path.is_file()})
++
++
++def discover_code_files() -> list[CodeFile]:
++    files: list[CodeFile] = []
++    conventional_patterns = [
++        "detection/**/*baseline*.py",
++        "detection/**/*classical*.py",
++        "detection/**/*detector*.py",
++        "detection/main_run_types.py",
++    ]
++    fusion_patterns = [
++        "detection/**/*fusion*.py",
++        "detection/**/*c2*.py",
++    ]
++    ei_patterns = [
++        "detection/**/*advanced*.py",
++        "detection/**/*evolution*.py",
++        "detection/**/*candidate*.py",
++        "detection/paper_evidence_major_upgrade_v1.py",
++    ]
++    for path in _discover(conventional_patterns)[:8]:
++        files.append(CodeFile("human_baseline", path, "human", "conventional radar / ML detector implementation"))
++    for path in _discover(fusion_patterns)[:6]:
++        files.append(CodeFile("accepted_fusion", path, "human", "accepted human-engineered fusion comparator"))
++    for path in _discover(ei_patterns)[:8]:
++        files.append(CodeFile("engineered_intelligence", path, "generative", "EI-discovered or EI-supporting algorithm lane"))
++    # Ensure the paper evidence and figure code are indexed even when glob names differ.
++    for extra, role, origin, reason in [
++        (REPO_ROOT / "detection" / "paper_evidence_major_upgrade_v1.py", "evidence", "human", "paper evidence generator"),
++        (REPO_ROOT / "paper" / "generate_figures_major_upgrade_v2.py", "figures", "human", "deterministic figure renderer"),
++    ]:
++        if extra.exists() and all(item.path != extra for item in files):
++            files.append(CodeFile(role, extra, origin, reason))
++    return files
++
++
++def latex_escape(text: str) -> str:
++    replacements = {
++        "\\": r"\textbackslash{}",
++        "&": r"\&",
++        "%": r"\%",
++        "$": r"\$",
++        "#": r"\#",
++        "_": r"\_",
++        "{": r"\{",
++        "}": r"\}",
++        "~": r"\textasciitilde{}",
++        "^": r"\textasciicircum{}",
++    }
++    return "".join(replacements.get(ch, ch) for ch in text)
++
++
++def sha256(path: Path) -> str:
++    return hashlib.sha256(path.read_bytes()).hexdigest()
++
++
++def origin_for_line(meta: CodeFile, line: str) -> str:
++    lowered = line.lower()
++    if meta.origin == "generative" or any(token in lowered for token in ("evolution", "candidate", "geodesic", "component_weight", "selection_lock")):
++        return "generative"
++    return "human"
++
++
++def choose_high_ip_lines(lines: list[str]) -> list[int]:
++    scored: list[tuple[int, int]] = []
++    for idx, line in enumerate(lines):
++        lowered = line.lower()
++        score = 0
++        for token in ("geodesic", "component", "candidate", "evolution", "selection", "calibration", "objective", "fpr", "recall"):
++            if token in lowered:
++                score += 2
++        if line.strip().startswith(("def ", "class ")):
++            score += 1
++        if score:
++            scored.append((score, idx))
++    if not scored:
++        return []
++    scored.sort(reverse=True)
++    n = max(1, int(0.12 * len(lines)))
++    return sorted(idx for _score, idx in scored[:n])
++
++
++def xor_encrypt(text: str, key: str) -> str:
++    if not key:
++        digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
++        return "SHA256-ONLY:" + digest
++    payload = text.encode("utf-8")
++    key_bytes = hashlib.sha256(key.encode("utf-8")).digest()
++    out = bytes(byte ^ key_bytes[idx % len(key_bytes)] for idx, byte in enumerate(payload))
++    return "XOR-SHA256KEY:" + base64.b64encode(out).decode("ascii")
++
++
++def render_code_file(meta: CodeFile, *, max_lines: int | None = None) -> tuple[str, dict[str, object]]:
++    rel = meta.path.relative_to(REPO_ROOT).as_posix()
++    raw_lines = meta.path.read_text(encoding="utf-8", errors="replace").splitlines()
++    lines = raw_lines if max_lines is None else raw_lines[:max_lines]
++    encrypted_indices = set(choose_high_ip_lines(raw_lines)) if meta.origin == "generative" else set()
++    key = os.environ.get("ECHOFORGE_APPENDIX_ENCRYPTION_KEY", "")
++    rendered: list[str] = []
++    rendered.append(r"\subsubsection{" + latex_escape(rel) + r"}")
++    rendered.append(latex_escape(meta.reason) + r"\\")
++    rendered.append(r"\textbf{SHA256:} \texttt{" + sha256(meta.path)[:32] + r"...}" )
++    rendered.append(r"\begin{Verbatim}[fontsize=\scriptsize,breaklines=true,breakanywhere=true]")
++    for idx, line in enumerate(lines):
++        prefix = "GEN" if origin_for_line(meta, line) == "generative" else "HUM"
++        if idx in encrypted_indices:
++            prefix = "ENC"
++            line = "<encrypted high-IP line; see encrypted excerpt block>"
++        rendered.append(f"{idx + 1:04d} {prefix} | {line}")
++    rendered.append(r"\end{Verbatim}")
++    encrypted_payload = ""
++    if encrypted_indices:
++        excerpt = "\n".join(raw_lines[idx] for idx in sorted(encrypted_indices))
++        encrypted_payload = xor_encrypt(excerpt, key)
++        rendered.append(r"\paragraph{Encrypted high-IP excerpt.}")
++        rendered.append(r"\begin{Verbatim}[fontsize=\tiny,breaklines=true,breakanywhere=true]")
++        rendered.append(encrypted_payload)
++        rendered.append(r"\end{Verbatim}")
++    manifest_row = {
++        "path": rel,
++        "role": meta.role,
++        "origin": meta.origin,
++        "sha256": sha256(meta.path),
++        "line_count": len(raw_lines),
++        "encrypted_line_count": len(encrypted_indices),
++        "encrypted_payload_prefix": encrypted_payload[:24],
++    }
++    return "\n".join(rendered), manifest_row
++
++
++def generate(out: Path, manifest: Path, max_lines: int | None) -> None:
++    files = discover_code_files()
++    rows: list[dict[str, object]] = []
++    chunks = [
++        r"\section{Source-Code Appendix}",
++        r"This appendix indexes the reviewable implementation. Prefixes mark line origin: HUM = conventional human-authored implementation, GEN = generative-origin or EI-discovered implementation, ENC = encrypted high-IP excerpt in the printed appendix. The repository source remains authoritative.",
++    ]
++    for meta in files:
++        chunk, row = render_code_file(meta, max_lines=max_lines)
++        chunks.append(chunk)
++        rows.append(row)
++    out.parent.mkdir(parents=True, exist_ok=True)
++    out.write_text("\n\n".join(chunks) + "\n", encoding="utf-8")
++    manifest.parent.mkdir(parents=True, exist_ok=True)
++    manifest.write_text(json.dumps({"files": rows}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--out", type=Path, default=REPO_ROOT / "paper" / "generated_code_appendix.tex")
++    parser.add_argument("--manifest", type=Path, default=REPO_ROOT / "outputs" / "paper-evidence" / "major-upgrade-v1" / "code_appendix_manifest.json")
++    parser.add_argument("--max-lines", type=int, default=None, help="debug limit; omit for full source appendix")
++    args = parser.parse_args()
++    generate(args.out, args.manifest, args.max_lines)
++    print(args.out)
++    print(args.manifest)
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index 8dda6f3..v8-narrative 100644
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@ -20,6 +20,8 @@ REQUIRED_FIGURES = (
+     "ei_workflow.pdf",
+     "data_processing_flow.pdf",
++    "method_ladder_phase_kpi.pdf",
++    "ei_discovery_progress.pdf",
+ )
+ PREVIEW_PNGS = (
+@@ -33,6 +35,8 @@ PREVIEW_PNGS = (
+     "ei_workflow.png",
+     "data_processing_flow.png",
++    "method_ladder_phase_kpi.png",
++    "ei_discovery_progress.png",
+ )
+@@ -65,6 +69,15 @@ REQUIRED_FIGURE_PHRASES = (
+     r"near-threshold",
+ )
++REQUIRED_STRUCTURE_PATTERNS = (
++    r"Simulation Design Best Practices",
++    r"Monte Carlo Scenario Construction",
++    r"Raw Data Processing Best Practices",
++    r"Detector Processing and Sensor Fusion",
++    r"Autonomous Algorithm Decomposition",
++    r"Reproducing the Simulation and Paper Evidence",
++    r"Source-Code Appendix",
++)
+@@ -212,6 +225,12 @@ def validate_paper_text(tex_path: Path) -> None:
+     if missing_figure_phrases:
+         fail("paper text is missing figure phrasing: " + ", ".join(missing_figure_phrases))
++    missing_structure = [
++        pattern for pattern in REQUIRED_STRUCTURE_PATTERNS if not re.search(pattern, text)
++    ]
++    if missing_structure:
++        fail("paper text is missing tier-1 structure sections: " + ", ".join(missing_structure))
+@@ -324,6 +343,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
+         "regional_bird_library.csv",
+         "source_pack_bird_coverage_summary.csv",
+         "engineered_intelligence_transparency.csv",
++        "main_kpi_gain_table.csv",
++        "cli_reproduction_commands.csv",
+     ):
+         if not (evidence_root / required_csv).exists():
+             fail(f"missing paper evidence csv: {required_csv}")
++    if not (Path("paper") / "generate_code_appendix.py").exists():
++        fail("missing source-code appendix generator")

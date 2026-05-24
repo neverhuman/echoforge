@@ -1,0 +1,11 @@
+{
+  "schema_ref": "schemas/echosig_manifest.schema.json",
+  "artifact_id": "ef:artifact:demo:abcd1234:v1",
+  "version": "v1",
+  "validation_tier": "draft",
+  "axes": [],
+  "tensor_files": [],
+  "dynamic_files": [],
+  "qa_files": []
+}
+

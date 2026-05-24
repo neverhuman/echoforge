@@ -1,0 +1,33 @@
+[
+  {
+    "sample_id": "sample_train_001",
+    "split_hint": "train",
+    "object_family": "fixed_wing_uav",
+    "geometry_hash": "geom_a",
+    "material_sample_hash": "mat_a",
+    "scenario_seed": 42,
+    "sensor_archetype": "x_band_generic_airborne_scan_v1",
+    "hard_negative_family": "birds_and_flocks"
+  },
+  {
+    "sample_id": "sample_validation_002",
+    "split_hint": "validation",
+    "object_family": "fixed_wing_uav",
+    "geometry_hash": "geom_a",
+    "material_sample_hash": "mat_b",
+    "scenario_seed": 84,
+    "sensor_archetype": "x_band_generic_airborne_scan_v1",
+    "hard_negative_family": "commercial_drones"
+  },
+  {
+    "sample_id": "sample_test_003",
+    "split_hint": "test",
+    "object_family": "ground_vehicle_proxy",
+    "geometry_hash": "geom_c",
+    "material_sample_hash": "mat_c",
+    "scenario_seed": 126,
+    "sensor_archetype": "x_band_generic_airborne_scan_v1",
+    "hard_negative_family": "terrain_and_weather"
+  }
+]
+

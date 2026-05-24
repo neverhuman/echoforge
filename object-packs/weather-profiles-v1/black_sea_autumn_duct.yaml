@@ -1,0 +1,124 @@
+# EchoForge weather_profile card — Black Sea Autumn (moderate elevated duct)
+# Schema: schemas/weather_profile.schema.json
+#
+# Mid-latitude maritime autumn over the Black Sea: scattered cumulus,
+# moderate westerly winds, marine evaporation duct overlaid by a stable
+# elevated duct between 800-1200 m AGL associated with a subsidence
+# temperature inversion. Refractivity gradient of -120 N/km is
+# super-refractive; combined with the elevated layer this gives meaningful
+# over-the-horizon radar coverage at S/C-band.
+id: "ef:weather_profile:black-sea-autumn-duct:0000000000000000:1"
+kind: weather_profile
+schema_version: "1.0.0"
+public_proxy_id: black-sea-autumn-duct
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "ITU-R P.453-14 (refractivity profile, M(h) = N(h) + 0.157*h ducting)"
+    - "ITU-R P.840-8 (cumulus liquid-water content range 0.3-1.0 g/m^3)"
+    - "ITU-R P.676-13 (gas attenuation)"
+    - "Pierson & Moskowitz 1964 — fully developed wind-sea spectrum"
+    - "WMO Beaufort scale (Code Table 1100)"
+    - "WMO Douglas sea state scale"
+    - "Black Sea regional climate atlas (NOAA ICOADS / Copernicus reanalysis)"
+    - "Patterson (NRL) AREPS duct climatology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T23:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Card content derived from public climate atlases and ITU-R / WMO / NRL AREPS references. No measured-truth claim. No site-specific operational data."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.35
+  checks:
+    - name: ranges_in_plausible_bounds
+      status: pass
+      message: "T=288 K (~15 C), RH=0.78, U_10=9 m/s, evaporation duct 30 m, elevated duct 800-1200 m all inside Black Sea autumn climatology envelope."
+    - name: pierson_moskowitz_self_consistent
+      status: pass
+      message: "H_s(U_10=9) = 0.21*81/9.81 = 1.73 m matches declared 1.7 m; ω_peak = 0.877*9.81/9 = 0.96 rad/s matches declared 0.95."
+    - name: refractivity_super_refractive_consistent
+      status: pass
+      message: "Gradient -120 N/km is super-refractive (between -150 and -40); k_factor ~ 2.0 reproduces the published AREPS bent-ray geometry."
+    - name: beaufort_consistent
+      status: pass
+      message: "U_10=9 m/s -> Beaufort 5 (fresh breeze); declared 5 matches."
+  fidelity_class: primitive_decomposed
+display_name: "Black Sea Autumn (moderate elevated duct + cumulus)"
+regime_class: elevated_duct
+cloud_cover:
+  oktas: 4
+  cloud_type: cumulus
+  cloud_base_m_agl: 1000
+  cloud_top_m_agl: 2200
+  liquid_water_content_g_per_m3: 0.5
+  ice_water_content_g_per_m3: 0.05
+rain:
+  rain_rate_mm_per_h: 0.0
+fog:
+  visibility_m: 15000
+  fog_type: none
+  liquid_water_content_g_per_m3: 0.0
+sea_state:
+  douglas_state: 4
+  beaufort_force: 5
+  significant_wave_height_m: 1.7
+  wave_peak_period_s: 7.0
+  wind_speed_u10_mps: 9.0
+  pierson_moskowitz_peak_freq_rad_s: 0.95
+  sea_spike_kurtosis: 5.2
+wind_vector_mps: { x: 7.0, y: 5.5, z: 0.1 }
+wind_profile_log_law_z0_m: 0.0003
+refractivity_profile:
+  n_at_msl: 340
+  gradient_n_per_km: -120
+  k_factor_earth: 2.0
+  surface_duct_present: false
+  surface_duct_height_m: 0.0
+  elevated_duct_present: true
+  elevated_duct_base_m_agl: 800.0
+  elevated_duct_top_m_agl: 1200.0
+  evaporation_duct_height_m: 30.0
+temperature_k: 288.0
+pressure_pa: 101500.0
+humidity_relative: 0.78
+humidity_absolute_g_per_m3: 10.0
+temperature_inversion_present: true
+temperature_inversion_base_m_agl: 800.0
+temperature_inversion_top_m_agl: 1200.0
+eo_ir_transmission_bands:
+  - band: vis
+    range_m: 5000
+    transmission: 0.78
+    aerosol_optical_depth: 0.18
+  - band: nir
+    range_m: 5000
+    transmission: 0.80
+    aerosol_optical_depth: 0.16
+  - band: swir
+    range_m: 5000
+    transmission: 0.72
+    aerosol_optical_depth: 0.15
+  - band: mwir
+    range_m: 5000
+    transmission: 0.58
+    aerosol_optical_depth: 0.12
+  - band: lwir
+    range_m: 5000
+    transmission: 0.48
+    aerosol_optical_depth: 0.10
+source_refs:
+  - citation_id: itu-r-p-453
+    url: "https://www.itu.int/rec/R-REC-P.453"
+    title: "ITU-R P.453 — The radio refractive index"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: nrl-areps
+    url: "https://www.nrl.navy.mil/Our-Work/Areas-of-Research/Atmospheric-Effects/"
+    title: "NRL AREPS atmospheric refractive effects prediction documentation"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: pierson-moskowitz-1964
+    url: "https://agupubs.onlinelibrary.wiley.com/doi/10.1029/JZ069i024p05181"
+    title: "Pierson & Moskowitz — A proposed spectral form for fully developed wind seas"
+    retrieved_utc: "2026-05-18T20:00:00Z"

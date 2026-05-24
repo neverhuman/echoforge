@@ -1,0 +1,334 @@
+# EchoForge source_platform_card — Geran-3 jet variant
+# Schema: schemas/source_platform_card.schema.json
+#
+# Jet-powered evolution of the Shahed-136 / Geran-2 airframe. Russian-
+# produced, observed by OSMP wreckage analysis. Same delta-wing geometry,
+# same launch sequence (rail + RATO booster), same terminal mode
+# (cruise_then_impact), but small turbojet replaces piston pusher. Higher
+# cruise speed (~520-600 km/h), hotter exhaust, additional micro-Doppler
+# energy in the JEM compressor-tone band. Strict-open: every parameter
+# cites public sources. Platform name allowed per the 20260518T160000Z
+# naming-policy reversal.
+id: "ef:source_platform_card:geran-3-jet-variant:0000000000000000:1"
+kind: source_platform_card
+schema_version: "1.0.0"
+public_proxy_id: geran-3-jet-variant
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "tips/detectors/tip11.txt:15 (CSIS 550-600 km/h cruise, 2,500 km range, Russian-produced jet Shahed variant)"
+    - "tips/detectors/tip12.txt:35 (~520 km/h cruise from OSMP wreckage analysis)"
+    - "CSIS Russian Geran-3 jet UAV reference"
+    - "OSMP Geran-3 wreckage analysis"
+    - "RUSI Russian Iranian-made UAV technical profile addendum"
+    - "Janes Geran-3 entry"
+    - "Army Recognition Geran-3 jet variant"
+    - "Bellingcat Geran-3 turbojet wreckage analysis (Ukraine, 2024)"
+    - "Rahman & Robertson Nature Sci Rep 2018 (8:17396) — bird vs UAS micro-Doppler envelope"
+    - "MDPI Drones 2023 7(1):39 — small fixed-wing UAV RCS signature investigation"
+    - "TJ-150 turbojet vendor datasheet — engine model proxy"
+    - "VTT 15/25 GHz UAS RCS measurements (scaled to S-band via Rayleigh-region frequency dependence)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Public-proxy fixture. All parameters derived from open-source reporting. NOT a measured-truth claim."
+validation:
+  tier: cross_checked
+  status: pass
+  uncertainty_score: 0.45
+  checks:
+    - name: geometry_dimensions_cited
+      status: pass
+      message: "3.5 m L / 2.5 m WS / 0.55 m H — Shahed-136 baseline preserved per CSIS, OSMP, Janes (same airframe family)"
+    - name: jem_tone_consistency
+      status: pass
+      message: "f_jem = first_stage_blade_count * rpm/60 = 9 * [30000,50000]/60 = [4500, 7500] Hz — matches declared jem_tone_frequencies_hz_range"
+    - name: cruise_speed_published
+      status: pass
+      message: "cruise 140-170 m/s (520-600 km/h) — CSIS + OSMP wreckage analysis (tips/detectors/tip11.txt:15, tip12.txt:35)"
+    - name: rcs_envelope_within_published_class
+      status: warn
+      message: "X-band nose-on [-25, -18] dBsm inherited from Shahed-136 (same airframe); full measured Geran-3-specific truth unavailable per strict-open"
+    - name: naming_policy_compliance
+      status: pass
+      message: "Geran-3 designation allowed per 20260518T160000Z naming-policy reversal"
+  fidelity_class: production_sbr
+display_name: "Geran-3 jet variant"
+platform_family: one_way_attack_uav
+platform_role: adversary
+country_of_origin: "RUS"
+dimensions_m:
+  x: 3.5
+  y: 2.5
+  z: 0.55
+wingspan_m: 2.5
+fuselage_diameter_m: 0.5
+wing_chord_root_m: 0.6
+wing_chord_tip_m: 0.3
+mass_kg:
+  min: 200.0
+  max: 260.0
+warhead_mass_kg:
+  min: 30.0
+  max: 90.0
+propulsion:
+  propulsion_type: rocket_solid_then_jet
+  engine_model_proxy: "tj-150-class"
+  rated_power_kw:
+    min: 60.0
+    max: 110.0
+  jet_compressor:
+    first_stage_blade_count: 9
+    rated_rpm_range:
+      min: 30000.0
+      max: 50000.0
+    jem_tone_frequencies_hz_range:
+      min: 4500.0
+      max: 7500.0
+  rocket_booster:
+    burn_time_s_range:
+      min: 1.0
+      max: 2.0
+    peak_acceleration_g: 1.8
+    exit_velocity_mps_range:
+      min: 25.0
+      max: 35.0
+kinematic_envelope:
+  cruise_speed_mps:
+    min: 140.0
+    max: 170.0
+  max_speed_mps:
+    min: 150.0
+    max: 180.0
+  min_sustainable_airspeed_mps: 80.0
+  stall_airspeed_mps: 60.0
+  climb_rate_mps:
+    min: 4.0
+    max: 12.0
+  descent_rate_mps:
+    min: 6.0
+    max: 18.0
+  operational_altitude_bands_m_agl:
+    - name: low_ingress
+      min: 60.0
+      max: 200.0
+    - name: transit_cruise
+      min: 500.0
+      max: 2000.0
+    - name: high_loiter
+      min: 2000.0
+      max: 6000.0
+  max_altitude_m_agl: 7000.0
+  endurance_hours:
+    min: 3.5
+    max: 5.0
+  range_km:
+    min: 1500.0
+    max: 2500.0
+  turn_rate_max_deg_s: 14.0
+  sustained_g_max: 3.0
+  instantaneous_g_max: 5.0
+  max_bank_angle_deg: 60.0
+launch_method: rail_with_rocket_booster
+terminal_behavior: cruise_then_impact
+guidance:
+  primary_navigation: gnss_plus_ins
+  datalink_present: false
+rcs_signature:
+  fluctuation_model: swerling_1
+  bands:
+    - band_name: "S"
+      center_frequency_hz: 3.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -22.0
+            max: -14.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -10.0
+            max: -3.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -18.0
+            max: -10.0
+          citation_id: vtt-25ghz-scaled-s-band
+    - band_name: "X"
+      center_frequency_hz: 10.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -25.0
+            max: -18.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -12.0
+            max: -5.0
+          citation_id: mdpi-drones-2023-fixed-wing-broadside
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -20.0
+            max: -12.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+micro_doppler_signature:
+  dominant_modulation_source: jem_compressor_tones
+  blade_pass_fundamental_hz_range:
+    min: 4500.0
+    max: 7500.0
+  rotation_fundamental_hz_range:
+    min: 500.0
+    max: 850.0
+  harmonic_count: 4
+  amplitude_modulation_depth_db_range:
+    min: 2.0
+    max: 6.0
+  aspect_visibility:
+    - aspect_name: nose_on
+      visibility_score: 0.95
+    - aspect_name: broadside
+      visibility_score: 0.35
+    - aspect_name: tail_on
+      visibility_score: 0.70
+    - aspect_name: above
+      visibility_score: 0.55
+    - aspect_name: below
+      visibility_score: 0.55
+ir_signature:
+  lwir_temperature_delta_k:
+    min: 120.0
+    max: 350.0
+  mwir_temperature_delta_k:
+    min: 200.0
+    max: 550.0
+  plume_present: true
+  plume_duration_s: 0.0
+  engine_exhaust_temperature_c:
+    min: 500.0
+    max: 750.0
+  fuselage_solar_load_w_per_m2_range:
+    min: 250.0
+    max: 700.0
+acoustic_signature:
+  spl_at_100m_db_range:
+    min: 78.0
+    max: 95.0
+  dominant_tonal_hz_range:
+    min: 4500.0
+    max: 7500.0
+  engine_fundamental_hz_range:
+    min: 500.0
+    max: 850.0
+  blade_harmonic_hz_range:
+    min: 4500.0
+    max: 30000.0
+  broadband_band_db:
+    low_hz_to_500hz_db: 75.0
+    five_hundred_hz_to_2khz_db: 78.0
+    two_to_10khz_db: 82.0
+  directivity: rear_quadrant
+rf_emissions:
+  silent_default: true
+  gnss_receiver_active: true
+  gnss_band: "L1"
+  control_link_present: false
+aliases:
+  - "Geran-3"
+  - "Shahed-136 jet variant"
+  - "Geran-3 jet OWA"
+source_refs:
+  - citation_id: csis-geran-3-jet-uav
+    url: "https://www.csis.org/analysis/geran-3-jet-uav"
+    title: "CSIS Russian Geran-3 jet UAV reference"
+    publisher: "Center for Strategic and International Studies"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: tips-detectors-tip11-geran-3-csis
+    url: "internal://tips/detectors/tip11.txt"
+    title: "EchoForge detector tip 11 — Geran-3 CSIS 550-600 km/h, 2,500 km range"
+    publisher: "EchoForge internal tips archive"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: tips-detectors-tip12-osmp-geran-3
+    url: "internal://tips/detectors/tip12.txt"
+    title: "EchoForge detector tip 12 — Geran-3 ~520 km/h cruise (OSMP wreckage analysis)"
+    publisher: "EchoForge internal tips archive"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: osmp-geran-3-wreckage-analysis
+    url: "https://osmp.ngo/geran-3-wreckage-analysis"
+    title: "OSMP Geran-3 wreckage analysis"
+    publisher: "Open Source Munitions Portal"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: bellingcat-geran-3-turbojet
+    url: "https://www.bellingcat.com/geran-3-turbojet-wreckage"
+    title: "Bellingcat Geran-3 turbojet wreckage analysis"
+    publisher: "Bellingcat"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rahman-robertson-2018-fixed-wing-class
+    url: "https://www.nature.com/articles/s41598-018-35476-6"
+    title: "Rahman & Robertson — Bird vs UAS micro-Doppler"
+    publisher: "Nature Scientific Reports 8:17396"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: mdpi-drones-2023-fixed-wing-broadside
+    url: "https://www.mdpi.com/2504-446X/7/1/39"
+    title: "Small fixed-wing UAV RCS signature investigation"
+    publisher: "MDPI Drones 2023 7(1):39"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: vtt-25ghz-scaled-s-band
+    url: "internal://tips/science_stack/v3/tip1.txt"
+    title: "VTT 15/25 GHz small-UAS RCS measurements, scaled to S-band"
+    publisher: "VTT / EchoForge internal scaling note"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+tags:
+  - adversary
+  - one_way_attack_uav
+  - russian_origin
+  - russian_produced
+  - delta_wing
+  - turbojet_powered
+  - geran_class
+  - jet_variant
+  - rail_launched
+  - gnss_guided
+  - rf_silent_default
+  - jem_tones

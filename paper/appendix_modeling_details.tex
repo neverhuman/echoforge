@@ -1,0 +1,102 @@
+\subsection{Rich Public-Proxy Modeling Appendix}
+\label{sec:richmodelappendix}
+
+This appendix states how the benchmark models the positive public-source family, the radar/noise environment, the auxiliary cue families, and hard negatives. The public-source positive class is inspired by open reporting on Iranian fixed-wing pusher-prop loitering-munition families, but EchoForge does \emph{not} claim a measured Iranian-drone radar signature, route model, payload model, or operational performance surrogate. The paper-facing class remains the fixed-wing pusher-prop public proxy.
+
+\begin{table*}[t]
+  \caption{Fixed-Wing Pusher-Prop / Iranian-Drone Public-Proxy Modeling Card}
+  \label{tab:publicproxymodel}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.18\textwidth}p{0.25\textwidth}p{0.25\textwidth}p{0.22\textwidth}@{}}
+    \toprule
+    Modeling item & Public-proxy assumption & Radar consequence & Explicit boundary \\
+    \midrule
+    Airframe geometry & Delta or swept fixed wing, rear pusher propulsor, approximate 3.3--3.7 m length, 2.3--2.7 m span, 0.35--0.75 m height & Aspect-dependent projected area and RCS envelope & Public visual/summary proxy only; no measured Iranian-platform signature \\
+    Launch/take-up & Rail/catapult take-up proxy with short booster-assist stress in the first 0--30 s & Initial phase has ground coupling, multipath, and less settled kinematics & No route, launch-site, operational, or evasion model \\
+    Kinematics & 45--60 m/s speed envelope across take-up, climb, and cruise windows & Doppler centroid and track-rate priors for branch summaries & Broad public kinematic envelope only \\
+    Propulsion micro-Doppler & Pusher-prop cadence proxy of 150--217 Hz & Narrow high-cadence modulation family distinct from many bird wingbeat bands but overlapping RC prop cadence & Not a measured micro-Doppler signature \\
+    RCS/aspect & -28 to -2 dBsm aspect envelope with Swerling-like fluctuation proxy & Controls per-branch detectability and hard-negative overlap & Synthetic stress envelope; no sensor-specific Pd/Pfa claim \\
+    Phase labels & Initial take-up 0--30 s, climb transition 30--90 s, cruise altitude 90--150 s & Phase-stratified AP, Recall@$\leq$1\%FPR, and false-alarm diagnostics & Phase conclusions are diagnostic because the holdout has eight positive groups \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+  \caption{Noise, Clutter, RFI, and Receiver Modeling Details}
+  \label{tab:noisemodeling}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.18\textwidth}p{0.27\textwidth}p{0.25\textwidth}p{0.20\textwidth}@{}}
+    \toprule
+    Family & What is generated & Why it matters for radar review & Boundary \\
+    \midrule
+    Thermal/SNR stress & Synthetic SNR/CNR buckets attached to radar branches and detector-view features & Prevents a trivial clean-signal benchmark & Not a calibrated receiver-noise figure for hardware \\
+    Weibull/K-like clutter & Terrain, sea, vegetation, and mixed-scene clutter stressors & Covers non-Gaussian clutter regimes used in radar detection literature & Site-measured clutter truth is not claimed \\
+    Weather and sea clutter & Rain/dust/weather-cell, coastal haze, and sea/terrain glint families & Creates near-threshold false-track pressure & Not a meteorological rate model \\
+    Multipath ghosts & Synthetic ghost tracks and reflection-like interference & Tests whether fusion overreacts to plausible false tracks & No deployment geometry or site-specific ray tracing \\
+    RFI bursts and passive-RF missingness & Sparse RF cues, no-signal behavior, burst contamination, clock-offset, and provenance quality & Tests multimodal fusion when RF is absent, sparse, or contaminated & No emitter library, payload command, operator, or exploitation claim \\
+    Receiver impairment & AGC compression, clock drift, quantization, dropped CPI, Doppler folding, and calibration offset & Forces detector views to tolerate sensor-like imperfections & Simplified impairment families, not hardware qualification \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+  \caption{Synthetic Radar Simulation Processing Detail}
+  \label{tab:radarsimprocessing}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.16\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.21\textwidth}@{}}
+    \toprule
+    Processing step & Modeled quantity & How it becomes evidence & Red-line boundary \\
+    \midrule
+    Target return & aspect-dependent public-proxy RCS, phase-stable complex amplitude, range migration, Doppler centroid & IQ magnitude diagnostics and detector features such as concentration and Doppler spread & no measured platform signature \\
+    Micro-Doppler & pusher-prop 150--217 Hz proxy plus bird/RC cadence stressors & branch summaries and hard-negative false-alarm interpretation & cadence bands are broad priors, not identity labels \\
+    Clutter/noise & thermal/SNR buckets, Weibull/K-like clutter, sea/weather/terrain glint, vegetation motion & score degradation and near-threshold hard-negative pressure & no site-measured clutter truth \\
+    Receiver effects & AGC compression, drift, quantization, dropped CPI, Doppler folding, calibration offset & detector-view robustness features and failure slices & no hardware qualification \\
+    Cue streams & acoustic cadence/agreement and passive-RF no-signal/RFI/provenance geometry & non-radar branch scores and EI component inputs & no emitter library or operator inference \\
+    Feature contract & denylisted schema converts generated products to detector views & train/CV and holdout scores, leakage diagnostics, and KPI tables & labels, split keys, group IDs, and generator internals blocked \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+  \caption{Detector-View Modeling Contract}
+  \label{tab:detectorviewcontract}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.16\textwidth}p{0.24\textwidth}p{0.27\textwidth}p{0.23\textwidth}@{}}
+    \toprule
+    View & Model-facing features & What it can support & What it cannot support \\
+    \midrule
+    X/Ku radar & Range-Doppler concentration, micro-Doppler spread, CFAR/MTD-style scores, clutter stress & High-resolution radar branch comparison & Proprietary sensitivity, ECCM, or exact vendor Pd/Pfa \\
+    S-band radar & Coarser velocity/range summaries, track confidence, multipath stress & Tactical branch stress and cue comparison & Any claimed match to a fielded AESA/MHR implementation \\
+    GBAD cueing & Cue confidence, horizon/revisit stress, stale-track state & Wide-area cueing behavior under a public role envelope & Engagement-quality behavior or operator workflow \\
+    Acoustic & Spectral cadence, node agreement, weather/traffic stress & Supporting propulsion-cadence cue & Exact microphone layout or field localization performance \\
+    Passive RF & No-signal, RFI burst, sparse RF cue, provenance-quality geometry & RF silence/missingness and provenance-quality stress & Emitter identification, command links, payload inference, or operator identity \\
+    Fusion & Source confidence, stale-track penalty, cross-sensor confirmation, false-track accounting & Accepted-practice comparator and EI input context & Operational C2 equivalence \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{table*}[t]
+  \caption{Ablation and Appendix Artifact Map}
+  \label{tab:appendixartifactmap}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.22\textwidth}p{0.34\textwidth}p{0.34\textwidth}@{}}
+    \toprule
+    Artifact & Contents & Reviewer question answered \\
+    \midrule
+    \texttt{data\_processing\_trace\_rows.csv} & Stage-level scenario-to-holdout trace, including input artifacts, output artifacts, reviewer checks, and claim boundaries & Can I reconstruct the processing path without reading generator internals? \\
+    \texttt{main\_kpi\_gain\_table.csv} & Prior-fusion and EI values, absolute changes, relative percentages, and gain/reduction direction & What exactly is the +760\% LCB95, +185.7\% point-recall, and 49-to-3 false-positive claim computed from? \\
+    \texttt{public\_proxy\_model\_detail\_rows.csv} & Positive-class geometry, kinematics, RCS, micro-Doppler, launch, phase, and prohibited-inference rows & How is the Iranian-drone public proxy represented without claiming measured truth? \\
+    \texttt{environment\_impairment\_model\_rows.csv} & Clutter, noise, weather, RFI, multipath, receiver impairment, and hard-negative stress rows & What noise and artifact regimes are actually modeled? \\
+    \texttt{detector\_view\_schema\_evidence.csv} & Allowed feature families and denied audit-only fields for every detector view & Are labels, split keys, group IDs, or generator state leaking into models? \\
+    \texttt{false\_alarm\_by\_method\_family.csv} & Family-wise false alarms for EI and the strongest comparator methods & Which hard negatives generate false alarms and what do the colors in Fig.~\ref{fig:phasekpi} mean? \\
+    \texttt{selected\_component\_human\_weights.csv} & Reader-facing EI component weights, modalities, calibrators, and cumulative weights & What does EI fuse at a high level? \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+The appendix is not a claim-expansion device. It is a review surface. It explains the synthetic assumptions behind the benchmark while keeping the central claim narrow: EI improves the low-FPR operating point over accepted fusion practice on this declared synthetic public-proxy run.

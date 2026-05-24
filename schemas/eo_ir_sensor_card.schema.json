@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/eo_ir_sensor_card.schema.json",
+  "title": "eo_ir_sensor_card",
+  "description": "EchoForge eo_ir_sensor_card document. Declares an electro-optical / infrared sensor (visible / SWIR / MWIR / LWIR) with optics, detector, FOV, frame rate, NETD, and declared detection range envelope against named target classes. Used by the multi-modal fusion lane for radar-cued EO/IR confirmation (the standard C-UAS architecture per tips/detectors/tip1.txt §4.8). Strict-open: vendor names allowed; cite each parameter to vendor datasheet / SPIE proceedings / Johnson-Criteria literature. References: Holst 'Electro-Optical Imaging System Performance' (Johnson criteria for detect/recognize/identify), MODTRAN band-integrated atmospheric transmission, ISO 9358 NETD measurement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "sensor_name",
+    "band",
+    "detector",
+    "optics",
+    "fov_deg",
+    "frame_rate_hz"
+  ],
+  "properties": {
+    "id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "eo_ir_sensor_card" },
+    "schema_version": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license" },
+    "validation": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation" },
+    "sensor_name": { "type": "string", "minLength": 1 },
+    "vendor": { "type": "string" },
+    "model": { "type": "string" },
+    "band": {
+      "enum": ["vis_color", "vis_mono", "nir", "swir", "mwir_cooled", "mwir_uncooled", "lwir_cooled", "lwir_uncooled", "multispectral"]
+    },
+    "detector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["detector_type"],
+      "properties": {
+        "detector_type": { "enum": ["cmos", "ccd", "ingaas", "inSb", "mct_hgcdte", "microbolometer_vox", "microbolometer_a-si", "qwip", "t2sl"] },
+        "array_format_h_v": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "pitch_um": { "type": "number", "exclusiveMinimum": 0 },
+        "netd_mk": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Noise-equivalent ΔT (mK). Cooled MWIR 10-20, uncooled LWIR 30-80."
+        },
+        "well_capacity_e": { "type": "number", "exclusiveMinimum": 0 },
+        "integration_time_ms_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" }
+      }
+    },
+    "optics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["focal_length_mm"],
+      "properties": {
+        "focal_length_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "focal_length_mm_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range", "description": "For zoom optics." },
+        "aperture_diameter_mm": { "type": "number", "exclusiveMinimum": 0 },
+        "f_number": { "type": "number", "exclusiveMinimum": 0 },
+        "transmission": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "fov_deg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["h_deg", "v_deg"],
+      "properties": {
+        "h_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "v_deg": { "type": "number", "exclusiveMinimum": 0 },
+        "ifov_mrad": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "frame_rate_hz": { "type": "number", "exclusiveMinimum": 0 },
+    "scan_pattern": { "enum": ["staring", "pan_tilt_continuous", "step_stare", "raster", "spiral"] },
+    "stabilization": { "enum": ["none", "two_axis_passive", "two_axis_active", "three_axis_active", "gimballed"] },
+    "declared_target_range_envelope": {
+      "description": "Vendor-declared or Johnson-criteria-computed detect/recognize/identify ranges per target class.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target_class_slug", "task", "range_m", "conditions"],
+        "properties": {
+          "target_class_slug": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+          "task": { "enum": ["detect", "recognize", "identify"] },
+          "range_m": { "type": "number", "exclusiveMinimum": 0 },
+          "conditions": { "type": "string", "description": "e.g. 'clear air 23 km vis', 'fog 1 km vis', 'overcast night'." },
+          "citation_id": { "type": "string" }
+        }
+      }
+    },
+    "weather_dependence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "blocked_by_cloud_oktas_above": { "type": "integer", "minimum": 0, "maximum": 8 },
+        "degraded_by_fog_below_visibility_m": { "type": "number", "minimum": 0 },
+        "rain_attenuation_db_per_km": { "type": "number", "minimum": 0 }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id"],
+        "properties": {
+          "citation_id": { "type": "string" },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

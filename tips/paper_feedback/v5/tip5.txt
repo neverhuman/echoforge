@@ -1,0 +1,1290 @@
+I reviewed the uploaded paper PDF and the live `paper/` repo lane. The current paper already has the right scientific boundary, but the visual layer is not tier-1 yet: the figures are carrying too much text, labels are too small, “locked/selected” naming is inconsistent with the Engineered Intelligence framing, and Fig. 4 is actively misleading because the red horizontal recall markers are drawn over the AP bars. The repo’s current paper lane is `detection.paper_evidence_major_upgrade_v1 → paper/generate_figures.py --strict → paper/build.sh → paper/validate_paper.py`, and `paper/generate_figures.py` delegates to `paper/generate_figures_major_upgrade_v2.py`, so nearly all figure fixes should be made in `paper/generate_figures_major_upgrade_v2.py`, not the older helper functions in `generate_figures.py`. ([GitHub][1]) 
+
+The strongest path is: rename the method everywhere to **engineered-intelligence (EI) candidate**, preserve “selection lock” only as the audit artifact/process, replace the confusing Fig. 4 line overlay with separate bars/markers, split the KTH anchor from the algorithm workflow, add strict visual QA, and add appendix material generated from the evidence lane rather than hand-maintained claims. The paper directory already contains `echoforge_ieee.tex`, both figure generators, `validate_paper.py`, and `validate_visuals.py`, so the edits below are targeted to the existing lane. ([GitHub][2])
+
+---
+
+## 1. Main paper diagnosis
+
+### Critical naming problem
+
+The PDF still repeatedly uses **“locked candidate”** and **“selected”** in the abstract, figures, captions, tables, and body. For example, Fig. 3 uses “Locked candidate” and “selected” labels, and Fig. 5 is titled around “Locked candidate components.”  
+
+Use this rule:
+
+| Old wording                        | New wording                                                      |
+| ---------------------------------- | ---------------------------------------------------------------- |
+| locked candidate                   | engineered-intelligence (EI) candidate                           |
+| locked advanced candidate          | EI candidate                                                     |
+| selected candidate                 | EI candidate                                                     |
+| selected AP                        | EI AP                                                            |
+| selected lock                      | EI selection lock                                                |
+| full locked candidate              | full EI candidate                                                |
+| selected/selected curve in figures | EI / EI curve                                                    |
+| locked algorithm figure name       | reserve for actual workflow; KTH anchor must be `anchor_overlay` |
+
+The term **“selection lock”** can remain only when referring to the locked audit artifact and thresholding procedure.
+
+### Fig. 4 specific issue
+
+The “strange lines” above the selected AP bars in Fig. 4 are not rendering artifacts. They are intentionally plotted red horizontal markers for `selected_recall` inside the AP bar chart. That makes the phase chart look like it has unexplained error bars or broken annotations. The relevant code in `figure_phase_kpi()` plots selected AP bars and then overlays red horizontal line segments for selected fixed-FPR recall. 
+
+Fix: make **EI AP** and **EI Recall@≤1%FPR** separate visual encodings. Do **not** overlay recall as unlabeled red ticks above AP bars.
+
+### Claim strength
+
+The abstract is close, but the claims should be stronger in structure and weaker in overreach. It correctly says the corpus is synthetic, single-seed, and not measured truth, but it should lead with what is novel and remove the old “locked candidate” wording. The result should be framed as: **EI improves low-FPR behavior and AP under a strict synthetic public-proxy benchmark; ROC AUC is lower than prior fusion; measured-platform claims are prohibited.** The current paper already acknowledges the 4,500-record blind holdout, only 24 positives from 8 groups, and lower ROC AUC versus prior fusion, which is important to keep. 
+
+### Figure-by-figure verdict
+
+| Figure                     | Current issue                                                                     | Required fix                                                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Fig. 1 signal chain        | Mostly good, but small labels and inconsistent color semantics.                   | Keep as full-width, use style helpers, consistent EI palette, larger box text.                                         |
+| Fig. 2 balance/leakage     | Extremely dense; small labels; title overlap in PDF; leakage boxes unreadable.    | Rebuild as 2×3 count grid plus a full-width “leakage checks” strip; larger labels; no tiny side panels.                |
+| Fig. 3 KPI                 | Too many diagnostics in one page; “selected” label; calibration x labels overlap. | Rename EI; use colormap for AP ranking; simplify calibration to nonzero bins or horizontal labels; keep KPI dominant.  |
+| Fig. 4 phase/false alarms  | Red recall lines over AP bars; “selected” wording; family colors inconsistent.    | Replace with grouped bars for prior AP / EI AP / EI fixed-FPR recall; use colormap for false-alarm burden.             |
+| Fig. 5 components/controls | Cramped labels; “locked” wording; deltas use blunt red/green.                     | EI title; wrap labels; use night red-green diverging colormap; annotate positive/negative deltas.                      |
+| Fig. 6 radar card          | Table fonts too small; receiver impairments only partially visible; cards packed. | Split table/card areas; show all receiver impairments; bigger font; consistent box style.                              |
+| Fig. 7 range-Doppler       | Pretty good but labels/colorbar squeeze the grid; row labels are too raw.         | Use explicit colorbar axis, row cards, shared scale note; keep heatmap raster.                                         |
+| Fig. 8 KTH anchor          | File is named `locked_algorithm` but it is not an algorithm; y labels small.      | Rename to `anchor_overlay`; add a new actual `ei_workflow` figure.                                                     |
+
+---
+
+## 2. Exact code changes: `paper/generate_figures_major_upgrade_v2.py`
+
+The current generator uses small global typography, small tick labels, a custom heatmap palette, and hard-coded red/green figure choices.   Replace the style foundation first.
+
+### 2.1 Replace imports
+
+Change this import:
+
+```python
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import FancyArrowPatch, Rectangle
+```
+
+to:
+
+```python
+from matplotlib.colors import LinearSegmentedColormap, Normalize
+from matplotlib.patches import FancyArrowPatch, Rectangle
+import matplotlib.ticker as mticker
+```
+
+### 2.2 Replace color constants and add canonical style
+
+Replace the existing color block from `INK = ...` through `HEATMAP_CMAP = ...` with this:
+
+```python
+# ---------------------------------------------------------------------------
+# EchoForge visual system
+# ---------------------------------------------------------------------------
+INK = "#18212f"
+MUTED = "#52606d"
+GRID = "#d9e2ec"
+SLATE = "#eff3f7"
+WHITE = "#ffffff"
+
+# Stable semantic colors. Use these meanings everywhere.
+EI_COLOR = "#162a3f"          # engineered intelligence / primary method
+PRIOR_COLOR = "#52606d"       # prior fusion / baselines
+RADAR_COLOR = "#2f6f9f"
+ACOUSTIC_COLOR = "#208a7c"
+PASSIVE_RF_COLOR = "#7b5ea7"
+GEOMETRY_COLOR = "#b7791f"
+ALERT_RED = "#9f2f2f"
+GOOD_GREEN = "#2f6b3f"
+NEAR_GREY = "#b7c4d1"
+
+PALE_BLUE = "#e8f2fb"
+PALE_TEAL = "#e7f5f1"
+PALE_GOLD = "#fff5db"
+PALE_RED = "#fae8e8"
+PALE_GREEN = "#e9f5ec"
+PALE_SLATE = "#f6f8fb"
+
+# Requested comparison palette: dark/night red-green with a light neutral
+# midpoint. Numeric labels and hatching remain mandatory so color is never
+# the only carrier of meaning.
+NIGHT_RED_GREEN = LinearSegmentedColormap.from_list(
+    "echoforge_night_red_green",
+    ("#511515", "#9f2f2f", "#f7f4e9", "#2f6b3f", "#0f3d2e"),
+    N=256,
+)
+
+HEATMAP_CMAP = LinearSegmentedColormap.from_list(
+    "echoforge_iq",
+    ("#0b1020", "#1d3557", "#2a7f7f", "#79a857", "#f0d56b", "#fff9e6"),
+    N=256,
+)
+
+EI_LABEL = "Engineered intelligence (EI)"
+EI_SHORT = "EI"
+PRIOR_LABEL = "Prior fusion"
+PRIMARY_KPI_TEXT = "Recall@≤1%FPR"
+
+FIG_DPI = 450
+TITLE_SIZE = 12.2
+SUBTITLE_SIZE = 8.4
+AXIS_LABEL_SIZE = 8.3
+TICK_SIZE = 7.2
+BAR_LABEL_SIZE = 6.9
+LEGEND_SIZE = 7.0
+PANEL_TITLE_SIZE = 9.6
+```
+
+### 2.3 Replace `VECTOR_FIGURES`
+
+Replace:
+
+```python
+VECTOR_FIGURES = {
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "detector_ml_pipeline.png",
+    "locked_algorithm.png",
+}
+HEATMAP_FIGURES = {"iq_negative_samples.png"}
+```
+
+with:
+
+```python
+VECTOR_FIGURES = {
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "detector_ml_pipeline.png",
+    "anchor_overlay.png",
+    "ei_workflow.png",
+}
+HEATMAP_FIGURES = {"iq_negative_samples.png"}
+```
+
+### 2.4 Replace `_configure_matplotlib()`
+
+Replace the whole function with:
+
+```python
+def _configure_matplotlib() -> None:
+    plt.rcParams.update(
+        {
+            "font.family": "DejaVu Sans",
+            "font.size": 8.8,
+            "axes.edgecolor": INK,
+            "axes.labelcolor": INK,
+            "axes.labelsize": AXIS_LABEL_SIZE,
+            "axes.titlesize": PANEL_TITLE_SIZE,
+            "axes.titleweight": "bold",
+            "xtick.color": MUTED,
+            "ytick.color": MUTED,
+            "xtick.labelsize": TICK_SIZE,
+            "ytick.labelsize": TICK_SIZE,
+            "legend.fontsize": LEGEND_SIZE,
+            "legend.frameon": False,
+            "savefig.dpi": FIG_DPI,
+            "figure.dpi": FIG_DPI,
+            "figure.facecolor": WHITE,
+            "axes.facecolor": WHITE,
+            "text.color": INK,
+            "axes.linewidth": 0.8,
+            "grid.color": GRID,
+            "grid.linewidth": 0.7,
+            "pdf.fonttype": 42,
+            "ps.fonttype": 42,
+            "svg.fonttype": "none",
+            "figure.constrained_layout.use": True,
+        }
+    )
+```
+
+### 2.5 Replace `_save_figure()` pad and layout behavior
+
+Inside `_save_figure()`, change every `pad_inches=0.08` to `pad_inches=0.12`. This prevents labels at the bottom of Fig. 3/Fig. 4 from clipping in IEEE builds.
+
+### 2.6 Add reusable helpers after `_setup_diagram()`
+
+Add:
+
+```python
+def _clean_axis(ax: Any, *, xgrid: bool = False, ygrid: bool = False) -> None:
+    if xgrid:
+        ax.xaxis.grid(True, color=GRID, linewidth=0.7)
+    if ygrid:
+        ax.yaxis.grid(True, color=GRID, linewidth=0.7)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color(GRID)
+    ax.spines["bottom"].set_color(GRID)
+
+
+def _short_label(text: Any, width: int = 22) -> str:
+    return "\n".join(
+        textwrap.wrap(
+            str(text).replace("_", " "),
+            width=width,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+    )
+
+
+def _comparison_color(value: float, vmin: float, vmax: float) -> Any:
+    if not math.isfinite(value):
+        return SLATE
+    if vmax <= vmin:
+        return NIGHT_RED_GREEN(0.5)
+    return NIGHT_RED_GREEN(float(np.clip((value - vmin) / (vmax - vmin), 0.0, 1.0)))
+
+
+def _bar_value_label(
+    ax: Any,
+    x: float,
+    y: float,
+    text: str,
+    *,
+    xpad: float = 0.01,
+    color: str = MUTED,
+    weight: str = "normal",
+) -> None:
+    ax.text(
+        x + xpad,
+        y,
+        text,
+        va="center",
+        ha="left",
+        fontsize=BAR_LABEL_SIZE,
+        color=color,
+        weight=weight,
+    )
+
+
+def _bottom_note(fig: Any, text: str) -> None:
+    fig.text(0.015, 0.012, text, fontsize=7.0, color=MUTED, ha="left", va="bottom")
+```
+
+---
+
+## 3. Exact Fig. 4 fix: replace `figure_phase_kpi()`
+
+Replace the entire current `figure_phase_kpi()` function with this. This removes the unexplained red line segments, removes “selected,” uses EI naming, and applies a proper comparison color treatment to false-positive burden.
+
+```python
+def figure_phase_kpi(context: FigureContext) -> Path:
+    filename = "phase_kpi.png"
+    evaluation = _evaluation_summary(context)
+    if evaluation:
+        _note_source(filename, "phase metrics and false-alarm family breakdown")
+    else:
+        _note_fallback(filename, "phase metrics missing; using deterministic defaults")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig = plt.figure(figsize=(11.4, 5.7), constrained_layout=True)
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.05, 1.30], wspace=0.23)
+
+    fig.suptitle(
+        "Phase behavior and false-alarm burden",
+        fontsize=TITLE_SIZE,
+        weight="bold",
+        y=1.02,
+    )
+
+    phase_metrics = evaluation.get("phase_metrics", {})
+    selected_method = evaluation.get("selected_method", "")
+    ei_phase = phase_metrics.get(selected_method, {})
+    prior_phase = phase_metrics.get("layered_fusion_c2", {})
+    phase_order = list(PHASES)
+
+    # Left panel: explicit grouped bars, no hidden line overlays.
+    ax = fig.add_subplot(gs[0, 0])
+    x = np.arange(len(phase_order))
+    width = 0.24
+
+    prior_ap = [
+        _safe_float(prior_phase.get(phase, {}).get("average_precision"), 0.0)
+        for phase in phase_order
+    ]
+    ei_ap = [
+        _safe_float(ei_phase.get(phase, {}).get("average_precision"), 0.0)
+        for phase in phase_order
+    ]
+    ei_recall = [
+        _safe_float(ei_phase.get(phase, {}).get("fixed_fpr_recall"), 0.0)
+        for phase in phase_order
+    ]
+
+    bars_prior = ax.bar(
+        x - width,
+        prior_ap,
+        width,
+        color=PRIOR_COLOR,
+        alpha=0.72,
+        edgecolor="white",
+        linewidth=0.8,
+        label="Prior AP",
+    )
+    bars_ei_ap = ax.bar(
+        x,
+        ei_ap,
+        width,
+        color=EI_COLOR,
+        edgecolor="white",
+        linewidth=0.8,
+        label="EI AP",
+    )
+    bars_ei_recall = ax.bar(
+        x + width,
+        ei_recall,
+        width,
+        color=GOOD_GREEN,
+        edgecolor="white",
+        linewidth=0.8,
+        hatch="///",
+        label="EI Recall@≤1%FPR",
+    )
+
+    for bars in (bars_prior, bars_ei_ap, bars_ei_recall):
+        for bar in bars:
+            value = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                min(value + 0.025, 1.01),
+                f"{value:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=6.4,
+                color=INK,
+                rotation=0,
+            )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [f"{PHASE_LABELS[p]}\n{PHASE_WINDOWS[p]}" for p in phase_order],
+        fontsize=7.0,
+    )
+    ax.set_ylabel("Holdout metric value", fontsize=AXIS_LABEL_SIZE)
+    ax.set_ylim(0.0, 1.08)
+    ax.set_title("Per-phase holdout diagnostics", fontsize=PANEL_TITLE_SIZE, weight="bold")
+    _clean_axis(ax, ygrid=True)
+    ax.legend(loc="upper left", ncol=1)
+
+    # Right panel: false alarms and near-threshold context, with comparable burden coloring.
+    fa_ax = fig.add_subplot(gs[0, 1])
+    family_rows = _read_csv_rows(
+        context.roots.paper_evidence_root / "false_alarm_by_method_family.csv"
+    )
+    method_rows = _read_csv_rows(
+        context.roots.paper_evidence_root / "top_method_false_positive_frequency.csv"
+    )
+    if not family_rows or not method_rows:
+        family_rows = _fallback_false_alarm_rows()
+        method_rows = [
+            {
+                "method": "engineered_intelligence",
+                "method_label": "engineered_intelligence",
+                "rank": 1,
+                "selected_threshold_fp_count": 1,
+                "fp_per_1000_negatives": 0.2,
+                "recall_at_leq_1pct_fpr": 0.8,
+                "top_fp_family": "single_bird",
+            }
+        ]
+
+    # Normalize legacy labels here; do not mutate evidence files.
+    method_rows = sorted(method_rows, key=lambda row: _safe_float(row.get("rank"), 99.0))
+    selected_methods = [row.get("method", "") for row in method_rows if row.get("method")]
+    method_to_summary = {row.get("method", ""): row for row in method_rows}
+
+    method_to_family_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in family_rows:
+        method_to_family_rows[row.get("method", "")].append(row)
+
+    totals = [
+        sum(
+            _safe_float(row.get("false_alarm_count"))
+            for row in method_to_family_rows.get(method, [])
+        )
+        for method in selected_methods
+    ]
+    max_fp = max(totals + [1.0])
+
+    y = np.arange(len(selected_methods))
+    burden_colors = [_comparison_color(total, 0.0, max_fp) for total in totals]
+
+    fa_ax.barh(
+        y,
+        totals,
+        color=burden_colors,
+        edgecolor="white",
+        linewidth=0.8,
+        label="selected-threshold FP",
+    )
+
+    near_totals = [
+        sum(
+            _safe_float(row.get("near_threshold_count"))
+            for row in method_to_family_rows.get(method, [])
+        )
+        for method in selected_methods
+    ]
+    fa_ax.scatter(
+        near_totals,
+        y,
+        marker="D",
+        s=28,
+        facecolor=WHITE,
+        edgecolor=INK,
+        linewidth=0.9,
+        label="near-threshold negatives",
+        zorder=4,
+    )
+
+    for idx, method in enumerate(selected_methods):
+        summary = method_to_summary.get(method, {})
+        raw_label = summary.get("method_label", method)
+        display_label = (
+            EI_LABEL
+            if raw_label in {"locked_candidate", "selected", "engineered_intelligence"}
+            else raw_label.replace("_", " ")
+        )
+        recall = _safe_float(summary.get("recall_at_leq_1pct_fpr"))
+        fa_ax.text(
+            totals[idx] + max_fp * 0.025,
+            idx,
+            f"FP {int(totals[idx])} | near {int(near_totals[idx])} | R@≤1%FPR {recall:.3f}",
+            va="center",
+            fontsize=6.8,
+            color=MUTED,
+        )
+        method_to_summary[method]["_display_label"] = display_label
+
+    fa_ax.set_yticks(y)
+    fa_ax.set_yticklabels(
+        [_short_label(method_to_summary[m].get("_display_label", m), 20) for m in selected_methods],
+        fontsize=7.0,
+    )
+    fa_ax.invert_yaxis()
+    fa_ax.set_xlabel("False-alarm count / near-threshold context", fontsize=AXIS_LABEL_SIZE)
+    fa_ax.set_title("Cross-method false-alarm burden", fontsize=PANEL_TITLE_SIZE, weight="bold")
+    fa_ax.set_xlim(0.0, max(max_fp * 1.28, 2.0))
+    _clean_axis(fa_ax, xgrid=True)
+    fa_ax.legend(loc="lower right")
+
+    _bottom_note(
+        fig,
+        "Each phase has n=8 positive holdout records from 8 positive groups; phase and family slices are diagnostic, not field-rate estimates.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+---
+
+## 4. Exact Fig. 3 edits inside `figure_kpi_ranking()`
+
+Keep the function, but make these exact substitutions.
+
+### 4.1 Replace method labels
+
+Change:
+
+```python
+methods = [("Prior fusion", baseline_row, GREEN), ("Locked candidate", selected_row, INK)]
+```
+
+to:
+
+```python
+methods = [(PRIOR_LABEL, baseline_row, PRIOR_COLOR), (EI_LABEL, selected_row, EI_COLOR)]
+```
+
+### 4.2 Replace AP ranking label mapping
+
+Change:
+
+```python
+selected_method: "locked candidate",
+```
+
+to:
+
+```python
+selected_method: "EI candidate",
+```
+
+### 4.3 Replace rank bar colors
+
+Change:
+
+```python
+colors = [GREEN if label == "layered_fusion_c2" else BLUE for label in labels]
+```
+
+to:
+
+```python
+max_ap = max(values + [1e-9])
+colors = [
+    EI_COLOR if label == selected_method
+    else PRIOR_COLOR if label == "layered_fusion_c2"
+    else _comparison_color(value, 0.0, max_ap)
+    for label, value in zip(labels, values)
+]
+```
+
+### 4.4 Replace curve labels
+
+Change both instances of:
+
+```python
+label="baseline"
+```
+
+to:
+
+```python
+label=PRIOR_LABEL
+```
+
+Change both instances of:
+
+```python
+label="selected"
+```
+
+to:
+
+```python
+label=EI_SHORT
+```
+
+### 4.5 Fix the calibration axis
+
+Replace the calibration bin x-label block:
+
+```python
+cal_ax.set_xticks(x)
+cal_ax.set_xticklabels(bin_labels, rotation=45, ha="right", fontsize=6.2)
+```
+
+with:
+
+```python
+cal_ax.set_xticks(x)
+cal_ax.set_xticklabels(bin_labels, rotation=35, ha="right", fontsize=6.0)
+cal_ax.xaxis.set_major_locator(mticker.MaxNLocator(integer=True, nbins=10))
+```
+
+Also change the panel title from:
+
+```python
+cal_ax.set_title("Calibration bin counts", fontsize=9.4, weight="bold")
+```
+
+to:
+
+```python
+cal_ax.set_title("EI calibration bin counts", fontsize=PANEL_TITLE_SIZE, weight="bold")
+```
+
+---
+
+## 5. Exact Fig. 5 edits inside `figure_detector_ml_pipeline()`
+
+This figure currently uses “Locked candidate components,” raw “locked” language, and plain red/green delta coloring. The function loads component weights and ablation data from the paper evidence/advanced outputs, so it is the right place to make the visual language consistent.  
+
+### 5.1 Change title
+
+Replace:
+
+```python
+"Locked candidate components and comparable holdout deltas",
+```
+
+with:
+
+```python
+"Engineered-intelligence components and comparable holdout deltas",
+```
+
+### 5.2 Change weight axis label/title
+
+Replace:
+
+```python
+weight_ax.set_xlabel("Locked nonnegative fusion weight", fontsize=9.0)
+weight_ax.set_title("Component weights sorted by lock weight", fontsize=9.6, weight="bold")
+```
+
+with:
+
+```python
+weight_ax.set_xlabel("EI nonnegative fusion weight", fontsize=AXIS_LABEL_SIZE)
+weight_ax.set_title("Component weights sorted by EI weight", fontsize=PANEL_TITLE_SIZE, weight="bold")
+```
+
+### 5.3 Replace delta color logic
+
+Replace:
+
+```python
+delta_colors = [RED if value < 0 else GREEN for value in delta_ap]
+```
+
+with:
+
+```python
+delta_min = min(delta_ap + delta_recall + [-1e-9])
+delta_max = max(delta_ap + delta_recall + [1e-9])
+delta_abs = max(abs(delta_min), abs(delta_max), 1e-9)
+delta_colors = [
+    NIGHT_RED_GREEN(0.5 + 0.5 * float(np.clip(value / delta_abs, -1.0, 1.0)))
+    for value in delta_ap
+]
+```
+
+### 5.4 Replace the bottom note
+
+Replace:
+
+```python
+"Raw component handles and selected_component_ablations.csv remain evidence artifacts; the main figure uses human labels and Table-IV-compatible holdout metrics.",
+```
+
+with:
+
+```python
+"Raw component handles and selected_component_ablations.csv remain evidence artifacts; the main figure uses human labels and Table-VI-compatible holdout metrics. Positive controls are post-hoc diagnostics, not replacement EI selections.",
+```
+
+---
+
+## 6. Split KTH anchor from EI workflow
+
+The current `figure_locked_algorithm()` actually renders the compare-only KTH anchor overlay, and the README artifact map also describes `locked_algorithm.png` as the KTH overlay. ([GitHub][1]) This is confusing. Rename the anchor figure and add a real workflow figure.
+
+### 6.1 Rename the function
+
+Rename:
+
+```python
+def figure_locked_algorithm(context: FigureContext) -> Path:
+    filename = "locked_algorithm.png"
+```
+
+to:
+
+```python
+def figure_anchor_overlay(context: FigureContext) -> Path:
+    filename = "anchor_overlay.png"
+```
+
+Inside that function, keep the existing KTH plotting logic but change the title to:
+
+```python
+fig.suptitle("Compare-only measured-anchor overlay", fontsize=TITLE_SIZE, weight="bold", y=0.98)
+ax.set_title(
+    "KTH-normalized z-score intervals; no positive fixed-wing truth transfer",
+    fontsize=PANEL_TITLE_SIZE,
+    weight="bold",
+)
+```
+
+Change the x-label to:
+
+```python
+ax.set_xlabel("Measured-anchor z-score median with q10/q90 interval", fontsize=AXIS_LABEL_SIZE)
+```
+
+Add:
+
+```python
+ax.axvline(0.0, color=INK, linewidth=0.8)
+ax.set_yticklabels([_short_label(label, 24) for label in labels], fontsize=7.0)
+```
+
+### 6.2 Add a new `figure_ei_workflow()`
+
+Add this function after `figure_anchor_overlay()`:
+
+```python
+def figure_ei_workflow(context: FigureContext) -> Path:
+    filename = "ei_workflow.png"
+    workflow_rows = context.evidence.get("engineered_intelligence", [])
+    generative = context.evidence.get("generative_origin_audit", {})
+
+    if workflow_rows:
+        _note_source(filename, "engineered-intelligence workflow rows")
+    else:
+        _note_fallback(filename, "EI workflow rows missing; using canonical workflow")
+        workflow_rows = [
+            {"stage": "train/CV candidate discovery", "status": "pass"},
+            {"stage": "feature-family evolution", "status": "pass"},
+            {"stage": "sparse nonnegative fusion", "status": "pass"},
+            {"stage": "geodesic-odds calibration", "status": "pass"},
+            {"stage": "EI selection lock", "status": "pass"},
+            {"stage": "one-shot blind holdout scoring", "status": "pass"},
+            {"stage": "paper evidence export", "status": "pass"},
+        ]
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    fig, ax = _setup_diagram(10.8, 4.8)
+    fig.suptitle(
+        "Engineered-intelligence workflow and evidence boundary",
+        fontsize=TITLE_SIZE,
+        weight="bold",
+        y=0.98,
+    )
+
+    stages = [
+        ("Train/CV-only\ncandidate discovery", PALE_BLUE, RADAR_COLOR),
+        ("Feature-family\nevolution", PALE_TEAL, ACOUSTIC_COLOR),
+        ("Sparse nonnegative\nfusion", PALE_GOLD, GEOMETRY_COLOR),
+        ("Monotone geodesic-\nodds calibration", PALE_GREEN, GOOD_GREEN),
+        ("EI selection lock\nwritten once", PALE_RED, ALERT_RED),
+        ("Blind holdout\nscored once", PALE_SLATE, EI_COLOR),
+        ("Evidence bundle\nfigures/tables/appx", WHITE, INK),
+    ]
+
+    x0, y0, w, h, gap = 0.35, 3.25, 1.23, 0.72, 0.22
+    for idx, (label, face, edge) in enumerate(stages):
+        x = x0 + idx * (w + gap)
+        _add_box(ax, x, y0, w, h, label, face=face, edge=edge, size=7.2, weight="bold")
+        if idx < len(stages) - 1:
+            _add_arrow(ax, (x + w, y0 + h / 2), (x + w + gap, y0 + h / 2), color=edge)
+
+    guardrails = [
+        "Holdout rows excluded from candidate search",
+        "Thresholds and calibrators fit on train/CV only",
+        "Detector views denylist split/group/truth fields",
+        "Ablation-internal scores quarantined from main metric basis",
+        "KTH remains compare-only; no positive-class truth transfer",
+    ]
+    ax.text(0.45, 2.40, "Review guardrails", fontsize=9.4, weight="bold")
+    for idx, text in enumerate(guardrails):
+        _add_box(ax, 0.45, 2.02 - idx * 0.36, 5.15, 0.25, text, face=WHITE, edge=GRID, size=6.9)
+
+    gen_pct = _safe_float(generative.get("percentage_generative_loc"))
+    human_pct = _safe_float(generative.get("percentage_human_standard_loc"))
+    loc_text = (
+        f"Generative-origin self-classification: {gen_pct:.1f}% generative / "
+        f"{human_pct:.1f}% human-standard LOC"
+        if math.isfinite(gen_pct) and math.isfinite(human_pct)
+        else "Generative-origin self-classification is emitted by the evidence lane"
+    )
+    _add_box(
+        ax,
+        6.15,
+        1.00,
+        3.55,
+        1.18,
+        loc_text + "\nnot proof of authorship history",
+        face=PALE_SLATE,
+        edge=INK,
+        size=7.2,
+    )
+
+    _bottom_note(
+        fig,
+        "Workflow is intentionally high-level: it exposes review logic and evidence gates without publishing raw component search traces or solver outputs.",
+    )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+```
+
+### 6.3 Update `generate_all()`
+
+Replace:
+
+```python
+figure_locked_algorithm(context),
+```
+
+with:
+
+```python
+figure_anchor_overlay(context),
+figure_ei_workflow(context),
+```
+
+---
+
+## 7. Exact validator updates
+
+The current visual validator only checks file existence and byte sizes; it does not catch naming regressions or the new workflow/anchor split. 
+
+### 7.1 `paper/validate_visuals.py`
+
+Replace required figure lists with:
+
+```python
+REQUIRED_PNGS = (
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "iq_negative_samples.png",
+    "detector_ml_pipeline.png",
+    "anchor_overlay.png",
+    "ei_workflow.png",
+)
+VECTOR_PDFS = (
+    "architecture_stack.pdf",
+    "monte_carlo_split_flow.pdf",
+    "kpi_ranking.pdf",
+    "phase_kpi.pdf",
+    "iq_drone_samples.pdf",
+    "detector_ml_pipeline.pdf",
+    "anchor_overlay.pdf",
+    "ei_workflow.pdf",
+)
+RASTER_ONLY = ("iq_negative_samples.png",)
+```
+
+Add this near the end of `main()` before printing success:
+
+```python
+for stale_name in ("locked_algorithm.png", "locked_algorithm.pdf"):
+    if (FIGURES_DIR / stale_name).exists():
+        fail(f"stale figure name remains: {stale_name}")
+```
+
+### 7.2 `paper/validate_paper.py`
+
+Replace `REQUIRED_FIGURES` and `VECTOR_FIGURES` similarly. Also extend `FORBIDDEN_PAPER_PATTERNS` with:
+
+```python
+r"\blocked candidate\b",
+r"\bLocked candidate\b",
+r"\bselected candidate\b",
+r"\bselected AP\b",
+r"\bselected curve\b",
+r"\bfull locked candidate\b",
+r"locked_algorithm",
+```
+
+Add required text checks in `validate_paper_text()`:
+
+```python
+if "engineered-intelligence (EI) candidate" not in text:
+    fail("paper text must use engineered-intelligence (EI) candidate terminology")
+if "NeverHumqn Research Group" not in text:
+    fail("paper text is missing NeverHumqn Research Group author/affiliation")
+if "Jeppson Taylor" not in text:
+    fail("paper text is missing Jeppson Taylor lead-author credit")
+if "EI Workflow and Generative-Origin Appendix" not in text:
+    fail("paper text is missing the EI workflow/generative-origin appendix")
+if "Source, Noise, and Detector Configuration Appendix" not in text:
+    fail("paper text is missing the source/noise/detector appendix")
+```
+
+The existing paper validator already checks page count, citations, required figures, figure metadata, evidence manifest, modality transparency, normalized anchor comparison, false-alarm fields, regional bird library, engineered intelligence transparency, and public proxy card. Keep those checks.  
+
+---
+
+## 8. Exact `echoforge_ieee.tex` changes
+
+The current TeX author is `EchoForge Project`, and the abstract/body use “locked candidate.” 
+
+### 8.1 Add packages/macros
+
+After the package list, add:
+
+```tex
+\usepackage[table]{xcolor}
+\usepackage{adjustbox}
+\usepackage{xspace}
+
+\definecolor{EFInk}{HTML}{18212F}
+\definecolor{EFMuted}{HTML}{52606D}
+\definecolor{EIFaintGreen}{HTML}{E9F5EC}
+\definecolor{EIFaintRed}{HTML}{FAE8E8}
+\definecolor{EIFaintBlue}{HTML}{E8F2FB}
+\definecolor{EIFaintGold}{HTML}{FFF5DB}
+
+\newcommand{\EI}{engineered intelligence\xspace}
+\newcommand{\EICandidate}{engineered-intelligence (EI) candidate\xspace}
+\newcommand{\EIShort}{EI\xspace}
+\newcommand{\NeverHumqn}{NeverHumqn Research Group\xspace}
+\newcommand{\bestcell}[1]{\cellcolor{EIFaintGreen}\textbf{#1}}
+\newcommand{\warncell}[1]{\cellcolor{EIFaintRed}#1}
+\newcommand{\neutralcell}[1]{\cellcolor{EIFaintBlue}#1}
+\newcommand{\evidencecell}[1]{\cellcolor{EIFaintGold}#1}
+```
+
+### 8.2 Replace author block
+
+Replace:
+
+```tex
+\author{EchoForge Project}
+```
+
+with:
+
+```tex
+\author{Jeppson Taylor, Lead Author, and the NeverHumqn Research Group%
+\thanks{Jeppson Taylor is the lead author. The paper-facing institutional author is the NeverHumqn Research Group.}}
+```
+
+### 8.3 Replace abstract with this exact version
+
+```tex
+\begin{abstract}
+EchoForge is a strict-open synthetic sensing benchmark for low-altitude uncrewed aerial system (UAS) radar and multimodal detection research. Strict-open means that assumptions, code, configuration, detector-view schemas, source cards, and paper evidence are reviewable from public or generated sources, while generated arrays and measured raw files remain outside Git. The paper-facing positive class is a fixed-wing pusher-prop public proxy with explicit uncertainty, not a measured-platform claim. EchoForge combines a radar signal-chain model card, acoustic and passive-RF cue definitions, group-locked scenario splitting, detector-view feature denylisting, false-alarm-family analysis, engineered-intelligence transparency, and holdout-isolated evaluation into a reproducible evidence package. The v2 single-seed run contains 10,000 scenario groups, 50 positive groups, and 30,000 phase records. On the 4,500-record blind holdout, with 24 positive records from eight positive scenario groups, the \EICandidate reaches point Recall@$\leq$1\%FPR of 0.833 and LCB95 Recall@$\leq$1\%FPR of 0.699; the prior fusion baseline reaches 0.292 and 0.083, respectively. The \EICandidate improves AP and low-FPR recall while its ROC AUC is lower than the prior fusion baseline. These results are synthetic public-proxy benchmark evidence under declared assumptions, not measured truth, sensor parity, or operational performance claims.
+\end{abstract}
+```
+
+### 8.4 Global TeX replacements
+
+Run these exact replacements in `paper/echoforge_ieee.tex`:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+p = Path("paper/echoforge_ieee.tex")
+s = p.read_text(encoding="utf-8")
+repls = {
+    "locked advanced candidate": "\\EICandidate{}",
+    "locked candidate": "\\EICandidate{}",
+    "Locked candidate": "Engineered-intelligence (EI) candidate",
+    "full locked candidate": "full EI candidate",
+    "full locked fusion view": "full EI fusion view",
+    "selected candidate": "\\EICandidate{}",
+    "selected AP": "EI AP",
+    "selected lock": "EI selection lock",
+    "selected-threshold": "EI-threshold",
+    "selected_lock": "EI selection lock",
+    "selected": "EI",
+}
+# Avoid replacing internal CSV filenames/paths too destructively by fixing these after.
+for a, b in repls.items():
+    s = s.replace(a, b)
+s = s.replace("EI_component_ablations.csv", "selected_component_ablations.csv")
+s = s.replace("EI_component_human_weights.csv", "selected_component_human_weights.csv")
+s = s.replace("EI_component_scores.csv", "selected_component_scores.csv")
+s = s.replace("EI_candidate_lock.json", "selected_candidate_lock.json")
+s = s.replace("EI_threshold_confusion_matrix", "selected_threshold_confusion_matrix")
+p.write_text(s, encoding="utf-8")
+PY
+```
+
+Then manually review every occurrence of `EI` in filenames. Internal artifact names can stay as filenames, but figure labels and prose should not say “selected” or “locked candidate.”
+
+### 8.5 Replace Fig. 8 include
+
+Replace:
+
+```tex
+\includegraphics[width=0.98\columnwidth]{locked_algorithm}
+```
+
+with:
+
+```tex
+\includegraphics[width=0.98\columnwidth]{anchor_overlay}
+```
+
+Then add a new figure in the Engineered Intelligence section after Fig. 5:
+
+```tex
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ei_workflow}
+  \caption{Engineered-intelligence workflow and evidence boundary. Candidate search, sparse fusion, calibration, EI selection lock, blind holdout scoring, and evidence export are separated so reviewers can inspect the workflow without exposing raw component search traces or solver outputs.}
+  \label{fig:eiworkflow}
+\end{figure*}
+```
+
+---
+
+## 9. Add the rich appendices the paper needs
+
+The paper already has a fixed-wing public-proxy appendix and regional bird/RC appendix, but it is too thin for a tier-1 review because it does not expose the **source/noise/detector configuration matrix** or the **EI workflow and code-origin percentages** in a paper-facing way. The evidence builder already creates a radar model card, regional hard-negative taxonomy, detector archetype cards, public proxy positive-class card, and generative-origin audit; the gap is that these are not fully surfaced in the TeX.  
+
+The generative-origin manifest states this is an auditable self-classification of tracked paper-lane source/governance LOC, not proof of authorship history, and it explicitly excludes generated outputs, figures, PDFs, and the `outputs/` tree.  The evidence builder computes `percentage_generative_loc` and `percentage_human_standard_loc`, then writes `generative_origin_audit.json` and `.csv`; the paper should input those generated numbers rather than hard-code them. 
+
+### 9.1 Add generated LaTeX numbers to `detection/paper_evidence_major_upgrade_v1.py`
+
+After `_run_generative_origin_audit()`, add:
+
+```python
+def _write_generative_origin_tex(out_root: Path, audit: dict[str, Any]) -> None:
+    gen = _safe_float(audit.get("percentage_generative_loc"), 0.0)
+    human = _safe_float(audit.get("percentage_human_standard_loc"), 0.0)
+    gen_loc = _safe_int(audit.get("generative_loc"))
+    human_loc = _safe_int(audit.get("human_standard_loc"))
+    classified = _safe_int(audit.get("classified_loc"))
+    text = "\n".join(
+        [
+            rf"\newcommand{{\EFGenerativePercent}}{{{gen:.1f}\%}}",
+            rf"\newcommand{{\EFHumanPercent}}{{{human:.1f}\%}}",
+            rf"\newcommand{{\EFGenerativeLoc}}{{{gen_loc:,}}}",
+            rf"\newcommand{{\EFHumanLoc}}{{{human_loc:,}}}",
+            rf"\newcommand{{\EFClassifiedLoc}}{{{classified:,}}}",
+            "",
+        ]
+    )
+    _write_text(out_root / "generative_origin_numbers.tex", text)
+```
+
+In `build_paper_evidence()`, immediately after:
+
+```python
+generative_origin_audit = _run_generative_origin_audit(roots.out_root)
+```
+
+add:
+
+```python
+_write_generative_origin_tex(roots.out_root, generative_origin_audit)
+```
+
+### 9.2 Add source/noise/detector appendix rows
+
+Add this function near the evidence helpers:
+
+```python
+def _source_noise_detector_appendix_rows(
+    radar_model_card: dict[str, Any],
+    sensor_archetype_cards: list[dict[str, Any]],
+    public_proxy_card: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    rows.append(
+        {
+            "section": "positive_public_proxy_sources",
+            "item": "fixed-wing pusher-prop public proxy",
+            "configuration": json.dumps(public_proxy_card.get("public_source_assumptions", {}), sort_keys=True),
+            "assumption_boundary": public_proxy_card.get("claim_boundary", ""),
+            "prohibited_inferences": " | ".join(public_proxy_card.get("prohibited_inferences", [])),
+        }
+    )
+
+    priors = radar_model_card.get("clutter_and_artifact_priors", {})
+    for key, values in priors.items():
+        rows.append(
+            {
+                "section": "noise_clutter_rfi_sources",
+                "item": key,
+                "configuration": " | ".join(values) if isinstance(values, list) else json.dumps(values, sort_keys=True),
+                "assumption_boundary": "synthetic stress taxonomy; not measured field-rate evidence",
+                "prohibited_inferences": "no operational false-alarm-rate or named-sensor claim",
+            }
+        )
+
+    for card in sensor_archetype_cards:
+        rows.append(
+            {
+                "section": "detector_archetype_configs",
+                "item": card.get("paper_label", card.get("family", "")),
+                "configuration": "visible=" + " | ".join(card.get("detector_visible_features", [])),
+                "assumption_boundary": card.get("limitations", ""),
+                "prohibited_inferences": card.get("prohibited_inferences", ""),
+            }
+        )
+
+    for branch in radar_model_card.get("carrier_bands", []):
+        rows.append(
+            {
+                "section": "radar_branch_configs",
+                "item": branch.get("label", branch.get("branch", "")),
+                "configuration": (
+                    f"band={branch.get('band')}; center_GHz={branch.get('center_ghz')}; "
+                    f"BW_MHz={branch.get('bandwidth_mhz')}; PRF_Hz={branch.get('prf_hz')}; "
+                    f"CPI_ms={branch.get('cpi_ms')}; range_bins={branch.get('range_bins')}; "
+                    f"delta_R_m={branch.get('range_resolution_m')}; delta_v_mps={branch.get('velocity_resolution_mps')}"
+                ),
+                "assumption_boundary": "public-proxy branch assumption",
+                "prohibited_inferences": "no vendor sensitivity, ECCM, classified fidelity, or field-performance equivalence",
+            }
+        )
+
+    return rows
+```
+
+In `build_paper_evidence()`, after `public_proxy_positive_class_card = _public_proxy_positive_class_card()`, add:
+
+```python
+source_noise_detector_rows = _source_noise_detector_appendix_rows(
+    radar_model_card,
+    sensor_archetype_cards,
+    public_proxy_positive_class_card,
+)
+```
+
+Add to the `payload` dict:
+
+```python
+"source_noise_detector_appendix": source_noise_detector_rows,
+```
+
+Then write it near the other CSVs:
+
+```python
+_write_csv(
+    roots.out_root / "source_noise_detector_appendix.csv",
+    source_noise_detector_rows,
+    ["section", "item", "configuration", "assumption_boundary", "prohibited_inferences"],
+)
+_write_json(
+    roots.out_root / "source_noise_detector_appendix.json",
+    source_noise_detector_rows,
+)
+```
+
+### 9.3 Add to `validate_paper.py`
+
+Inside `validate_paper_evidence()`, add required files:
+
+```python
+for required_csv in (
+    ...
+    "source_noise_detector_appendix.csv",
+):
+    if not (evidence_root / required_csv).exists():
+        fail(f"missing paper evidence csv: {required_csv}")
+
+if not (evidence_root / "generative_origin_numbers.tex").exists():
+    fail("missing generated LaTeX generative-origin numbers")
+```
+
+---
+
+## 10. Add exact TeX appendix content
+
+Insert this before `\section{Conclusion}`.
+
+```tex
+\section{Source, Noise, and Detector Configuration Appendix}
+This appendix consolidates the source, noise, and detector assumptions used by the benchmark. It is intentionally high-level: it makes the evidence auditable without publishing raw arrays, solver outputs, or measured raw files.
+
+\subsection{Positive Public-Proxy Source Boundary}
+The positive class is a fixed-wing pusher-prop public proxy. The appendix uses public visual reporting and public summaries only to define broad geometry, kinematics, and observable envelopes. It does not claim a measured Iranian-drone radar signature, operational route model, payload-effects inference, or fielded sensor equivalence. The source role is therefore a public-proxy object-family card, not a measured platform card.
+
+\subsection{Noise, Clutter, RFI, and Hard-Negative Sources}
+The radar stress model includes Weibull and K-like clutter, sea clutter, terrain glint, vegetation motion, weather cells, RFI bursts, AGC compression, clock drift, quantization, dropped CPI, PRF ambiguity, Doppler folding, calibration offset, and multipath masking. These are synthetic stress regimes used to exercise detector robustness. They are not measured site rates and should not be interpreted as operational false-alarm frequencies.
+
+\subsection{Detector Configuration Boundary}
+The X/Ku branch exposes range-Doppler concentration, micro-Doppler spread, and clutter stress; the S-band branch exposes coarser velocity and track-confidence cues; the GBAD branch exposes cue confidence, revisit stress, stale-track state, and horizon masking; acoustic exposes node-wise cadence and cross-node agreement; passive RF exposes no-signal, RFI, missingness, and provenance-quality geometry; fusion exposes calibrated late-fusion score and source quality. Excluded fields include vendor sensitivity, ECCM, proprietary clutter maps, exact Pd/Pfa, deployment topology, payload commands, operator identity, and split/group truth headers.
+
+\section{EI Workflow and Generative-Origin Appendix}
+The \EICandidate is a reviewable engineered artifact, not an opaque leaderboard label. The high-level workflow is: train/CV-only candidate discovery; feature-family evolution; sparse nonnegative fusion; monotone geodesic-odds calibration; EI selection lock; one-shot blind holdout scoring; and paper evidence export. Raw component handles, component search traces, and ablation-internal diagnostics remain evidence artifacts, while the paper reports reader-facing component families and comparable holdout controls.
+
+\input{outputs/paper-evidence/major-upgrade-v1/generative_origin_numbers.tex}
+
+The current generative-origin audit self-classifies \EFClassifiedLoc{} tracked source-style lines in the paper/evidence lane: \EFGenerativeLoc{} lines, or \EFGenerativePercent{}, are classified as generative/AI-inspired, and \EFHumanLoc{} lines, or \EFHumanPercent{}, are classified as human-standard methods. This is an auditable source classification produced by the evidence lane; it is not proof of authorship history.
+```
+
+Because the `.tex` build may run from `paper/`, you may need this safer path instead:
+
+```tex
+\IfFileExists{../outputs/paper-evidence/major-upgrade-v1/generative_origin_numbers.tex}{
+  \input{../outputs/paper-evidence/major-upgrade-v1/generative_origin_numbers.tex}
+}{
+  \newcommand{\EFGenerativePercent}{not available}
+  \newcommand{\EFHumanPercent}{not available}
+  \newcommand{\EFGenerativeLoc}{not available}
+  \newcommand{\EFHumanLoc}{not available}
+  \newcommand{\EFClassifiedLoc}{not available}
+}
+```
+
+Use the safer version if `paper/build.sh` compiles from inside `paper/`.
+
+---
+
+## 11. Table cleanup
+
+The current paper uses many hard-coded `p{...}` columns and small fonts. The worst cases are the public detector archetype table, validation tiers, KPI rationale, component weights, modality controls, leakage diagnostics, and false-alarm tables.  
+
+Use these exact conventions:
+
+1. Every wide table gets:
+
+```tex
+\begin{table*}[t]
+\centering
+\caption{...}
+\label{...}
+\begin{adjustbox}{width=\textwidth,center}
+\begin{tabular}{...}
+...
+\end{tabular}
+\end{adjustbox}
+\end{table*}
+```
+
+2. Every numeric comparison table should use visual cell emphasis:
+
+```tex
+\EICandidate{} & \bestcell{0.825} & \warncell{0.917} & \bestcell{0.837} & \bestcell{0.002} & EI selection lock & \bestcell{18/1/6} & \bestcell{0.000223} & \bestcell{0.833} & \bestcell{0.699}
+```
+
+3. Use “EI candidate” in all method rows:
+
+```tex
+prior layered fusion
+EI candidate
+```
+
+not `layered_fusion_c2` and not `locked candidate`, except where raw method IDs are explicitly labeled as artifact IDs.
+
+---
+
+## 12. Figure-by-figure final spec for the agent
+
+Give this as the implementation checklist:
+
+1. **Fig. 1 `architecture_stack`**: keep 6 layers, full-width. Increase text sizes via global style. Use EI palette. No more than two lines per box. Keep “claim boundary” in caption, not inside every box.
+
+2. **Fig. 2 `monte_carlo_split_flow`**: rebuild to 2×3 count grid plus bottom leakage strip. Minimum y tick font 7.2. Do not put leakage checks in tiny side boxes. Show split/site/range/aspect/noise/hard-negative with consistent palettes. If hard-negative has more than 7 rows, keep top 7 and “other.”
+
+3. **Fig. 3 `kpi_ranking`**: left KPI is dominant; rank bars use night red-green comparison colormap by AP; ROC/PR labels are “prior fusion” and “EI”; calibration panel says “EI calibration.” No `selected`.
+
+4. **Fig. 4 `phase_kpi`**: use the replacement function above. No red recall line overlays. Legend explicitly says prior AP / EI AP / EI Recall@≤1%FPR.
+
+5. **Fig. 5 `detector_ml_pipeline`**: title starts “Engineered-intelligence”; component weights keep bars; deltas use `NIGHT_RED_GREEN`; passive-RF-only positive delta gets a note that it is a post-hoc control, not replacement EI.
+
+6. **Fig. 6 `iq_drone_samples`**: table font at least 7.3, cards at least 7.0. Show all receiver impairments, not just first four. Keep model card as a figure, but do not duplicate too much tiny text.
+
+7. **Fig. 7 `iq_negative_samples`**: use a dedicated colorbar axis; no `fig.colorbar(..., ax=fig.axes)`. Preserve shared normalization; label rows as positive proxy / hard-negative artifact.
+
+8. **Fig. 8 `anchor_overlay`**: KTH overlay only. Rename file and caption. Add vertical zero line; wrap feature labels.
+
+9. **New Fig. 9 `ei_workflow`**: workflow + evidence boundary + computed generative/human percentages. High-level only; no raw component search internals.
+
+---
+
+## 13. Build commands
+
+Run exactly the lane already documented by the repo, with the extra visual check:
+
+```bash
+rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
+rtk python3 paper/generate_figures.py --strict
+rtk python3 paper/validate_visuals.py
+rtk bash paper/build.sh --copy-tracked
+rtk python3 paper/validate_paper.py \
+  --tex paper/echoforge_ieee.tex \
+  --bib paper/references.bib \
+  --pdf paper/echoforge_ieee.pdf \
+  --figures-dir paper/figures \
+  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+```
+
+The README’s own paper lane uses the same evidence generator, figure generator, build script, and paper validator, so these changes fit the current workflow rather than inventing a new one.
+
+[1]: https://github.com/neverhuman/echoforge "GitHub - neverhuman/echoforge: EM simulator · GitHub"
+[2]: https://github.com/neverhuman/echoforge/tree/main/paper "echoforge/paper at main · neverhuman/echoforge · GitHub"
+

@@ -1,0 +1,694 @@
+## Bottom line
+
+Those AUCs are a red flag, not a breakthrough. With holdout AUC ≈ 1.0 across CatBoost, LightGBM, CFAR/TBD fusion, TCN, and a transformer, plus baseline AUC already 0.966–0.9995, the simulator/evaluation is almost certainly creating a separable artifact: fixed SNR, fixed kinematics, leakage through horizon labels, post-detection features, seed/scenario overlap, overly clean negatives, or all of the above.
+
+I can’t honestly claim to have studied **literally every online publication** on radar simulation, but I did a broad scan of the repo and the relevant open literature families: small-UAV radar detection/classification, RCS, micro-Doppler, clutter, propagation, multipath, RF-chain impairments, CFAR/tracking, sim-to-real validation, and radar sensor model validation. The report below is ranked by **expected impact on your AUC=1.0 failure mode**, not by academic elegance.
+
+I’m also keeping this at the simulator-fidelity and defensive validation level. I am not providing adversary-specific targeting, defeat, or sensor-deployment tactics for a named country’s systems.
+
+---
+
+# 1. Repo scan: EchoForge is currently a scaffold/proxy, not a validated real-world radar simulator
+
+EchoForge’s README says it is intended to produce public-proxy object signatures, uncertainty-scored RCS artifacts, radar-chain products, hard-negative worlds, validation reports, and dataset packages, but it also explicitly says the repo is a scaffold and makes no exact measured-truth claims without lawful measured data and provenance. That is the right governance posture, but it means current high AUC results should not be interpreted as physical validity. ([GitHub][1])
+
+The validation tier document defines unvalidated as declared/unvalidated, basic as analytic canonical validation, cross_checked as cross-solver, and measured as lawful measured-data validation. It also says benchmarked+ gates are deferred and measured measured artifacts are not shipped in the strict-open core. That means the current simulator should be treated as a unvalidated/basic-ish development fixture until measured-data validation exists. ([GitHub][2])
+
+The scenario fixture `public-proxy-clutter` is explicitly synthetic, uses placeholder source references, has validation tier `unvalidated`, status `warn`, uncertainty score `0.5`, and a message saying “fixture only, not validated.” Its environment label is only `moderate-clutter-light-weather`, which is not a physical clutter/weather model. ([GitHub][3])
+
+The object card is a single public-proxy fixed-wing UAV with dimensions `2.4 × 1.6 × 0.4 m`, unvalidated status, placeholder provenance, and no measured RCS table. The material card is a single “composite skin baseline” with fixed permittivity, conductivity, and roughness over 1–40 GHz, also unvalidated and placeholder-backed. ([GitHub][4])
+
+The Rust radar simulator uses a deterministic `TakeoffProfile` with fixed initial range, heading, speed, acceleration, climb rate, max altitude, radial velocity bias, pitch/yaw sinusoidal jitter, propulsor frequency, micro-Doppler frequency, and scalar RCS. The radar config defaults to a fixed sample rate, pulse width, bandwidth, carrier, pulse count, PRI, target SNR, and 1D CA-CFAR parameters. The “real_world_proxy” noise profile is a compact set of scalar knobs: AWGN sigma, phase-noise standard deviation, amplitude scintillation, RFI probability/amplitude, clutter sigma/correlation, and a small count of ground glints. ([GitHub][5])
+
+The signal chain is much simpler than a real radar: generate one delayed chirp, add simple clutter/glints/noise/RFI, pulse-compress, average magnitudes, run 1D CA-CFAR, and create a “range-Doppler proxy” by doing a slow-time DFT over magnitude profiles. A real coherent Doppler chain must preserve complex phase across pulses; DFT over magnitudes destroys crucial phase information. ([GitHub][5])
+
+The tracking/fusion adapter is not really tracking; it wraps each CFAR detection into a `TrackingTrack` with a new track ID and no motion model, no association, no confirmation/deletion logic, no Kalman/particle filter, no JPDA/MHT/PHD-style multi-target logic, and no false-track accounting. ([GitHub][6])
+
+The CFAR implementation is 1D cell-averaging CFAR over a power vector. That is a useful teaching primitive, but it is not enough for low-altitude small-UAV detection in nonhomogeneous clutter. ([GitHub][7])
+
+The backend file also says the GPU backend is not wired into the scaffold and that users should use the CPU fallback. That is not a physics problem, but it reinforces that the current system is a development scaffold rather than a mature high-throughput validated simulator. ([GitHub][8])
+
+---
+
+# 2. Why AUC≈1.0 is happening
+
+Your table strongly suggests the classifier is not learning “real-world radar detection.” It is learning a simulator shortcut. The biggest clue is that the **baseline** is already near perfect: 0.9656 at 5 s, 0.9892 at 15 s, and 0.9995 at 45 s. When the baseline is that high, advanced models merely polish an already trivial signal.
+
+Likely shortcuts include:
+
+1. **Fixed target SNR**: the simulator computes target amplitude from a configured `target_snr_db`, AWGN sigma, and scalar RCS. That can create a stable amplitude signature that is independent of true geometry, aspect, clutter, and atmosphere. ([GitHub][5])
+
+2. **Deterministic trajectory**: the default takeoff path has fixed range, heading, speed, acceleration, climb, and sinusoidal pitch/yaw perturbations. A model can learn the generator, not the physics. ([GitHub][5])
+
+3. **Weak negatives**: if negatives do not match positives in range, Doppler, RCS scale, clutter, weather, horizon, and sensor state, detection becomes a nuisance-variable classification problem.
+
+4. **Post-detection leakage**: using features such as detection count, CFAR confidence, max integrated power, target range bin, target state, or horizon-derived metadata can leak the answer.
+
+5. **Row-level splitting instead of scenario-level splitting**: if samples from the same seed, trajectory, target model, clutter field, or sensor config are present in train and holdout, holdout is not independent.
+
+6. **Unphysical clutter/noise**: real small-UAV radar is hard because clutter can come from buildings, ground/sea surfaces, moving vehicles, wind turbines, foliage, birds, terrain, and weather; clutter cross-section can be orders of magnitude larger than the target. The current simulator’s simple Gaussian/correlated clutter and few glints are far too separable. ([arXiv][9])
+
+Real small-UAV radar is difficult precisely because target RCS depends on frequency, polarization, illumination angle, geometry, and material; motion includes velocity, attitude, climb rate, and micro-Doppler; and clutter/weather/terrain can dominate the return. ([arXiv][9])
+
+---
+
+# 3. Ranked technical work, highest impact first
+
+## 1. Fix data leakage, split leakage, and shortcut learning before touching physics
+
+**Impact: extreme.** This is the first thing to audit because AUC≈1.0 across unrelated model families almost always means the task is leaking or too clean.
+
+Your holdout must be independent at the **episode/scenario/site/sensor/target/weather** level, not just the row level. A row split can leak the generator through repeated seeds, repeated kinematic profiles, repeated target states, repeated clutter fields, or repeated waveform/noise regimes.
+
+Technical work:
+
+* Run a **univariate AUC scan** over every feature: max range-profile amplitude, detection count, CFAR confidence, threshold, range bin, target state, horizon, SNR, seed-derived fields, number of glints, noise settings, and any metadata. Any single feature with AUC > 0.75 is suspicious; >0.9 is probably a shortcut.
+* Run **label-shuffle tests**. Shuffled labels should produce AUC ≈ 0.5. Anything higher means leakage.
+* Run **seed-only and config-only models**. Train using only seed, scenario ID, horizon, config, noise profile, and metadata. If AUC is high, the split is contaminated.
+* Run **artifact-only baselines**: logistic regression on max amplitude, range-bin index, detection count, and CFAR confidence. If that matches CatBoost, the ML stack is not adding real value.
+* Use **GroupKFold / leave-one-domain-out** splits: hold out entire target geometries, material cards, weather regimes, terrain tiles, clutter seeds, sensor configs, and trajectory families.
+* Use **paired counterfactual episodes**: same sensor, same terrain, same weather, same clutter, same time, same RFI, but target absent/present or replaced by a matched confuser.
+* Ban post-label fields: target state, true range, true altitude, generator class, synthetic `target_snr_db`, horizon-derived metadata, and any post-CFAR target-confirmation field should not be used for early prediction unless they are genuinely observable at that horizon.
+
+This should be your acceptance rule: a model is not allowed to score above chance on metadata-only or seed-only features, and a simple max-power baseline must not be near-perfect. Your current baseline AUCs indicate this rule would probably fail.
+
+---
+
+## 2. Replace fixed SNR and scalar target amplitude with a physically derived radar budget
+
+**Impact: extreme.** Fixed SNR is one of the fastest ways to create fake AUC.
+
+In the current simulator, target amplitude is derived from `target_snr_db`, AWGN sigma, and scalar RCS. That makes target detectability more like a configured label than an emergent result of range, target aspect, antenna gain, propagation, clutter, receiver state, and processing gain. ([GitHub][5])
+
+Technical work:
+
+* Remove `target_snr_db` as a direct generator control for labeled examples.
+* Compute received power from a radar equation budget: transmitted power or EIRP, antenna pattern, two-way path loss, target RCS, polarization mismatch, propagation loss, system noise temperature, receiver noise figure, bandwidth, integration time, processing gain, and clutter/interference power.
+* Make SNR/SCR/SINR an **output diagnostic**, not an input knob.
+* Sample sensor state: calibration drift, temperature, receiver gain, AGC state, saturation margin, timing jitter, ADC quantization, and dynamic range.
+* Generate plenty of cases where the target is below threshold, partially visible, intermittently visible, or masked by stronger clutter.
+
+Real UAV detection studies emphasize that small RCS, slow speed, and low altitude make small drones challenging, and SNR-only detectors can miss weak drone returns; Doppler signal-to-clutter approaches were proposed specifically because traditional SNR approaches can fail in these regimes. ([MDPI][10])
+
+---
+
+## 3. Replace scalar RCS with aspect/frequency/polarization/material-dependent RCS
+
+**Impact: extreme.** A scalar `rcs_scalar` is not remotely sufficient.
+
+The open literature is very clear: UAV RCS depends on operating frequency, polarization, illumination/aspect angle, geometry, and electrical material properties. The UAV survey explicitly lists frequency, polarization, angle of illumination, geometry, and material as RCS drivers. ([arXiv][9])
+
+Your object card has only a fixed public-proxy geometry and your material card has a single composite baseline over 1–40 GHz. That is a placeholder, not an RCS model. ([GitHub][4])
+
+Technical work:
+
+* Build RCS as a multidimensional lookup or surrogate:
+  `σ(frequency, azimuth, elevation, polarization_tx, polarization_rx, attitude, material_state, propulsor_state)`.
+* Separate **mean RCS**, **scintillation**, and **glints**. Use Swerling-style or compound distributions where appropriate, but do not pretend one distribution fits all geometries.
+* Validate against canonical scatterers first: sphere, flat plate, dihedral, trihedral, cylinder, cone.
+* Then cross-check with independent EM solvers before using target-like geometries.
+* Include mesh convergence studies, frequency sweeps, polarization basis checks, material uncertainty, roughness, edges, cavities, seams, landing gear/launch hardware, and rotating propulsors.
+* Treat fixed-wing and multirotor UAVs separately. Fixed-wing RCS signatures can be much smaller than familiar quadcopters and vary strongly by aspect.
+
+A fixed-wing UAV RCS study found mean RCS values around −17.62 dBsm in one X-band scenario and −22.77 dBsm across a broader 3–16 GHz scenario for a 2 m class fixed-wing UAV, smaller than a DJI Inspire 1 in the same study. The authors also stress limitations: many variables, limited frequency/angle coverage, default material assumptions, and stationary propellers in the simulator. ([MDPI][11])
+
+---
+
+## 4. Replace deterministic takeoff kinematics with stochastic, physically plausible motion ensembles
+
+**Impact: very high.** Your default takeoff is too smooth and too identifiable.
+
+The current `TakeoffProfile` has fixed initial range, heading, speed, acceleration, climb rate, max altitude, radial velocity bias, sinusoidal pitch/yaw jitter, propulsor frequency, and micro-Doppler frequency. A model can memorize this synthetic family. ([GitHub][5])
+
+Technical work:
+
+* Create trajectory families, not one profile: ground roll, rail/catapult-like launch, hand/vehicle launch, climb-out, turn, level segment, terrain-following segment, aborted/partial launches, and occluded starts. Keep these generic and non-adversary-specific.
+* Sample acceleration, jerk, climb, heading change, attitude dynamics, yaw/roll/pitch, wind drift, turbulence, engine/prop RPM variation, and sensor line-of-sight angle.
+* Model low-altitude visibility: terrain masking, buildings, vegetation, launch-site clutter, horizon, and beam elevation.
+* Produce “near twins”: false targets with similar range, Doppler, altitude, and RCS but different micro-Doppler/trajectory semantics.
+* Hold out entire trajectory families in validation.
+
+The survey literature notes that relevant motion characteristics include velocity, pitch, yaw, roll, rate of climb, and micro-Doppler from moving subparts. It also emphasizes that classification uses size, shape, velocity, maneuverability, propeller motion patterns, and altitude-dependent features. ([arXiv][9])
+
+---
+
+## 5. Build real clutter, not Gaussian background plus a few glints
+
+**Impact: very high.** Clutter is probably the largest missing reality factor.
+
+The current noise profile has AWGN, scalar clutter sigma/correlation, RFI probability, and a few ground glints. That is not a real clutter field. ([GitHub][5])
+
+Real radar clutter includes specular and diffuse reflections from buildings, man-made structures, birds, trees, hills, ground/sea surfaces, moving vehicles, aircraft, wind turbines, and foliage. The survey notes that clutter can be static or dynamic, and that clutter cross-section can be thousands of times larger than an aerial vehicle’s cross-section. ([arXiv][9])
+
+Technical work:
+
+* Model **terrain-linked clutter** using DEM/DTED, land cover, surface roughness, slope, vegetation, buildings, roads, towers, wires, vehicles, and water.
+* Use **range-Doppler-angle clutter maps**, not independent scalar noise.
+* Add nonhomogeneous clutter: clutter edges, shadow zones, bright reflectors, moving ground targets, foliage motion, bird flocks, insects, wind turbines, and precipitation.
+* Use heavy-tailed clutter models where appropriate: Weibull, K-distribution, log-normal, compound-Gaussian, texture/speckle models, and empirically fitted mixtures.
+* Make clutter correlated across time, range, Doppler, angle, polarization, and sensor scan.
+* Generate hard negatives from the same nuisance distribution as positives.
+
+The key simulation principle: positives and negatives must share the same nuisance variables. If positives are “target plus clean noise” and negatives are “empty clean noise,” AUC=1 is expected.
+
+---
+
+## 6. Add low-altitude multipath, terrain masking, and ground-bounce physics
+
+**Impact: very high.** Low-altitude radar without multipath is not credible.
+
+Your current signal path is essentially direct-path delay plus simple glints. Real low-altitude radar returns can include direct path, ground-reflected path, diffuse multipath, terrain/building reflections, shadowing, ghost detections, phase lobing, and range/angle biases. ([GitHub][5])
+
+Technical work:
+
+* Add two-ray ground reflection as the minimum baseline.
+* Add specular and diffuse multipath from terrain, buildings, vehicles, water, and other large reflectors.
+* Include ground permittivity/conductivity, surface roughness, grazing angle, polarization, and seasonal moisture state.
+* Simulate ghost targets, altitude bias, range bias, intermittent cancellation, and false tracks.
+* Use ray tracing, parabolic-equation propagation, or hybrid methods for complex terrain.
+* Validate with simple measured scenes before complex scenes.
+
+Multipath simulations are described in the literature as necessary for capturing radar–target–environment interactions; classic validation work also emphasizes environment models containing reflecting/shadowing obstacles, terrain features, and antenna locations. ([arc.aiaa.org][12])
+
+---
+
+## 7. Add weather and atmospheric propagation
+
+**Impact: high.** Weather is not just attenuation; it is also clutter and propagation distortion.
+
+The UAV radar survey states that propagation differs across terrain and atmospheric conditions, and that rain, hail, snow, fog, precipitation, wind in forests, and strong sea air currents can affect radar detection and propagation. ([arXiv][9])
+
+Technical work:
+
+* Add gaseous absorption, humidity, pressure, temperature, refractivity gradients, bending, evaporation ducts, and anomalous propagation.
+* Add rain attenuation and rain clutter; use ITU-R P.838-style rain specific attenuation as one standard component.
+* Add fog/cloud attenuation where relevant to higher frequencies.
+* Add weather-dependent surface reflectivity: wet ground, dry ground, snow, dust, sea state, vegetation motion.
+* Model weather as time-varying fields, not a static label.
+
+ITU-R P.838-3 provides a standard rain specific attenuation model using a power-law relationship between rain rate and attenuation. ([ITU][13])
+
+---
+
+## 8. Model the RF hardware chain, not just ideal chirps
+
+**Impact: high.** The current waveform/receiver is far too clean.
+
+The current primitive chain is LFM chirp generation, matched filtering, magnitude, and 1D CA-CFAR. ([GitHub][14])
+
+Real radar simulation work models the transmit chain, propagation/environment, receive chain, and data-processing chain, then validates range-Doppler plots against real radar trials. Whole-system radar modelling papers emphasize phase noise as especially important for slowly moving, low-RCS targets in strong clutter. ([University of Birmingham][15])
+
+Technical work:
+
+* Model transmitter: chirp nonlinearity, phase noise spectrum, timing jitter, PA nonlinearity, pulse shaping, spurs, temperature drift.
+* Model receiver: LNA noise figure, mixer leakage, I/Q imbalance, ADC quantization, clipping, AGC, dynamic range, filtering, baseband bandwidth, synchronization, dropped pulses.
+* Model leakage/self-mixing, especially for FMCW-like architectures.
+* Model calibration: antenna phase/gain errors, boresight errors, clock errors, time sync, channel imbalance.
+* Make hardware impairments parameterized by realistic distributions and validated against measured hardware.
+
+Phase noise is a fundamental radar impairment, and FMCW phase-noise modeling literature explicitly focuses on predicting the phase-noise level in radar displays, including practical measurements for validation. ([the University of Bath's research portal][16])
+
+For FMCW systems, transmit/receive leakage can appear as a strong near-range target due to non-ideal isolation, radome/body reflections, and antenna effects; this degrades dynamic range and can mask weak targets. ([E-Technik Uni Ulm][17])
+
+---
+
+## 9. Add antenna, beam, polarization, scan, and array effects
+
+**Impact: high.** Without antenna physics, the simulator misses a major source of variability.
+
+Real detectability depends on beamwidth, sidelobes, scan schedule, dwell time, polarization, antenna height, elevation coverage, array calibration, and angular resolution. The UAV survey explicitly connects clutter strength to angular/range resolution and notes that classification depends on range/angular resolution and clutter rejection capability. ([arXiv][9])
+
+Technical work:
+
+* Add antenna gain patterns, sidelobes, backlobes, polarization basis, scan loss, beam squint, and elevation coverage.
+* Model dwell time and scan revisit: a target may be seen intermittently depending on scan timing.
+* Add angle estimation uncertainty and angle-Doppler coupling.
+* For arrays, model element spacing, mutual coupling, calibration drift, failed elements, digital beamforming, MIMO virtual arrays, and DOA estimation errors.
+* Make target/clutter returns pass through the same beam and scan schedule.
+
+This is also a major leakage source: if all positives occur in one beam state and all negatives in another, ML will learn the beam state, not the target.
+
+---
+
+## 10. Replace magnitude-Doppler proxy with a coherent range-Doppler-angle data cube
+
+**Impact: high.** The current Doppler proxy is not physically correct.
+
+The simulator computes pulse-compressed magnitudes and then runs a slow-time DFT over magnitudes. That loses coherent phase, which is essential for Doppler, clutter cancellation, velocity ambiguity, micro-Doppler, and coherent integration. ([GitHub][5])
+
+Technical work:
+
+* Preserve complex IQ through the full chain.
+* Build a radar data cube: fast time × slow time × channel/angle.
+* Apply windowing, coherent integration, Doppler FFT, clutter cancellation/MTI/MTD, Doppler ambiguity handling, range migration correction, and sidelobe control.
+* Include pulse-to-pulse phase noise, timing jitter, PRI jitter, missed pulses, and CPI boundaries.
+* Derive range-Doppler maps from complex slow-time data, not magnitudes.
+
+The literature on UAV detection frequently relies on range-Doppler maps, micro-Doppler spectrograms, Hough transforms, CNNs over range-Doppler patches, and multi-frame information, which all require a more faithful coherent processing chain than the current proxy. ([arXiv][9])
+
+---
+
+## 11. Replace one sinusoidal micro-Doppler term with physical micro-motion
+
+**Impact: high for classification, medium-high for detection.**
+
+The current simulator has `propulsor_hz` and `micro_doppler_hz` fields and modulates amplitude with a simple sinusoid. ([GitHub][5])
+
+Real micro-Doppler is generated by rotating propellers, flapping wings, structural vibration, and relative motion of subcomponents. Drone/bird studies show that RCS alone is not adequate because birds can have similar size, altitude, and speed; coherent radar micro-Doppler is important for discrimination. ([Nature][18])
+
+Technical work:
+
+* Model blade count, RPM distributions, RPM jitter, pitch, hub location, blade material, blade aspect, and orientation relative to radar.
+* Include body motion plus rotating components, not just amplitude modulation.
+* Generate spectrograms with STFT/CWT choices, CPI length, windowing, and SNR/clutter effects.
+* Model bird wingbeat confusers with species/size/flock distributions.
+* Avoid using micro-Doppler in a way that trivially labels all drones and no negatives; birds, insects, helicopters, wind turbines, and other rotating/moving objects can produce structured signatures too.
+
+Experimental K-band/W-band studies found drone signatures with rotor blade flash and HERM lines, while birds show periodic wingbeat flashes; the relative strength varies by target, aspect, frequency, and measurement setup. ([Nature][18])
+
+---
+
+## 12. Upgrade CFAR, detection, and track-before-detect
+
+**Impact: high.** A 1D CA-CFAR detector is too brittle.
+
+The current implementation is plain 1D CA-CFAR over a power array. ([GitHub][7])
+
+Technical work:
+
+* Implement 2D and 3D CFAR over range-Doppler-angle: CA, GOCA, SOCA, OS-CFAR, censored/truncated variants, adaptive clutter-map CFAR, and learned/adaptive detectors.
+* Evaluate in nonhomogeneous clutter, clutter edges, multiple targets, and interfering bright scatterers.
+* Implement track-before-detect for weak targets: particle filters, dynamic programming, Hough/Radon-like methods, and multi-frame integration.
+* Add realistic track management: initiation, confirmation, deletion, coast, reacquisition, association, gating, IMM motion models, JPDA/MHT/PHD-style multi-target logic, and false-track suppression.
+* Report false tracks per hour, not just frame-level AUC.
+
+The UAV survey includes examples using CFAR, CNNs on range-Doppler patches, Hough transforms, multi-frame information, multistatic systems, and track-before-detect approaches for weak small-UAV returns. ([arXiv][9])
+
+---
+
+## 13. Build a serious hard-negative library
+
+**Impact: high.** Your negatives are almost certainly too easy.
+
+EchoForge says it intends to produce “hard-negative worlds,” but the current scenario/object/material files are placeholder public-proxy fixtures, not a measured negative library. ([GitHub][1])
+
+Technical work:
+
+* Include birds: solitary birds, flocks, gliding birds, flapping birds, large/small birds, aspect changes.
+* Include insects and biological clutter where relevant.
+* Include civilian drones, helicopters, aircraft at distance, balloons, debris, kites, and weather artifacts.
+* Include ground movers: vehicles, trains, machinery, wind turbines, cranes, power lines, towers, fences, buildings, and foliage.
+* Include environmental confusers: rain cells, wet ground, sea/pond/lake glints, dust, snow, and vegetation motion.
+* Match hard negatives to positives on nuisance variables: range, radial velocity, altitude, aspect, RCS range, SNR/SCR, clutter cell, and scan state.
+* Maintain a “confuser challenge set” that is never used for training.
+
+Bird/drone confusion is a central issue in the open literature because birds can share similar size, speed, and altitude with drones, while micro-Doppler and other features are needed for robust discrimination. ([Nature][18])
+
+---
+
+## 14. Add real propagation terrain/site diversity
+
+**Impact: medium-high.** A simulator trained on one “moderate clutter light weather” label will not generalize.
+
+The scenario fixture uses a single `environment_label` rather than a physical environment model. ([GitHub][3])
+
+Technical work:
+
+* Define sites with DEM/DTED, land cover, building footprints, roads, water, vegetation, radar height, local horizon, and clutter reflectivity.
+* Add rural, urban, suburban, desert, coastal, mountainous, airport-adjacent, industrial, agricultural, and forest environments.
+* Hold out entire sites as test sets.
+* Report performance by site class and by sensor geometry.
+* Maintain per-site calibration and validation records.
+
+The UAV survey explicitly states that a radar calibrated in one terrain type may need recalibration in another because propagation effects differ across terrain and atmospheric conditions. ([arXiv][9])
+
+---
+
+## 15. Add simulation-to-real validation and measured-data gates
+
+**Impact: medium-high to extreme, depending on intended use.**
+
+Your own validation tiers already identify the right end state: measured means comparison against lawful measured data with provenance, and the current strict-open core does not ship measured artifacts. ([GitHub][2])
+
+Technical work:
+
+* Create a validation ladder:
+
+  * unvalidated: declared fixture only.
+  * basic: analytic canonical scatterers.
+  * cross_checked: cross-solver agreement.
+  * benchmarked: controlled lab measurements.
+  * benchmarked: controlled outdoor trials with known targets/negatives.
+  * measured: lawful measured operationally relevant data with provenance and uncertainty.
+* Use public datasets where possible. A public “low-slow-small UAV under ground clutter” radar dataset exists and is explicitly intended for UAV detection, clutter analysis, micro-Doppler extraction, and recognition. ([scidb.cn][19])
+* Add hardware-in-the-loop or radar-echo-generator tests for the RF/data chain.
+* Compare not just final detections, but intermediate products: IQ statistics, range profiles, range-Doppler maps, clutter distributions, CFAR thresholds, detection density, false tracks, and calibration errors.
+* Quantify sim-to-real gap by domain: target, weather, site, radar configuration, clutter, and negatives.
+
+Modern radar sim-to-real work emphasizes that the gap between synthetic and real radar data is a central problem, and recent radar simulation papers often combine physics-based simulation with real-data validation or fine-tuning. ([arXiv][20])
+
+Radar sensor validation literature also argues for comparing simulated and real measurements directly, separating errors due to the environment model, signal propagation, and signal processing. ([Springer][21])
+
+---
+
+## 16. Replace AUC-only reporting with operationally meaningful metrics
+
+**Impact: medium-high.** AUC can look excellent while the system fails at usable false-alarm rates.
+
+Technical work:
+
+* Report `P_D` at fixed `P_FA`, especially very low false-alarm regimes.
+* Report false alarms per hour, false tracks per hour, mean time to false track, and confirmed-track probability.
+* Report time-to-detect distribution by horizon: 5 s, 15 s, 45 s should be measured as detection latency, not just classification AUC.
+* Report calibration: reliability curves, ECE/Brier score, score drift by domain.
+* Report OOD performance: unseen target, unseen site, unseen weather, unseen radar, unseen negative class.
+* Report ablations: no micro-Doppler, no RCS, no kinematics, no CFAR features, no metadata, no range bin.
+* Report confidence intervals across seeds/sites/scenarios, not only point estimates.
+
+For low-altitude small-UAV radar, the real question is not “can a model separate synthetic positives from synthetic negatives?” It is “how many real weak targets are detected before a required horizon while keeping false alarms and false tracks acceptable in clutter?”
+
+---
+
+## 17. Add uncertainty budgets everywhere
+
+**Impact: medium-high.** The simulator should produce distributions, not single “truth” outputs.
+
+EchoForge already has an uncertainty-score concept, but the current fixtures use placeholder uncertainty score `0.5`. ([GitHub][2])
+
+Technical work:
+
+* Track uncertainty for target geometry, material, RCS, weather, terrain, clutter, antenna, receiver, timing, calibration, and labels.
+* Use parameter ensembles, not point estimates.
+* Propagate uncertainty to range-Doppler maps, detections, tracks, and model scores.
+* Report sensitivity: which parameters dominate detection performance?
+* Use uncertainty-aware training and evaluation: models should know when simulation fidelity is low.
+
+This is crucial for public-proxy targets: without lawful measured data, the simulator should make uncertainty visible rather than hide it behind confident AUCs.
+
+---
+
+## 18. Build the simulator as modular “truth → EM → propagation → RF → DSP → tracker → evaluator”
+
+**Impact: medium-high.** Right now the target, propagation, RF, and processing abstractions are too compressed.
+
+Recommended architecture:
+
+1. **World truth**: terrain, weather, emitters, targets, confusers, sensor pose, time.
+2. **Target physics**: geometry, material, RCS, micro-motion, attitude, trajectory.
+3. **Propagation**: direct path, multipath, atmospheric loss, terrain masking, clutter.
+4. **Antenna/array**: beam pattern, polarization, scan, channels, calibration.
+5. **RF chain**: transmitter, receiver, oscillator, leakage, noise, ADC, gain.
+6. **DSP**: pulse compression, Doppler, beamforming, clutter rejection, CFAR.
+7. **Tracking/fusion**: association, filtering, track management, multi-sensor fusion.
+8. **Dataset/evaluation**: splits, provenance, metrics, leakage checks, sim-to-real validation.
+
+Whole-system radar modelling papers describe comprehensive modeling across transmit chain, environment, receive chain, and data processing chain, then validating against real radar trials. ([University of Birmingham][15])
+
+---
+
+# 4. Specific likely simulator artifacts causing your perfect scores
+
+Here is the most probable failure stack for your current result:
+
+1. **Target amplitude is too deterministic.**
+   `target_snr_db` and scalar RCS likely make target-present examples consistently brighter than target-absent examples. ([GitHub][5])
+
+2. **Target range/trajectory is too deterministic.**
+   Fixed initial range and fixed motion create a learnable range-bin/time pattern. ([GitHub][5])
+
+3. **Doppler/micro-Doppler is synthetic and class-pure.**
+   One micro-Doppler sinusoid is unlikely to be shared by hard negatives. ([GitHub][5])
+
+4. **Clutter is not strong enough and not structured enough.**
+   Real clutter can dominate small-UAV returns by orders of magnitude; scalar correlated Gaussian clutter is far easier. ([arXiv][9])
+
+5. **Hard negatives are not matched.**
+   Birds, foliage, vehicles, wind turbines, civilian drones, and weather need to occupy the same feature space as positives. ([Nature][18])
+
+6. **Holdout likely shares generator structure.**
+   With train/validation/holdout all drawn from the same narrow synthetic generator, “holdout” only tests interpolation.
+
+7. **Baseline AUC is already near perfect.**
+   This is the clearest signal that a simple statistic is solving the task.
+
+8. **Horizon formulation may leak time-to-target or target presence.**
+   If horizon labels are derived from deterministic range/altitude/trajectory state, models may infer horizon from geometry rather than detectability.
+
+9. **CFAR output may be used as a feature for detection labels.**
+   If the label is “target detectable” and the feature is “detector confidence,” that is circular.
+
+10. **No measured-data challenge set exists.**
+    Without measured measured validation, AUC only says the model matches the simulator, not reality. ([GitHub][2])
+
+---
+
+# 5. Immediate test plan to prove or disprove leakage
+
+Run these before adding any more physics.
+
+## A. One-feature AUC audit
+
+Compute AUC for each feature alone:
+
+* max integrated range-profile amplitude
+* mean integrated range-profile amplitude
+* top-k peak ratio
+* CFAR detection count
+* max CFAR confidence
+* range bin of max power
+* estimated range
+* threshold/noise estimate
+* seed
+* scenario ID
+* horizon
+* noise profile fields
+* target profile fields
+* target state fields
+* any post-CFAR or post-label features
+
+If any one feature gives AUC > 0.9, quarantine it.
+
+## B. Metadata-only classifier
+
+Train CatBoost/LightGBM on metadata only. Expected AUC: ≈0.5. If it is high, your split is contaminated or the generator is encoding labels in config.
+
+## C. Seed-only classifier
+
+Train on seed and derived seed bucket only. Expected AUC: ≈0.5. If it is high, seed ranges or scenario generation are label-correlated.
+
+## D. Matched no-target counterfactuals
+
+For every positive episode, create:
+
+* same terrain
+* same weather
+* same clutter
+* same RFI
+* same radar state
+* same scan schedule
+* same time
+* same noise realization where possible
+* target removed
+
+The model should no longer win by nuisance variables.
+
+## E. Confuser-matched negatives
+
+Create negatives with matched range, radial velocity, altitude, RCS range, Doppler spread, and clutter cell. Use birds, civilian drones, ground movers, and multipath ghosts. This is where real difficulty begins.
+
+## F. Leave-one-family-out validation
+
+Hold out entire:
+
+* target geometry family
+* material family
+* trajectory family
+* clutter/site family
+* weather family
+* sensor configuration
+* hard-negative class
+
+AUC should drop. If it does not, the test is still too easy or still leaking.
+
+## G. Sim-to-real mini-gate
+
+Even a tiny lawful measured dataset is useful. Train on sim, test on measured; train on measured, test on sim; compare intermediate radar products, not just labels. Recent radar sim-to-real work emphasizes that synthetic-to-real radar transfer must be quantified and validated, not assumed. ([arXiv][20])
+
+---
+
+# 6. Publication-backed checklist of missing real-world artifacts
+
+## Target and signature artifacts
+
+* Aspect-dependent RCS
+* Frequency-dependent RCS
+* Polarization-dependent RCS
+* Material-dependent RCS
+* RCS scintillation and glints
+* Propeller/rotor/engine micro-Doppler
+* Fuselage/wing/body scattering
+* Stationary vs rotating propulsor differences
+* Attitude-dependent signature changes
+* Structural vibration
+* Launch hardware or ground interaction
+* Manufacturing variation
+* Damage, dirt, paint, moisture, payload variation
+
+RCS dependence on frequency, polarization, aspect, geometry, and materials is a core point in UAV radar literature; fixed-wing UAV RCS studies also emphasize that RCS work has many limitations and that propeller rotation may not be represented in common simulation tools. ([arXiv][9])
+
+## Environment artifacts
+
+* Terrain elevation and local horizon
+* Buildings and man-made structures
+* Roads and moving vehicles
+* Trees, foliage, wind motion
+* Ground/sea clutter
+* Water glints
+* Wet/dry/snow-covered surfaces
+* Urban canyon reflections
+* Towers, fences, wires, cranes
+* Wind turbines
+* Birds, flocks, insects
+* Weather cells and precipitation clutter
+
+The UAV survey identifies buildings, man-made structures, birds, trees, hills, ground/sea reflection, moving vehicles, planes, wind turbines, and foliage as clutter sources, and states clutter cross-section can be much larger than UAV cross-section. ([arXiv][9])
+
+## Propagation artifacts
+
+* Free-space loss
+* Atmospheric absorption
+* Rain attenuation
+* Fog/cloud attenuation at higher frequencies
+* Refraction and bending
+* Ducting/anomalous propagation
+* Diffraction around terrain
+* Ground bounce
+* Multipath ghosting
+* Shadowing/occlusion
+* Grazing-angle effects
+* Surface roughness and dielectric effects
+
+Rain attenuation can be modeled using ITU-R P.838-3, while multipath literature emphasizes reflecting/shadowing obstacles, terrain features, and antenna locations for validated simulations. ([ITU][13])
+
+## Sensor artifacts
+
+* Antenna pattern and sidelobes
+* Polarization mismatch
+* Beam scanning and dwell
+* Array calibration errors
+* Channel gain/phase imbalance
+* Oscillator phase noise
+* Chirp nonlinearity
+* Timing jitter
+* PRI jitter
+* Pulse dropouts
+* ADC quantization/clipping
+* AGC and dynamic range
+* I/Q imbalance
+* TX/RX leakage
+* Radome effects
+* Temperature drift
+* Receiver noise figure
+* Clock synchronization
+* RFI/interference from other emitters
+
+Whole-system radar modelling and FMCW phase-noise papers emphasize modeling transmit/receive/data-processing chains and phase-noise effects, especially for slowly moving low-RCS targets in strong clutter. ([University of Birmingham][15])
+
+## DSP artifacts
+
+* Complex IQ preservation
+* Matched-filter sidelobes
+* Windowing loss
+* Coherent processing interval
+* Range-Doppler ambiguity
+* Doppler wrapping
+* Range migration
+* MTI/MTD clutter cancellation
+* 2D/3D CFAR
+* Clutter maps
+* Track-before-detect
+* Multi-frame integration
+* Association and track management
+* False-track logic
+* Multi-sensor fusion
+
+The UAV survey includes a wide range of detection/classification/tracking approaches—CFAR, CNNs on range-Doppler patches, Hough transforms, multi-frame information, multistatic radar, passive radar, and micro-Doppler—showing that realistic systems are far beyond 1D CA-CFAR on an integrated profile. ([arXiv][9])
+
+---
+
+# 7. What “most accurate simulator” should mean here
+
+The goal should not be “simulate one exact named drone with exact real signatures” unless you have lawful measured data and authorization. The safer and scientifically stronger goal is:
+
+> Simulate a distribution of small fixed-wing, propeller-driven, low-altitude UAV-like targets with explicit uncertainty, validated against lawful measured radar data, and tested against matched hard negatives under realistic clutter, propagation, weather, and sensor imperfections.
+
+That approach aligns with your own repo’s public-proxy/no-measured-truth governance stance. ([GitHub][1])
+
+---
+
+# 8. Recommended rebuild order
+
+## Phase 1 — Stop the fake AUC
+
+1. Remove all target-state, seed, scenario, config, and post-detection leakage from model features.
+2. Add metadata-only, seed-only, one-feature, and label-shuffle tests.
+3. Use group splits by scenario family, seed family, target family, site, weather, and sensor config.
+4. Add paired no-target counterfactuals.
+5. Report PD@PFA, false alarms/hour, false tracks/hour, and time-to-detect, not just AUC.
+
+## Phase 2 — Make negatives real
+
+1. Add matched birds, flocks, civilian drones, ground movers, wind turbines, foliage, weather, and multipath ghosts.
+2. Match negatives to positives on range, Doppler, altitude, RCS, clutter, and sensor state.
+3. Keep a never-seen hard-negative challenge set.
+
+## Phase 3 — Replace scalar physics
+
+1. Replace scalar RCS with aspect/frequency/polarization/material tables.
+2. Replace fixed SNR with radar-budget-derived received power.
+3. Preserve complex IQ and build a coherent range-Doppler-angle cube.
+4. Add terrain-linked clutter and multipath.
+5. Add RF-chain impairments.
+
+## Phase 4 — Validate
+
+1. basic: canonical scatterers.
+2. cross_checked: cross-solver RCS and propagation checks.
+3. benchmarked: controlled lab/range data.
+4. benchmarked: controlled outdoor site trials.
+5. measured: lawful measured data with provenance.
+
+Radar sensor validation literature increasingly emphasizes direct comparison between simulated and real radar data and separating environment, propagation, and signal-processing errors. ([Springer][21])
+
+---
+
+# 9. Highest-value next action
+
+Run this exact audit first:
+
+> Train a model using only: `max_power`, `range_bin_of_max_power`, `detection_count`, `max_cfar_confidence`, `noise_estimate`, `threshold`, `horizon_s`, `seed`, and scenario/config metadata.
+
+My expectation is that it will still score extremely high. If it does, the simulator is currently labeling artifacts, not radar reality. After that, create paired no-target counterfactuals with identical clutter/noise/sensor conditions. That single change will likely collapse the perfect AUC and reveal which physics gaps matter most.
+
+[1]: https://raw.githubusercontent.com/neverhuman/echoforge/main/README.md "raw.githubusercontent.com"
+[2]: https://raw.githubusercontent.com/neverhuman/echoforge/main/docs/validation-tiers.md "raw.githubusercontent.com"
+[3]: https://raw.githubusercontent.com/neverhuman/echoforge/main/scenarios/public-proxy-clutter/scenario.yaml "raw.githubusercontent.com"
+[4]: https://raw.githubusercontent.com/neverhuman/echoforge/main/object-packs/public-proxy/object_card.yaml "raw.githubusercontent.com"
+[5]: https://raw.githubusercontent.com/neverhuman/echoforge/main/crates/echoforge-radar/src/sim.rs "raw.githubusercontent.com"
+[6]: https://raw.githubusercontent.com/neverhuman/echoforge/main/crates/echoforge-radar/src/tracking_fusion.rs "raw.githubusercontent.com"
+[7]: https://raw.githubusercontent.com/neverhuman/echoforge/main/crates/echoforge-radar/src/cfar.rs "raw.githubusercontent.com"
+[8]: https://raw.githubusercontent.com/neverhuman/echoforge/main/crates/echoforge-radar/src/backend.rs "raw.githubusercontent.com"
+[9]: https://arxiv.org/html/2402.05909v2 "A Survey on Detection, Classification, and Tracking of UAVs using Radar and Communications Systems"
+[10]: https://www.mdpi.com/2504-446X/7/5/316?utm_source=chatgpt.com "Improved Radar Detection of Small Drones Using Doppler ..."
+[11]: https://www.mdpi.com/2504-446X/7/1/39 "Small Fixed-Wing UAV Radar Cross-Section Signature Investigation and Detection and Classification of Distance Estimation Using Realistic Parameters of a Commercial Anti-Drone System | MDPI"
+[12]: https://arc.aiaa.org/doi/pdfplus/10.2514/6.2018-4060?utm_source=chatgpt.com "Simulation of Radar Signal Propagation via Multipath"
+[13]: https://www.itu.int/dms_pubrec/itu-r/rec/p/r-rec-p.838-3-200503-i%21%21pdf-e.pdf?utm_source=chatgpt.com "RECOMMENDATION ITU-R P.838-3"
+[14]: https://raw.githubusercontent.com/neverhuman/echoforge/main/python/ai-service/echoforge_radar/primitives.py "raw.githubusercontent.com"
+[15]: https://research.birmingham.ac.uk/en/publications/whole-system-radar-modelling-simulation-and-validation?utm_source=chatgpt.com "Whole system radar modelling: Simulation and validation"
+[16]: https://researchportal.bath.ac.uk/files/186750499/Phase_Noise_in_FMCW_Radar_Systems.pdf?utm_source=chatgpt.com "Phase Noise in FMCW Radar Systems"
+[17]: https://mwt-www.e-technik.uni-ulm.de/downloads/papers/2019/2019_IMS_Duerr_Leakage_Phase_Noise_Mitigation_For_Monostatic_FMCW_Radar_Sensors_Using_Carrier_Transmission.pdf?utm_source=chatgpt.com "Leakage Phase Noise Mitigation for Monostatic FMCW ..."
+[18]: https://www.nature.com/articles/s41598-018-35880-9 "Radar micro-Doppler signatures of drones and birds at K-band and W-band | Scientific Reports"
+[19]: https://www.scidb.cn/en/detail?dataSetId=1b2a6498f10347af9c2a8f1769487f25&utm_source=chatgpt.com "Radar Detection Dataset of Low-Slow-Small UAVs Under ..."
+[20]: https://arxiv.org/html/2602.13314v1 "Sim2Radar: Toward Bridging the Radar Sim-to-Real Gap with VLM-Guided Scene Reconstruction"
+[21]: https://link.springer.com/article/10.1007/s41104-024-00143-5 "Introducing the double validation metric for radar sensor models | Automotive and Engine Technology | Springer Nature Link"
+

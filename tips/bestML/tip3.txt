@@ -1,0 +1,314 @@
+([Files][1])([Files][2])([Files][3])([Files][4])([Files][5])([Files][6])([Files][7])([Files][8])([Files][9])([Files][10])([Files][11])([Files][12])([Files][13])([Files][14])([Files][15])([Files][16])([Files][17])([Files][18])([Files][19])
+
+Below is my **ranked top 20** for converting raw radar into ML-ready feature sets, optimized for the kind of low-altitude, low/slow, cluttered, drone/bird/small-target problem your EchoForge work appears to be targeting.
+
+I am ranking by: **discriminative power, robustness in clutter/low elevation, deployability, data efficiency, and usefulness as a canonical feature-store format**. No survey can honestly prove it covered every radar publication ever written, but this is a broad publication-backed synthesis of the major approaches that repeatedly show up across radar ATR, micro-Doppler, automotive radar, SAR/ISAR, clutter suppression, and track-level target classification literature.
+
+## Executive answer
+
+The best production answer is **not one feature**. It is a **causal, track-gated, multi-representation radar feature store**:
+
+1. **Range–Doppler / Range–Azimuth / Range–Elevation / RAD tensors**
+2. **Track-gated micro-Doppler spectrograms**
+3. **CFAR/blob morphology and clutter-normalized statistics**
+4. **Track-level kinematics + RCS/SNR time-series**
+5. **Physics-assisted features**
+6. Optional research lanes: **raw complex I/Q**, **self-supervised embeddings**, **simulation-to-real**, **polarimetric/multi-frequency**, and **multimodal fusion**
+
+The radar ATR review literature consistently identifies **micro-Doppler spectra, HRRP, SAR, and ISAR** as core radar target-characteristic forms, while also noting that deep learning can learn features directly from radar data but remains constrained by labeled-data fidelity and generalization limits. ([MDPI][20]) For your use case, I would make **micro-Doppler + multi-view RAD tensors + track/RCS history** the nonnegotiable core.
+
+---
+
+## Ranked top 20 approaches
+
+|   Rank | Approach                                                                                        | What to compute                                                                                                                                                                                            | Best algorithms                                                                                                              | Why this rank                                                                                                                                                                          | Key references                                                                                                                                                                                                                             |
+| -----: | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  **1** | **Production fused radar feature stack: RAD/RA/RD/RE tensors + micro-Doppler + track features** | For each detection/track: range-Doppler chips, range-azimuth/elevation chips, micro-Doppler windows, CFAR blobs, RCS/SNR history, kinematics, metadata/provenance                                          | Multi-branch CNN/Transformer + temporal model; late/intermediate fusion; calibrated ensemble; CatBoost/LightGBM fallback     | Best overall. It preserves raw spatial/spectral evidence, captures rotor/wing periodicity, and adds track behavior. This is what I would actually ship first.                          | Reviews show radar ATR uses multiple data forms including micro-Doppler, HRRP, SAR, ISAR, and deep models over these forms; RAD/RAD-like tensor work shows the value of preserving range-azimuth-Doppler structure. ([MDPI][20])           |
+|  **2** | **Track-gated micro-Doppler spectrograms**                                                      | Short-time Fourier transform over coherent slow-time samples inside a track/detection gate; log-power spectrograms; rotor flash, HERM lines, Doppler bandwidth, periodicity, entropy, cadence              | STFT, multi-window STFT, reassigned spectrogram, superlet/CWT; CNN/ResNet/EfficientNet/ViT; SVM/Random Forest on descriptors | Best single feature family for **drone vs bird** and small low/slow targets. Drones and birds can have similar range/speed/RCS, but rotor/wing micro-motion separates them.            | K-band/W-band drone/bird work shows coherent radar can retrieve distinctive micro-Doppler signatures and that RCS alone is inadequate; drone/bird spectrogram-image classifiers report strong performance on measured data. ([Nature][21]) |
+|  **3** | **Multi-view range-Doppler / range-azimuth / angle-Doppler tensors**                            | RD, RA, AD, RE, Doppler-elevation, or full Range-Azimuth-Doppler tensors; optionally polar-to-Cartesian BEV projections                                                                                    | 2D/3D CNNs, YOLO-style heads, U-Net, ResNet/FPN, ConvNeXt, ViT, temporal CNN/Transformer                                     | This is the best general-purpose raw-to-ML representation when you have FMCW/MIMO radar. It keeps geometry and Doppler instead of collapsing too early to point clouds.                | RADDet uses range-azimuth-Doppler tensors; automotive radar work shows RA/RD/AD projection fusion and full tensor learning. ([ar5iv][22])                                                                                                  |
+|  **4** | **Physics-assisted Range–Doppler feature vectors**                                              | Speed, total reflectivity, occupied area, incidence/aspect proxy, Doppler spread, range extent, compactness, side-lobe/clutter-normalized measures                                                         | Gradient boosting, Random Forest, SVM, MLP, small calibrated ensemble                                                        | Best low-compute, interpretable baseline. Excellent for receipts, model debugging, and ablations. Use this even if deep models win.                                                    | FMCW radar work derives physical features from range-Doppler maps, including speed, total reflectivity, area, and incidence-angle-related features, with interpretable ML classification. ([ece.nus.edu.sg][23])                           |
+|  **5** | **CFAR/blob/morphological features from RD/RA maps**                                            | CA/OS/GO-CFAR detections; connected components; blob size, elongation, peak/mean energy, ridge orientation, Doppler compactness, local clutter ratio, persistence                                          | CFAR + DBSCAN/connected components; LightGBM/CatBoost/SVM; tiny CNN over chips                                               | This is the best classical baseline. It is cheap, causal, explainable, and useful for failure analysis. It is weaker alone but powerful when fused.                                    | Conventional radar processing commonly thresholds range-Doppler maps with CFAR before object-level processing; newer work compares learned detectors against this classical baseline. ([arXiv][24])                                        |
+|  **6** | **Track-level kinematic + RCS/SNR time-series features**                                        | Over causal windows: speed, acceleration, climb/sink, radial velocity consistency, turn rate, range-rate, altitude/elevation consistency, detection probability, RCS/SNR mean/variance/skew, intermittency | HMM, Kalman/IMM-derived features, CRF, TCN, GRU/LSTM, temporal Transformer, CatBoost                                         | Essential in real deployments. A one-frame classifier will be brittle; track behavior and signature stability reduce false positives.                                                  | Passive/active radar target-classification literature uses kinematic, bistatic/RCS, and track-morphology features; Bayesian classification using kinematic data is a long-standing approach. ([ResearchGate][25])                          |
+|  **7** | **Raw complex I/Q or pre-FFT learned embeddings**                                               | Complex ADC tensors: samples × chirps × antennas; real/imag or magnitude/phase; optionally calibrated and windowed; learned FFT-like front end                                                             | Complex CNN, 3D CNN, U-Net, raw-radar detector, masked autoencoder, contrastive pretraining                                  | Highest upside, but not the first thing I would trust. It is data-hungry and easy to overfit unless you have lots of labeled ADC data and strong augmentation.                         | Deep Radar Detector shows CNNs can operate directly on complex radar data for detection/localization/classification, while noting raw ADC data scarcity and radar-modeling difficulties. ([arXiv][24])                                     |
+|  **8** | **Radar point-cloud and cluster features**                                                      | CFAR point cloud: range, azimuth, elevation, radial velocity, RCS, SNR, timestamp, sensor pose; clusters, object centroids, covariance, extent, velocity dispersion                                        | DBSCAN/MeanShift, PointNet++, RadarPCNN, DGCNN/GNN, Point Transformer                                                        | Very useful for object-level perception and fusion, but it can discard weak micro-Doppler and sub-threshold evidence. Use it, but do not make it the only representation.              | RadarScenes provides point-cloud-style automotive radar data with point-wise annotations; semantic segmentation and RadarPCNN work apply point-cloud neural methods to radar detections. ([arXiv][26])                                     |
+|  **9** | **Clutter-subspace, MTI/STAP, and residual-map features**                                       | MTI residuals, clutter-map residuals, STAP residual energy, clutter-ridge distance, local covariance/eigenvalues, background-normalized RD/RA chips                                                        | DPCA/MTI, STAP, adaptive covariance, clutter-aware CNN, GBDT over residual statistics                                        | Critical for low-elevation and ground/sea clutter. I rank it below core tensors because it is geometry/radar-specific, but it is mandatory for hard clutter.                           | STAP is used for simultaneous clutter/interference suppression in moving-target scenarios; ML work also uses clutter-ridge and inhomogeneous-clutter features for GMTI/small-target detection. ([its.ntia.gov][27])                        |
+| **10** | **HRRP: high-resolution range profile sequences**                                               | Wideband range profiles, scatterer peaks, profile entropy, profile moments, peak spacing, profile stability across aspect/time                                                                             | 1D CNN, sparse autoencoder, convolutional autoencoder, GRU/attention, metric learning                                        | Excellent when bandwidth supports fine range structure. Less universal for tiny drones if range resolution or aspect coverage is limited.                                              | HRRP ATR literature uses deep networks and notes preprocessing needs because HRRP can be sensitive to time shift, aspect, and amplitude scale. ([ScienceDirect][28])                                                                       |
+| **11** | **SAR/ISAR image chips and learned image features**                                             | SAR/ISAR chips, polar-format images, range-cross-range maps, aspect-normalized chips, speckle-aware features                                                                                               | ResNet, DenseNet, ViT, GNN, few-shot transfer, domain adaptation, SAR-specific augmentation                                  | Very powerful when your radar/flight geometry supports aperture imaging. Lower priority for short-dwell low-altitude drone detection unless you can form ISAR/SAR reliably.            | SAR ATR surveys show CNN-based end-to-end feature extraction, dataset limitations, augmentation, simulation, transfer/few-shot, and domain-knowledge methods. ([MDPI][29])                                                                 |
+| **12** | **Advanced time-frequency transforms beyond vanilla STFT**                                      | CWT/DWT, Wigner-Ville/SPWVD, S-method, synchrosqueezing, superlet, cepstrogram, cadence-frequency maps                                                                                                     | Handcrafted descriptors + SVM/GBDT; CNN over alternate TF images; ensemble with STFT                                         | Better resolution can expose rotor/wing patterns. But these are more parameter-sensitive and computationally heavier than STFT.                                                        | Micro-Doppler literature compares spectrogram, cepstrogram, wavelet, and newer super-resolution time-frequency approaches for classification. ([TNO Publications][30])                                                                     |
+| **13** | **Wavelet scattering / stable handcrafted embeddings**                                          | Scattering coefficients from Doppler, RD, micro-Doppler, HRRP, or SAR chips; translation-stable multiscale descriptors                                                                                     | Wavelet scattering + SVM/LogReg/GBDT; shallow MLP                                                                            | Good when labeled data is small. It is interpretable and stable, but deep learned features usually win with enough data.                                                               | Wavelet-scattering methods are used as stable multiscale features in Doppler and SAR classification contexts. ([PubMed][31])                                                                                                               |
+| **14** | **Angle-of-arrival / beamforming / spatial-covariance features**                                | Angle FFT, MUSIC/ESPRIT/MVDR outputs, beamspace energy, spatial covariance eigenvalues, angular spread, elevation consistency, multipath indicators                                                        | Classical super-resolution + feature ML; CNN/DNN AoA estimators; beamspace classifiers                                       | Very useful for MIMO radar and low-angle targets. But DoA estimation can be compute-heavy and radar-array-specific.                                                                    | Low-angle MIMO radar work discusses MUSIC/ESPRIT/ML tradeoffs; automotive AoA work compares classical estimators and neural methods with runtime concerns. ([MDPI][32])                                                                    |
+| **15** | **Low-angle multipath and ground-bounce features**                                              | Elevation residuals, apparent-height instability, lobing/scintillation, phase/amplitude variation across antennas, multipath-consistency scores                                                            | Beamspace scene classifier, covariance features, temporal filters, GBDT/MLP                                                  | Important for low-elevation drone work, but it is specialized. It depends strongly on radar height, terrain, carrier, array, and calibration.                                          | Low-angle estimation literature highlights multipath and ground-reflection problems and proposes beamspace/scene-classification approaches for MIMO radar. ([MDPI][32])                                                                    |
+| **16** | **Polarimetric and multi-frequency scattering features**                                        | HH/HV/VH/VV amplitude/phase, Pauli/Cloude-Pottier/Freeman-style features, dual-band HRRP differences, frequency-dependent RCS/micro-Doppler                                                                | Polarimetric decomposition, fusion networks, MFFE-style networks, GBDT/CNN                                                   | Excellent if your radar has polarization/frequency diversity. Not generally available, so lower in default rank.                                                                       | Polarimetric moving-target and dual-band HRRP work show feature gains from echo-amplitude statistics, polarization, and frequency-diverse fusion. ([MDPI][33])                                                                             |
+| **17** | **Self-supervised radar pretraining and contrastive embeddings**                                | Pretrain on unlabeled RD/RA/RAD/IQ/point-cloud sequences; masked prediction, temporal contrast, cross-modal distillation                                                                                   | SimCLR/BYOL/MoCo variants, masked autoencoders, radar-camera distillation, temporal contrastive learning                     | Not a raw feature family by itself, but likely essential when labels are scarce. Use after you have stable feature manifests.                                                          | Recent radar SSL work uses unlabeled radar, radar-specific augmentation, temporal structure, and cross-modal distillation to improve radar perception. ([CVF Open Access][34])                                                             |
+| **18** | **Simulation, synthetic features, and sim-to-real domain adaptation**                           | Simulated micro-Doppler/RD/HRRP/SAR, domain-randomized clutter, rotor/wing models, synthetic labels, real/sim discrepancy features                                                                         | Physics simulators, EM approximations, GAN/refinement, adversarial domain adaptation, style transfer, curriculum training    | Useful for coverage and stress testing, dangerous if used naively. It should augment measured data, not replace it.                                                                    | SAR and micro-Doppler work show simulation can help but direct sim-to-real transfer is difficult; refinement/adversarial methods can reduce the gap. ([eecs.harvard.edu][35])                                                              |
+| **19** | **Multimodal fusion features: radar + EO/IR/RF/acoustic/map/context**                           | Radar features plus camera/thermal/RF/acoustic detections, terrain priors, weather, time, sensor health                                                                                                    | Cross-attention fusion, Kalman/JPDA/MHT fusion, late-fusion ensembles, uncertainty-aware fusion                              | Great for a complete system, but it is not a substitute for strong radar-native features. Use it to reduce ambiguity, not to hide weak radar features.                                 | Radar-camera fusion surveys and raw-radar multimodal work show deep fusion is active and useful, especially when radar representations are preserved rather than over-compressed. ([arXiv][36])                                            |
+| **20** | **Single-scalar RCS / speed / threshold-only features**                                         | Mean RCS, peak SNR, radial speed, range, altitude/elevation, threshold crossings                                                                                                                           | Logistic regression, rules, tiny trees                                                                                       | Worst as a standalone approach. Still valuable as a receipt, sanity check, and simple operating baseline. RCS fluctuates with aspect/orientation/motion, and drones/birds may overlap. | Drone/bird work explicitly warns that RCS alone is inadequate; in-flight RCS studies show strong fluctuations from orientation and motion. ([Nature][21])                                                                                  |
+
+---
+
+## The canonical feature architecture I would build
+
+For your repo, I would make the feature pipeline produce **four primary artifacts** per scenario/run:
+
+### 1. `radar_tensor_features.parquet` or chunked tensor store
+
+Store causal tensor windows:
+
+```text
+range_doppler_log_power[time, range, doppler]
+range_azimuth_log_power[time, range, azimuth]
+range_elevation_log_power[time, range, elevation]
+range_azimuth_doppler_log_power[time, range, azimuth, doppler]   optional/heavy
+complex_iq_real_imag[...]                                         optional/research
+```
+
+Use float16/float32 log power, with clear calibration metadata. This supports CNNs, ConvLSTMs, 3D CNNs, and Transformers. It also keeps the path open for RADDet/CARRADA-style tensor learning. ([ar5iv][22])
+
+### 2. `micro_doppler_features.parquet`
+
+For each track or candidate blob:
+
+```text
+track_id
+window_start_time
+window_end_time
+range_gate
+doppler_spectrogram_patch
+micro_doppler_bandwidth
+periodicity_score
+cepstral_peak_period
+rotor_flash_score
+positive_negative_doppler_symmetry
+spectral_entropy
+ridge_count
+ridge_slope_stats
+```
+
+This is the highest-value feature family for small drones because propellers/rotors create distinctive periodic signatures, while birds produce wingbeat micro-Doppler. ([Nature][21])
+
+### 3. `blob_and_physics_features.parquet`
+
+For each frame-level candidate:
+
+```text
+cfar_cell_count
+blob_area_rd
+blob_area_ra
+peak_snr
+mean_snr
+local_clutter_ratio
+doppler_centroid
+doppler_spread
+range_extent
+azimuth_extent
+elevation_extent
+total_reflectivity
+compactness
+ridge_orientation
+incidence_or_aspect_proxy
+```
+
+This is the cheap, explainable baseline that makes every deep model auditable. Physics-derived Range–Doppler features are especially valuable because they encode target speed, reflectivity, area, and geometry in an interpretable way. ([ece.nus.edu.sg][23])
+
+### 4. `track_features.parquet`
+
+For each track and causal time window:
+
+```text
+track_id
+duration
+num_detections
+miss_rate
+range_mean / range_rate
+radial_velocity_mean / variance
+speed_estimate
+acceleration
+turn_rate
+climb_rate_or_elevation_change
+rcs_mean / variance / skew
+snr_mean / variance
+intermittency
+track_smoothness
+micro_doppler_stability
+class_prior_context
+```
+
+Track-level features are mandatory because many radar classes are ambiguous in a single frame. Kinematic, RCS, and track-morphology features are well-established in target-classification work. ([ResearchGate][25])
+
+---
+
+## Best model recipes
+
+### Best overall model
+
+Use a **multi-branch temporal model**:
+
+```text
+Branch A: RD / RA / RE tensor CNN
+Branch B: micro-Doppler spectrogram CNN
+Branch C: track/RCS/physics feature MLP or GBDT embedding
+Fusion: temporal Transformer or ConvLSTM
+Output: calibrated class probabilities + uncertainty + abstain/unknown score
+```
+
+This directly matches the evidence: tensor methods preserve radar geometry, micro-Doppler captures rotor/wing motion, and track/RCS/physics features stabilize decisions across time. ([ar5iv][22])
+
+### Best small-data model
+
+Use:
+
+```text
+STFT micro-Doppler descriptors
++ CFAR/blob features
++ physics/RD features
++ track/RCS features
+→ CatBoost / LightGBM / Random Forest / SVM
+```
+
+This will often beat a fragile deep net when labels are limited. Micro-Doppler SVM/CNN pipelines have strong measured-data precedent, and physics features are especially useful when you need interpretability. ([MDPI][37])
+
+### Best edge/real-time model
+
+Use:
+
+```text
+CFAR/blob features
++ compact RD/RA chips
++ track/RCS rolling features
+→ tiny CNN + GBDT ensemble
+```
+
+Do **not** start with full raw-IQ end-to-end inference on edge unless you have proven latency and calibration robustness. Deep raw-radar approaches are promising, but the literature also highlights ADC-data scarcity and radar-modeling difficulties. ([arXiv][24])
+
+### Best research model
+
+Use:
+
+```text
+raw complex I/Q
++ masked autoencoding / contrastive pretraining
++ supervised fine-tuning on tensor/micro-Doppler labels
++ simulation/domain-randomization stress tests
+```
+
+Self-supervised radar pretraining is worth pursuing once your feature manifests are stable, especially because labeled radar data is expensive and domain-specific. ([CVF Open Access][34])
+
+---
+
+## My recommended implementation order
+
+**Phase 1: Canonical, shippable baseline**
+
+Build these first:
+
+1. RD/RA/RE tensor extraction
+2. STFT micro-Doppler chips
+3. CFAR/blob morphology
+4. Track/RCS/SNR rolling features
+5. Physics-assisted RD feature vector
+6. CatBoost/LightGBM + small CNN baselines
+
+This gives you a strong, auditable baseline before raw-IQ research.
+
+**Phase 2: Deep radar perception**
+
+Add:
+
+1. Multi-view tensor CNN
+2. Micro-Doppler CNN
+3. Temporal fusion model
+4. Calibration/uncertainty head
+5. Unknown/abstain class
+
+**Phase 3: Hard-environment robustness**
+
+Add:
+
+1. Clutter residual/STAP/MTI features
+2. Low-angle multipath features
+3. Domain adaptation and simulation augmentation
+4. Self-supervised pretraining
+5. Optional polarimetric/multi-frequency features if hardware supports them
+
+---
+
+## The nonnegotiable feature-store rules
+
+For ML integrity, every feature row should include:
+
+```text
+scenario_id
+sensor_id
+track_id
+frame_id
+timestamp
+feature_window_start
+feature_window_end
+is_causal = true
+radar_config_hash
+calibration_hash
+processing_pipeline_hash
+label_source
+label_time
+split_id
+```
+
+The feature window must **never look into the future** relative to the label. For radar tracks, I would use purged/embargoed validation by scenario, sensor, day, geography, and target instance so the model cannot memorize correlated tracks or simulated patterns.
+
+---
+
+## Final ranking judgment
+
+The **best human approach** is:
+
+> **Causal multi-representation radar ML: multi-view RAD/RD/RA/RE tensors + track-gated micro-Doppler + CFAR/blob physics + track/RCS history, fused with temporal ML.**
+
+The **best single feature family** is:
+
+> **Track-gated micro-Doppler spectrograms**, especially for drone/bird/small low-slow target discrimination.
+
+The **best first baseline** is:
+
+> **Physics + CFAR/blob + track/RCS features into CatBoost/LightGBM**, with micro-Doppler CNN as the first deep-learning add-on.
+
+The **highest-upside research lane** is:
+
+> **Raw complex I/Q + self-supervised pretraining**, but only after the curated feature stack is working and receipts prove generalization.
+
+[1]: file://my_files/file_00000000612471fd976658271d153885 "Pasted markdown.md"
+[2]: file://my_files/file_000000006a3471fd846ca415e51056e1 "Pasted markdown.md"
+[3]: file://my_files/file_00000000036c71fd8578710e802496e7 "Pasted markdown.md"
+[4]: file://my_files/file_000000002c3c71fd9ad288ad4f2a8d2d "Pasted markdown.md"
+[5]: file://my_files/file_000000004ee471fdaa4ab92080ece7e5 "Pasted markdown.md"
+[6]: file://my_files/file_00000000928471fdaec94ef80bbfd31b "Pasted markdown.md"
+[7]: file://my_files/file_00000000f52c71fd8b20dd7c5aafdb39 "Pasted markdown.md"
+[8]: file://my_files/file_00000000c46c71f891fe96abf6b94615 "Pasted markdown.md"
+[9]: file://my_files/file_00000000ac48722fa128194a4900d64f "Pasted markdown.md"
+[10]: file://my_files/file_0000000053e8722f9a30c9f87caaf5fd "Pasted markdown.md"
+[11]: file://my_files/file_00000000a84471f5b9f49bf1a0776cfa "Pasted markdown.md"
+[12]: file://my_files/file_0000000002c8722fa5425f7a7e56cdfa "Pasted markdown.md"
+[13]: file://my_files/file_0000000060c8722fb79b69c0137a49f0 "Pasted markdown.md"
+[14]: file://my_files/file_00000000bb3c71fd8fc4343a68a66a33 "Pasted markdown.md"
+[15]: file://my_files/file_00000000c14471fd9b3efc19c744f621 "Pasted markdown.md"
+[16]: file://my_files/file_00000000ad8471f6897eb98cc1a810e1 "Pasted markdown.md"
+[17]: file://my_files/file_00000000247871fdac258a6d4b4dd596 "Pasted text.txt"
+[18]: file://my_files/file_00000000420071f68157530c5efb75d9 "Pasted markdown.md"
+[19]: file://my_files/file_00000000933471f68b194d12576e1e18 "Pasted markdown.md"
+[20]: https://www.mdpi.com/2072-4292/15/15/3742 "Radar Target Characterization and Deep Learning in Radar Automatic Target Recognition: A Review | MDPI"
+[21]: https://www.nature.com/articles/s41598-018-35880-9 "Radar micro-Doppler signatures of drones and birds at K-band and W-band | Scientific Reports"
+[22]: https://ar5iv.labs.arxiv.org/html/2105.00363 "[2105.00363] RADDet: Range-Azimuth-Doppler based Radar Object Detection for Dynamic Road Users"
+[23]: https://www.ece.nus.edu.sg/stfpage/elechenx/Papers/Tan_TAP_2022.pdf ""
+[24]: https://arxiv.org/pdf/1906.12187 "Paper Title (use style: paper title)"
+[25]: https://www.researchgate.net/publication/349147837_Track-Feature-Based_Target_Classification_in_Passive_Radar_for_Low-Altitude_Airspace_Surveillance?utm_source=chatgpt.com "Track-Feature-Based Target Classification in Passive ..."
+[26]: https://arxiv.org/abs/2104.02493?utm_source=chatgpt.com "RadarScenes: A Real-World Radar Point Cloud Data Set for Automotive Applications"
+[27]: https://its.ntia.gov/media/zj0fjnfi/isart2024_melvin.pdf?utm_source=chatgpt.com "An Overview of Radar Clutter"
+[28]: https://www.sciencedirect.com/science/article/abs/pii/S0031320316302254 "Radar HRRP target recognition with deep networks - ScienceDirect"
+[29]: https://www.mdpi.com/2072-4292/15/5/1454 "A Comprehensive Survey on SAR ATR in Deep-Learning Era | MDPI"
+[30]: https://publications.tno.nl/publication/34610718/KAoGyt/harmanny-2014-radar.pdf?utm_source=chatgpt.com "Radar Micro-Doppler Feature Extraction Using the ..."
+[31]: https://pubmed.ncbi.nlm.nih.gov/37913613/ "Wavelet Scattering Transform based Doppler signal classification - PubMed"
+[32]: https://www.mdpi.com/2072-4292/14/8/1917 "Beamspace Scene Classification Algorithm for Low-Angle Estimation in MIMO Radar"
+[33]: https://www.mdpi.com/2072-4292/15/1/80?utm_source=chatgpt.com "Feature Extraction for Moving Targets Based on the ..."
+[34]: https://openaccess.thecvf.com/content/CVPR2024/papers/Hao_Bootstrapping_Autonomous_Driving_Radars_with_Self-Supervised_Learning_CVPR_2024_paper.pdf?utm_source=chatgpt.com "Bootstrapping Autonomous Driving Radars with Self ..."
+[35]: https://www.eecs.harvard.edu/~htk/publication/2018-icassp-cha-majumdar-kung-barber.pdf "IMPROVING SAR AUTOMATIC TARGET RECOGNITION USING SIMULATED IMAGES UNDER DEEP RESIDUAL REFINEMENTS"
+[36]: https://arxiv.org/html/2410.19872v1?utm_source=chatgpt.com "Radar and Camera Fusion for Object Detection and Tracking"
+[37]: https://www.mdpi.com/2624-6120/4/2/18 "Classification and Discrimination of Birds and Small Drones Using Radar Micro-Doppler Spectrogram Images | MDPI"

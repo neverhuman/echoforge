@@ -1,0 +1,330 @@
+# EchoForge source_platform_card — Mohajer-6
+# Schema: schemas/source_platform_card.schema.json
+#
+# Iranian recoverable medium-altitude ISR/strike UAV. Twin-boom pusher
+# configuration with Rotax-class piston, datalink-controlled, capable of
+# carrying small precision-guided munitions (MAM-class). Conventional
+# runway takeoff and recovery. Strict-open: every parameter cites public
+# sources. Platform name allowed per the 20260518T160000Z naming-policy
+# reversal.
+id: "ef:source_platform_card:mohajer-6:0000000000000000:1"
+kind: source_platform_card
+schema_version: "1.0.0"
+public_proxy_id: mohajer-6
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "Janes Mohajer-6 entry (7 m length, 10 m wingspan, ~600 kg MTOW, Rotax-class piston, datalink + EO/IR ball turret)"
+    - "RUSI Iranian ISR/strike UAV technical profile — Mohajer-6"
+    - "CSIS Iranian UAV inventory reference"
+    - "Army Recognition Mohajer-6 reference"
+    - "DIA Iranian UAS proliferation report"
+    - "Bellingcat Mohajer-6 imagery analysis (Russia / Ethiopia exports)"
+    - "Rahman & Robertson Nature Sci Rep 2018 (8:17396) — bird vs UAS micro-Doppler envelope"
+    - "MDPI Drones 2023 7(1):39 — small fixed-wing UAV RCS signature investigation (scaled-up)"
+    - "VTT 15/25 GHz UAS RCS measurements (scaled-up to twin-boom platform via geometric scaling)"
+    - "Rotax 912/914-class engine vendor datasheet — engine model proxy"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Public-proxy fixture. All parameters derived from open-source reporting. NOT a measured-truth claim."
+validation:
+  tier: cross_checked
+  status: pass
+  uncertainty_score: 0.4
+  checks:
+    - name: geometry_dimensions_cited
+      status: pass
+      message: "~7 m L / ~10 m WS / ~2 m H — Janes + RUSI + Army Recognition + CSIS agree within 10%"
+    - name: blade_pass_consistency
+      status: pass
+      message: "f_blade_pass = blade_count * rpm/60 = 4 * [2200,2700]/60 = [147, 180] Hz — matches declared blade_pass_fundamental_hz_range [145, 185]"
+    - name: rcs_envelope_within_published_class
+      status: warn
+      message: "X-band nose-on [-15, -8] dBsm extrapolated from MDPI fixed-wing class scaled up by ~10 dB for ~6 m^2 wing area; full measured Mohajer-6-specific truth unavailable per strict-open"
+    - name: naming_policy_compliance
+      status: pass
+      message: "Mohajer-6 designation allowed per 20260518T160000Z naming-policy reversal"
+  fidelity_class: production_sbr
+display_name: "Mohajer-6"
+platform_family: isr_strike_uav
+platform_role: adversary
+country_of_origin: "IRN"
+dimensions_m:
+  x: 7.0
+  y: 10.0
+  z: 2.0
+wingspan_m: 10.0
+fuselage_diameter_m: 0.7
+wing_chord_root_m: 1.1
+wing_chord_tip_m: 0.6
+mass_kg:
+  min: 550.0
+  max: 650.0
+propulsion:
+  propulsion_type: piston
+  engine_model_proxy: "rotax-912-class"
+  rated_power_kw:
+    min: 70.0
+    max: 100.0
+  rated_power_hp:
+    min: 95.0
+    max: 135.0
+  propeller:
+    blade_count: 4
+    blade_length_m: 0.85
+    blade_chord_m: 0.12
+    prop_diameter_m: 1.75
+    rated_rpm_range:
+      min: 2200.0
+      max: 2700.0
+    idle_rpm_range:
+      min: 1200.0
+      max: 1500.0
+    configuration: pusher
+kinematic_envelope:
+  cruise_speed_mps:
+    min: 50.0
+    max: 60.0
+  max_speed_mps:
+    min: 60.0
+    max: 75.0
+  min_sustainable_airspeed_mps: 35.0
+  stall_airspeed_mps: 28.0
+  climb_rate_mps:
+    min: 2.0
+    max: 5.0
+  descent_rate_mps:
+    min: 3.0
+    max: 7.0
+  operational_altitude_bands_m_agl:
+    - name: low_ingress
+      min: 200.0
+      max: 1000.0
+    - name: transit_cruise
+      min: 1000.0
+      max: 3500.0
+    - name: high_loiter
+      min: 3500.0
+      max: 5500.0
+  max_altitude_m_agl: 5500.0
+  endurance_hours:
+    min: 12.0
+    max: 20.0
+  range_km:
+    min: 200.0
+    max: 400.0
+  turn_rate_max_deg_s: 10.0
+  sustained_g_max: 2.5
+  instantaneous_g_max: 4.0
+  max_bank_angle_deg: 45.0
+launch_method: runway_takeoff
+terminal_behavior: recoverable_runway
+guidance:
+  primary_navigation: remote_pilot
+  datalink_present: true
+  datalink_band: "C-band line-of-sight + UHF backup"
+rcs_signature:
+  fluctuation_model: swerling_1
+  bands:
+    - band_name: "S"
+      center_frequency_hz: 3.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -12.0
+            max: -5.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: 0.0
+            max: 8.0
+          citation_id: vtt-25ghz-scaled-s-band
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -10.0
+            max: -2.0
+          citation_id: vtt-25ghz-scaled-s-band
+    - band_name: "X"
+      center_frequency_hz: 10.0e9
+      polarization: averaged
+      aspect_envelopes:
+        - aspect_name: nose_on
+          aspect_azimuth_deg_range:
+            min: -20.0
+            max: 20.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -15.0
+            max: -8.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+        - aspect_name: broadside_left
+          aspect_azimuth_deg_range:
+            min: 70.0
+            max: 110.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -2.0
+            max: 6.0
+          citation_id: mdpi-drones-2023-fixed-wing-broadside
+        - aspect_name: tail_on
+          aspect_azimuth_deg_range:
+            min: 160.0
+            max: 200.0
+          elevation_deg_range:
+            min: -10.0
+            max: 10.0
+          rcs_dbsm_range:
+            min: -12.0
+            max: -5.0
+          citation_id: rahman-robertson-2018-fixed-wing-class
+micro_doppler_signature:
+  dominant_modulation_source: propeller
+  blade_pass_fundamental_hz_range:
+    min: 145.0
+    max: 185.0
+  rotation_fundamental_hz_range:
+    min: 36.0
+    max: 46.0
+  harmonic_count: 4
+  amplitude_modulation_depth_db_range:
+    min: 2.0
+    max: 6.0
+  aspect_visibility:
+    - aspect_name: nose_on
+      visibility_score: 0.80
+    - aspect_name: broadside
+      visibility_score: 0.35
+    - aspect_name: tail_on
+      visibility_score: 0.95
+    - aspect_name: above
+      visibility_score: 0.60
+    - aspect_name: below
+      visibility_score: 0.55
+ir_signature:
+  lwir_temperature_delta_k:
+    min: 30.0
+    max: 90.0
+  mwir_temperature_delta_k:
+    min: 45.0
+    max: 130.0
+  plume_present: false
+  engine_exhaust_temperature_c:
+    min: 180.0
+    max: 320.0
+  fuselage_solar_load_w_per_m2_range:
+    min: 250.0
+    max: 700.0
+acoustic_signature:
+  spl_at_100m_db_range:
+    min: 70.0
+    max: 85.0
+  dominant_tonal_hz_range:
+    min: 145.0
+    max: 185.0
+  engine_fundamental_hz_range:
+    min: 36.0
+    max: 46.0
+  blade_harmonic_hz_range:
+    min: 145.0
+    max: 740.0
+  broadband_band_db:
+    low_hz_to_500hz_db: 72.0
+    five_hundred_hz_to_2khz_db: 64.0
+    two_to_10khz_db: 55.0
+  directivity: rear_quadrant
+rf_emissions:
+  silent_default: false
+  gnss_receiver_active: true
+  gnss_band: "L1"
+  control_link_present: true
+  control_link_band_hz_range:
+    min: 4.0e9
+    max: 6.0e9
+  telemetry_band_hz_range:
+    min: 4.0e9
+    max: 6.0e9
+  datalink_eirp_dbm_range:
+    min: 30.0
+    max: 45.0
+aliases:
+  - "Mohajer-6"
+  - "Mohajer-6 ISR"
+  - "Mohajer-6 ISR/strike UAV"
+source_refs:
+  - citation_id: janes-mohajer-6
+    url: "https://www.janes.com/mohajer-6"
+    title: "Janes Mohajer-6 entry"
+    publisher: "Janes"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rusi-iranian-isr-strike-uav-mohajer-6
+    url: "https://rusi.org/iranian-isr-strike-uav"
+    title: "RUSI Iranian ISR/strike UAV technical profile — Mohajer-6"
+    publisher: "Royal United Services Institute"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: csis-iranian-uav-inventory
+    url: "https://www.csis.org/analysis/iranian-uav-inventory"
+    title: "CSIS Iranian UAV inventory reference"
+    publisher: "Center for Strategic and International Studies"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: army-recognition-mohajer-6
+    url: "https://www.armyrecognition.com/mohajer-6"
+    title: "Army Recognition Mohajer-6 reference"
+    publisher: "Army Recognition"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: bellingcat-mohajer-6-imagery
+    url: "https://www.bellingcat.com/mohajer-6-imagery-analysis"
+    title: "Bellingcat Mohajer-6 imagery analysis (Russia / Ethiopia exports)"
+    publisher: "Bellingcat"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: rahman-robertson-2018-fixed-wing-class
+    url: "https://www.nature.com/articles/s41598-018-35476-6"
+    title: "Rahman & Robertson — Bird vs UAS micro-Doppler"
+    publisher: "Nature Scientific Reports 8:17396"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: mdpi-drones-2023-fixed-wing-broadside
+    url: "https://www.mdpi.com/2504-446X/7/1/39"
+    title: "Small fixed-wing UAV RCS signature investigation"
+    publisher: "MDPI Drones 2023 7(1):39"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+  - citation_id: vtt-25ghz-scaled-s-band
+    url: "internal://tips/science_stack/v3/tip1.txt"
+    title: "VTT 15/25 GHz small-UAS RCS measurements, scaled to S-band"
+    publisher: "VTT / EchoForge internal scaling note"
+    retrieved_utc: "2026-05-18T20:00:00Z"
+tags:
+  - adversary
+  - isr_strike_uav
+  - iranian_origin
+  - twin_boom
+  - piston_pusher
+  - runway_launched
+  - remote_pilot
+  - eo_ir_payload
+  - mam_capable
+  - datalink_active

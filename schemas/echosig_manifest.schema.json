@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/echosig_manifest.schema.json",
+  "title": "echosig_manifest",
+  "description": "EchoForge echosig_manifest document. Indexes a packaged 'echosig' artifact: the named tensor axes, the on-disk tensor paths, and any QA report paths that ship with the bundle. Conforms to the EchoForge strict-open contract: deterministic id, public-proxy provenance, and validation envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "artifact_name",
+    "object_card_id",
+    "tensor_axes",
+    "tensor_paths",
+    "qa_paths"
+  ],
+  "properties": {
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1. Derived from the identity-field payload.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator. Always the literal string 'echosig_manifest' for this schema.",
+      "const": "echosig_manifest"
+    },
+    "schema_version": {
+      "description": "EchoForge schema version pin. Must equal '1.0.0' for this revision of the contract.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Stable, human-readable slug identifying the public-proxy artifact (lowercase letters, digits, and ._- separators). Forms part of the deterministic id.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: how the document was produced, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) under which the echosig manifest content is released.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and the per-check results that establish trust in this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "artifact_name": {
+      "description": "Human-readable echosig artifact name shown in tools and reports. Non-empty free text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "object_card_id": {
+      "description": "Deterministic id of the object_card document this echosig artifact corresponds to.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "tensor_axes": {
+      "description": "Axis labels for the packaged tensors, in declaration order. The required label set for a complete EchoForge echosig is: frequency_hz, azimuth_deg, elevation_deg, tx_polarization, rx_polarization, geometry_variant, material_variant, attitude_state, motion_state, propulsor_state, solver_regime. Each entry is a non-empty string.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "tensor_paths": {
+      "description": "Relative paths (under the bundle root) to the tensor payload files, typically of the form tensors/*.zarr. Each entry is a non-empty string.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "qa_paths": {
+      "description": "Relative paths (under the bundle root) to QA report files, typically of the form qa/*.json. May be empty if no QA artifacts ship with the bundle.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

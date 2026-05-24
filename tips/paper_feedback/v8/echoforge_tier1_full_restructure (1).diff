@@ -1,0 +1,499 @@
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index be4c6ac..tier1-flow 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -6,6 +6,7 @@
+ \usepackage{graphicx}
+ \usepackage{xcolor}
+ \usepackage{amsmath}
++\usepackage{listings}
+ \usepackage{tabularx}
+ \usepackage{makecell}
+ \usepackage{siunitx}
+@@ -23,6 +24,20 @@
+ \newcommand{\kpigain}[1]{\textbf{\textcolor{EchoGain}{#1}}}
+ \newcommand{\kpicaveat}[1]{\textbf{\textcolor{EchoWarn}{#1}}}
+ 
++\definecolor{HumanCodeBg}{RGB}{247,250,252}
++\definecolor{GeneratedCodeBg}{RGB}{232,243,255}
++\definecolor{ProtectedIPBg}{RGB}{255,244,219}
++\lstdefinestyle{echoforgecode}{
++  basicstyle=\ttfamily\scriptsize,
++  keywordstyle=\bfseries\color{blue!50!black},
++  commentstyle=\itshape\color{EchoMuted},
++  stringstyle=\color{EchoGain},
++  numberstyle=\tiny\color{EchoMuted},
++  numbers=left,
++  breaklines=true,
++  frame=single,
++  columns=fullflexible
++}
++
+ \graphicspath{{paper/figures/}{figures/}}
+ 
+ \begin{document}
+@@ -128,6 +143,49 @@ Figure~\ref{fig:dataprocessing} is the reviewer-facing processing trace. EchoFor
+   \end{tabular}
+ \end{table*}
+ 
++\section{Simulation Design in Plain Radar Terms}
++This section states the benchmark in the order a reviewer expects: target, environment, sensor products, detector views, and scoring. The positive class is an open-source inspired fixed-wing pusher-prop public proxy. It uses public geometry and kinematic priors, broad RCS/aspect envelopes, and pusher-prop cadence priors, but it does not import any measured Iranian-drone radar signature. The scenario phases have physical meaning: initial take-up stresses ground coupling and unsettled kinematics; climb transition stresses changing aspect, range rate, and cue consistency; cruise altitude stresses the steadier low-altitude track case.
++
++Monte Carlo sampling is used to create many independent scenario groups rather than many nearly identical rows. A scenario group fixes the positive/negative role, site archetype, range band, aspect, noise regime, hard-negative family, and split assignment before phase expansion. The group then expands into the three phase windows. This is the core leakage defense: a target-like sequence cannot appear in both train/CV and holdout merely because different phases were split row-wise.
++
++The generated radar product is not intended to be a fielded sensor replica. It is a controlled signal-processing workbench. The radar branch cards define the assumed carrier, bandwidth, CPI, PRF/CRF, pulse count, range bins, range resolution, Doppler resolution, and velocity-equivalent Doppler spacing. Target energy is modulated by range, aspect, RCS fluctuation, Doppler centroid, and proxy micro-Doppler terms. The environment injects SNR/CNR buckets, Weibull/K-like clutter, sea/weather/terrain glint stressors, vegetation motion, multipath ghosts, RFI bursts, AGC compression, clock drift, quantization, dropped CPIs, Doppler folding, and calibration offsets. These are standard radar-stress categories for detector comparison, not site-calibrated truth.
++
++\begin{table*}[t]
++  \caption{Best-Practice Processing Contract for Synthetic Radar Evidence}
++  \label{tab:processingbestpractice}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.17\textwidth}p{0.27\textwidth}p{0.25\textwidth}p{0.21\textwidth}@{}}
++    \toprule
++    Practice & What EchoForge does & Why radar reviewers care & Evidence artifact \\
++    \midrule
++    Group-first splitting & Split is assigned at scenario-group level before phase expansion & prevents same-sequence leakage across train and holdout & \texttt{scenario\_manifest.csv}, \texttt{split\_summary.json} \\
++    Signal-chain card & Carrier, bandwidth, CPI, PRF/CRF, range bins, clutter families, and receiver effects are explicitly recorded & makes synthetic assumptions auditable & \texttt{radar\_model\_card.json} \\
++    Denylisted detector views & Model matrices exclude labels, split keys, group IDs, and audit-only generator fields & blocks shortcut learning & \texttt{detector\_view\_schema\_evidence.csv} \\
++    Train/CV calibration & Thresholds, calibrators, and EI component discovery are fit before holdout scoring & prevents holdout tuning & \texttt{selection\_lock.json} \\
++    Low-FPR reporting & Selected-threshold counts, swept Recall@$\leq$1\%FPR, and LCB95 are kept separate & avoids mixing operating-point claims & \texttt{main\_kpi\_gain\_table.csv} \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
++\section{Detector Processing Baselines and Sensor Fusion}
++After synthetic sensing, the paper compares three increasingly strong classes of processing. First, classical radar and cue branches summarize range-Doppler concentration, micro-Doppler spread, CFAR/MTD-style responses, track confidence, acoustic cadence, passive-RF no-signal/RFI/provenance features, and fusion-context features. These are not vendor processors; they are role-compatible public envelopes grounded in standard radar detection, CFAR, micro-Doppler, and classifier-calibration practice \cite{rohling1983,chen2011,kay1998,fawcett2006,platt1999,niculescu2005}.
++
++Second, tabular and sequence ML baselines test whether ordinary learned processing can extract signal from the allowed detector views. These lanes are useful controls, but they are not the accepted-practice comparator.
++
++Third, accepted prior fusion combines radar/cue branch scores through a human-engineered late-fusion policy with train/CV thresholding. This is the main non-EI comparator because low-altitude UAS detection is naturally multimodal: radar evidence, acoustic cadence, passive-RF missingness/provenance, and stale-track/false-track context are each incomplete alone. Fusion is powerful because it can trade off complementary failure modes, but it must remain auditable and calibrated.
++
++\begin{figure*}[t]
++  \centering
++  \includegraphics[width=0.98\textwidth]{phase_kpi_ladder.pdf}
++  \caption{Scenario-by-scenario KPI ladder. The same three phase windows are shown for branch baselines, accepted prior fusion, and EI. The visual story is intentionally cumulative: raw branches establish the difficulty of take-up, accepted fusion improves the operating point, and EI further improves Recall@$\leq$1\%FPR under the same holdout metric definitions.}
++  \label{fig:phasekpiladder}
++\end{figure*}
++
+ \section{Radar and Multimodal Generative Model}
+ EchoForge uses a clean-room signal-chain proxy rather than a proprietary sensor surrogate. The received-power proxy is written as
+ \begin{equation}
+@@ -335,6 +393,33 @@ Table~\ref{tab:modalities} is also a guard against over-claiming: the EI claim i
+ \section{Raw Samples and Compare-Only Anchor}
+ The raw sample figures are visual diagnostics, not detector features. Figure~\ref{fig:radarcard} exposes the model card and signal-chain assumptions, while Figure~\ref{fig:rdpanel} shows range-Doppler proxy views for a positive public-proxy group and a hard-negative group across the three phase windows.
+ 
++\section{Engineered Intelligence as Auditable Algorithm Innovation}
++Engineered Intelligence is not presented as magic and not as a black box. It is an auditable workflow for autonomous algorithm innovation: decompose the detection problem into score families, evolve candidate combinations on train/CV rows, optimize sparse nonnegative weights against explicit objectives, calibrate the selected score with a monotone odds map, and freeze the result before holdout scoring.
++
++The important claim is methodological as well as numerical. Conventional static algorithms encode one human design at a time. EI instead creates a reviewable search loop over candidate algorithms and can be retargeted to richer objectives: lower false-alarm burden for specific hard-negative families, stronger calibration, lower Brier score, better phase balance, smaller component count, or robustness under specific clutter/noise regimes. In this paper we lock one objective family around low-FPR operating behavior because it is the clearest rare-positive radar decision metric.
++
++When available, the evidence lane records train/CV search traces and selected-lock metadata. Figure~\ref{fig:eiprogress} should be read as an internal-discovery diagnostic, not an extra holdout claim. The holdout result remains the frozen Table~\ref{tab:metrics} score.
++
++\begin{figure*}[t]
++  \centering
++  \includegraphics[width=0.98\textwidth]{ei_progress.pdf}
++  \caption{EI discovery trace. Candidate progress is shown on train/CV evidence when the run emits a leaderboard or evolution trace; the locked holdout score is plotted only after selection lock. This figure separates internal search improvement from final blind-holdout evidence.}
++  \label{fig:eiprogress}
++\end{figure*}
++
++\begin{table}[t]
++  \caption{Alternative EI Objectives for Future Runs}
++  \label{tab:alternativekpis}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.38\columnwidth}p{0.50\columnwidth}@{}}
++    \toprule
++    Objective & Why it is useful \\
++    \midrule
++    Family-weighted false-alarm cost & penalizes bird, RC, weather, or multipath false alarms differently \\
++    Calibration-constrained recall & optimizes low-FPR recall while bounding Brier/ECE degradation \\
++    Phase-minimax recall & prevents high cruise performance from hiding weak initial take-up behavior \\
++    Sparse interpretability & constrains the number of active components for reviewer traceability \\
++    Robustness under OOD stress & targets weather/RFI/clutter slices rather than aggregate holdout only \\
++    \bottomrule
++  \end{tabular}
++\end{table}
++
+ \begin{figure*}[t]
+   \centering
+   \includegraphics[width=0.98\textwidth]{iq_drone_samples.pdf}
+@@ -518,6 +603,14 @@ The appendix ledger separates what each source family is used for from what it i
+ 
+ \input{paper/appendix_modeling_details}
+ 
++\onecolumn
++\section{CLI Reproducibility Appendix}
++\input{paper/appendix_cli_commands}
++
++\section{Source-Code Appendix and Provenance Ledger}
++\input{paper/appendix_source_listings}
++
++\twocolumn
+ \begin{table*}[t]
+   \caption{Source Ledger for Public-Proxy Evidence}
+   \label{tab:sourceledger}
+@@ -599,7 +692,7 @@ The appendix uses open visual reporting and public summaries \cite{osmpShahed131
+ \section{Conclusion}
+-EchoForge demonstrates a strict-open path for low-altitude UAS radar and multimodal sensing studies: public-proxy priors, deterministic generation, detector-view denylisting, group-locked holdout evaluation, group-block uncertainty estimates, compare-only measured-anchor checks, and tracked paper evidence. The headline result is LCB95 Recall@$\leq$1\%FPR of 0.699 for the EI candidate versus 0.083 for accepted prior fusion, a +742\% relative gain, with point Recall@$\leq$1\%FPR of 0.833 versus 0.292. The benchmark numbers in this paper are synthetic public-proxy evidence under declared assumptions. They are useful for review, robustness work, and reproducible comparison, but they are not measured truth or operational performance claims.
++EchoForge demonstrates a strict-open path for low-altitude UAS radar and multimodal sensing studies: public-proxy priors, deterministic generation, detector-view denylisting, group-locked holdout evaluation, group-block uncertainty estimates, compare-only measured-anchor checks, tracked paper evidence, and auditable EI algorithm search. The headline result is LCB95 Recall@$\leq$1\%FPR of 0.699 for the EI candidate versus 0.083 for accepted prior fusion, a \kpigain{+742\%} relative gain, with point Recall@$\leq$1\%FPR of 0.833 versus 0.292. The point of the paper is not that a synthetic benchmark is measured truth. It is that a radar-first, strict-open evidence lane can make the assumptions, data path, baseline processors, fusion logic, EI search, leakage controls, and claim boundary legible enough for serious review. The next frontier is not more opaque leaderboard chasing; it is auditable algorithm evolution against richer radar objectives, larger multi-seed corpora, larger positive holdouts, harder environmental stress, and measured positive-class validation when such data can be released.
+ 
+ \bibliographystyle{IEEEtran}
+ \bibliography{paper/references}
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 89c69e4..tier1-flow 100644
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -133,6 +133,8 @@ VECTOR_FIGURES = {
+     "ei_workflow.png",
+     "data_processing_flow.png",
+     "appendix_modeling_map.png",
++    "phase_kpi_ladder.png",
++    "ei_progress.png",
+ }
+ HEATMAP_FIGURES = {"iq_negative_samples.png"}
+@@
+ def figure_phase_kpi(context: FigureContext) -> Path:
+@@
+     return _save_figure(fig, filename)
++
++
++def figure_phase_kpi_ladder(context: FigureContext) -> Path:
++    """Show the same phase KPI story as a cumulative ladder: branches -> fusion -> EI."""
++    filename = "phase_kpi_ladder.png"
++    evaluation = _evaluation_summary(context)
++    if evaluation:
++        _note_source(filename, "phase metrics for baseline, fusion, and EI")
++    else:
++        _note_fallback(filename, "phase metrics missing; using available diagnostics")
++        if STRICT_MODE:
++            _require_no_fallback(filename)
++    fig = _paper_fig(3.95, constrained=False)
++    fig.subplots_adjust(left=0.08, right=0.98, top=0.80, bottom=0.16, wspace=0.36)
++    fig.text(0.08, 0.94, "KPI ladder by scenario phase", fontsize=FONT_TITLE, weight="bold", ha="left")
++    fig.text(0.08, 0.90, "Same holdout phases; branch controls establish difficulty, accepted fusion improves the operating point, EI is the locked challenger.", fontsize=FONT_TINY, color=MUTED, ha="left")
++    phase_metrics = evaluation.get("phase_metrics", {})
++    selected_method = evaluation.get("selected_method", "")
++    selected = phase_metrics.get(selected_method, {})
++    prior = phase_metrics.get("layered_fusion_c2", {})
++    branch_names = ["high_resolution_xku_cuas", "tactical_s_band_aesa", "gbad_3d4d_cueing", "distributed_acoustic_cue", "tabular_ml_baseline", "sequence_ml_proxy"]
++    branch_values = []
++    for phase in PHASES:
++        vals = [_safe_float(phase_metrics.get(name, {}).get(phase, {}).get("fixed_fpr_recall")) for name in branch_names]
++        vals = [value for value in vals if math.isfinite(value)]
++        branch_values.append(max(vals) if vals else 0.0)
++    prior_values = [_safe_float(prior.get(phase, {}).get("fixed_fpr_recall"), 0.0) for phase in PHASES]
++    ei_values = [_safe_float(selected.get(phase, {}).get("fixed_fpr_recall"), 0.0) for phase in PHASES]
++    labels = [f"{PHASE_LABELS[phase]}\n{PHASE_WINDOWS[phase]}" for phase in PHASES]
++    x = np.arange(len(PHASES))
++    width = 0.23
++    ax = fig.add_subplot(111)
++    bars_branch = ax.bar(x - width, branch_values, width, color=PALE_BLUE, edgecolor=BLUE, label="Best branch/control")
++    bars_prior = ax.bar(x, prior_values, width, color=PALE_GREEN, edgecolor=GREEN, label=BASELINE_LABEL)
++    bars_ei = ax.bar(x + width, ei_values, width, color=INK, edgecolor=INK, label=EI_SHORT)
++    for bars in (bars_branch, bars_prior, bars_ei):
++        _annotate_vertical_bars(ax, bars, dy=0.012)
++    ax.set_xticks(x)
++    ax.set_xticklabels(labels, fontsize=FONT_TINY)
++    ax.set_ylim(0, 1.05)
++    ax.set_ylabel("Recall@<=1%FPR", fontsize=FONT_AXIS)
++    ax.set_title("Best branch -> accepted fusion -> EI", fontsize=FONT_SUBTITLE, weight="bold")
++    ax.legend(loc="upper left", frameon=False, fontsize=FONT_TINY, ncol=3)
++    _clean_axes(ax, ygrid=True)
++    return _save_figure(fig, filename)
++
++
++def figure_ei_progress(context: FigureContext) -> Path:
++    """Plot train/CV discovery progress if leaderboard/evolution rows exist."""
++    filename = "ei_progress.png"
++    trace_rows = []
++    for candidate in (context.roots.advanced_root / "candidate_leaderboard.csv", context.roots.advanced_root / "evolution_trace.csv", context.roots.paper_evidence_root / "ei_search_trace.csv"):
++        rows = _read_csv_rows(candidate)
++        if rows:
++            trace_rows = rows
++            _note_source(filename, f"EI search trace from {_display_path(candidate)}")
++            break
++    evaluation = _evaluation_summary(context)
++    selected = evaluation.get("selected", {})
++    baseline = evaluation.get("baseline", {})
++    if not trace_rows:
++        _note_source(filename, "evaluation summary only; search trace absent")
++    fig = _paper_fig(3.45, constrained=False)
++    fig.subplots_adjust(left=0.10, right=0.98, top=0.80, bottom=0.18)
++    fig.text(0.10, 0.94, "EI internal search and locked holdout", fontsize=FONT_TITLE, weight="bold", ha="left")
++    fig.text(0.10, 0.895, "Train/CV progress is diagnostic; the holdout point is plotted only after selection lock.", fontsize=FONT_TINY, color=MUTED, ha="left")
++    ax = fig.add_subplot(111)
++    if trace_rows:
++        xs, ys = [], []
++        for idx, row in enumerate(trace_rows):
++            generation = _safe_float(row.get("generation", row.get("rank", idx)))
++            metric = _safe_float(row.get("cv_fixed_fpr_recall", row.get("cv_average_precision", row.get("score", row.get("objective", float("nan"))))))
++            if math.isfinite(generation) and math.isfinite(metric):
++                xs.append(generation); ys.append(metric)
++        if xs and ys:
++            ax.plot(xs, ys, color=BLUE, linewidth=1.4, marker="o", markersize=2.2, label="train/CV search")
++    else:
++        ax.text(0.50, 0.55, "No evolution trace emitted in this run\n(selection lock and holdout score still audited)", ha="center", va="center", fontsize=FONT_AXIS, color=MUTED, transform=ax.transAxes)
++    baseline_lcb = _safe_float(baseline.get("primary_kpi", {}).get("value"))
++    selected_lcb = _safe_float(selected.get("primary_kpi", {}).get("value"))
++    if math.isfinite(baseline_lcb):
++        ax.axhline(baseline_lcb, color=GREEN, linewidth=1.2, linestyle="--", label="prior fusion holdout LCB95")
++    if math.isfinite(selected_lcb):
++        ax.axhline(selected_lcb, color=INK, linewidth=1.6, label="locked EI holdout LCB95")
++    ax.set_xlabel("Search generation / rank", fontsize=FONT_AXIS)
++    ax.set_ylabel("Internal objective or LCB95 reference", fontsize=FONT_AXIS)
++    ax.set_ylim(0, 1.05)
++    ax.legend(loc="lower right", frameon=False, fontsize=FONT_TINY)
++    _clean_axes(ax, xgrid=True, ygrid=True)
++    return _save_figure(fig, filename)
+@@
+ def generate_all(context: FigureContext) -> list[Path]:
+@@
+         figure_kpi_ranking(context),
+         figure_phase_kpi(context),
++        figure_phase_kpi_ladder(context),
++        figure_ei_progress(context),
+         figure_ei_workflow(context),
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 0d92edc..tier1-flow 100644
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@
+ def _primary_kpi_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
+@@
+     return rows
++
++
++def _main_kpi_gain_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
++    """Machine-readable source for every headline gain in the abstract and figures."""
++    baseline = eval_summary.get("baseline", {})
++    selected = eval_summary.get("selected", {})
++    metrics = [
++        ("lcb95_recall_at_leq_1pct_fpr", baseline.get("primary_kpi", {}).get("value"), selected.get("primary_kpi", {}).get("value"), "higher"),
++        ("point_recall_at_leq_1pct_fpr", baseline.get("fixed_fpr_recall"), selected.get("fixed_fpr_recall"), "higher"),
++        ("average_precision", baseline.get("average_precision"), selected.get("average_precision"), "higher"),
++        ("selected_threshold_false_positives", baseline.get("fp"), selected.get("fp"), "lower"),
++        ("f1", baseline.get("f1"), selected.get("f1"), "higher"),
++        ("roc_auc_guardrail", baseline.get("roc_auc"), selected.get("roc_auc"), "guardrail"),
++    ]
++    rows = []
++    for metric, prior_raw, ei_raw, direction in metrics:
++        prior = _safe_float(prior_raw); ei = _safe_float(ei_raw)
++        absolute_change = ei - prior if math.isfinite(prior) and math.isfinite(ei) else float("nan")
++        if direction == "lower":
++            relative_change_pct = ((prior - ei) / prior) * 100.0 if prior else float("nan")
++        else:
++            relative_change_pct = ((ei / prior) - 1.0) * 100.0 if prior else float("nan")
++        rows.append({"metric": metric, "prior_fusion_value": prior, "ei_value": ei, "absolute_change": absolute_change, "relative_change_pct": relative_change_pct, "ratio": (ei / prior) if prior else float("nan"), "direction": direction, "claim_use": "headline" if metric in {"lcb95_recall_at_leq_1pct_fpr", "point_recall_at_leq_1pct_fpr", "selected_threshold_false_positives"} else "guardrail"})
++    return rows
++
++
++def _data_processing_trace_rows() -> list[dict[str, Any]]:
++    return [
++        {"stage": "scenario_sampling", "input_artifacts": "object packs|radar model card|regional priors", "output_artifacts": "scenario_manifest.csv|dataset_manifest.json", "reviewer_check": "group IDs and split roles are assigned before phase expansion", "claim_boundary": "public-proxy scenario strata only", "failure_mode_guarded": "row-level leakage through repeated phases"},
++        {"stage": "synthetic_sensing", "input_artifacts": "scenario_manifest.csv|radar_model_card.json", "output_artifacts": "records.csv|raw IQ references|cue summaries", "reviewer_check": "radar/cue products inherit group split and public-proxy priors", "claim_boundary": "synthetic IQ and cue products, not measured imagery", "failure_mode_guarded": "undocumented source mixing"},
++        {"stage": "detector_views", "input_artifacts": "records.csv|detector view exports", "output_artifacts": "detector_view_schema_evidence.csv", "reviewer_check": "labels, split keys, group IDs, time locks, and generator internals are denied", "claim_boundary": "model-facing features only", "failure_mode_guarded": "shortcut learning from audit fields"},
++        {"stage": "train_cv_selection", "input_artifacts": "train/CV detector-view scores", "output_artifacts": "thresholds|calibrators|selection_lock.json|component weights", "reviewer_check": "candidate search, thresholds, and calibration use no holdout rows", "claim_boundary": "internal discovery, not holdout evidence", "failure_mode_guarded": "holdout tuning or silent reselection"},
++        {"stage": "blind_holdout", "input_artifacts": "selection_lock.json|holdout detector-view scores", "output_artifacts": "evaluation_summary.json|main_kpi_gain_table.csv", "reviewer_check": "one score pass after lock; selected-threshold counts and swept low-FPR recall remain separate", "claim_boundary": "synthetic public-proxy benchmark performance", "failure_mode_guarded": "metric-basis confusion"},
++    ]
++
++
++def _radar_processing_chain_rows() -> list[dict[str, Any]]:
++    return [
++        {"step": "target_return", "modeled_quantity": "range, aspect, public-proxy RCS, Doppler centroid, phase-stable complex amplitude", "evidence_use": "IQ diagnostics and radar detector summaries", "red_line_boundary": "no measured platform signature"},
++        {"step": "micro_doppler", "modeled_quantity": "pusher-prop cadence proxy plus bird/RC cadence stressors", "evidence_use": "branch summaries and hard-negative interpretation", "red_line_boundary": "cadence bands are broad priors, not identity labels"},
++        {"step": "clutter_noise", "modeled_quantity": "SNR/CNR buckets, Weibull/K-like clutter, weather, sea/terrain glint, vegetation motion", "evidence_use": "score degradation and near-threshold pressure", "red_line_boundary": "no site-measured clutter truth"},
++        {"step": "receiver_effects", "modeled_quantity": "AGC compression, drift, quantization, dropped CPI, Doppler folding, calibration offset", "evidence_use": "detector-view robustness features and failure slices", "red_line_boundary": "no hardware qualification"},
++        {"step": "cue_streams", "modeled_quantity": "acoustic cadence/agreement and passive-RF no-signal/RFI/provenance geometry", "evidence_use": "non-radar branch scores and EI inputs", "red_line_boundary": "no emitter library or operator inference"},
++        {"step": "feature_contract", "modeled_quantity": "denylisted schema converts products to detector views", "evidence_use": "train/CV and holdout scores, leakage diagnostics, KPI tables", "red_line_boundary": "labels, split keys, group IDs, and generator internals blocked"},
++    ]
+@@
+-    primary_kpi_rows = _primary_kpi_rows(eval_summary)
++    primary_kpi_rows = _primary_kpi_rows(eval_summary)
++    main_kpi_gain_rows = _main_kpi_gain_rows(eval_summary)
++    data_processing_trace_rows = _data_processing_trace_rows()
++    radar_processing_chain_rows = _radar_processing_chain_rows()
+@@
+         "primary_kpi_rows": primary_kpi_rows,
++        "main_kpi_gain_rows": main_kpi_gain_rows,
++        "data_processing_trace_rows": data_processing_trace_rows,
++        "radar_processing_chain_rows": radar_processing_chain_rows,
+@@
+     _write_csv(
+         roots.out_root / "primary_kpi_table.csv",
+         primary_kpi_rows,
+         ["method", "point_estimate", "lcb95", "target_fpr", "basis"],
+     )
++    _write_csv(roots.out_root / "main_kpi_gain_table.csv", main_kpi_gain_rows, ["metric", "prior_fusion_value", "ei_value", "absolute_change", "relative_change_pct", "ratio", "direction", "claim_use"])
++    _write_json(roots.out_root / "main_kpi_gain_table.json", main_kpi_gain_rows)
++    _write_csv(roots.out_root / "data_processing_trace_rows.csv", data_processing_trace_rows, ["stage", "input_artifacts", "output_artifacts", "reviewer_check", "claim_boundary", "failure_mode_guarded"])
++    _write_json(roots.out_root / "data_processing_trace_rows.json", data_processing_trace_rows)
++    _write_csv(roots.out_root / "radar_processing_chain_rows.csv", radar_processing_chain_rows, ["step", "modeled_quantity", "evidence_use", "red_line_boundary"])
++    _write_json(roots.out_root / "radar_processing_chain_rows.json", radar_processing_chain_rows)
+diff --git a/paper/generate_appendix_code_listings.py b/paper/generate_appendix_code_listings.py
+new file mode 100755
+index 0000000..tier1-flow
+--- /dev/null
++++ b/paper/generate_appendix_code_listings.py
+@@ -0,0 +1,95 @@
++#!/usr/bin/env python3
++"""Generate appendix TeX for CLI commands and audited source-code listings."""
++
++from __future__ import annotations
++
++import argparse
++import hashlib
++from dataclasses import dataclass
++from pathlib import Path
++
++REPO_ROOT = Path(__file__).resolve().parents[1]
++OUT_DIR = Path(__file__).resolve().parent
++
++@dataclass(frozen=True)
++class SourceBlock:
++    title: str
++    path: Path
++    language: str
++    provenance: str
++    start_line: int | None = None
++    end_line: int | None = None
++
++SOURCE_BLOCKS = [
++    SourceBlock("Classical radar and evidence processing", REPO_ROOT / "detection" / "paper_evidence_major_upgrade_v1.py", "Python", "human-audited evidence summarizer", 1, 220),
++    SourceBlock("Figure and evidence rendering pipeline", REPO_ROOT / "paper" / "generate_figures_major_upgrade_v2.py", "Python", "human-audited visualization pipeline", 1, 260),
++    SourceBlock("Paper validation guardrails", REPO_ROOT / "paper" / "validate_paper.py", "Python", "human-authored validation rules", 1, 220),
++    SourceBlock("Visual validation guardrails", REPO_ROOT / "paper" / "validate_visuals.py", "Python", "human-authored visual regression checks", 1, 200),
++]
++
++HIGH_IP_RANGES = [
++    {"name": "EI candidate discovery and sparse calibrated fusion", "path": "detection/paper_evidence_major_upgrade_v1.py", "reason": "score-family decomposition, train/CV-only controls, and sparse calibrated fusion", "policy": "reviewable source plus SHA-256 digest; do not use encrypted code as a substitute for audit"},
++    {"name": "Selection-lock and holdout metric basis", "path": "detection/paper_evidence_major_upgrade_v1.py", "reason": "interface between algorithm search and one-pass holdout evidence", "policy": "keep source reviewable; publish integrity digest"},
++]
++
++def _esc(text: str) -> str:
++    return text.replace("\\", r"\textbackslash{}").replace("&", r"\&").replace("%", r"\%").replace("$", r"\$").replace("#", r"\#").replace("_", r"\_").replace("{", r"\{").replace("}", r"\}")
++
++def _slice(path: Path, start: int | None, end: int | None) -> str:
++    if not path.exists():
++        return f"# Missing source file: {path}\n"
++    lines = path.read_text(encoding="utf-8").splitlines()
++    return "\n".join(lines[max((start or 1) - 1, 0): min(end or len(lines), len(lines))]) + "\n"
++
++def _sha(path: Path) -> str:
++    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
++
++def write_cli(path: Path) -> None:
++    path.write_text(r"""\noindent The commands below rebuild the paper-facing evidence bundle, figures, source-code appendix, PDF, and validation checks.
++
++\begin{lstlisting}[style=echoforgecode,language=bash,caption={EchoForge paper rebuild commands}]
++python detection/paper_evidence_major_upgrade_v1.py --force
++python paper/generate_figures_major_upgrade_v2.py --strict
++python paper/generate_appendix_code_listings.py
++python paper/validate_visuals.py
++./paper/build.sh
++python paper/validate_paper.py \
++  --tex paper/echoforge_ieee.tex \
++  --bib paper/references.bib \
++  --pdf paper/echoforge_ieee.pdf \
++  --figures-dir paper/figures \
++  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
++\end{lstlisting}
++""", encoding="utf-8")
++
++def write_sources(path: Path) -> None:
++    chunks = ["\\noindent\\textbf{Provenance key.} Listings are generated from repository source. High-IP sections are identified by digest rather than encrypted; encrypted code is not reviewable and would weaken the strict-open claim.\n\n"]
++    chunks.append("\\begin{table*}[h]\n\\centering\n\\small\n\\caption{High-IP Source Ranges and Review Policy}\n\\begin{tabular}{@{}p{0.22\\textwidth}p{0.20\\textwidth}p{0.26\\textwidth}p{0.22\\textwidth}@{}}\n\\toprule\nRange & File & Why it matters & Review policy \\\\\n\\midrule\n")
++    for row in HIGH_IP_RANGES:
++        chunks.append(f"{_esc(row['name'])} & \\texttt{{{_esc(row['path'])}}} & {_esc(row['reason'])} & {_esc(row['policy'])} \\\\\n")
++    chunks.append("\\bottomrule\n\\end{tabular}\n\\end{table*}\n")
++    for block in SOURCE_BLOCKS:
++        rel = block.path.relative_to(REPO_ROOT)
++        digest = _sha(block.path)
++        chunks.append(f"\n\\subsection{{{_esc(block.title)}}}\n\\noindent Source: \\texttt{{{_esc(str(rel))}}}. Provenance: {_esc(block.provenance)}. SHA-256: \\texttt{{{digest[:24]}...}}.\n\n")
++        chunks.append(f"\\begin{{lstlisting}}[style=echoforgecode,language={block.language},caption={{{_esc(str(rel))} excerpt}}]\n")
++        chunks.append(_slice(block.path, block.start_line, block.end_line))
++        chunks.append("\\end{lstlisting}\n")
++    path.write_text("".join(chunks), encoding="utf-8")
++
++def main() -> int:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
++    args = parser.parse_args(); args.out_dir.mkdir(parents=True, exist_ok=True)
++    write_cli(args.out_dir / "appendix_cli_commands.tex")
++    write_sources(args.out_dir / "appendix_source_listings.tex")
++    return 0
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index 8dda6f3..tier1-flow 100644
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@
+     "phase_kpi.pdf",
++    "phase_kpi_ladder.pdf",
++    "ei_progress.pdf",
+@@
+     r"EI gain vs prior",
++    r"Simulation Design in Plain Radar Terms",
++    r"Detector Processing Baselines and Sensor Fusion",
++    r"Engineered Intelligence as Auditable Algorithm Innovation",
++    r"CLI Reproducibility Appendix",
++    r"Source-Code Appendix and Provenance Ledger",
+ )
+@@
+         "primary_kpi_rows",
++        "main_kpi_gain_rows",
++        "data_processing_trace_rows",
++        "radar_processing_chain_rows",
+@@
+     for required_csv in (
++        "main_kpi_gain_table.csv",
++        "data_processing_trace_rows.csv",
++        "radar_processing_chain_rows.csv",
+         "selected_threshold_confusion_matrix.csv",
+diff --git a/paper/validate_visuals.py b/paper/validate_visuals.py
+index 0103b00..tier1-flow 100644
+--- a/paper/validate_visuals.py
++++ b/paper/validate_visuals.py
+@@
+     "phase_kpi.png",
++    "phase_kpi_ladder.png",
++    "ei_progress.png",
+@@
+     "phase_kpi.pdf",
++    "phase_kpi_ladder.pdf",
++    "ei_progress.pdf",
+@@
+         elif name == "phase_kpi.pdf":
+             required_terms = ("False-alarm family legend", "Near-threshold")
++        elif name == "phase_kpi_ladder.pdf":
++            required_terms = ("Best branch", "accepted fusion", "EI")
++        elif name == "ei_progress.pdf":
++            required_terms = ("EI internal search", "locked holdout")
+         elif name == "ei_workflow.pdf":
+             required_terms = ("What EI does", "Blind holdout")
+diff --git a/paper/references.bib b/paper/references.bib
+index 476ac5e..tier1-flow 100644
+--- a/paper/references.bib
++++ b/paper/references.bib
+@@
+ @book{richards2014,
+@@
+ }
++
++@book{knott2004,
++  author = {Knott, Eugene F. and Shaeffer, John F. and Tuley, Michael T.},
++  title = {Radar Cross Section},
++  edition = {2},
++  publisher = {SciTech Publishing},
++  address = {Raleigh, NC, USA},
++  year = {2004}
++}
++
++@book{billingsley2002,
++  author = {Billingsley, J. Barrie},
++  title = {Low-Angle Radar Land Clutter: Measurements and Empirical Models},
++  publisher = {William Andrew Publishing},
++  address = {Norwich, NY, USA},
++  year = {2002}
++}

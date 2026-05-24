@@ -1,0 +1,37 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Note: `id` and `provenance.fingerprint_sha256` are placeholders; the Rust
+# `finalize()` step overwrites them at load time with content-derived values.
+# Static validation only requires the pattern to match.
+id: "ef:object_card:public-proxy-uav-1:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: public-proxy-uav-1
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Public Proxy Fixed-Wing UAV v1"
+object_family: fixed_wing_uav
+geometry_variant: baseline
+material_variant: composite-skin-baseline
+dimensions_m:
+  x: 2.4
+  y: 1.6
+  z: 0.4
+tags:
+  - public_proxy
+  - fixed_wing_uav
+  - v1

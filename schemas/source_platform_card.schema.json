@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/source_platform_card.schema.json",
+  "title": "source_platform_card",
+  "description": "EchoForge source_platform_card document. Declares a named real-world source/target platform (drone, loitering munition, ISR/strike UAV, commercial reference, or noise source like helicopter/aircraft/boat) with full multi-axis physics: geometry, propulsion, RCS aspect tables, micro-Doppler, IR signature, acoustic signature, RF emission profile, kinematic envelope, launch method, terminal behavior. Strict-open: public-source dossier only; vendor / platform names allowed (Shahed-136, Bayraktar TB2, DJI Phantom 4) per the 20260518T160000Z naming-policy reversal. Each parameter MUST cite a public source via `source_refs`. References: OSMP, RUSI, Janes, CSIS, DIA, Bellingcat, Army Recognition, Rahman-Robertson Nature 2018, MDPI Drones 2023, VTT 15/25 GHz measurements.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "display_name",
+    "platform_family",
+    "platform_role",
+    "country_of_origin",
+    "dimensions_m",
+    "mass_kg",
+    "propulsion",
+    "kinematic_envelope",
+    "launch_method",
+    "terminal_behavior",
+    "rcs_signature",
+    "tags"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": { "const": "source_platform_card" },
+    "schema_version": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license" },
+    "validation": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation" },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable name (e.g. 'Shahed-136 / Geran-2', 'Bayraktar TB2', 'DJI Phantom 4')."
+    },
+    "platform_family": {
+      "enum": [
+        "one_way_attack_uav",
+        "loitering_munition",
+        "isr_strike_uav",
+        "recoverable_ucav",
+        "commercial_multirotor",
+        "commercial_fixed_wing",
+        "hobby_rc",
+        "manned_helicopter",
+        "manned_fixed_wing_ga",
+        "manned_jet",
+        "missile_cruise",
+        "missile_ballistic",
+        "biological_bird",
+        "biological_bat",
+        "biological_insect_swarm",
+        "ground_vehicle",
+        "maritime_vessel",
+        "infrastructure_static",
+        "infrastructure_rotating",
+        "weather_volume",
+        "windborne_object"
+      ]
+    },
+    "platform_role": {
+      "enum": [
+        "adversary",
+        "commercial_reference",
+        "civil_air_traffic",
+        "biological_confuser",
+        "infrastructure_confuser",
+        "weather_confuser",
+        "ground_clutter_confuser",
+        "rfi_confuser"
+      ]
+    },
+    "country_of_origin": {
+      "type": "string",
+      "description": "ISO 3166-1 alpha-3 country code, or 'IRN-RUS' style hyphenated for jointly-produced platforms, or 'GLOBAL' for ubiquitous classes.",
+      "minLength": 3
+    },
+    "dimensions_m": {
+      "description": "Bounding-box extents in meters along principal axes (length, span, height).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/vector3"
+    },
+    "wingspan_m": { "type": "number", "exclusiveMinimum": 0 },
+    "fuselage_diameter_m": { "type": "number", "exclusiveMinimum": 0 },
+    "wing_chord_root_m": { "type": "number", "exclusiveMinimum": 0 },
+    "wing_chord_tip_m": { "type": "number", "exclusiveMinimum": 0 },
+    "mass_kg": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range",
+      "description": "Takeoff mass range (min/max) in kg."
+    },
+    "warhead_mass_kg": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range",
+      "description": "Warhead mass range (kg). Applies to OWA/loitering-munition platforms."
+    },
+    "propulsion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["propulsion_type"],
+      "properties": {
+        "propulsion_type": {
+          "enum": [
+            "piston",
+            "turboprop",
+            "turbojet",
+            "turbofan",
+            "ramjet",
+            "rocket_solid_then_piston",
+            "rocket_solid_then_jet",
+            "electric_brushless",
+            "electric_brushed",
+            "tethered",
+            "biological_wingbeat",
+            "biological_rotor",
+            "none"
+          ]
+        },
+        "engine_model_proxy": {
+          "type": "string",
+          "description": "Public proxy designation (e.g. 'mado-md-550', 'limbach-l550e', 'rotax-912', 'tj-100', 'tj-150')."
+        },
+        "rated_power_kw": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "rated_power_hp": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "propeller": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "blade_count": { "type": "integer", "minimum": 1 },
+            "blade_length_m": { "type": "number", "exclusiveMinimum": 0 },
+            "blade_chord_m": { "type": "number", "exclusiveMinimum": 0 },
+            "prop_diameter_m": { "type": "number", "exclusiveMinimum": 0 },
+            "rated_rpm_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+            "idle_rpm_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+            "blade_pitch_angle_deg_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+            "configuration": {
+              "enum": ["pusher", "tractor", "ducted", "coaxial", "tandem_rotor", "main_plus_tail"]
+            }
+          }
+        },
+        "jet_compressor": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "first_stage_blade_count": { "type": "integer", "minimum": 1 },
+            "rated_rpm_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+            "jem_tone_frequencies_hz_range": {
+              "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range",
+              "description": "Jet-engine modulation tones (compressor-blade-pass × RPM/60)."
+            }
+          }
+        },
+        "rocket_booster": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "burn_time_s_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+            "peak_thrust_n": { "type": "number", "exclusiveMinimum": 0 },
+            "peak_acceleration_g": { "type": "number", "exclusiveMinimum": 0 },
+            "exit_velocity_mps_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" }
+          }
+        }
+      }
+    },
+    "kinematic_envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cruise_speed_mps"],
+      "properties": {
+        "cruise_speed_mps": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "max_speed_mps": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "min_sustainable_airspeed_mps": { "type": "number", "exclusiveMinimum": 0 },
+        "stall_airspeed_mps": { "type": "number", "exclusiveMinimum": 0 },
+        "climb_rate_mps": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "descent_rate_mps": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "operational_altitude_bands_m_agl": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "min", "max"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "description": "e.g. 'low_ingress', 'transit_cruise', 'high_loiter'." },
+              "min": { "type": "number", "minimum": 0 },
+              "max": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          }
+        },
+        "max_altitude_m_agl": { "type": "number", "exclusiveMinimum": 0 },
+        "endurance_hours": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "range_km": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "turn_rate_max_deg_s": { "type": "number", "exclusiveMinimum": 0 },
+        "sustained_g_max": { "type": "number", "exclusiveMinimum": 0 },
+        "instantaneous_g_max": { "type": "number", "exclusiveMinimum": 0 },
+        "max_bank_angle_deg": { "type": "number", "exclusiveMinimum": 0, "maximum": 90 }
+      }
+    },
+    "launch_method": {
+      "enum": [
+        "runway_takeoff",
+        "rail_catapult_only",
+        "rail_with_rocket_booster",
+        "truck_cluster_5tube",
+        "truck_cluster_other",
+        "hand_launch",
+        "vertical_takeoff",
+        "air_drop",
+        "ship_launch",
+        "underwater_launch",
+        "biological_flight_origin",
+        "none"
+      ]
+    },
+    "terminal_behavior": {
+      "enum": [
+        "cruise_then_impact",
+        "loiter_then_dive",
+        "spiral_attack",
+        "pop_up_dive",
+        "vertical_dive",
+        "recoverable_runway",
+        "recoverable_chute",
+        "recoverable_vertical",
+        "biological_normal_flight",
+        "none"
+      ]
+    },
+    "guidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary_navigation": {
+          "enum": ["gnss_only", "gnss_plus_ins", "ins_only", "remote_pilot", "autonomous_visual", "terminal_seeker_eo", "terminal_seeker_ir", "wire_guided", "none"]
+        },
+        "datalink_present": { "type": "boolean" },
+        "datalink_band": { "type": "string" }
+      }
+    },
+    "rcs_signature": {
+      "description": "Radar cross-section model. Either a reference to a measured / interpolated aspect table (echosig_manifest) or an inline bounded statistical proxy per Skolnik §2.7 and Swerling-family fluctuation models.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aspect_table_ref": {
+          "type": "string",
+          "description": "Slug of an echosig_manifest document carrying full aspect × elevation × frequency × polarization tables."
+        },
+        "fluctuation_model": {
+          "enum": ["swerling_0", "swerling_1", "swerling_2", "swerling_3", "swerling_4", "non_fluctuating", "generalized_gamma", "weibull"]
+        },
+        "bands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["band_name", "center_frequency_hz", "aspect_envelopes"],
+            "properties": {
+              "band_name": { "type": "string", "minLength": 1 },
+              "center_frequency_hz": { "type": "number", "exclusiveMinimum": 0 },
+              "polarization": { "enum": ["vv", "hh", "hv", "vh", "averaged"] },
+              "aspect_envelopes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["aspect_name", "aspect_azimuth_deg_range", "rcs_dbsm_range"],
+                  "properties": {
+                    "aspect_name": {
+                      "enum": ["nose_on", "broadside_left", "broadside_right", "tail_on", "nose_quartering", "tail_quartering", "all_aspect_averaged"]
+                    },
+                    "aspect_azimuth_deg_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+                    "elevation_deg_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+                    "rcs_dbsm_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+                    "citation_id": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "micro_doppler_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dominant_modulation_source": {
+          "enum": ["propeller", "rotor_main", "rotor_main_plus_tail", "rotor_quad", "rotor_hex", "rotor_octo", "jem_compressor_tones", "wingbeat", "engine_vibration", "structural_resonance", "none"]
+        },
+        "blade_pass_fundamental_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "rotation_fundamental_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "harmonic_count": { "type": "integer", "minimum": 1 },
+        "amplitude_modulation_depth_db_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "aspect_visibility": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["aspect_name", "visibility_score"],
+            "properties": {
+              "aspect_name": {
+                "enum": ["nose_on", "broadside", "tail_on", "above", "below"]
+              },
+              "visibility_score": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+          }
+        },
+        "wingbeat_rate_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" }
+      }
+    },
+    "ir_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "lwir_temperature_delta_k": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range", "description": "Effective ΔT vs background (8-14 μm)." },
+        "mwir_temperature_delta_k": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range", "description": "Effective ΔT vs background (3-5 μm)." },
+        "swir_brightness_relative": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "plume_present": { "type": "boolean" },
+        "plume_duration_s": { "type": "number", "minimum": 0 },
+        "plume_intensity_w_per_sr_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "engine_exhaust_temperature_c": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "fuselage_solar_load_w_per_m2_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" }
+      }
+    },
+    "acoustic_signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "spl_at_100m_db_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "dominant_tonal_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "engine_fundamental_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "blade_harmonic_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "broadband_band_db": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "low_hz_to_500hz_db": { "type": "number" },
+            "five_hundred_hz_to_2khz_db": { "type": "number" },
+            "two_to_10khz_db": { "type": "number" }
+          }
+        },
+        "directivity": { "enum": ["omni", "forward_quadrant", "rear_quadrant", "lateral", "downward"] }
+      }
+    },
+    "rf_emissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "silent_default": { "type": "boolean", "description": "True if the platform routinely operates in RF-silent mode (e.g. Shahed-136 with pre-programmed GNSS+INS)." },
+        "gnss_receiver_active": { "type": "boolean" },
+        "gnss_band": { "type": "string", "description": "e.g. 'L1', 'L1+L5', 'GLONASS L1'" },
+        "control_link_present": { "type": "boolean" },
+        "control_link_band_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "telemetry_band_hz_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" },
+        "datalink_eirp_dbm_range": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range" }
+      }
+    },
+    "aliases": {
+      "description": "Alternative platform designations (export names, NATO codenames, country-specific designations).",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "source_refs": {
+      "description": "Public-source citations specific to this card's parameter set (OSMP, RUSI, Janes, CSIS, DIA, Bellingcat, Army Recognition, peer-reviewed RCS literature).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id", "url", "retrieved_utc"],
+        "properties": {
+          "citation_id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "publisher": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" }
+    }
+  }
+}

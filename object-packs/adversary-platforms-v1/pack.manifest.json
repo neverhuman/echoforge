@@ -1,0 +1,62 @@
+{
+  "id": "pack.adversary-platforms-v1",
+  "schema_version": "2.0.0",
+  "kind": "pack_manifest_v2",
+  "display_name": "Adversary Platforms v1 (named real platforms with full physics)",
+  "purpose": "Named real-world adversary / commercial-reference platform cards with full multi-axis physics: geometry, propulsion, RCS aspect tables, micro-Doppler, IR signature, acoustic signature, RF emission profile, kinematic envelope, launch method, terminal behavior. Strict-open posture: public-source dossier only; platform names allowed per the 20260518T160000Z naming-policy reversal.",
+  "card_refs": {
+    "source_platform_card": [
+      "shahed_136_geran_2.yaml",
+      "shahed_131_geran_1.yaml",
+      "geran_3_jet_variant.yaml",
+      "mohajer_6.yaml",
+      "bayraktar_tb2.yaml",
+      "lancet_3.yaml",
+      "dji_phantom_4.yaml"
+    ]
+  },
+  "card_slugs": [
+    "shahed-136-geran-2",
+    "shahed-131-geran-1",
+    "geran-3-jet-variant",
+    "mohajer-6",
+    "bayraktar-tb2",
+    "lancet-3",
+    "dji-phantom-4"
+  ],
+  "license": {
+    "spdx_id": "MIT",
+    "notice": "Card content derived from public sources (OSMP, RUSI, Janes, CSIS, DIA, Bellingcat, Army Recognition, peer-reviewed RCS literature, vendor datasheets for commercial-reference platforms). NOT a measured-truth claim."
+  },
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "OSMP Shahed-136 / Shahed-131 / Geran-3 visual guides",
+      "RUSI Russian Iranian-made UAV technical profile + Lancet family + Mohajer-6 + Bayraktar TB2 addenda",
+      "Janes Shahed-136 / Shahed-131 / Geran-3 / Mohajer-6 / Bayraktar TB2 / Lancet-3 entries",
+      "CSIS Russian Geran-3 jet UAV reference, CSIS Russian loitering munition reference, CSIS Iranian / Turkish UAV inventory references",
+      "Bellingcat Geran-1 / Geran-3 / Lancet-3 / Bayraktar TB2 / Mohajer-6 wreckage and operations analyses",
+      "Army Recognition Shahed-136, Shahed-131, Geran-3, Mohajer-6, Bayraktar TB2, Lancet-3 references",
+      "DJI Phantom 4 vendor datasheet, FCC ID filings, Echodyne and Robin Radar IRIS public marketing",
+      "object-packs/public-proxy/physics_dossier.md (Shahed-136 baseline dossier)",
+      "tips/problem_deep_dive/tip10.txt:1-35 (Shahed-136 consolidated public-source summary)",
+      "tips/detectors/tip2.txt:21 (Shahed-131 dimensions)",
+      "tips/detectors/tip11.txt:15 (Geran-3 CSIS speed/range)",
+      "tips/detectors/tip12.txt:35 (Geran-3 OSMP wreckage cruise speed)",
+      "Rahman & Robertson Nature Sci Rep 2018 (8:17396) — bird vs UAS micro-Doppler",
+      "MDPI Drones 2023 7(1):39 — small fixed-wing UAV RCS",
+      "VTT 15/25 GHz UAS RCS measurements (Phantom Pro 4 explicit, others scaled)"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T22:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "validation_tier": "cross_checked",
+  "fidelity_class": "production_sbr",
+  "notes": [
+    "Pack contains 7 source_platform_card documents covering the priority adversary and commercial-reference roster: Shahed-136 / Geran-2 (baseline full-fidelity dossier), Shahed-131 / Geran-1 (smaller sibling), Geran-3 jet variant (turbojet evolution), Mohajer-6 (Iranian ISR/strike), Bayraktar TB2 (Turkish ISR/strike), Lancet-3 / Izdeliye 52 (Russian loitering munition), DJI Phantom 4 (commercial multirotor reference for CUAS test-target use).",
+    "All cards declare strict-open public_proxy provenance, with every parameter range cited to OSMP / RUSI / Janes / CSIS / Bellingcat / Army Recognition / peer-reviewed RCS literature / vendor datasheets. No measured-truth claim is made for any platform-specific signature.",
+    "Future pack expansions: Kub-BLA, DJI Matrice 600, ZALA-class small ISR, biological confusers (bird/bat), helicopter and GA-aircraft noise sources."
+  ],
+  "source_status": "public_proxy"
+}

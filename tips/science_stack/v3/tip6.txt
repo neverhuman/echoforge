@@ -1,0 +1,1247 @@
+I reviewed the uploaded archive carefully. It contains **seven large design/spec proposals** (`tip1.txt` through `tip7.txt`) plus Apple metadata sidecar files, not implementation code. The designs are all converging on the right north star: **EchoForge should be a strict-open, GPU-native, validation-first synthetic sensing foundry**, not just a radar simulator wrapper.
+
+One important framing point: the most credible version should generate **public-source proxy signatures with explicit uncertainty**, not claim exact measured signatures for specific military systems unless you have lawful measured data. That is not a weakness; that is exactly the posture that will survive serious radar expert review.
+
+For current-tool verification: SagittaSBR is a C++/CUDA open-source far-field monostatic RCS solver using Shooting-and-Bouncing Rays, Geometrical Optics, and Physical Optics, and its GitHub page lists a GPL-3.0 license; RadarSimPy is feature-rich for transceiver/baseband/RCS/range-Doppler/DoA/beamforming simulation, but its installation docs say building from source requires access to `radarsimcpp`, with prebuilt modules used otherwise, so it should be optional rather than core. ([GitHub][1]) Sionna RT is appropriate for differentiable radio-propagation ray tracing, Stone Soup is a tracking/state-estimation framework, HermesPy has radar waveform/detector/radar-cube concepts, and openEMS, SCUFF-EM, and Palace are credible open validation solvers across FDTD, BEM/MoM, and FEM methods. ([NV Labs][2]) Public reference data for the target families of interest should be treated as source priors: OSMP lists Shahed-131 dimensions as 2.6 m length / 2.2 m wingspan and Shahed-136 as 3.5 m / 2.5 m, with related public model notes for the 136 series. ([Open Source Munitions Portal][3]) Measured drone RCS anchors exist for calibration philosophy: VTT/Aalto provide drone RCS measurements from 26–40 GHz, while compact-range work at 15 and 25 GHz shows strong dependence on frequency, aspect angle, material, and target geometry. ([VTT's Research Information Portal][4])
+
+## 1. Scoring rubric
+
+Scores below evaluate the seven uploaded design proposals as **architecture/spec solutions**, not code quality.
+
+| Category                                       | Weight | What earns a high score                                                                                                                 |
+| ---------------------------------------------- | -----: | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Strategic product fit and scope discipline     |     10 | Clear “Blender of synthetic sensing” vision, radar-first focus, avoids over-scoping sonar/lidar too early.                              |
+| EM/RCS fidelity and uncertainty                |     15 | Treats RCS as multidimensional, supports complex/coherent signatures, material uncertainty, solver limits, public-source proxy framing. |
+| Radar-chain realism                            |     15 | Goes beyond RCS into IQ/baseband, waveform models, impairments, range-Doppler-angle, CFAR, micro-Doppler, detections, tracks.           |
+| False positives, clutter, and scenario realism |     10 | Hard negatives are first-class: birds, COTS drones, terrain glints, vehicles, weather, multipath, interference, clutter-only scenes.    |
+| Validation and expert defensibility            |     15 | Canonical validation, cross-solver checks, measured anchors, convergence tests, confidence tiers, release gates.                        |
+| Data model, provenance, and leakage control    |     10 | Mesh hashes, solver versions, seeds, dataset cards, split policies, artifact lineage, leakage checking.                                 |
+| GPU/Docker/HPC engineering                     |     10 | GPU container plan, multi-GPU orchestration, chunking, restartability, Ray/Slurm/Apptainer support.                                     |
+| Buildability, APIs, repo, milestones           |     10 | Clear repo layout, SDK/CLI/API, phased delivery, acceptance tests, first tickets.                                                       |
+| Open-source/license/governance posture         |      5 | Strict-open core, optional/license-gated plugins, SBOM, copyleft isolation, no proprietary-system clone claims.                         |
+
+## 2. Scorecard for every uploaded solution
+
+| Solution   | Product |  RCS | Radar chain | World realism | Validation | Data/provenance | GPU/HPC | Buildability | Open/governance |          Total |
+| ---------- | ------: | ---: | ----------: | ------------: | ---------: | --------------: | ------: | -----------: | --------------: | -------------: |
+| `tip1.txt` |     9.5 | 14.0 |        13.5 |           9.0 |       14.0 |             9.5 |     9.0 |          9.5 |             4.5 | **93.0 / 100** |
+| `tip2.txt` |     9.0 | 13.0 |        13.0 |           8.0 |       13.5 |             8.5 |     8.5 |          9.0 |             4.5 | **89.0 / 100** |
+| `tip3.txt` |     9.0 | 13.5 |        14.0 |           8.5 |       14.0 |             8.5 |     8.5 |          9.0 |             4.5 | **91.0 / 100** |
+| `tip4.txt` |     9.0 | 12.5 |        12.0 |           8.5 |       13.0 |             7.5 |     8.0 |          8.0 |             4.5 | **85.0 / 100** |
+| `tip5.txt` |     9.5 | 14.0 |        13.0 |           9.0 |       14.0 |             9.0 |     8.5 |          9.5 |             4.5 | **92.0 / 100** |
+| `tip6.txt` |     9.5 | 13.5 |        14.0 |           9.0 |       14.0 |             9.5 |     8.5 |          9.5 |             4.5 | **92.5 / 100** |
+| `tip7.txt` |     9.5 | 13.0 |        13.5 |           9.0 |       13.5 |             8.5 |     8.5 |          9.0 |             4.5 | **90.0 / 100** |
+
+**Best uploaded draft:** `tip1.txt` narrowly wins because it is the most complete end-to-end spec: repo layout, package responsibilities, schemas, GPU plan, guardrails, dataset split policy, and first engineering tickets.
+**Best implementation spine:** `tip6.txt` is almost as strong and has the cleanest “EchoSig + Radar Kernel + Scenario DSL + build tickets” structure.
+**Best final answer:** merge `tip1`’s completeness, `tip6`’s data-standard clarity, `tip5`’s dataset/benchmark discipline, `tip7`’s onboarding/license architecture, and `tip3`’s micro-Doppler/build-order detail.
+
+## 3. Detailed feedback by uploaded solution
+
+### `tip1.txt` — Score: 93 / 100
+
+**What it does best:** This is the most complete draft. It has the strongest full-system shape: target library, false positives, sensor archetypes, RCS pipeline, radar-chain pipeline, validation ladder, API, CLI, solver adapter contract, UI, GPU/container strategy, dataset split policy, detector benchmark package, and first engineering tickets. It understands that EchoForge must output **raw IQ, range-Doppler, detections, tracks, dataset cards, validation reports, and leakage reports**, not just pretty RCS plots.
+
+**Main gaps:** It still needs a more concrete internal radar-kernel math/API spec. It names many solvers and libraries, but an implementation agent would still need more explicit definitions for GPU kernel boundaries, waveform abstractions, memory layout, and CPU/GPU equivalence testing. It also includes prohibited company-name references and should be scrubbed before entering any repo, docs, test data, comments, or examples.
+
+**Improvements:** Keep its architecture and ticket list, but add `EchoRadar` as a first-class module with formal interfaces: `Waveform`, `AntennaModel`, `PropagationModel`, `TargetSignatureProvider`, `ClutterProvider`, `ReceiverImpairmentModel`, `Processor`, `Detector`, and `Tracker`. Add schema-level enforcement that every signature has a confidence tier and release status.
+
+### `tip2.txt` — Score: 89 / 100
+
+**What it does best:** Very strong executive decision and strict-open stance. The v0.1 definition of done is excellent: it lists concrete commands and required artifacts. It correctly demotes RadarSimPy/RadarSimX to optional status and emphasizes a native radar-chain implementation.
+
+**Main gaps:** It is less detailed than the top drafts on micro-Doppler, coherent scattering representation, leakage prevention, and solver limitations. The false-positive system is present but not as deep as it should be for a serious benchmark factory.
+
+**Improvements:** Expand the radar-chain spec from “DSP kernels” into a tested module graph. Add explicit artifact schemas for IQ, range-Doppler-angle cubes, detection tables, track tables, and scenario manifests. Add more adversarial hard-negative tiers, but frame them as **robustness stress tests**, not operational deception.
+
+### `tip3.txt` — Score: 91 / 100
+
+**What it does best:** This draft has one of the best milestone structures and a useful micro-Doppler section. It is good at explaining why static RCS cubes are insufficient and why the platform needs motion, propulsor state, attitude, and time-varying scatterers.
+
+**Main gaps:** Its data model is solid but not as exhaustive as `tip1` or `tip6`. It needs more detail on how material uncertainty becomes solver-compatible. It should also put more emphasis on dataset leakage controls and release gating.
+
+**Improvements:** Merge its micro-Doppler thinking into the final radar kernel. Add `motion_state`, `propulsor_state`, `articulation_state`, and `scattering_center_tracks` to the signature schema. Require micro-Doppler validation with synthetic canonical rotating rods/propellers before applying it to proxy UAVs.
+
+### `tip4.txt` — Score: 85 / 100
+
+**What it does best:** Cleanest conceptual organization: **Signature Forge, Scenario Forge, Validation Forge**. It is easy to explain, easy to pitch, and avoids pretending that one solver is enough. It also correctly criticizes casual “random noise injection” and pushes toward structured clutter/confuser models.
+
+**Main gaps:** It is more strategic than implementation-ready. It has less concrete API, repo, schema, GPU, and testing detail than the top drafts. It is excellent as product architecture, but weaker as a build handoff.
+
+**Improvements:** Preserve the three-forge framing as the public product model, but implement from the more detailed module plan below. Add a concrete `Scenario DSL`, solver adapter contract, artifact registry, and acceptance tests.
+
+### `tip5.txt` — Score: 92 / 100
+
+**What it does best:** Very strong dataset/benchmark orientation. It has excellent acceptance tests, dataset cards, detector benchmarks, container separation, license separation, and practical engineering phases. It also recognizes that detector quality depends on hard negatives and held-out generalization, not just target-vs-empty scenes.
+
+**Main gaps:** It says it reviewed 11 drafts, while the uploaded archive contains seven primary text drafts. That is a small but credibility-relevant issue. It also needs a sharper GPU memory/data-layout strategy for large RCS and radar products.
+
+**Improvements:** Keep its dataset card and benchmark design. Add a strict `EchoSig` binary/metadata standard, chunked Zarr layout conventions, deterministic artifact hashes, and CPU/GPU numerical parity tests.
+
+### `tip6.txt` — Score: 92.5 / 100
+
+**What it does best:** This is the cleanest implementation spine. The `EchoSig` data standard, Radar Kernel, Scenario DSL, build tickets, and phase tests are highly actionable. It is almost the best draft because it feels closest to something an agent could start building.
+
+**Main gaps:** It is slightly less exhaustive than `tip1` on full repository/package responsibilities and validation submodules. It should define the solver adapter output normalization more concretely, especially for complex scattering matrices and confidence propagation.
+
+**Improvements:** Use this as the foundation for the final build. Add `tip1`’s broader package layout, `tip5`’s benchmark cards, and `tip7`’s object onboarding/license gates.
+
+### `tip7.txt` — Score: 90 / 100
+
+**What it does best:** Very strong final architecture, object onboarding flow, license architecture, anti-overfit controls, and review checklist. It is especially good at saying what would impress serious radar reviewers: humility about truth, visible solver limits, hard negatives, full chain outputs, anti-overfit controls, and reproducibility.
+
+**Main gaps:** It is slightly less detailed in data schemas, solver normalization, and GPU execution details. It also needs more concrete test cases and first tickets.
+
+**Improvements:** Keep its object onboarding flow and review checklist, but merge in `tip6`’s Scenario DSL and `tip1`’s package responsibilities.
+
+# 4. Best final solution: EchoForge Prime
+
+## 4.1 Final product definition
+
+**EchoForge is a GPU-native synthetic sensing foundry for radar-first, multi-sensor-ready dataset generation.**
+
+It turns:
+
+```text
+public-source object hypothesis
+→ geometry variants
+→ material uncertainty variants
+→ mesh QA
+→ RCS/signature generation
+→ validation and confidence scoring
+→ radar-chain simulation
+→ clutter and hard-negative scenarios
+→ detections/tracks/fusion
+→ dataset cards and benchmark reports
+```
+
+into:
+
+```text
+RCS cubes
+complex scattering matrices
+raw IQ/baseband
+range-Doppler-angle tensors
+micro-Doppler sequences
+detections
+tracks
+false-positive libraries
+scenario truth tables
+benchmark splits
+validation reports
+dataset cards
+model cards
+provenance graphs
+```
+
+The professional promise should be:
+
+> EchoForge produces reproducible, uncertainty-bounded, public-source proxy sensing data with visible validation evidence.
+
+It should **not** promise exact measured adversary signatures, vendor-equivalent radar behavior, operational targeting recommendations, evasion optimization, or proprietary-system clones.
+
+## 4.2 Final architecture
+
+```text
+EchoForge
+├── Object Forge
+│   ├── public-source object cards
+│   ├── mesh generation/import
+│   ├── mesh QA and repair
+│   ├── material-region tagging
+│   └── uncertainty variants
+│
+├── Signature Forge
+│   ├── SagittaSBR production RCS adapter
+│   ├── analytic primitive validators
+│   ├── full-wave validation adapters
+│   ├── RCS cube writer
+│   ├── complex scattering storage
+│   └── confidence scoring
+│
+├── EchoRadar Kernel
+│   ├── waveform models
+│   ├── antenna and array models
+│   ├── target signature interpolation
+│   ├── propagation and multipath
+│   ├── receiver impairments
+│   ├── raw IQ generation
+│   ├── range/Doppler/angle processing
+│   ├── CFAR and detection generation
+│   └── micro-Doppler synthesis
+│
+├── World Forge
+│   ├── terrain/ground clutter
+│   ├── weather clutter
+│   ├── birds/flocks
+│   ├── COTS drones
+│   ├── balloons/kites/debris
+│   ├── vehicles/cranes/turbines
+│   ├── multipath ghosts
+│   ├── RF interference
+│   └── scenario difficulty tiers
+│
+├── Track and Fusion Forge
+│   ├── tracking baselines
+│   ├── track truth
+│   ├── track metrics
+│   ├── passive RF metadata cues
+│   ├── EO/IR metadata cues
+│   └── acoustic metadata cues
+│
+├── Dataset Forge
+│   ├── split engine
+│   ├── leakage checker
+│   ├── Zarr/Parquet artifact writer
+│   ├── dataset cards
+│   ├── benchmark reports
+│   └── model cards
+│
+├── Validation Forge
+│   ├── canonical EM tests
+│   ├── cross-solver checks
+│   ├── measured-anchor comparisons
+│   ├── radar-chain golden tests
+│   ├── dataset QA
+│   └── release gates
+│
+└── Studio
+    ├── object browser
+    ├── mesh/material inspector
+    ├── RCS explorer
+    ├── radar episode viewer
+    ├── scenario editor
+    ├── validation dashboard
+    ├── dataset builder
+    └── benchmark explorer
+```
+
+## 4.3 Recommended technology stack
+
+| Layer                 | Final choice                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Core SDK              | Python, Pydantic, NumPy, SciPy, xarray                                                                  |
+| GPU compute           | CuPy first, optional JAX/PyTorch for differentiable/ML paths                                            |
+| Systems layer         | Rust for artifact hashing, manifest validation, job runner, CLI acceleration                            |
+| UI                    | Vite + React + TypeScript                                                                               |
+| API                   | FastAPI plus optional gRPC for workers                                                                  |
+| 3D visualization      | Three.js/react-three-fiber, PyVista notebooks, Plotly/ECharts                                           |
+| RCS production        | SagittaSBR in isolated solver container                                                                 |
+| Radar chain           | Native `echoforge-radar` / `EchoRadar` engine                                                           |
+| Optional radar plugin | RadarSimPy only after license/source audit, never required                                              |
+| Propagation context   | Sionna RT for radio propagation/multipath scenes, not target-RCS truth                                  |
+| Tracking/fusion       | Stone Soup adapter plus native metrics                                                                  |
+| Full-wave validation  | openEMS, SCUFF-EM, Palace, Bempp-cl/Puma-EM where practical                                             |
+| Storage               | Zarr/xarray for tensors, Parquet/Arrow for events, DuckDB/Postgres for registry, MinIO/S3 for artifacts |
+| Orchestration         | Ray for compute, Prefect for campaigns, Slurm/Apptainer for HPC                                         |
+| Experiment tracking   | MLflow, DVC or lakeFS, SBOM/license manifests                                                           |
+| Containers            | Separate CUDA base, solver, worker, API, and Studio images                                              |
+
+## 4.4 Repository layout
+
+```text
+echoforge/
+├── pyproject.toml
+├── Cargo.toml
+├── README.md
+├── LICENSE
+├── docker/
+│   ├── base-cuda.Dockerfile
+│   ├── worker.Dockerfile
+│   ├── studio.Dockerfile
+│   ├── solvers/
+│   │   ├── sagittasbr.Dockerfile
+│   │   ├── openems.Dockerfile
+│   │   ├── palace.Dockerfile
+│   │   └── scuffem.Dockerfile
+│   └── compose.dev.yml
+├── packages/
+│   ├── echoforge-core/
+│   ├── echoforge-assets/
+│   ├── echoforge-materials/
+│   ├── echoforge-signatures/
+│   ├── echoforge-solvers/
+│   ├── echoforge-radar/
+│   ├── echoforge-worlds/
+│   ├── echoforge-fusion/
+│   ├── echoforge-datasets/
+│   ├── echoforge-validation/
+│   └── echoforge-studio-api/
+├── rust/
+│   ├── ef-artifact/
+│   ├── ef-runner/
+│   └── ef-cli/
+├── studio/
+│   ├── package.json
+│   ├── src/
+│   └── vite.config.ts
+├── schemas/
+│   ├── object_card.schema.json
+│   ├── material_card.schema.json
+│   ├── sensor_archetype.schema.json
+│   ├── rcs_cube.schema.json
+│   ├── radar_episode.schema.json
+│   ├── scenario.schema.json
+│   ├── dataset_card.schema.json
+│   └── validation_report.schema.json
+├── examples/
+│   ├── canonical_shapes/
+│   ├── public_proxy_targets/
+│   ├── hard_negatives/
+│   ├── radar_episodes/
+│   └── datasets/
+├── tests/
+│   ├── unit/
+│   ├── gpu/
+│   ├── schemas/
+│   ├── solvers/
+│   ├── radar_chain/
+│   ├── validation/
+│   └── regression/
+└── docs/
+    ├── architecture.md
+    ├── coordinate_conventions.md
+    ├── license_policy.md
+    ├── validation_ladder.md
+    ├── target_proxy_policy.md
+    └── dataset_release_policy.md
+```
+
+## 4.5 Core package responsibilities
+
+### `echoforge-core`
+
+Owns manifests, IDs, units, coordinates, config loading, deterministic hashes, artifact registry, logging, and provenance.
+
+Mandatory features:
+
+```text
+- strict SI units
+- ENU/world frame definition
+- radar body frame definition
+- object body frame definition
+- azimuth/elevation convention
+- polarization convention
+- deterministic run hash
+- seed control
+- artifact manifest
+- SBOM/license manifest hooks
+```
+
+### `echoforge-assets`
+
+Owns geometry ingestion, procedural assets, mesh QA, source dossiers, and object cards.
+
+Mesh QA gates:
+
+```text
+- unit detection / scale sanity
+- bounding-box source-prior check
+- watertightness where required
+- normal orientation
+- non-manifold edges
+- degenerate triangles
+- triangle aspect ratio
+- material-region coverage
+- component labels
+- mesh simplification provenance
+- stable mesh hash
+```
+
+### `echoforge-materials`
+
+Owns material cards and uncertainty distributions.
+
+Material-card fields:
+
+```yaml
+material_id: lossy_composite_family_v0
+display_name: Lossy composite public-proxy family
+frequency_validity_hz: [1.0e9, 40.0e9]
+parameters:
+  relative_permittivity:
+    distribution: triangular
+    min: 3.0
+    mode: 4.2
+    max: 6.0
+  loss_tangent:
+    distribution: log_uniform
+    min: 0.002
+    max: 0.08
+  conductivity_s_m:
+    distribution: log_uniform
+    min: 1.0e-4
+    max: 10.0
+solver_support:
+  sagittasbr: surrogate_effective_scatterer
+  openems: direct_dielectric
+  scuffem: direct_or_surface_equivalent
+source_notes:
+  - public literature / measured anchor / engineering prior
+confidence: C
+limitations:
+  - not a measured material sample
+  - anisotropy not represented in production SBR path
+```
+
+### `echoforge-signatures`
+
+Owns `EchoSig`, the signature artifact standard.
+
+`EchoSig` must store **complex signatures**, not only dBsm.
+
+Minimum RCS cube axes:
+
+```text
+object_variant_id
+material_variant_id
+frequency_hz
+azimuth_deg
+elevation_deg
+tx_polarization
+rx_polarization
+attitude_state
+motion_state
+propulsor_state
+solver_id
+```
+
+Minimum tensor fields:
+
+```text
+S_hh_complex64
+S_hv_complex64
+S_vh_complex64
+S_vv_complex64
+sigma_hh_m2_float32
+sigma_hv_m2_float32
+sigma_vh_m2_float32
+sigma_vv_m2_float32
+phase_rad_float32
+uncertainty_sigma_m2_float32
+valid_cell_bool
+solver_confidence_uint8
+```
+
+Storage:
+
+```text
+Zarr group:
+  /signatures/rcs_cube.zarr
+  /metadata/object_card.json
+  /metadata/material_card.json
+  /metadata/solver_card.json
+  /metadata/validation_report.json
+  /metadata/provenance.json
+```
+
+### `echoforge-solvers`
+
+Owns solver adapters and job normalization.
+
+Solver adapter contract:
+
+```python
+class SolverAdapter:
+    solver_id: str
+    solver_version: str
+    license_class: str
+    supported_modes: list[str]
+
+    def validate_inputs(self, job: SolverJob) -> ValidationResult: ...
+    def prepare(self, job: SolverJob, workdir: Path) -> PreparedJob: ...
+    def run(self, prepared: PreparedJob) -> SolverRunResult: ...
+    def parse(self, result: SolverRunResult) -> RawSignatureArtifact: ...
+    def normalize(self, raw: RawSignatureArtifact) -> EchoSigArtifact: ...
+    def validate_outputs(self, artifact: EchoSigArtifact) -> ValidationResult: ...
+```
+
+Required adapter metadata:
+
+```text
+solver name/version/commit
+container digest
+GPU model
+driver/runtime version
+mesh hash
+material variant hash
+frequency grid
+angle grid
+polarization support
+monostatic/bistatic support
+far-field assumptions
+material assumptions
+failed cells
+runtime logs
+warnings
+```
+
+### `echoforge-radar`
+
+Owns the strict-open radar simulation chain.
+
+Core modules:
+
+```text
+Waveform:
+  CW
+  FMCW
+  pulsed LFM
+  phase-coded pulse
+  generic sampled waveform
+
+AntennaModel:
+  isotropic
+  gain table
+  pattern table
+  simple phased array
+  measured pattern import
+
+SignatureProvider:
+  point target
+  analytic primitive
+  RCS cube interpolation
+  scattering-center cloud
+  time-varying micro-Doppler target
+
+PropagationModel:
+  free-space
+  ground bounce
+  simple multipath
+  Sionna-assisted propagation context
+
+ReceiverModel:
+  thermal noise
+  phase noise
+  gain/phase imbalance
+  ADC quantization
+  timing jitter
+  dropped pulses
+  calibration error
+
+Processor:
+  dechirp / matched filter
+  range FFT
+  Doppler FFT
+  beamforming
+  range-Doppler-angle cube
+  STFT micro-Doppler
+  clutter suppression baseline
+
+Detector:
+  threshold
+  CA-CFAR
+  OS-CFAR
+  GO/SO-CFAR
+  simple learned baseline hooks
+
+Tracker:
+  truth association
+  Kalman/EKF/UKF
+  IMM
+  JPDA adapter
+  track metrics
+```
+
+Golden radar-chain tests:
+
+```text
+- point target appears in correct range bin
+- radial velocity maps to correct Doppler bin
+- two point targets resolve according to configured bandwidth/CPI
+- noise-only CFAR produces declared false-alarm rate
+- CPU/GPU range-Doppler outputs match within tolerance
+- antenna gain changes SNR as expected
+- RCS interpolation is deterministic and bounded
+- track initiation latency is measured
+```
+
+### `echoforge-worlds`
+
+Owns scenario generation and hard negatives.
+
+False-positive taxonomy:
+
+```text
+Biological:
+  single bird
+  bird flock
+  insects
+  bats
+
+Civilian small objects:
+  commercial quadcopters
+  fixed-wing hobby UAVs
+  balloons
+  kites
+  windborne debris
+
+Infrastructure:
+  wind turbines
+  cranes
+  power lines
+  rooftops
+  towers
+  fences
+
+Ground and terrain:
+  slopes
+  berms
+  rocks
+  vehicles
+  roads
+  low-elevation terrain glints
+
+Atmosphere/weather:
+  rain cells
+  fog attenuation metadata
+  dust
+  turbulence-like motion perturbations
+
+Radar artifacts:
+  sidelobe detections
+  multipath ghosts
+  range sidelobes
+  Doppler ambiguities
+  intermittent interference
+```
+
+Difficulty tiers:
+
+```text
+Tier 0: clean canonical scene
+Tier 1: simple target plus light noise
+Tier 2: target plus one easy confuser
+Tier 3: multiple confusers and clutter
+Tier 4: low-SNR target, near-ground clutter, multipath
+Tier 5: target-like confusers, crossing tracks, sensor faults
+Tier 6: hard-negative-only scenes designed to expose false alarms
+```
+
+For the low-elevation takeoff use case, model it as a **near-ground, low-elevation-angle public-proxy scenario family**, not as a live operational playbook:
+
+```text
+- target begins stationary or slow-moving near ground
+- attitude changes through launch/climb transition
+- strong ground clutter and ground-bounce effects
+- partial occlusion / terrain masking metadata
+- low radial velocity intervals
+- acceleration and heading changes
+- propulsor micro-Doppler onset
+- birds/COTS drones/vehicles as hard negatives
+- clutter-only and hard-negative-only matched scenes
+```
+
+### `echoforge-datasets`
+
+Owns dataset products, splits, leakage checks, and release cards.
+
+Dataset layout:
+
+```text
+dataset_name/
+├── dataset_card.yaml
+├── manifest.parquet
+├── objects/
+│   └── object_cards/*.yaml
+├── signatures/
+│   └── *.zarr
+├── episodes/
+│   ├── episode_000001/
+│   │   ├── scenario.yaml
+│   │   ├── truth.parquet
+│   │   ├── iq.zarr
+│   │   ├── range_doppler.zarr
+│   │   ├── detections.parquet
+│   │   ├── tracks.parquet
+│   │   ├── validation.json
+│   │   └── provenance.json
+├── splits/
+│   ├── train.parquet
+│   ├── validation.parquet
+│   ├── test.parquet
+│   └── stress.parquet
+└── reports/
+    ├── validation_report.html
+    ├── leakage_report.html
+    ├── benchmark_report.html
+    └── license_report.html
+```
+
+Leakage policy:
+
+```text
+Never split random frames.
+
+Train:
+  common geometry variants
+  common materials
+  common clutter
+  common radar archetypes
+
+Validation:
+  held-out seeds
+  held-out trajectories
+  held-out material perturbations
+  held-out clutter densities
+
+Test:
+  held-out geometry variants
+  held-out radar archetypes
+  held-out confuser families
+  held-out environments
+
+Stress:
+  rare hard negatives
+  low SNR
+  multipath ghosts
+  sensor faults
+  clutter-only scenes
+  hard-negative-only scenes
+```
+
+Leakage checker must enforce:
+
+```text
+- no identical scenario seed across splits
+- no identical object/material/state tuple across generalization splits
+- no identical mesh hash across test unless explicitly allowed
+- no duplicate trajectory template across train/test
+- no duplicate clutter seed across train/test
+- no artifact generated by a deprecated pipeline version
+```
+
+### `echoforge-validation`
+
+Owns credibility.
+
+Validation ladder:
+
+```text
+V0: unvalidated synthetic artifact
+V1: schema-valid and mesh-QA-valid
+V2: canonical solver tests passed
+V3: convergence tests passed
+V4: cross-solver spot checks passed
+V5: calibrated against public measured anchors where applicable
+V6: independently reviewed / measured dataset-backed
+```
+
+Canonical EM validation targets:
+
+```text
+- PEC sphere
+- flat plate
+- dihedral
+- trihedral corner reflector
+- cylinder
+- simple delta wing
+- canonical propeller/rotating rod
+- dielectric slab for full-wave solvers
+```
+
+Required validation metrics:
+
+```text
+RCS/signature:
+  dB error vs analytic/reference
+  angular lobe location error
+  peak/null preservation
+  polarization consistency
+  convergence vs mesh density
+  convergence vs ray count
+  failed-cell rate
+  uncertainty band coverage
+
+Radar chain:
+  range-bin error
+  Doppler-bin error
+  SNR error
+  CFAR false-alarm rate
+  probability of detection curves
+  CPU/GPU numerical parity
+  deterministic replay
+
+Dataset:
+  split leakage score
+  class balance
+  confuser coverage
+  scenario diversity
+  validation-tier distribution
+  provenance completeness
+
+Tracking:
+  track initiation latency
+  false-track duration
+  ID switches
+  track continuity
+  track purity
+  OSPA/GOSPA
+```
+
+Confidence score formula:
+
+```text
+confidence_score =
+  0.20 * source_quality
++ 0.15 * mesh_quality
++ 0.15 * material_quality
++ 0.20 * solver_validity
++ 0.15 * convergence_quality
++ 0.10 * cross_solver_agreement
++ 0.05 * measured_anchor_alignment
+```
+
+Release gate:
+
+```text
+A dataset cannot be marked release-grade unless:
+- all schemas validate
+- all artifacts have provenance
+- all signatures have confidence tiers
+- all optional plugins are declared
+- leakage report passes
+- validation report exists
+- license/SBOM report exists
+- known limitations are visible
+```
+
+## 4.6 API and CLI
+
+Python SDK:
+
+```python
+from echoforge import Project
+from echoforge.assets import ObjectCard
+from echoforge.signatures import RcsCampaign
+from echoforge.radar import RadarEpisode
+from echoforge.datasets import DatasetBuild
+
+project = Project.open("runs/cuav_proxy_v1")
+
+target = ObjectCard.from_yaml("objects/public_proxy_delta_owa.yaml")
+project.assets.register(target)
+
+campaign = RcsCampaign.from_yaml("campaigns/rcs_delta_owa_sweep.yaml")
+rcs_artifact = project.signatures.run(campaign, executor="ray", gpus=1)
+
+episode = RadarEpisode.from_yaml("episodes/low_elevation_hard_negative.yaml")
+radar_artifact = project.radar.simulate(episode, signatures=[rcs_artifact])
+
+dataset = DatasetBuild.from_yaml("datasets/cuav_proxy_benchmark_v1.yaml")
+release = project.datasets.build(dataset)
+
+project.validation.report(release).write_html("out/validation_report.html")
+```
+
+CLI:
+
+```bash
+# Environment and GPU checks
+echoforge doctor
+echoforge doctor --gpu
+echoforge license scan
+
+# Object and mesh work
+echoforge object validate objects/public_proxy_delta_owa.yaml
+echoforge mesh qa meshes/proxy_delta_owa.glb
+echoforge object build-variants objects/public_proxy_delta_owa.yaml
+
+# Solver validation
+echoforge validate canonical --suite rcs_smoke
+echoforge validate solver sagittasbr --suite canonical
+
+# RCS generation
+echoforge rcs generate campaigns/rcs_delta_owa_sweep.yaml --gpus 1
+echoforge rcs inspect out/signatures/*.zarr
+
+# Radar simulation
+echoforge radar simulate episodes/low_elevation_hard_negative.yaml
+echoforge radar validate out/episodes/episode_000001/
+
+# Dataset build
+echoforge dataset build datasets/cuav_proxy_benchmark_v1.yaml
+echoforge dataset leakage-check out/datasets/cuav_proxy_benchmark_v1/
+echoforge dataset report out/datasets/cuav_proxy_benchmark_v1/
+
+# Studio
+echoforge studio serve --project out/datasets/cuav_proxy_benchmark_v1
+```
+
+## 4.7 GPU-enabled Docker strategy
+
+Do **not** build one monster image. Use separate images:
+
+```text
+echoforge-base-cuda:
+  Python, uv, scientific stack, CUDA runtime, common mesh tools
+
+echoforge-worker:
+  EchoForge SDK, CuPy/JAX/PyTorch optional, Ray worker, dataset tools
+
+echoforge-solvers-sbr:
+  SagittaSBR pinned commit, CUDA build, adapter, smoke tests
+
+echoforge-solvers-openems:
+  openEMS/CSXCAD, adapter, canonical tests
+
+echoforge-solvers-palace:
+  Palace, adapter, canonical tests
+
+echoforge-solvers-bem:
+  SCUFF-EM/Bempp where feasible, adapter stubs/tests
+
+echoforge-studio:
+  FastAPI backend, React/Vite frontend
+
+echoforge-optional-radarsim:
+  optional only, license-gated, excluded from strict-open CI path
+```
+
+Runtime requirements:
+
+```text
+- NVIDIA Container Toolkit support
+- CUDA smoke test
+- deterministic container digests
+- SBOM generated per image
+- solver commit pinned
+- GPU model/driver logged per artifact
+- restartable chunked campaigns
+- CPU fallback for small tests
+```
+
+Campaign execution:
+
+```bash
+# Local GPU
+echoforge campaign run campaigns/rcs_smoke.yaml \
+  --executor ray-local \
+  --gpus 1 \
+  --cpus 16
+
+# Multi-GPU
+echoforge campaign run campaigns/rcs_library.yaml \
+  --executor ray \
+  --gpus 8 \
+  --chunking adaptive \
+  --resume true
+
+# HPC
+echoforge campaign run campaigns/full_validation.yaml \
+  --executor slurm \
+  --container apptainer \
+  --array-jobs true
+```
+
+## 4.8 Build phases and acceptance tests
+
+### Phase 0 — Foundation and credibility scaffold
+
+Deliverables:
+
+```text
+- monorepo
+- Python package skeleton
+- Rust artifact/runner skeleton
+- Vite/React Studio shell
+- FastAPI shell
+- Pydantic schemas
+- coordinate convention doc
+- license policy doc
+- artifact hash implementation
+- Docker CUDA base image
+- CLI doctor command
+```
+
+Acceptance tests:
+
+```text
+- echoforge doctor passes
+- echoforge doctor --gpu passes on CUDA host
+- schemas validate golden YAML examples
+- artifact hashes are deterministic
+- SBOM generated
+- Studio loads project status
+```
+
+### Phase 1 — Object Forge MVP
+
+Deliverables:
+
+```text
+- object card schema
+- material card schema
+- mesh import and QA
+- canonical shapes
+- first public-proxy target cards
+- first hard-negative object cards
+- mesh/material uncertainty variants
+```
+
+Acceptance tests:
+
+```text
+- wrong units are caught
+- inverted normals are caught
+- degenerate faces are caught
+- source-prior bounding box validation works
+- material coverage reaches 100% or warnings appear
+- mesh hash is stable
+```
+
+### Phase 2 — RCS Forge MVP
+
+Deliverables:
+
+```text
+- SagittaSBR container
+- SagittaSBR adapter
+- RCS campaign planner
+- RCS cube Zarr writer
+- canonical sphere/plate/trihedral validation
+- RCS explorer notebook/UI
+```
+
+Acceptance tests:
+
+```text
+- solver GPU smoke test passes
+- PEC sphere canonical result within declared tolerance
+- flat plate broadside behavior is sane
+- ray-density convergence report generated
+- mesh-density convergence report generated
+- first public-proxy RCS cube produced with validation card
+```
+
+### Phase 3 — EchoRadar Kernel MVP
+
+Deliverables:
+
+```text
+- waveform module
+- antenna model
+- free-space propagation
+- receiver noise/impairments
+- RCS cube interpolation
+- raw IQ generation
+- range-Doppler processing
+- CA-CFAR and OS-CFAR
+- detection table writer
+```
+
+Acceptance tests:
+
+```text
+- point target range bin correct
+- radial velocity Doppler bin correct
+- noise-only CFAR false-alarm rate correct
+- CPU/GPU outputs match within tolerance
+- IQ artifact links back to signature and scenario provenance
+```
+
+### Phase 4 — Validation Forge
+
+Deliverables:
+
+```text
+- openEMS adapter
+- Palace or SCUFF-EM adapter
+- canonical validation suite
+- cross-solver report generator
+- confidence scoring engine
+- validation dashboard
+```
+
+Acceptance tests:
+
+```text
+- canonical suite runs end-to-end
+- cross-solver deltas plotted
+- confidence scores update automatically
+- failed validation blocks release-grade promotion
+```
+
+### Phase 5 — World Forge and hard negatives
+
+Deliverables:
+
+```text
+- scenario DSL
+- ground clutter models
+- weather/interference models
+- bird/flock models
+- COTS drone confusers
+- terrain/infrastructure confusers
+- low-elevation scenario family
+- clutter-only and hard-negative-only episodes
+```
+
+Acceptance tests:
+
+```text
+- hard-negative-only dataset generated
+- positive+confuser dataset generated
+- clutter-only dataset generated
+- scenario seeds reproduce identical outputs
+- difficulty tiers are measurable
+```
+
+### Phase 6 — Tracking, fusion, and benchmark layer
+
+Deliverables:
+
+```text
+- Stone Soup adapter
+- baseline trackers
+- track schema
+- track metrics
+- RF/EO/IR/acoustic metadata cue interfaces
+- benchmark report generator
+```
+
+Acceptance tests:
+
+```text
+- track initiation latency measured
+- ID switches measured
+- false-track duration measured
+- crossing-track scenario evaluated
+- sensor-dropout scenario evaluated
+```
+
+### Phase 7 — Dataset Factory and Studio
+
+Deliverables:
+
+```text
+- split engine
+- leakage checker
+- dataset card generator
+- benchmark report
+- object browser
+- RCS explorer
+- radar episode viewer
+- validation dashboard
+- dataset export UI
+```
+
+Acceptance tests:
+
+```text
+- held-out test split leakage-clean
+- metrics stratified by object/confuser/scenario family
+- fresh machine reproduces smoke subset
+- all artifacts carry provenance
+- user can build a campaign from Studio
+```
+
+## 4.9 First 30 implementation tickets
+
+```text
+EF-001 Create monorepo with Python, Rust, and Studio workspaces.
+EF-002 Implement Pydantic schemas for ObjectCard, MaterialCard, SensorCard, ScenarioManifest, RcsCampaign, RadarEpisode, DatasetCard.
+EF-003 Implement deterministic artifact hashing.
+EF-004 Implement coordinate/unit convention tests.
+EF-005 Build base CUDA Docker image.
+EF-006 Implement echoforge doctor and doctor --gpu.
+EF-007 Implement license/SBOM scan command.
+EF-008 Add canonical shapes: sphere, plate, trihedral, cylinder.
+EF-009 Implement mesh import for OBJ/STL/GLB.
+EF-010 Implement mesh QA report.
+EF-011 Implement object/source dossier format.
+EF-012 Implement material-card registry.
+EF-013 Build first public-proxy target object card template.
+EF-014 Build first hard-negative object cards: bird, quadcopter, balloon, vehicle, turbine.
+EF-015 Build SagittaSBR container with pinned commit.
+EF-016 Implement SagittaSBR adapter prepare/run/parse/normalize.
+EF-017 Implement RCS cube Zarr writer/reader.
+EF-018 Implement canonical RCS validation suite v0.
+EF-019 Implement RCS convergence report.
+EF-020 Implement EchoSig manifest and metadata writer.
+EF-021 Implement waveform module: CW/FMCW/pulsed LFM.
+EF-022 Implement point-target radar-chain golden tests.
+EF-023 Implement RCS-cube interpolation into IQ generator.
+EF-024 Implement range FFT, Doppler FFT, and range-Doppler artifact writer.
+EF-025 Implement CA-CFAR and OS-CFAR.
+EF-026 Implement detections.parquet and truth.parquet schemas.
+EF-027 Implement Scenario DSL parser.
+EF-028 Implement hard-negative scenario generator.
+EF-029 Implement split engine and leakage checker.
+EF-030 Implement first validation/dataset HTML report.
+```
+
+## 4.10 Final flagship demo
+
+The first impressive demo should be honest, reproducible, and hard to dismiss:
+
+```text
+Objects:
+  - one public-source delta-wing OWA UAV proxy family
+  - one smaller related proxy family
+  - commercial quadcopter confuser
+  - bird/flock confuser
+  - balloon/kite confuser
+  - wind turbine / vehicle / terrain glint confusers
+
+Scenarios:
+  - clean canonical range
+  - low-elevation near-ground launch/climb transition
+  - target + bird
+  - target + COTS drone
+  - target + clutter + multipath
+  - hard-negative-only
+  - clutter-only
+  - low-SNR stress
+  - crossing-track stress
+
+Outputs:
+  - RCS cubes
+  - raw IQ
+  - range-Doppler maps
+  - detections
+  - tracks
+  - confidence scores
+  - leakage report
+  - validation report
+  - dataset card
+  - benchmark metrics
+```
+
+The impressive part should not be “we claim the exact signature of a named threat.” The impressive part should be:
+
+```text
+Every artifact is traceable.
+Every assumption is visible.
+Every solver limitation is stated.
+Every target is uncertainty-bounded.
+Every false positive is intentional.
+Every split is leakage-checked.
+Every released dataset has validation evidence.
+The strict-open path runs without closed dependencies.
+```
+
+# 5. Final solution score
+
+| Category                                       |          Score |
+| ---------------------------------------------- | -------------: |
+| Strategic product fit and scope discipline     |       9.8 / 10 |
+| EM/RCS fidelity and uncertainty                |      14.5 / 15 |
+| Radar-chain realism                            |      14.5 / 15 |
+| False positives, clutter, and scenario realism |       9.5 / 10 |
+| Validation and expert defensibility            |      14.5 / 15 |
+| Data model, provenance, and leakage control    |       9.8 / 10 |
+| GPU/Docker/HPC engineering                     |       9.2 / 10 |
+| Buildability, APIs, repo, milestones           |       9.7 / 10 |
+| Open-source/license/governance posture         |        4.7 / 5 |
+| **Final score**                                | **96.5 / 100** |
+
+The remaining 3.5 points are intentionally withheld because no synthetic-only system can honestly guarantee near-real-world fidelity for specific military platforms without lawful measured calibration data, and because the exact GPL/container/license boundary should be reviewed before release. The final design is still the strongest path: **strict-open core, GPU-native production, public-source proxy targets, serious hard negatives, full radar-chain outputs, validation gates, and complete provenance.**
+
+[1]: https://github.com/marco-pas/SagittaSBR "GitHub - marco-pas/SagittaSBR: BVH-accelerated code for monostatic RCS calculations via SBR method · GitHub"
+[2]: https://nvlabs.github.io/sionna/rt/index.html "Ray Tracing (RT) — Sionna 2.0.1"
+[3]: https://osmp.ngo/collection/shahed-131-136-uavs-a-visual-guide/ "Shahed-131 & -136 UAVs: a visual guide – Open Source Munitions Portal"
+[4]: https://cris.vtt.fi/en/datasets/drone-rcs-measurements-26-40-ghz/ "
+        Drone RCS measurements (26-40 GHz)
+      \-  VTT's Research Information Portal"
+

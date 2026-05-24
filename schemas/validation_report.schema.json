@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/validation_report.schema.json",
+  "title": "validation_report",
+  "description": "EchoForge validation_report document. Records the outcome of a validation run against a specific subject document (any of the other 11 EchoForge kinds), including individual check results and an overall pass/warn/fail status. Conforms to the EchoForge strict-open contract: deterministic ids, explicit provenance, license, and validation envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "report_name",
+    "subject_kind",
+    "subject_id",
+    "checks",
+    "overall_status"
+  ],
+  "properties": {
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1, computed from the identity field tuple.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator; must be the literal string \"validation_report\".",
+      "const": "validation_report"
+    },
+    "schema_version": {
+      "description": "Schema contract version this document conforms to (currently pinned to 1.0.0).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Slug identifying the public proxy this validation report is associated with (lowercase, dot/underscore/hyphen separated).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: source kind, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) governing use of this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope of the report document itself: tier, overall status, uncertainty score, and per-check results.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "report_name": {
+      "description": "Human-readable name of the validation report (e.g. \"object_card_geometry_audit_2026q2\"); non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_kind": {
+      "description": "Kind discriminator of the subject document under validation; one of the other 11 EchoForge kinds (object_card, material_card, mesh_manifest, solver_card, rcs_campaign, echosig_manifest, sensor_archetype, scenario, radar_episode, detector_graph, dataset_card).",
+      "type": "string",
+      "minLength": 1
+    },
+    "subject_id": {
+      "description": "Deterministic id of the subject document this report describes.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "checks": {
+      "description": "Individual validation check results that make up this report; at least one check required.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation_check"
+      }
+    },
+    "overall_status": {
+      "description": "Aggregate verdict across all checks: \"pass\" (all green), \"warn\" (non-fatal issues), or \"fail\" (one or more fatal issues).",
+      "type": "string",
+      "enum": ["pass", "warn", "fail"]
+    }
+  }
+}

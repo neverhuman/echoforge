@@ -1,0 +1,51 @@
+name: studio-readme-sync
+
+on:
+  workflow_run:
+    workflows:
+      - ci
+    branches:
+      - main
+    types:
+      - completed
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: studio-readme-sync-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: 1.95.0
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+        with:
+          node-version: '26.1.0'
+      - name: Download CI score artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: jankurai-score
+          path: target/jankurai
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Sync Studio README media
+        shell: bash
+        env:
+          CI: "true"
+          GITHUB_ACTIONS: "true"
+          GITHUB_TOKEN: ${{ github.token }}
+          STUDIO_SYNC_SCORE_SOURCE: artifact
+          STUDIO_SYNC_SCORE_JSON: target/jankurai/repo-score.json
+        run: bash ops/ci/studio-readme-sync.sh

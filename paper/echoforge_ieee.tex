@@ -1,0 +1,460 @@
+\documentclass[10pt,journal]{IEEEtran}
+
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tabularx}
+\usepackage{makecell}
+\usepackage{siunitx}
+\usepackage{listings}
+\usepackage{paper/lstlinebgrd}
+\usepackage[most]{tcolorbox}
+\usepackage{xparse}
+\usepackage{url}
+\urlstyle{tt}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\renewcommand{\arraystretch}{1.12}
+\setlength{\tabcolsep}{3.2pt}
+\sisetup{detect-weight=true,detect-family=true,round-mode=places,round-precision=3,table-number-alignment=center}
+
+\definecolor{EchoInk}{RGB}{30,41,59}
+\definecolor{EchoMuted}{RGB}{71,85,105}
+\definecolor{EchoBlue}{RGB}{37,99,235}
+\definecolor{EchoGain}{RGB}{22,101,52}
+\definecolor{EchoWarn}{RGB}{185,28,28}
+\definecolor{CodeBg}{RGB}{248,250,252}
+\definecolor{CodeFrame}{RGB}{203,213,225}
+\definecolor{SrcHuman}{RGB}{235,246,255}
+\definecolor{SrcGen}{RGB}{232,248,238}
+\definecolor{SrcMixed}{RGB}{242,239,255}
+\newcommand{\kpigain}[1]{\textbf{\textcolor{EchoGain}{#1}}}
+\newcommand{\kpicaveat}[1]{\textbf{\textcolor{EchoWarn}{#1}}}
+\newcommand{\PrimaryKPI}{LCB95 Recall@$\leq$1\%FPR}
+\newcommand{\PointKPI}{Recall@$\leq$1\%FPR}
+
+\lstdefinestyle{EchoForgePython}{
+  language=Python,
+  basicstyle=\scriptsize\ttfamily,
+  keywordstyle=\bfseries\color{EchoBlue},
+  commentstyle=\itshape\color{EchoMuted},
+  stringstyle=\color{EchoGain},
+  columns=fullflexible,
+  breaklines=true,
+  keepspaces=true,
+  showstringspaces=false,
+  frame=single,
+  framerule=0.3pt,
+  rulecolor=\color{CodeFrame},
+  backgroundcolor=\color{CodeBg},
+  numbers=left,
+  numberstyle=\tiny\color{EchoMuted},
+  numbersep=6pt,
+  xleftmargin=1.2em,
+  framexleftmargin=1.0em
+}
+
+\lstdefinestyle{EchoForgeShell}{
+  basicstyle=\scriptsize\ttfamily,
+  columns=fullflexible,
+  breaklines=true,
+  keepspaces=true,
+  showstringspaces=false,
+  frame=single,
+  framerule=0.3pt,
+  rulecolor=\color{CodeFrame},
+  backgroundcolor=\color{CodeBg}
+}
+
+\newtcblisting{EchoCodeBox}[2][]{
+  title={#2},
+  listing only,
+  listing options={style=EchoForgeShell,#1},
+  colback=CodeBg,
+  colframe=CodeFrame,
+  coltitle=black,
+  fonttitle=\bfseries\small,
+  breakable
+}
+
+\graphicspath{{paper/figures/}{figures/}}
+
+\IfFileExists{target/paper/generated_metrics.tex}{%
+  \input{target/paper/generated_metrics.tex}%
+}{%
+  \newcommand{\MetricScenarioGroups}{10000}
+  \newcommand{\MetricPositiveGroups}{50}
+  \newcommand{\MetricPhaseRecords}{30000}
+  \newcommand{\MetricHoldoutRecords}{4500}
+  \newcommand{\MetricHoldoutPositiveRecords}{24}
+  \newcommand{\MetricHoldoutPositiveGroups}{8}
+  \newcommand{\MetricPriorLcb}{0.083}
+  \newcommand{\MetricEiLcb}{0.713}
+  \newcommand{\MetricLcbAbsChange}{+0.630}
+  \newcommand{\MetricLcbRelativePercent}{+760.0\%}
+  \newcommand{\MetricLcbMultiplier}{7.60x}
+  \newcommand{\MetricPriorPointRecall}{0.292}
+  \newcommand{\MetricEiPointRecall}{0.833}
+  \newcommand{\MetricPointRecallAbsChange}{+0.542}
+  \newcommand{\MetricPointRecallRelativePercent}{+185.7\%}
+  \newcommand{\MetricPointRecallMultiplier}{2.85x}
+  \newcommand{\MetricPriorAP}{0.128}
+  \newcommand{\MetricEiAP}{0.830}
+  \newcommand{\MetricAPAbsChange}{+0.702}
+  \newcommand{\MetricAPRelativePercent}{+547.4\%}
+  \newcommand{\MetricPriorFOne}{0.241}
+  \newcommand{\MetricEiFOne}{0.826}
+  \newcommand{\MetricFOneAbsChange}{+0.585}
+  \newcommand{\MetricPriorSelectedFP}{49}
+  \newcommand{\MetricEiSelectedFP}{3}
+  \newcommand{\MetricSelectedFPReduction}{46}
+  \newcommand{\MetricSelectedFPReductionPercent}{93.9\%}
+  \newcommand{\MetricPriorRocAuc}{0.938}
+  \newcommand{\MetricEiRocAuc}{0.916}
+  \newcommand{\MetricRocAucDelta}{-0.021}
+  \newcommand{\MetricPriorTPFPFN}{10/49/14}
+  \newcommand{\MetricEiTPFPFN}{19/3/5}
+  \newcommand{\MetricPriorSelectedFPR}{0.010947}
+  \newcommand{\MetricEiSelectedFPR}{0.000670}
+}
+
+\begin{document}
+
+\title{EchoForge and Engineered Intelligence for Low-False-Alarm UAS Radar: A Strict-Open Synthetic Benchmark}
+
+\author{Jeppson Taylor, Lead Author\\
+NeverHuman Research Group}
+
+\maketitle
+
+\begin{abstract}
+Low-altitude uncrewed aerial system (UAS) radar detection is a rare-positive, false-alarm-constrained problem. EchoForge is a strict-open, radar-first synthetic sensing benchmark for fixed-wing pusher-prop public-proxy UAS research. It exposes public-source object priors, radar branch cards, synthetic complex IQ, range-Doppler products, acoustic and passive-RF cues, detector-view contracts, group-locked splits, and reproducible evidence without claiming measured-platform truth, proprietary-equivalent behavior, classified fidelity, or deployment performance. The benchmark run contains \MetricScenarioGroups{} scenario groups, \MetricPositiveGroups{} positive groups, and \MetricPhaseRecords{} phase records. Candidate discovery, calibration, thresholding, and model selection use train/CV rows only; the \MetricHoldoutRecords{}-record blind holdout is scored once after lock. The accepted comparator is the strongest human-engineered sensor-fusion lane assembled from the radar and cue branches. Engineered Intelligence (EI) improves point \PointKPI{} from \kpigain{\MetricPriorPointRecall{} to \MetricEiPointRecall{}} and improves \PrimaryKPI{} from \kpigain{\MetricPriorLcb{} to \MetricEiLcb{}}. It raises AP from \kpigain{\MetricPriorAP{} to \MetricEiAP{}} and cuts selected-threshold false positives from \kpigain{\MetricPriorSelectedFP{} to \MetricEiSelectedFP{}}. EI gives up global ROC AUC relative to prior fusion, \kpicaveat{\MetricEiRocAuc{} vs. \MetricPriorRocAuc{}}, so the claim is precise: EI improves the low-FPR operating point on this declared synthetic public-proxy benchmark, not universal ranking dominance or operational performance.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Synthetic radar, UAS detection, radar simulation, micro-Doppler, sensor fusion, engineered intelligence, low false alarm detection, reproducibility.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Radar detection for low-altitude UAS is difficult because the target is small, intermittent, and often embedded in clutter or hard-negative traffic that produces plausible false tracks. In this setting, ROC AUC is not enough. A detector can rank positives well on average and still fail once the false-positive budget is nearly exhausted. EchoForge therefore treats \PrimaryKPI{} as the claim-bearing metric, with AP, ROC AUC, calibration, selected-threshold confusion counts, and false-positive families as guardrails.
+
+This paper has one experimental spine: simulator assumptions, human detector branches, accepted human fusion, EI search, selection lock, and one blind holdout pass. The paper-facing positive class is a fixed-wing pusher-prop public proxy. The proxy is inspired by open public descriptions of fixed-wing pusher-prop UAS families, but the benchmark does not claim measured Iranian-platform radar signatures, route behavior, payload behavior, fielded-system equivalence, or classified fidelity.
+
+The contributions are:
+\begin{itemize}
+  \item a strict-open synthetic radar and multimodal sensing benchmark for fixed-wing pusher-prop public-proxy UAS scenarios;
+  \item a radar-first evaluation setup connecting waveform assumptions, range-Doppler structure, CFAR/MTD scoring, micro-Doppler cues, tracking, and fusion;
+  \item a human-method ladder that ends in accepted human sensor fusion before EI is introduced;
+  \item an auditable EI method that evolves sparse calibrated fusion on train/CV evidence and is judged against the accepted comparator under one group-locked protocol;
+  \item a focused figure set: simulator stack, phase ladder, EI train/CV evolution, false-positive burden, and qualitative range-Doppler examples.
+\end{itemize}
+
+\begin{table*}[t]
+  \caption{Front-Loaded Evidence Ledger and Claim Boundary}
+  \label{tab:frontledger}
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}YYp{0.24\textwidth}@{}}
+    \toprule
+    Ledger item & Paper-facing value & Evidence role & Boundary \\
+    \midrule
+    Corpus and split & \MetricScenarioGroups{} groups, \MetricPhaseRecords{} phase records, \MetricHoldoutRecords{} blind-holdout records & group-locked rare-positive evaluation & no field-rate or deployment prior \\
+    Active radar grids & 64 pulses/chirps by 96 range bins per active radar branch & richer range-Doppler diagnostics and IQ-derived branch features & synthetic bins, not measured imagery \\
+    Branch cards & X/Ku, S-band, and GBAD cueing envelopes with bandwidth, CPI, and range resolution & readable radar assumptions & no vendor sensitivity, exact ECCM, or exact Pd/Pfa \\
+    Jamming/deception stress & 15\% scenario-group activation for official runs, 0 only for ablation & detector robustness stress and false-alarm accounting & not operational jamming guidance or evasion optimization \\
+    Locked KPI & \PrimaryKPI{} plus AP, ROC AUC, FPR, F1, and selected-threshold counts & low-FPR claim-bearing result with guardrails & not operational performance \\
+    \bottomrule
+  \end{tabularx}
+\end{table*}
+
+\section{Radar Processing Background}
+The radar branch begins with a received-power proxy,
+\begin{equation}
+P_r \propto \frac{P_tG_tG_r\lambda^2\sigma(\theta,f,\phi)}{(4\pi)^3R^4L},
+\end{equation}
+where $\sigma$ is an aspect- and frequency-dependent public-proxy RCS term, $R$ is slant range, and $L$ is aggregate loss. EchoForge then synthesizes complex IQ as a target return plus clutter, interference, and receiver impairment,
+\begin{equation}
+x_{m,n}=a_{m,n}e^{j(2\pi f_dmT_r+\varphi_n)}+c_{m,n}+\epsilon_{m,n}.
+\end{equation}
+The range-Doppler budget follows standard radar processing: bandwidth controls range resolution, CPI controls Doppler resolution, and PRF constrains ambiguity. The derived quantities used in the branch cards are
+\begin{equation}
+\Delta R=\frac{c}{2B},\qquad \Delta f_D=\frac{1}{T_{\mathrm{CPI}}},\qquad \Delta v=\frac{\lambda}{2T_{\mathrm{CPI}}}.
+\end{equation}
+
+Classical detector families then ask whether a cell, Doppler ridge, or short track is locally exceptional. CFAR compares a peak against local clutter; MTD emphasizes coherent motion; track scoring rewards persistence; micro-Doppler features summarize modulation from rotating or flapping structures; and fusion combines sensor-local evidence under uncertainty \cite{skolnik2008,richards2014,rohling1983,chen2011,tahmoush2015,hall1997,barshalom2001}. Public measured radar datasets and UAS micro-Doppler studies are useful as observable-family anchors, but EchoForge uses them as compare-only references rather than as proof of measured positive-class truth \cite{kth2021,openradar2023,raddar2019,rahman2018,molchanov2014,ritchie2017}.
+
+\section{EchoForge Simulator}
+EchoForge is the simulator and evidence stack behind the experiment. It separates public-proxy priors, scenario construction, radar and cue synthesis, detector-view materialization, split-aware evaluation, and paper evidence. Figure~\ref{fig:architecture} is the paper-facing map of that stack.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{architecture_stack.pdf}
+  \caption{EchoForge simulator and evidence stack. Public-proxy object priors, scenario groups, radar branch cards, synthetic range-Doppler products, detector-view contracts, train/CV locks, blind holdout evidence, and claim-boundary language are kept separate so the benchmark can be audited without conflating synthetic products with measured truth.}
+  \label{fig:architecture}
+\end{figure*}
+
+The simulator exposes six capabilities needed for this benchmark:
+\begin{itemize}
+  \item \textit{Public-proxy object priors}: fixed-wing pusher-prop geometry, broad kinematics, aspect/RCS uncertainty, pusher-prop cadence, phase labels, and hard-negative families.
+  \item \textit{Radar branch cards}: X/Ku C-UAS, S-band surveillance, and GBAD cueing archetypes with explicit carrier, bandwidth, CPI, PRF/CRF, chirp count, range resolution, Doppler resolution, and velocity resolution.
+  \item \textit{Scene and receiver stress}: non-Gaussian clutter, weather/terrain glint, vegetation motion, RFI bursts, multipath ghosts, AGC compression, drift, quantization, dropped CPI, Doppler folding, and calibration offset.
+  \item \textit{Multimodal cue streams}: acoustic cadence/agreement and passive-RF absence, contamination, sparse cue geometry, and provenance quality.
+  \item \textit{Detector-view contracts}: model-facing features include detector scores and cue summaries; labels, split fields, group IDs, audit headers, and generator internals are denied to the model.
+  \item \textit{Reproducible evidence}: deterministic seeds, group-locked splits, strict train/CV selection, one blind-holdout score pass, and generated figure/code appendices.
+\end{itemize}
+
+\subsection{Defensive Jamming and Deception Stress Modeling}
+EchoForge includes a bounded public taxonomy for radar jamming and deception stress, using public descriptions only as a high-level taxonomy seed \cite{radarJammingDeceptionWiki}. Mechanical-like stressors create cloud or decoy-like false-return pressure; noise-like electronic stressors create spot, sweep, barrage, or pulse-cover receiver contamination; deception-like stressors create repeater-like false-target and signature-augmentation artifacts. The activation decision is sampled at the scenario-group level, independently of label and split, so jamming/deception cannot become a shortcut for negatives. Detector features are IQ-derived summaries such as spectral flatness, range-line occupancy, pulse burstiness, ghost-peak count, and low-Doppler cloud mass.
+
+\begin{table}[t]
+  \caption{Defensive Jamming and Deception Stressors}
+  \label{tab:jammingdeception}
+  \centering
+  \small
+  \begin{tabularx}{\columnwidth}{@{}p{0.30\columnwidth}YY@{}}
+    \toprule
+    Family & Synthetic detector symptom & Boundary \\
+    \midrule
+    Noise-like & spot, sweep, barrage, and pulse-cover contamination in receiver-view IQ & no jammer power, J/S, or timing recipe \\
+    Mechanical-like & cloud-like clutter and stable bright false returns & no deployment model or reflector sizing claim \\
+    Deception-like & randomized ghost peaks and augmented signature lobes & no target-specific delay program or ECCM behavior \\
+    Inadvertent interference & sparse unsynchronized artifacts & benign stress only, not emitter-control guidance \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{table}[t]
+  \caption{Radar Branch Cards Used in the Benchmark}
+  \label{tab:radarbranches}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrrr@{}}
+    \toprule
+    Branch & $f_0$ GHz & BW MHz & CPI ms & $\Delta R$ m \\
+    \midrule
+    X/Ku C-UAS & 10.0 & 600 & 16.0 & 0.250 \\
+    S-band surveillance & 3.1 & 180 & 16.0 & 0.833 \\
+    GBAD cueing & 10.3 & 300 & 16.0 & 0.500 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Benchmark Design}
+The benchmark run contains \MetricScenarioGroups{} scenario groups, \MetricPositiveGroups{} positive groups, and \MetricPhaseRecords{} phase records. Each group expands into three fixed windows: initial take-up (0--30~s), climb transition (30--90~s), and cruise altitude (90--150~s). Split assignment occurs at the scenario-group level before phase expansion; all phase rows from the same group inherit the same split. The blind holdout contains \MetricHoldoutRecords{} records, including \MetricHoldoutPositiveRecords{} positive records from \MetricHoldoutPositiveGroups{} positive scenario groups.
+
+The primary KPI is \PrimaryKPI{}. It is the lower 95\% group-block bootstrap bound for recall at FPR $\leq1\%$. The point estimate \PointKPI{} is also reported, but \PrimaryKPI{} is claim-bearing because the positive holdout is group-locked and small. Selected-threshold TP/FP/FN counts are kept separate from swept fixed-FPR metrics.
+
+\section{Human Detection Ladder}
+The human ladder is ordered from sensor-local evidence to accepted sensor fusion. Every method uses the same three phase windows and train/CV-only threshold or calibration basis. Figure~\ref{fig:phaseladder} repeats that method order across the three phases.
+
+Table~\ref{tab:humanmethods} gives the compact processing contract; the prose below expands each rung so the ladder can be audited as a set of distinct human methods rather than as a single catch-all ``baseline.''
+
+The first rung is the high-resolution X/Ku branch. It is the closest thing in EchoForge to a radar-local sanity check because it preserves the most discriminative structure in the synthetic IQ stream. Human review on this branch starts with CFAR-like power contrast, then checks whether the returned energy is concentrated in a plausible range-Doppler cell, and finally looks for micro-Doppler structure that is consistent with the public proxy rather than with clutter, birds, or an RC aircraft \cite{skolnik2008,richards2014,rohling1983,chen2011,tahmoush2015,rahman2018,molchanov2014}. This is a detector-view rung, not a claim-making rung: it answers whether the proxy is separable under a specific waveform and stress family, while still denying the analyst access to labels, split keys, group IDs, or holdout rows.
+
+The second radar rung is the lower-resolution S-band branch. It gives up fine range detail in exchange for broader surveillance coverage, so the human decision relies more on motion-trend summaries, track persistence, and range-velocity coherence than on the high-resolution branch features \cite{schleher1999,richards2014,blackman1999,barshalom2001}. The GBAD cueing branch is even further from raw detection. It treats the radar as a source of cue confidence, horizon status, revisit cadence, and stale-track evidence, then converts those terms into a wide-area cue-management decision rather than a final classifier. That distinction is standard in the tracking literature: detection, tracking, cueing, and classification are related but separate tasks, and fusing them as if they were the same would overstate what the human method is actually doing \cite{hall1997,barshalom2001,blackman1999,mahler2007}.
+
+The non-radar branches fill out the multimodal side of the ladder. The acoustic cue branch measures cadence, stability, and node agreement, which makes it useful for propulsion-pattern confirmation without turning the score into a proxy for identity, payload, or location. The passive-RF branch is intentionally sparse and provenance-heavy: it tracks no-signal behavior, burst contamination, clock offset, and source quality so the analyst can downweight corrupted RF context without inventing emitter-level truth from absence alone. The tabular and sequence ML controls are ordinary learned baselines that consume detector-facing features only; the denylist keeps them from seeing labels, split keys, group IDs, or audit-only generator state. In other words, they are stress-tested controls for the same evidence contract, not shortcuts around it.
+
+At the top of the ladder sits accepted human fusion. This lane combines branch confidence, source agreement, stale-track penalties, and cross-sensor confirmation under a train/CV-calibrated threshold, which is why it is the correct human comparator for EI rather than a strawman \cite{hall1997,barshalom2001,mahler2007,guo2017}. The fusion step is intentionally conservative: it only accepts a detection when the branch evidence is mutually supportive and the calibration lock has been fixed before holdout scoring. Table~\ref{tab:humanmethods} gives the summary contract for each method, and Figure~\ref{fig:phaseladder} shows that the same ordering is used in the take-off, climb, and cruise windows.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{phase_method_ladder.pdf}
+  \caption{Human detection ladder and EI challenger by phase. The same take-off, climb, and cruise panels show progression from radar and cue branches to ordinary ML controls, accepted human fusion, and EI. The plotted diagnostic is \PointKPI{} on the holdout phase slice; phase conclusions remain diagnostic because each phase has only eight positive holdout records.}
+  \label{fig:phaseladder}
+\end{figure*}
+
+\begin{table*}[t]
+  \caption{Method Ladder Before and Including EI}
+  \label{tab:humanmethods}
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{0.14\textwidth}p{0.15\textwidth}p{0.14\textwidth}Yp{0.16\textwidth}Y@{}}
+    \toprule
+    Method & Sensors used & Phase windows & Processing pipeline & Threshold/calibration basis & Role \\
+    \midrule
+    X/Ku radar & X/Ku radar & 0--30, 30--90, 90--150~s & CFAR-like power contrast, range-Doppler concentration, micro-Doppler spread & train/CV max-F1 & high-resolution radar sanity branch \\
+    S-band radar & S-band radar & same & MTD/range-velocity summaries and track confidence & train/CV max-F1 & lower-resolution surveillance stress check \\
+    GBAD cueing & GBAD cue radar & same & horizon, revisit, stale-track, and cue-confidence terms & train/CV max-F1 & cueing branch rather than final classification \\
+    Acoustic cue & acoustic nodes & same & cadence, stability, and node agreement & train/CV score threshold & non-radar propulsion-cadence support \\
+    Passive RF & passive-RF provenance & same & RF silence, RFI burst, sparse cue geometry, and provenance quality & train/CV score threshold & missingness/provenance stress \\
+    Tabular/sequence ML & denylisted detector views & same & ordinary tabular and sequence controls using detector-facing features only & train/CV max-F1 & non-EI learned controls \\
+    Accepted fusion & radar, acoustic, passive-RF context & same & human late fusion with source confidence, cross-sensor confirmation, and stale-track penalties & train/CV calibrated threshold & main non-EI comparator \\
+    EI sparse fusion & all detector views plus evolved components & same & sparse nonnegative late fusion with monotone odds calibration & EI selection lock from train/CV & locked challenger \\
+    \bottomrule
+  \end{tabularx}
+\end{table*}
+
+\section{Engineered Intelligence}
+Human radar engineering is powerful, but it has three bottlenecks: knowledge consumption, idea generation, and validation bandwidth. EI is the engineering response to those bottlenecks. It is not an opaque model handle. In this benchmark it is controlled algorithm discovery: candidate score families are generated, sparse combinations are ranked on train/CV evidence, a monotone calibrator is fit, a selection lock is written, and the blind holdout is scored once.
+
+\subsection{Method Math}
+Let $x_i$ be the detector-view feature vector for record $i$. Candidate component $j$ maps that view to a bounded score
+\begin{equation}
+s_{ij}=g_j(x_i).
+\end{equation}
+EI then searches sparse nonnegative late fusion weights,
+\begin{equation}
+z_i=\sum_{j=1}^{k}w_js_{ij},\qquad w_j\geq0,\qquad \sum_{j=1}^{k}w_j=1.
+\end{equation}
+The selected fused score is calibrated through monotone geodesic odds,
+\begin{equation}
+\hat p_i=\sigma\!\left(a\log\frac{z_i+\epsilon}{1-z_i+\epsilon}+b\right).
+\end{equation}
+The train/CV objective follows the implementation: it rewards AP and ROC AUC while penalizing excess FPR and weak initial-take-up behavior,
+\begin{multline}
+J=\mathrm{AP}_{\mathrm{CV}}+0.25\,\mathrm{AUC}_{\mathrm{CV}}\\
+-\alpha\,\max(0,\mathrm{FPR}_{\mathrm{CV}}-\tau)-\beta\,\Delta_{\mathrm{takeup}}.
+\end{multline}
+All terms are computed on train/CV rows. Holdout rows are not used to choose candidates, calibrators, thresholds, components, or weights.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ei_evolution_money_plot.pdf}
+  \caption{EI train/CV evolution money plot. Candidate evaluations are shown in actual train/CV order with the running best emphasized and the selected lock marked. The blind holdout is scored once after lock and is not used to draw this curve; there is no holdout optimization curve.}
+  \label{fig:eievolution}
+\end{figure*}
+
+\section{Results}
+The gain is concentrated where the benchmark is designed to be hard: low-FPR recall. Table~\ref{tab:mainresults} is the headline ledger and separates swept low-FPR recall from selected-threshold confusion counts and ranking guardrails.
+
+\begin{table*}[t]
+  \caption{Blind-Holdout Result Versus Accepted Human Fusion}
+  \label{tab:mainresults}
+  \centering
+  \small
+  \begin{tabular}{@{}lrrr@{}}
+    \toprule
+    Metric & Accepted human fusion & EI sparse fusion & Change \\
+    \midrule
+    \PrimaryKPI{} & \MetricPriorLcb{} & \kpigain{\MetricEiLcb{}} & \kpigain{\MetricLcbAbsChange{}; \MetricLcbRelativePercent{}; \MetricLcbMultiplier{}} \\
+    Point \PointKPI{} & \MetricPriorPointRecall{} & \kpigain{\MetricEiPointRecall{}} & \kpigain{\MetricPointRecallAbsChange{}; \MetricPointRecallRelativePercent{}; \MetricPointRecallMultiplier{}} \\
+    Average precision & \MetricPriorAP{} & \kpigain{\MetricEiAP{}} & \kpigain{\MetricAPAbsChange{}; \MetricAPRelativePercent{}} \\
+    Selected-threshold TP/FP/FN & \MetricPriorTPFPFN{} & \kpigain{\MetricEiTPFPFN{}} & \kpigain{\MetricSelectedFPReduction{} fewer FP} \\
+    Selected-threshold FPR & \MetricPriorSelectedFPR{} & \kpigain{\MetricEiSelectedFPR{}} & \kpigain{\MetricSelectedFPReductionPercent{} fewer false alarms} \\
+    F1 & \MetricPriorFOne{} & \kpigain{\MetricEiFOne{}} & \kpigain{\MetricFOneAbsChange{}} \\
+    ROC AUC & \kpicaveat{\MetricPriorRocAuc{}} & \MetricEiRocAuc{} & \kpicaveat{\MetricRocAucDelta{} guardrail} \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+The correct interpretation is improved operating behavior under a strict low-FPR cap. EI does not dominate every metric: accepted human fusion retains the higher global ROC AUC. That trade-off is why the paper reports AP, ROC AUC, confusion counts, FPR, F1, and false-positive family burden instead of claiming universal ranking dominance.
+
+\section{False-Positive Burden}
+False positives are the most intuitive failure mode in a low-FPR radar paper. Figure~\ref{fig:falsealarms} shows which hard-negative families consume the selected-threshold false-alarm budget for each method.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{false_alarm_breakdown.pdf}
+  \caption{Selected-threshold false-positive burden by method and hard-negative family. Bird includes single-bird and flock-like confusers; RC fixed-wing includes small model aircraft with prop-cadence overlap; weather includes rain, dust, and weather-cell stress; clutter-only includes no-target scene clutter; RFI includes burst contamination and passive-RF artifacts; multipath includes ghost/reflection-like tracks; terrain/glint includes site reflections; ground vehicle includes low-altitude track-like vehicle confusers; wind turbine is a rotating-structure hard negative. Near-threshold negatives are retained as evidence guardrails rather than stacked as false positives.}
+  \label{fig:falsealarms}
+\end{figure*}
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{radar_positive_vs_false_positive.pdf}
+  \caption{Range-Doppler diagnostic gallery: fixed-wing pusher-prop public-proxy positives versus challenging EW/clutter false positives. Axes are normalized range-Doppler bins and color is normalized log magnitude after a windowed zero-padded FFT display transform from 64 by 96 X/Ku IQ. These panels are qualitative diagnostics only, not measured imagery and not detector input for the KPI.}
+  \label{fig:rdexamples}
+\end{figure*}
+
+The family plot highlights the central operational difference: accepted human fusion spends many more selected-threshold false alarms across bird, RC fixed-wing, weather, multipath, terrain/glint, and rotating-structure stressors. EI leaves only \MetricEiSelectedFP{} selected-threshold false positives on the same holdout. This is robustness evidence for the declared synthetic benchmark, not an evasion or deployment claim.
+
+\section{Why It Matters}
+The result matters because it changes the detector-development loop. Classical radar work still matters: without plausible waveform assumptions, detector views, split hygiene, calibration, and accepted fusion, there is no trustworthy benchmark. EI does not replace that foundation. It compounds it.
+
+Once the problem is decomposed into auditable stages, the system can search for transforms, combinations, and calibrators that a human team might not propose first. The final artifact remains code, weights, math, and evidence. The invention process becomes continuous. Progress is then limited less by a fixed menu of manually enumerated ideas and more by simulator quality, evidence quality, compute, search discipline, and holdout hygiene.
+
+\section{Limitations}
+The corpus is synthetic, single-seed, and public-proxy. It has \MetricPositiveGroups{} positive groups total and \MetricHoldoutPositiveGroups{} positive groups in the holdout split. Group-block intervals are necessary but not enough for broad claims. EchoForge does not provide measured Iranian-drone radar truth, fielded-sensor equivalence, hardware-in-the-loop validation, track-level operational FAR, route/evasion modeling, or named-platform performance. The jamming/deception lane is defensive robustness stress only: it forbids jammer power, J/S, burn-through, timing recipes, exact ECCM behavior, evasion optimization, and field-performance claims. The ROC AUC guardrail also matters: accepted human fusion ranks better globally, while EI performs better at the low-FPR operating point chosen as the benchmark KPI.
+
+The next evidence steps are multi-seed corpora, larger positive holdouts, richer weather/RFI/site stressors, measured compare-only anchors expanded by sensor branch, hardware-in-the-loop hooks, and a formal pre-registration file for every promoted EI search.
+
+\section{Conclusion}
+EchoForge provides a strict-open radar simulation and evidence stack for public-proxy UAS detection: explicit assumptions, radar branch cards, hard negatives, detector-view denylisting, group-locked splits, train/CV-only selection, and reproducible evidence. The paper's central result is simple: accepted human sensor fusion is strong, but EI-discovered sparse calibrated fusion is much stronger at the low-FPR operating point on this benchmark. EI raises \PrimaryKPI{} from \MetricPriorLcb{} to \MetricEiLcb{} and cuts selected-threshold false positives from \MetricPriorSelectedFP{} to \MetricEiSelectedFP{}. The future implied by this result is not a one-off model; it is a radar-development system in which novel math and code evolve in response to data under strict evidence controls.
+
+\clearpage
+\onecolumn
+\appendices
+
+\section{Modeling Boundary Appendix}
+The fixed-wing pusher-prop public proxy uses public-source geometry, broad kinematics, aspect/RCS uncertainty, pusher-prop cadence, and phase-window assumptions. Those assumptions support synthetic detector comparison only. They do not establish measured positive-class radar truth, named-platform equivalence, proprietary sensor behavior, route behavior, payload inference, or field performance.
+
+\begin{table}[t]
+  \caption{Public-Proxy Modeling Boundary}
+  \label{tab:modelboundary}
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}YYp{0.25\textwidth}@{}}
+    \toprule
+    Family & Used as & Supports & Does not support \\
+    \midrule
+    Positive public proxy & fixed-wing pusher-prop geometry, broad kinematics, aspect/RCS uncertainty, pusher cadence & synthetic detector comparison and phase stress & measured Iranian-platform signature or operational performance \\
+    Radar branches & public role envelopes for X/Ku, S-band, and GBAD cueing & branch-level observable assumptions and resolution budget & vendor sensitivity, ECCM, exact Pd/Pfa, or military performance \\
+    Hard negatives & bird, RC fixed-wing, weather, clutter-only, RFI, multipath, terrain/glint, ground vehicle, wind turbine & robustness stress and false-positive analysis & evasion optimization or field-rate estimates \\
+    Measured anchors & compare-only public radar observable families & distribution-shape sanity checks & replacement for positive-class validation \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Reproducibility CLI Appendix}
+These commands reproduce the paper lane. They are benchmark commands, not field-deployment instructions.
+
+\begin{EchoCodeBox}{Generate the synthetic scenario and sensor corpus}
+rtk python3 -m detection.generate_main_run \
+  --profile fixed-wing-pusher-proxy \
+  --out-root outputs/training-data/fixed-wing-pusher-proxy-main-run \
+  --scenario-groups 10000 \
+  --seed 202605210136 \
+  --jamming-deception-rate 0.15 \
+  --force
+\end{EchoCodeBox}
+
+\begin{EchoCodeBox}{Run human detector and accepted-fusion baselines}
+rtk python3 -m detection.run_main_run_detectors \
+  --data-root outputs/training-data/fixed-wing-pusher-proxy-main-run \
+  --out-root outputs/detection/fixed-wing-pusher-proxy-main-run \
+  --folds 5 \
+  --seed 202605210136 \
+  --force
+\end{EchoCodeBox}
+
+\begin{EchoCodeBox}{Run EI search, lock, and one-pass holdout scoring}
+rtk python3 -m detection.run_advanced_main_run_detectors \
+  --data-root outputs/training-data/fixed-wing-pusher-proxy-main-run \
+  --out-root outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution \
+  --folds 5 \
+  --seed 202605210136 \
+  --search-profile aggressive \
+  --candidate-limit 128 \
+  --evolution-rounds 5 \
+  --evolution-sample-rows 4500 \
+  --write-component-scores \
+  --force
+\end{EchoCodeBox}
+
+\begin{EchoCodeBox}{Build evidence, macros, figures, appendix, and PDF}
+rtk python3 -m detection.paper_evidence --strict-ei-trace --force
+rtk python3 paper/generate_metric_macros.py --strict
+rtk python3 paper/generate_source_appendix.py --strict
+rtk python3 paper/generate_figures_focused.py --strict
+rtk bash paper/build.sh --copy-tracked
+\end{EchoCodeBox}
+
+\section{High-Resolution Radar Sample Appendix}
+\begin{figure*}[h]
+  \centering
+  \includegraphics[width=0.98\textwidth]{appendix_radar_samples.png}
+  \caption{Appendix radar sample gallery. Rows contrast public-proxy positives with accepted-fusion and EI selected-threshold false-positive pressure across the same synthetic range-Doppler view. These normalized diagnostics are not measured imagery and are not detector input for the KPI.}
+  \label{fig:appendixrdsamples}
+\end{figure*}
+
+\input{target/paper/source_appendix/source_code_appendix.tex}
+
+\bibliographystyle{IEEEtran}
+\bibliography{paper/references}
+
+\end{document}

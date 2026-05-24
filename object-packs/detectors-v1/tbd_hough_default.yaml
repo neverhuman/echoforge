@@ -1,0 +1,84 @@
+# EchoForge detector_card — TBD via Hough accumulation default
+# Schema: schemas/detector_card.schema.json
+#
+# Track-Before-Detect via straight-line Hough accumulation in
+# (range, time) space (Carlson-Evans-Wilson 1994). Accumulates
+# sub-threshold energy across multiple CPIs along candidate target
+# tracks, declaring a detection only after coherent integration over
+# N frames passes the M-of-N + accumulated-power thresholds.
+# Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/tbd.rs (hough_tbd_detect).
+id: "ef:detector_card:tbd-hough-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: tbd-hough-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Carlson, Evans, Wilson, Search radar detection and track with the Hough transform, IEEE Trans. AES vol 30 no 1, Jan 1994 (THE Hough-TBD reference)"
+    - "Tonissen & Evans, Performance of dynamic programming techniques for track-before-detect, IEEE Trans. AES vol 32 no 4, Oct 1996"
+    - "Salmond & Birch, A particle filter for track-before-detect, ACC 2001"
+    - "crates/echoforge-radar/src/detectors/tbd.rs (hough_tbd_detect)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.35
+  checks:
+    - name: straight_line_hough_accumulator
+      status: pass
+      message: "Hough accumulator bins candidate tracks by (start_range, range_gradient) over n_cpis frames per Carlson-Evans-Wilson 1994"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built hough_tbd_detect(_, TbdConfig{...}) byte-for-byte on pinned RD stack fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "TBD via Hough accumulation (Carlson-Evans-Wilson 1994)"
+algorithm_family: tbd_hough
+parameters:
+  n_cpis: 8
+  min_range_gradient: -10.0
+  max_range_gradient: 10.0
+  gradient_steps: 8
+  m_of_n_threshold: 5
+  sub_threshold_power: 0.5
+  hough_accumulator_size: 4096
+default_thresholds:
+  m_of_n_threshold: 5
+  sub_threshold_power: 0.5
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - rcs-0p01-m2
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.60
+      pd_max: 0.85
+    snr_db_required_range:
+      min: 6.0
+      max: 11.0
+    citation_id: carlson-evans-wilson-1994-hough-tbd
+citations:
+  - citation_id: carlson-evans-wilson-1994-hough-tbd
+    title: "Search radar detection and track with the Hough transform"
+    authors: "Carlson, Evans, Wilson"
+    publisher: "IEEE Trans. AES vol 30 no 1, Jan 1994"
+  - citation_id: tonissen-evans-1996-tbd-dynamic-programming
+    title: "Performance of dynamic programming techniques for track-before-detect"
+    authors: "Tonissen & Evans"
+    publisher: "IEEE Trans. AES vol 32 no 4, Oct 1996"
+  - citation_id: salmond-birch-2001-particle-filter-tbd
+    title: "A particle filter for track-before-detect"
+    authors: "Salmond & Birch"
+    publisher: "ACC 2001"

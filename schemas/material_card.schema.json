@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/material_card.schema.json",
+  "title": "material_card",
+  "description": "EchoForge material_card document. Captures the electromagnetic surface/bulk parameters of a material used in scattering simulations. Conforms to the EchoForge strict-open contract: deterministic id, public-proxy provenance, and validation envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "material_name",
+    "material_family",
+    "frequency_range_hz",
+    "permittivity",
+    "conductivity_s_per_m",
+    "roughness_m"
+  ],
+  "properties": {
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1. Derived from the identity-field payload.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator. Always the literal string 'material_card' for this schema.",
+      "const": "material_card"
+    },
+    "schema_version": {
+      "description": "EchoForge schema version pin. Must equal '1.0.0' for this revision of the contract.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Stable, human-readable slug identifying the public-proxy material (lowercase letters, digits, and ._- separators). Forms part of the deterministic id.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: how the document was produced, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) under which the material_card content is released.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and the per-check results that establish trust in this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "material_name": {
+      "description": "Human-readable material name shown in tools and reports. Non-empty free text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "material_family": {
+      "description": "Coarse material taxonomy bucket. Suggested values: pec | dielectric | composite | impedance_surface | absorber | mixed. Free-form non-empty string (no strict enum at the schema layer).",
+      "type": "string",
+      "minLength": 1
+    },
+    "frequency_range_hz": {
+      "description": "Validity band for the EM parameters, in Hz. Requires max >= min and min >= 0.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range"
+    },
+    "permittivity": {
+      "description": "Complex relative permittivity (epsilon_r). The real part is typically >= 1 for non-resonant passive materials; the imaginary part captures dielectric loss.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/complex_scalar"
+    },
+    "conductivity_s_per_m": {
+      "description": "Bulk electrical conductivity in siemens per meter (S/m). Must be >= 0.",
+      "type": "number",
+      "minimum": 0
+    },
+    "roughness_m": {
+      "description": "RMS surface roughness in meters. Must be >= 0. Defaults to 0 (perfectly smooth) when omitted.",
+      "type": "number",
+      "minimum": 0,
+      "default": 0
+    }
+  }
+}

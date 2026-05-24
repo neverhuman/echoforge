@@ -1,0 +1,70 @@
+{
+  "schema_version": "1.0.0",
+  "scenario_id": "uae-coastal-surveillance-v1",
+  "display_name": "UAE Coastal S-Band Surveillance Public-Proxy Scenario",
+  "strict_open_posture": "Public-proxy reference scenario for low-altitude UAS detection benchmarking. Site coordinates are illustrative, not an operational radar location. No measured-platform claims.",
+  "radar_site": {
+    "lat_deg": 24.5,
+    "lon_deg": 54.5,
+    "ground_altitude_msl_m": 5.0,
+    "antenna_height_agl_m": 20.0,
+    "k_factor_earth": 1.333,
+    "terrain_class": "desert"
+  },
+  "sensor": {
+    "archetype_id": "s-band-public-proxy-pulse-doppler-v1",
+    "center_frequency_hz": 2.9e9,
+    "bandwidth_hz": 1.0e6,
+    "pulse_width_s": 1.0e-4,
+    "pri_s": 1.0e-3,
+    "pulse_count_per_cpi": 100,
+    "cpi_duration_s": 0.1,
+    "transmit_power_w": 1.0e6,
+    "antenna_gain_dbi": 35.0,
+    "beamwidth_az_deg": 1.5,
+    "beamwidth_el_deg": 4.0,
+    "sidelobe_max_db": -30.0,
+    "noise_figure_db": 4.0,
+    "system_loss_db": 4.0,
+    "polarization": "horizontal",
+    "scan_period_s": 4.0,
+    "dwell_ms_on_target": 600.0
+  },
+  "target_launch_sites": [
+    {
+      "site_id": "site-50km-bearing-270",
+      "range_km": 50.0,
+      "bearing_deg_from_radar": 270.0,
+      "elevation_msl_m": 50.0
+    },
+    {
+      "site_id": "site-100km-bearing-280",
+      "range_km": 100.0,
+      "bearing_deg_from_radar": 280.0,
+      "elevation_msl_m": 80.0
+    },
+    {
+      "site_id": "site-150km-bearing-290",
+      "range_km": 150.0,
+      "bearing_deg_from_radar": 290.0,
+      "elevation_msl_m": 120.0
+    }
+  ],
+  "environment": {
+    "weather_regime": "clear",
+    "rain_rate_mm_per_hr": 0.0,
+    "temperature_k": 308.15,
+    "pressure_kpa": 101.0,
+    "water_vapor_g_per_m3": 15.0,
+    "terrain_class_at_target_sites": ["desert", "desert", "agricultural"],
+    "sea_state": "n/a"
+  },
+  "citations": [
+    "Skolnik, 'Introduction to Radar Systems' 3rd ed. (McGraw-Hill 2001), chap. 2 (radar equation), chap. 8 (multipath)",
+    "ITU-R Recommendation P.676-13 (atmospheric gas attenuation)",
+    "ITU-R Recommendation P.838-3 (rain attenuation)",
+    "ITU-R Recommendation P.453-14 (refractivity)",
+    "Lin, 'A Site-Specific Model of Radar Terrain Backscatter', JHU APL Tech Digest V18 N3 (1997)"
+  ],
+  "notes": "Scenario parameters are illustrative public-proxy defaults derived from open-source surveillance-radar literature. NOT an operational system spec; NOT a deployed radar location; NOT calibrated against measured data."
+}

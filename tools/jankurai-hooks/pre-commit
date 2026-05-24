@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+# JANKURAI MANAGED HOOK: pre-commit
+set -euo pipefail
+
+if [ "${JANKURAI_SKIP_HOOKS:-}" = "1" ]; then
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+git_dir="$(git rev-parse --git-dir 2>/dev/null || printf '%s/.git' "$repo_root")"
+case "$git_dir" in
+  /*) ;;
+  *) git_dir="$repo_root/$git_dir" ;;
+esac
+jankurai_dir="$git_dir/jankurai"
+mkdir -p "$jankurai_dir"
+
+env_file="$jankurai_dir/env"
+if [ -f "$env_file" ]; then
+  # shellcheck disable=SC1090
+  . "$env_file"
+fi
+
+if [ -n "${JANKURAI_PRE_COMMIT_CHAIN:-}" ] && [ -x "$JANKURAI_PRE_COMMIT_CHAIN" ] && [ -z "${JANKURAI_CHAINED_HOOK:-}" ]; then
+  JANKURAI_CHAINED_HOOK=1 "$JANKURAI_PRE_COMMIT_CHAIN" "$@"
+fi
+
+cd "$repo_root"
+
+if ! bash "$repo_root/tools/jankurai-hooks/staged-ratchet.sh"; then
+  echo "jankurai pre-commit ratchet failed; set JANKURAI_SKIP_HOOKS=1 to bypass local hooks" >&2
+  exit 1
+fi
+
+report_dir="${JANKURAI_HOOK_REPORT_DIR:-target/jankurai/hooks}"
+report_json="$report_dir/pre-commit-score.json"
+report_md="$report_dir/pre-commit-score.md"
+report_history_jsonl="$report_dir/pre-commit-score-history.jsonl"
+report_history_csv="$report_dir/pre-commit-score-history.csv"
+
+report_path="$report_json"
+json_int() {
+  sed -n "s/^[[:space:]]*\"$1\":[[:space:]]*\([-0-9][0-9]*\).*/\1/p" "$report_path" | head -n 1
+}
+score="$(json_int score)"
+raw_score="$(json_int raw_score)"
+minimum_score="$(json_int minimum_score)"
+hard_findings="$(json_int hard_findings)"
+finding_count="$(grep -c '^[[:space:]]*"check_id":' "$report_path" || true)"
+
+score="${score:-0}"
+raw_score="${raw_score:-$score}"
+minimum_score="${minimum_score:-85}"
+hard_findings="${hard_findings:-0}"
+decision="pass"
+if [ "$hard_findings" -gt 0 ] || [ "$score" -lt "$minimum_score" ]; then
+  decision="fail"
+fi
+
+cat > "$jankurai_dir/last-score.env" <<EOF
+JANKURAI_SCORE='$score'
+JANKURAI_RAW_SCORE='$raw_score'
+JANKURAI_FINDINGS='$finding_count'
+JANKURAI_HARD_FINDINGS='$hard_findings'
+JANKURAI_DECISION='$decision'
+JANKURAI_REPORT='${report_json}'
+JANKURAI_REPORT_MD='${report_md}'
+EOF
+
+node - "$report_json" "$report_md" <<'NODE' >&2
+const fs = require("node:fs");
+
+const [reportPath, reportMd] = process.argv.slice(2);
+let report;
+try {
+  report = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+} catch (err) {
+  console.error(`[jankurai] unable to read ${reportPath}: ${err.message}`);
+  process.exit(0);
+}
+
+const decision = report.decision || {};
+const ratchet = decision.ratchet || {};
+const score = report.score ?? 0;
+const minimum = decision.minimum_score ?? report.minimum_score ?? 85;
+const hard = decision.hard_findings ?? report.hard_findings ?? 0;
+const findings = Array.isArray(report.findings) ? report.findings : [];
+const newCaps = Array.isArray(ratchet.new_caps) ? ratchet.new_caps : [];
+const newHard = Array.isArray(ratchet.new_hard_findings) ? ratchet.new_hard_findings : [];
+
+console.error(`[jankurai] score ${score}/${minimum}; hard findings ${hard}; findings ${findings.length}; report ${reportMd}`);
+
+if (newCaps.length > 0) {
+  console.error("[jankurai] new capability caps:");
+  for (const cap of newCaps.slice(0, 5)) {
+    console.error(`  - ${String(cap)}`);
+  }
+}
+
+if (newHard.length > 0) {
+  console.error("[jankurai] new hard findings:");
+  for (const finding of newHard.slice(0, 5)) {
+    console.error(`  - ${String(finding)}`);
+  }
+}
+
+if (findings.length > 0) {
+  console.error("[jankurai] top issues and repair hints:");
+  for (const finding of findings.slice(0, 5)) {
+    const severity = finding.severity || "unknown";
+    const check = finding.check_id || finding.id || "unknown-check";
+    const path = finding.path || finding.file || finding.scope || ".";
+    const fix = finding.agent_fix || finding.repair_hint || finding.fix || "see markdown report";
+    console.error(`  - ${severity} ${check} on ${path}`);
+    console.error(`    fix: ${fix}`);
+  }
+}
+NODE

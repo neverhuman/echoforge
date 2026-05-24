@@ -1,0 +1,36 @@
+{
+  "id": "ef:radar_episode:public-proxy-clutter-v1-ep-001:0123456789abcdef:1",
+  "kind": "radar_episode",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "public-proxy-clutter-v1-ep-001",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "episode_name": "public-proxy-clutter-v1 episode 001",
+  "scenario_id": "ef:scenario:public-proxy-clutter-v1:0123456789abcdef:1",
+  "sample_rate_hz": 50.0e6,
+  "product_paths": [
+    "products/range_doppler.zarr",
+    "products/iq.zarr",
+    "products/detections.parquet"
+  ]
+}

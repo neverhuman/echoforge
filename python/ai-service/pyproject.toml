@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "echoforge-ai-service"
+version = "0.1.0"
+description = "EchoForge Python oracle: analytic ground-truth and data models for radar cross-section validation"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0 OR MIT" }
+
+[project.optional-dependencies]
+science = ["scipy>=1.11"]
+dev = ["mypy>=1.9", "pytest>=8", "pytest-cov"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["echoforge_core*", "echoforge_validate*", "echoforge_signatures*"]
+
+[tool.setuptools.package-data]
+"echoforge_core" = ["py.typed"]
+"echoforge_validate" = ["py.typed"]
+"echoforge_signatures" = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --tb=short"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+files = ["echoforge_core", "echoforge_validate", "echoforge_signatures"]

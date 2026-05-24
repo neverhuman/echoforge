@@ -1,0 +1,24 @@
+advisory_on = [
+    "medium",
+    "low",
+]
+fail_on = [
+    "critical",
+    "high",
+]
+minimum_score = 85
+
+[history]
+dedupe = "consecutive-equivalent"
+max_bytes = 1048576
+max_rows = 500
+mirror_env = "JANKURAI_HISTORY_MIRROR"
+mirror_max_rows = 5000
+mirror_required = false
+
+[scan]
+excluded_paths = ["tips/"]
+
+[smart_scan]
+full_scan_interval_secs = 3600
+roulette_rate = 0.1

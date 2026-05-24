@@ -1,0 +1,72 @@
+{
+  "id": "pack.radar-platforms",
+  "schema_version": "1.0.0",
+  "kind": "pack_manifest",
+  "display_name": "Radar Platforms (named real platforms)",
+  "purpose": "Named real-world radar platform cards (KuRFS, Sentinel A4, Giraffe 1X, SPEXER 2000, Blighter A800, EchoGuard/EchoShield, IRIS LRM, RADA nMHR, TPQ-50/53, YLC-48, Pantsir) for radar-expert credibility validation. Each card cites public vendor datasheets + OSINT.",
+  "card_refs": {
+    "radar_platform_card": [
+      "saab_giraffe_1x.yaml",
+      "rtx_kurfs.yaml",
+      "rtx_an_mpq_64_sentinel_a4.yaml",
+      "src_an_tpq_50.yaml",
+      "lockheed_an_tpq_53.yaml",
+      "hensoldt_spexer_2000_3d_mkiii.yaml",
+      "hensoldt_trml_4d.yaml",
+      "blighter_a800_mk2.yaml",
+      "echodyne_echoguard.yaml",
+      "echodyne_echoshield.yaml",
+      "src_gryphon_r1410.yaml",
+      "robin_radar_iris_lrm.yaml",
+      "leonardo_drs_rada_nmhr.yaml",
+      "cetc_ylc_48.yaml",
+      "pantsir_s1_search_radar.yaml"
+    ]
+  },
+  "card_slugs": [
+    "saab-giraffe-1x",
+    "rtx-kurfs",
+    "rtx-an-mpq-64-sentinel-a4",
+    "src-an-tpq-50",
+    "lockheed-an-tpq-53",
+    "hensoldt-spexer-2000-3d-mkiii",
+    "hensoldt-trml-4d",
+    "blighter-a800-mk2",
+    "echodyne-echoguard",
+    "echodyne-echoshield",
+    "src-gryphon-r1410",
+    "robin-radar-iris-lrm",
+    "leonardo-drs-rada-nmhr",
+    "cetc-ylc-48",
+    "pantsir-s1-search-radar"
+  ],
+  "pack_dependencies": [
+    {
+      "pack_id": "pack.adversary-platforms",
+      "min_schema_version": "1.0.0",
+      "required_card_kinds": ["source_platform_card"]
+    }
+  ],
+  "license": {
+    "spdx_id": "MIT",
+    "notice": "Pack content derived from public vendor datasheets, Janes, CSIS, Reuters, Bellingcat, RUSI, peer-reviewed literature. Strict-open posture preserved. No measured-truth or classified-tactics claim."
+  },
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "tips/detectors/*.txt",
+      "Saab / RTX / HENSOLDT / Echodyne / Robin Radar / Leonardo DRS / SRC / Blighter / CETC vendor product pages"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T21:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "validation_tier": "basic",
+  "fidelity_class": "production_sbr",
+  "notes": [
+    "Tracer-bullet pack manifest template.",
+    "Cards listed in card_refs are not yet authored; the current template ships only `saab_giraffe_1x.yaml` against `tests/schemas/radar_platform_card.sample.json`.",
+    "Pack-loader validates this manifest against `schemas/pack.schema.json` and uses `card_refs` to walk pack files."
+  ],
+  "source_status": "public_proxy"
+}

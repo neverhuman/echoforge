@@ -1,0 +1,384 @@
+I studied the uploaded PDF and pulled the current repo-side paper code. The central problem is clear: the paper is trying to carry too much evidence in too few visual panels, while the plotting code uses small typography, cramped grids, and inconsistent naming. The repo’s paper lane already runs evidence generation, figure generation, build, and validation in sequence, so these fixes should be made in `paper/generate_figures_major_upgrade_v2.py`, `paper/echoforge_ieee.tex`, and the paper validators rather than patched manually after PDF build. ([GitHub][1])
+
+I also created a full engineering spec with patch-ready snippets here: [EchoForge paper revision engineering spec](sandbox:/mnt/data/echoforge_paper_revision_spec.md).
+
+## Highest-priority changes
+
+The paper-facing model name should become **Engineered Intelligence (EI) candidate** everywhere. Use “selected-threshold” only when describing the operating threshold, but remove “selected,” “locked candidate,” and “locked advanced candidate” from figure legends, captions, tables, and prose. The abstract and main result currently use “locked candidate,” and the author is currently `EchoForge Project`, so both need to change in `paper/echoforge_ieee.tex`. 
+
+The author block should be:
+
+```tex
+\author{Jeppson Taylor\\
+NeverHumqn Research Group%
+\thanks{Jeppson Taylor is the lead author. NeverHumqn Research Group is the paper authoring organization.}}
+```
+
+The “strange lines” in Fig. 4 are not a rendering bug. They come from the current Fig. 4 code plotting `selected_recall` as short red horizontal line segments on top of the AP bars. Replace that visual with a third explicitly labeled grouped bar: **EI Recall@≤1%FPR**. The current implementation is in `figure_phase_kpi()` in `paper/generate_figures_major_upgrade_v2.py`. 
+
+The current `locked_algorithm.png` is not an algorithm figure at all; it is the KTH anchor overlay. Rename it to `kth_anchor_overlay.png/.pdf` and add a real high-level `ei_workflow.png/.pdf` that explains the discovered workflow without revealing implementation internals. The current function named `figure_locked_algorithm()` produces the KTH anchor panel, which is misleading. 
+
+## Figure-by-figure diagnosis and fixes
+
+| Figure                    | Current issue                                                                                                                             | Exact fix                                                                                                                                                                                                                             |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fig. 1 signal chain       | Mostly good conceptually, but too much small text and inconsistent naming.                                                                | Keep as a flow, but use EI-compatible terminology and larger model-card boxes. Rename “locked” concepts to “EI” where applicable.                                                                                                     |
+| Fig. 2 balance/leakage    | Too dense: six count charts plus text panels in one figure. In the PDF the title/subtitle and charts collide visually.                    | Use a larger 2×3 layout, aggregate small categories into “other,” remove footer text from inside the plot area, and make leakage/imbalance cards separate, not tiny boxed text. Current code uses a 3×3 grid with very small labels.  |
+| Fig. 3 KPI                | Five panels are squeezed; ROC/PR legends say “selected”; calibration bin labels overlap.                                                  | Rename labels to “EI candidate,” show only bin indices or every other bin label, make KPI panel a point+LCB interval plot, and increase figure height.                                                                                |
+| Fig. 4 phase/false alarms | The red recall markers above AP bars are visually ambiguous and are exactly what the user called out.                                     | Replace with three grouped bars: Prior AP, EI AP, EI Recall@≤1%FPR. No floating recall line.                                                                                                                                          |
+| Fig. 5 component/deltas   | “Locked candidate” title; delta bars use binary red/green instead of a continuous comparison scale; labels are cramped.                   | Title becomes “EI candidate components…”. Use a diverging night red-green colormap centered at zero with numeric delta labels.                                                                                                        |
+| Fig. 6 radar model card   | Useful, but text-heavy; the table and boxes are barely readable.                                                                          | Keep as a model card, but split into resolution table + assumption cards with fewer lines per box. Consider moving long impairment/cue details into appendix table.                                                                   |
+| Fig. 7 range-Doppler      | Better than the others, but axes/caption should be fully consistent. Current x-label says “relative range bin” while caption says meters. | Use meters on x-axis everywhere, velocity-equivalent Doppler on y-axis, one shared colorbar, and add “normalized log magnitude; not detector feature.”                                                                                |
+| Fig. 8 KTH anchor         | Good concept, wrong file/function name; not the algorithm.                                                                                | Rename to `kth_anchor_overlay`; add separate EI workflow figure.                                                                                                                                                                      |
+
+## Exact code changes: global plotting style
+
+In `paper/generate_figures_major_upgrade_v2.py`, change the color import and add a continuous diverging colormap. The existing file already centralizes figure roots, colors, and context, so this is the right place for consistency. 
+
+```python
+from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+```
+
+Add after the existing color constants:
+
+```python
+EI_LABEL_SHORT = "EI candidate"
+EI_LABEL_LONG = "Engineered Intelligence (EI) candidate"
+PRIOR_FUSION_LABEL = "Prior fusion"
+
+NIGHT_RED_GREEN = LinearSegmentedColormap.from_list(
+    "echoforge_night_red_green",
+    ("#3b0d0d", "#8f2f2f", "#d98f8f", "#f7f7f2", "#96c2a3", "#3f7f4f", "#123d2b"),
+    N=256,
+)
+DELTA_NORM = TwoSlopeNorm(vmin=-0.80, vcenter=0.0, vmax=0.20)
+
+METHOD_LABELS = {
+    "locked_candidate": EI_LABEL_SHORT,
+    "selected": EI_LABEL_SHORT,
+    "selected_candidate": EI_LABEL_SHORT,
+    "meta_fusion.top8.v2_aggressive.geodesic_odds": EI_LABEL_SHORT,
+    "layered_fusion_c2": "Prior layered fusion",
+    "tabular_ml_baseline": "Tabular ML",
+    "sequence_ml_proxy": "Sequence ML",
+    "high_resolution_xku_cuas": "High-res. X/Ku",
+    "tactical_s_band_aesa": "Tactical S-band",
+    "gbad_3d4d_cueing": "GBAD 3D/4D",
+    "distributed_acoustic_cue": "Acoustic cue",
+}
+
+
+def _pretty_method_label(value: Any, width: int = 20) -> str:
+    raw = str(value or "")
+    label = METHOD_LABELS.get(raw, raw.replace("_", " "))
+    return "\n".join(
+        textwrap.wrap(label, width=width, break_long_words=False, break_on_hyphens=False)
+    )
+
+
+def _metric_color(delta: float) -> Any:
+    delta = _safe_float(delta, 0.0)
+    return NIGHT_RED_GREEN(DELTA_NORM(delta))
+
+
+def _style_axis(ax: Any, *, grid: str = "x") -> None:
+    if "x" in grid:
+        ax.xaxis.grid(True, color=GRID, linewidth=0.7)
+    if "y" in grid:
+        ax.yaxis.grid(True, color=GRID, linewidth=0.7)
+    ax.set_axisbelow(True)
+    for spine in ("top", "right"):
+        ax.spines[spine].set_visible(False)
+    ax.spines["left"].set_color(GRID)
+    ax.spines["bottom"].set_color(GRID)
+```
+
+Update `_configure_matplotlib()` to make every plot more readable:
+
+```python
+"font.size": 9.2,
+"axes.titlesize": 10.2,
+"axes.labelsize": 8.6,
+"xtick.labelsize": 7.6,
+"ytick.labelsize": 7.6,
+"legend.fontsize": 7.4,
+"pdf.fonttype": 42,
+"ps.fonttype": 42,
+"svg.fonttype": "none",
+```
+
+In `_save_figure()`, increase the padding from `pad_inches=0.08` to:
+
+```python
+pad_inches=0.12
+```
+
+The current save routine already writes vector PDFs for the main figures and high-DPI PNGs for heatmaps, which is good; keep that structure. 
+
+## Exact Fig. 4 fix
+
+Replace the entire current `figure_phase_kpi()` with the version in the linked spec. The important removal is this current logic:
+
+```python
+for idx, value in enumerate(selected_recall):
+    ax.plot([idx - 0.12, idx + 0.12], [value, value], color=RED, linewidth=2.0)
+```
+
+That line is the source of the strange red marks. Replace it with a third bar series labeled `EI Recall@≤1%FPR`. The spec file includes the full replacement function.
+
+## Fig. 5 delta colormap patch
+
+Inside `figure_detector_ml_pipeline()`, replace binary red/green coloring:
+
+```python
+delta_colors = [RED if value < 0 else GREEN for value in delta_ap]
+```
+
+with:
+
+```python
+delta_colors = [_metric_color(value) for value in delta_ap]
+```
+
+Then label the bars numerically so the figure does not rely on color alone:
+
+```python
+bars = delta_ax.barh(
+    y2,
+    delta_ap,
+    color=delta_colors,
+    alpha=0.92,
+    edgecolor="white",
+    label="ΔAP",
+)
+delta_ax.scatter(delta_recall, y2, color=INK, s=28, label="ΔRecall@≤1%FPR", zorder=3)
+
+for idx, (bar, dap, dre) in enumerate(zip(bars, delta_ap, delta_recall)):
+    x_text = dap + (0.018 if dap >= 0 else -0.018)
+    delta_ax.text(
+        x_text,
+        idx,
+        f"{dap:+.3f}",
+        ha="left" if dap >= 0 else "right",
+        va="center",
+        fontsize=6.7,
+        color=INK,
+    )
+    delta_ax.text(
+        dre,
+        idx + 0.28,
+        f"R {dre:+.3f}",
+        ha="center",
+        va="center",
+        fontsize=6.2,
+        color=MUTED,
+    )
+```
+
+Also change the title to:
+
+```python
+fig.suptitle(
+    "EI candidate components and comparable holdout deltas",
+    fontsize=12.0,
+    weight="bold",
+    y=0.98,
+)
+```
+
+The current Fig. 5 code is already pulling component weights and ablation rows from evidence files, which is the right source path; the issue is presentation and naming, not data plumbing.  
+
+## Rename KTH anchor and add real EI workflow figure
+
+Change `figure_locked_algorithm()` to `figure_kth_anchor_overlay()` and set:
+
+```python
+filename = "kth_anchor_overlay.png"
+```
+
+Then add `figure_ei_workflow()` from the spec. The workflow should show only the high-level algorithm:
+
+`detector-view tables → train/CV discovery → sparse nonnegative fusion → geodesic-odds calibration → selection lock → blind holdout scoring`
+
+Side rails should show:
+
+`group-locked split`, `feature denylist`, `public-proxy claim boundary`, and `code-disclosure boundary`.
+
+Update `VECTOR_FIGURES`:
+
+```python
+VECTOR_FIGURES = {
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "detector_ml_pipeline.png",
+    "kth_anchor_overlay.png",
+    "ei_workflow.png",
+}
+```
+
+Update `generate_all()`:
+
+```python
+return [
+    figure_architecture_stack(context),
+    figure_monte_carlo_split_flow(context),
+    figure_kpi_ranking(context),
+    figure_phase_kpi(context),
+    figure_iq_drone_samples(context),
+    figure_iq_negative_samples(context),
+    figure_detector_ml_pipeline(context),
+    figure_kth_anchor_overlay(context),
+    figure_ei_workflow(context),
+]
+```
+
+The validators currently require the legacy figure names, so update `paper/validate_visuals.py` and `paper/validate_paper.py` to require `kth_anchor_overlay` and `ei_workflow` instead of `locked_algorithm`. The current tracked figure list still includes `locked_algorithm`, so this must be changed deliberately. ([GitHub][2])
+
+## TeX changes
+
+In `paper/echoforge_ieee.tex`, add:
+
+```tex
+\usepackage{microtype}
+\usepackage{xcolor}
+\definecolor{EFInk}{HTML}{1F2933}
+\definecolor{EFMuted}{HTML}{52606D}
+\newcommand{\EICandidate}{Engineered Intelligence (EI) candidate}
+\newcommand{\PriorFusion}{prior fusion}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\setlength{\tabcolsep}{2.9pt}
+\renewcommand{\arraystretch}{1.16}
+\emergencystretch=2em
+```
+
+Replace the author and abstract as shown in the spec. Then apply these wording replacements:
+
+```text
+locked candidate -> \EICandidate{}
+locked advanced candidate -> \EICandidate{}
+selected candidate -> \EICandidate{}
+selected AP -> EI AP
+selected lock -> EI lock
+```
+
+Do **not** replace “selected-threshold” when it refers to threshold evaluation.
+
+For the KTH figure:
+
+```tex
+\includegraphics[width=0.98\columnwidth]{kth_anchor_overlay}
+```
+
+Add the new EI workflow figure after the Engineered Intelligence transparency table:
+
+```tex
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{ei_workflow}
+  \caption{High-level Engineered Intelligence workflow. Detector-view rows enter train/CV-only candidate discovery, sparse nonnegative fusion, monotone calibration, a frozen selection lock, and a single blind-holdout scoring pass. The diagram is intentionally high level: raw component handles and search traces remain evidence artifacts, while implementation details are not disclosed in the paper.}
+  \label{fig:eiworkflow}
+\end{figure*}
+```
+
+## Appendix changes
+
+The current paper has useful appendix material, but it is not rich enough for a tier-1 review package. It mentions the fixed-wing pusher-prop public-proxy appendix and prohibited inferences, including no measured Iranian-drone radar signature, no operational route/evasion modeling, and no payload-effects inference, but it needs a stronger source/config/workflow appendix. 
+
+Add these sections before `Limitations and Prohibited Inferences`:
+
+```tex
+\section{Source, Noise, and Detector Configuration Appendix}
+
+\subsection{Public-source assumptions and prohibited source transfer}
+The fixed-wing pusher-prop public proxy is built from open visual reporting and public summaries only. The Iranian-drone source pack is used only for approximate public geometry, public flight-envelope priors, and broad pusher-prop observables. It is not a measured Iranian-drone radar signature, not an operational route model, not an evasion model, and not a payload-effects model. KTH, Open Radar, RAD-DAR/RDRD, and related public radar collections remain compare-only anchors for observable-shape checks; they do not create positive-class truth.
+
+\subsection{Noise, clutter, and receiver assumptions}
+The synthetic impairment stack includes Weibull/K-like clutter, sea/terrain/weather stress, AGC compression, clock drift, quantization, dropped CPI, PRF ambiguity, Doppler folding, calibration offset, multipath masking, and RFI burst regimes. Acoustic cues are node-wise spectral cadence, cross-node agreement, and amplitude stability. Passive-RF cues are no-signal behavior, RFI bursts, clock-offset stress, and provenance-quality geometry.
+
+\subsection{Detector/source configuration cards}
+The detector cards separate detector-visible products from excluded truth fields. X/Ku, S-band, GBAD, acoustic, passive-RF, and fusion cards define public-source role envelopes and detector-facing features only; proprietary sensitivity, ECCM, vendor processing, operator workflows, emitter libraries, payload commands, and deployment topology are excluded.
+
+\section{Engineered-Intelligence Workflow Appendix}
+The EI workflow is summarized at a high level. Detector-view tables enter train/CV-only candidate discovery after split keys, labels, scenario-group identifiers, and hidden generator metadata are denied to the model-facing schema. Candidate families are explored on train/CV rows, sparse nonnegative fusion weights are selected, a monotone geodesic-odds calibration is fit, and the selected lock freezes candidate ID, weights, calibrator, and threshold before any blind-holdout score is read. The blind holdout is then scored once, and group-block bootstrap intervals, false-alarm-family diagnostics, calibration bins, and component summaries are emitted into the evidence bundle. This description exposes the algorithmic workflow needed for review without disclosing implementation internals or raw search traces.
+
+\section{Generative-Origin Audit Appendix}
+The evidence bundle includes a manifest-based source-line audit that self-classifies tracked paper-lane files into human-standard and generative/AI-inspired categories. This is an auditable self-classification of source LOC, not proof of authorship history. The paper should report the generated percentages from \texttt{generative\_origin\_audit.json}: human-standard LOC, generative/AI-inspired LOC, total classified LOC, percentage human-standard LOC, and percentage generative/AI-inspired LOC.
+```
+
+The repo already has a generative-origin manifest and audit machinery that self-classifies tracked LOC; it explicitly frames this as an auditable self-classification, not proof of authorship history.  The evidence script computes `percentage_generative_loc` and `percentage_human_standard_loc`, so the appendix should surface those actual values instead of only mentioning the audit in a validation-tier row. 
+
+## Validator changes
+
+Update `paper/validate_visuals.py`:
+
+```python
+REQUIRED_PNGS = (
+    "architecture_stack.png",
+    "monte_carlo_split_flow.png",
+    "kpi_ranking.png",
+    "phase_kpi.png",
+    "iq_drone_samples.png",
+    "iq_negative_samples.png",
+    "detector_ml_pipeline.png",
+    "kth_anchor_overlay.png",
+    "ei_workflow.png",
+)
+
+REQUIRED_VECTOR_PDFS = (
+    "architecture_stack.pdf",
+    "monte_carlo_split_flow.pdf",
+    "kpi_ranking.pdf",
+    "phase_kpi.pdf",
+    "iq_drone_samples.pdf",
+    "detector_ml_pipeline.pdf",
+    "kth_anchor_overlay.pdf",
+    "ei_workflow.pdf",
+)
+```
+
+Update `paper/validate_paper.py` with hard checks:
+
+```python
+required_phrases = [
+    "NeverHumqn Research Group",
+    "Jeppson Taylor",
+    "Engineered Intelligence (EI) candidate",
+    "Generative-Origin Audit Appendix",
+    "Source, Noise, and Detector Configuration Appendix",
+    "Engineered-Intelligence Workflow Appendix",
+]
+for phrase in required_phrases:
+    if phrase not in paper_text:
+        fail(f"missing required paper phrase: {phrase}")
+
+for forbidden in ("locked candidate", "Locked candidate", "selected AP"):
+    if forbidden in paper_text:
+        fail(f"paper still contains deprecated wording: {forbidden}")
+
+if "locked_algorithm" in paper_text:
+    fail("KTH anchor figure must be renamed from locked_algorithm to kth_anchor_overlay")
+```
+
+## Build order
+
+Run the normal paper lane after applying the changes:
+
+```bash
+rtk python3 -m detection.paper_evidence_major_upgrade_v1 --force
+rtk python3 paper/generate_figures.py --strict
+rtk bash paper/build.sh --copy-tracked
+rtk python3 paper/validate_visuals.py
+rtk python3 paper/validate_paper.py paper/echoforge_ieee.tex outputs/paper-evidence/major-upgrade-v1/paper_evidence_manifest.json
+```
+
+The repo’s README already defines this paper-lane order, so the agent should not bypass it with manual PDF/PNG edits. ([GitHub][1])
+
+I could not execute the full repo locally here because cloning GitHub failed DNS in this runtime, so the patch is source-level and unexecuted in this environment. The fixes above are grounded in the uploaded PDF and the fetched GitHub source files, including the exact plotting function that causes the Fig. 4 red-line artifact.
+
+[1]: https://github.com/neverhuman/echoforge?utm_source=chatgpt.com "GitHub - neverhuman/echoforge: EM simulator · GitHub"
+[2]: https://github.com/neverhuman/echoforge/tree/main/paper/figures "echoforge/paper/figures at main · neverhuman/echoforge · GitHub"
+

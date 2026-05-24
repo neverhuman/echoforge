@@ -1,0 +1,24 @@
+{
+  "schema_ref": "schemas/dataset_card.schema.json",
+  "policy_id": "dataset.split.public_proxy_v1",
+  "display_name": "Public Proxy Split Policy v1",
+  "ratios": {
+    "train_bps": 7000,
+    "validation_bps": 1500,
+    "test_bps": 1500
+  },
+  "protected_keys": [
+    "object_family",
+    "geometry_hash",
+    "material_sample_hash",
+    "scenario_seed",
+    "sensor_archetype",
+    "hard_negative_family"
+  ],
+  "grouping_mode": "hash_protected_keys",
+  "notes": [
+    "No object family, geometry hash, material sample, scenario seed, sensor archetype, or hard-negative family may straddle splits.",
+    "Split assignment uses a deterministic hash over the protected key tuple."
+  ]
+}
+

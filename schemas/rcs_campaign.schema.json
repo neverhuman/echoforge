@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/rcs_campaign.schema.json",
+  "title": "rcs_campaign",
+  "description": "EchoForge rcs_campaign document. Pins a radar-cross-section sweep: which object_card, which solver_card, the frequency and azimuth ranges, polarization pair, and run count. Conforms to the EchoForge strict-open contract: deterministic id, public-proxy provenance, and validation envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "campaign_name",
+    "object_card_id",
+    "solver_card_id",
+    "frequency_range_hz",
+    "azimuth_deg",
+    "tx_polarization",
+    "rx_polarization",
+    "run_count"
+  ],
+  "properties": {
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1. Derived from the identity-field payload.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator. Always the literal string 'rcs_campaign' for this schema.",
+      "const": "rcs_campaign"
+    },
+    "schema_version": {
+      "description": "EchoForge schema version pin. Must equal '1.0.0' for this revision of the contract.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Stable, human-readable slug identifying the public-proxy campaign subject (lowercase letters, digits, and ._- separators). Forms part of the deterministic id.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: how the document was produced, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) under which the rcs_campaign content is released.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and the per-check results that establish trust in this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "campaign_name": {
+      "description": "Human-readable campaign name shown in tools and reports. Non-empty free text.",
+      "type": "string",
+      "minLength": 1
+    },
+    "object_card_id": {
+      "description": "Deterministic id of the object_card document this campaign targets.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "solver_card_id": {
+      "description": "Deterministic id of the solver_card document used to compute this campaign.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "frequency_range_hz": {
+      "description": "Frequency sweep band in Hz. Requires max >= min and min > 0.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range"
+    },
+    "azimuth_deg": {
+      "description": "Azimuth sweep range in degrees. Requires max >= min; typical bounds lie within [-180, 360].",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/numeric_range"
+    },
+    "tx_polarization": {
+      "description": "Transmit polarization. One of 'H' (horizontal), 'V' (vertical), 'L' (left circular), or 'R' (right circular).",
+      "type": "string",
+      "enum": ["H", "V", "L", "R"]
+    },
+    "rx_polarization": {
+      "description": "Receive polarization. One of 'H' (horizontal), 'V' (vertical), 'L' (left circular), or 'R' (right circular).",
+      "type": "string",
+      "enum": ["H", "V", "L", "R"]
+    },
+    "run_count": {
+      "description": "Number of solver runs scheduled by this campaign. Must be a positive integer (>= 1).",
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

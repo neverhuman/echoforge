@@ -1,0 +1,115 @@
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+.python-version
+.node-version
+
+# Python
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+env/
+*.py[cod]
+*.egg-info/
+
+# Node
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+dist/
+coverage/
+playwright-report/
+test-results/
+apps/web/playwright-report/
+apps/web/test-results/
+
+# Rust and general build output
+target/
+build/
+out/
+release/
+debug/
+
+# Scientific and generated artifacts
+artifacts/
+outputs/
+real-data/
+.cache/echoforge/real-data/
+*.zarr
+*.parquet
+*.npy
+*.npz
+*.mat
+*.bag
+*.rosbag
+*.ulg
+*.pcap
+*.h5
+*.hdf5
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.rar
+*.pt
+*.pth
+*.onnx
+*.joblib
+*.ckpt
+*.log
+*.sqlite
+*.db
+
+# Claude Code agent worktrees (exact copies of source — exclude from tooling scans)
+.claude/worktrees/
+
+# Local-only coordination and scratch notes.
+/*.local.md
+/*.scratch.md
+/*.md.done
+/local sprint plan
+/local sprint chat
+
+# Generated governance artifacts (gitignore only; committed roll-up lives in agent/baselines/)
+agent/repo-score.json
+agent/repo-score.md
+
+# SBOM artifacts (committed roll-up only)
+sbom/*
+!sbom/.keep
+!sbom/index.md
+
+# Generated zone directory stubs (tracked .keep files only; content is gitignored)
+!.venv/.keep
+!artifacts/.keep
+!build/.keep
+!dist/.keep
+!outputs/
+outputs/*
+!outputs/.keep
+
+# Benchmark zone fixture files (tracked as zone-existence evidence, not real ML artifacts)
+!benchmarks/fixtures/
+!benchmarks/fixtures/*.zarr
+!benchmarks/fixtures/*.parquet
+!benchmarks/fixtures/*.npy
+!benchmarks/fixtures/*.npz
+!benchmarks/fixtures/*.pt
+!benchmarks/fixtures/*.pth
+!benchmarks/fixtures/*.onnx
+!benchmarks/fixtures/*.ckpt
+!benchmarks/fixtures/*.sqlite
+!benchmarks/fixtures/*.db
+# Local jankurai state (receipts/hooks state — not committed)
+.jankurai/

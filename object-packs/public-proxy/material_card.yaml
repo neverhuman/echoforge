@@ -1,0 +1,34 @@
+# EchoForge material_card fixture (schemas/material_card.schema.json).
+# Note: `id` and `provenance.fingerprint_sha256` are placeholders; the Rust
+# `finalize()` step overwrites them at load time with content-derived values.
+id: "ef:material_card:composite-skin-baseline:0000000000000000:1"
+kind: material_card
+schema_version: "1.0.0"
+public_proxy_id: composite-skin-baseline
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+material_name: "Composite skin baseline"
+material_family: composite
+frequency_range_hz:
+  min: 1.0e9
+  max: 40.0e9
+permittivity:
+  real: 4.5
+  imag: 0.05
+conductivity_s_per_m: 1.0e-3
+roughness_m: 1.0e-4

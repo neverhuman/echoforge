@@ -1,0 +1,31 @@
+# EchoForge scenario fixture (schemas/scenario.schema.json).
+# References the baseline X-band FMCW sensor archetype and the public-proxy
+# fixed-wing UAV object card. `id` and `provenance.fingerprint_sha256` are
+# placeholders; the Rust `finalize()` step overwrites them at load time.
+id: "ef:scenario:public-proxy-clutter-v1:0000000000000000:1"
+kind: scenario
+schema_version: "1.0.0"
+public_proxy_id: public-proxy-clutter-v1
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+scenario_name: "Public Proxy Clutter Baseline v1"
+sensor_archetype_id: "ef:sensor_archetype:baseline-x-band-fmcw:0000000000000000:1"
+object_card_ids:
+  - "ef:object_card:public-proxy-uav-1:0000000000000000:1"
+environment_label: moderate-clutter-light-weather
+seed: 1

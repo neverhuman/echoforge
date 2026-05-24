@@ -1,0 +1,42 @@
+{
+	"manifest_id": "current",
+	"scope": "Tracked paper-lane source and governance files. This is an auditable self-classification of source LOC, not proof of authorship history.",
+	"notes": [
+		"Count only tracked source-style files matched by the category globs.",
+		"Prefer the first matching category when a file matches multiple rules.",
+		"Exclude generated outputs, figures, PDFs, and the outputs/ tree."
+	],
+	"categories": [
+		{
+			"id": "generative_ai_inspired",
+			"label": "Generative / AI-inspired",
+			"globs": [
+				"paper/*.py",
+				"paper/*.tex",
+				"detection/generate_main_run.py",
+				"detection/main_run_generation.py",
+				"detection/advanced_main_run_detectors.py",
+				"detection/paper_evidence_builder.py"
+			],
+			"reason": "Paper synthesis, evidence orchestration, and benchmark-generation automation."
+		},
+		{
+			"id": "human_standard",
+			"label": "Human-standard methods",
+			"globs": [
+				"paper/build.sh",
+				"paper/docs/**/*",
+				"README.md",
+				"AGENTS.md",
+				"Justfile",
+				"docs/**/*.md",
+				"detection/**/*.py",
+				"tools/**/*.mjs",
+				"ops/**/*.sh",
+				".github/**/*.yml",
+				".github/**/*.yaml"
+			],
+			"reason": "Governance, documentation, and baseline tooling."
+		}
+	]
+}

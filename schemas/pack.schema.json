@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/pack.schema.json",
+  "title": "pack",
+  "description": "EchoForge unified pack manifest. Supersedes object_pack_manifest.schema.json and hard_negative_pack.schema.json with a single typed card_refs object that maps document-kind discriminators to file-path arrays. Co-exists with current manifests via the loader's `schema_version` discriminator (current manifests stay valid until the explicit migration window closes). Provides `pack_dependencies` for cross-pack references (e.g. detector pack depending on radar pack for `intended_sensor_archetypes`). Strict-open: each pack declares its own license + provenance + validation envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "schema_version",
+    "kind",
+    "purpose",
+    "card_refs",
+    "license",
+    "provenance",
+    "validation_tier"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^pack\\.[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+      "description": "Pack id of form 'pack.<slug>'. Globally unique across the org's pack inventory."
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "description": "Pack manifest schema version for the current unified pack contract."
+    },
+    "kind": {
+      "const": "pack_manifest"
+    },
+    "display_name": { "type": "string", "minLength": 1 },
+    "purpose": { "type": "string", "minLength": 1 },
+    "card_refs": {
+      "description": "Typed card references. Each entry is an array of file paths (relative to the pack root) that the loader validates against the named schema. All keys optional; missing keys mean the pack ships zero cards of that kind.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "radar_platform_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "source_platform_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "detector_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "weather_profile": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "eo_ir_sensor_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "acoustic_sensor_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "passive_rf_sensor_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "object_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "material_card": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "sensor_archetype": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "echosig_manifest": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "mesh_manifest": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "card_slugs": {
+      "description": "Optional flat list of card slugs (slug-only, no kind discriminator) for quick lookup. Loader builds this automatically from card_refs at validation time.",
+      "type": "array",
+      "items": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" }
+    },
+    "pack_dependencies": {
+      "description": "Other packs this pack references (e.g. detector cards depending on radar platform cards for `intended_sensor_archetypes`).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pack_id"],
+        "properties": {
+          "pack_id": { "type": "string", "pattern": "^pack\\.[a-z0-9]+(?:[._-][a-z0-9]+)*$" },
+          "min_schema_version": { "type": "string" },
+          "required_card_kinds": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "license": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license" },
+    "provenance": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance" },
+    "validation_tier": {
+      "enum": ["unvalidated", "basic", "cross_checked", "benchmarked", "measured"],
+      "description": "Pack-level validation tier; individual cards may declare their own tier in their `validation` envelope. The pack-level tier is the lower bound on all cards in the pack."
+    },
+    "fidelity_class": {
+      "enum": ["analytic_prior", "primitive_decomposed", "production_sbr", "cross_solver_bridged", "measured_anchored", "lawful_measured_validated"],
+      "description": "Method-ceiling fidelity tier; independent from `validation_tier`."
+    },
+    "superseded_by": {
+      "type": "string",
+      "pattern": "^pack\\.[a-z0-9]+(?:[._-][a-z0-9]+)*$",
+      "description": "If this pack is superseded by a newer pack, the loader logs a warning and prefers the successor for non-test contexts."
+    },
+    "notes": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "source_status": {
+      "enum": ["public_proxy", "synthetic", "measured", "mixed"],
+      "description": "Mirrors object_pack_manifest / hard_negative_pack source_status field for back-compat."
+    }
+  }
+}

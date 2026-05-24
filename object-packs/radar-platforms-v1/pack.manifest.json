@@ -1,0 +1,58 @@
+{
+  "id": "pack.radar-platforms-v1",
+  "schema_version": "2.0.0",
+  "kind": "pack_manifest_v2",
+  "display_name": "Radar Platforms v1 (named real platforms)",
+  "purpose": "Named real-world radar platform cards with citation-anchored physics. Each card carries antenna gain, transmit chain, receiver chain, scan pattern, and declared detection envelope per target class — all derived from public vendor datasheets and OSINT (Janes, CSIS, Reuters, Bellingcat, RUSI). Strict-open posture: no measured-truth claim; vendor names allowed per the 20260518T160000Z naming-policy reversal.",
+  "card_refs": {
+    "radar_platform_card": [
+      "saab_giraffe_1x.yaml",
+      "rtx_kurfs.yaml",
+      "rtx_an_mpq_64_sentinel_a4.yaml",
+      "src_an_tpq_50.yaml",
+      "lockheed_an_tpq_53.yaml",
+      "hensoldt_spexer_2000_3d_mkiii.yaml",
+      "blighter_a800_mk2.yaml"
+    ]
+  },
+  "card_slugs": [
+    "saab-giraffe-1x",
+    "rtx-kurfs",
+    "rtx-an-mpq-64-sentinel-a4",
+    "src-an-tpq-50",
+    "lockheed-an-tpq-53",
+    "hensoldt-spexer-2000-3d-mkiii",
+    "blighter-a800-mk2"
+  ],
+  "pack_dependencies": [
+    {
+      "pack_id": "pack.adversary-platforms-v1",
+      "min_schema_version": "2.0.0",
+      "required_card_kinds": ["source_platform_card"]
+    }
+  ],
+  "license": {
+    "spdx_id": "MIT",
+    "notice": "Pack content derived from public vendor datasheets and OSINT. No measured-truth or classified-tactics claim."
+  },
+  "provenance": {
+    "source_kind": "public_proxy",
+    "source_refs": [
+      "Saab Giraffe 1X product page",
+      "Reuters: US Army Giraffe 1X order 2026",
+      "tips/detectors/tip1.txt:220-222",
+      "tips/detectors/tip1.txt:384-386"
+    ],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T22:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "validation_tier": "basic",
+  "fidelity_class": "primitive_decomposed",
+  "notes": [
+    "Seven named radar platform cards currently in this pack: Saab Giraffe 1X (S-band 3D, US Army 2026 order); RTX KuRFS (Ku-band AESA 360°, LIDS); RTX AN/MPQ-64 Sentinel A4 (X-band 3D phased array, 75 km vs 0 dBsm fighter); SRC AN/TPQ-50 (L-band dual-mode counter-battery + air-surveillance); Lockheed Martin AN/TPQ-53 (S-band counter-battery + C-UAS via FAAD C2); HENSOLDT SPEXER 2000 3D MkIII (X-band AESA pulse-Doppler, 3-panel 360°); Blighter A800 Mk2 (Ku-band FMCW AESA, full 6-point RCS-vs-range datasheet anchor).",
+    "Remaining cards in the backlog (HENSOLDT TRML-4D, Echodyne EchoGuard/EchoShield, SRC Gryphon R1410, Robin Radar IRIS LRM, Leonardo DRS RADA nMHR, CETC YLC-48, Pantsir-S1) land in subsequent waves.",
+    "Each card's physical parameters are either declared by the vendor or derived from declared facts via radar physics (antenna gain via G = 4*pi*eta*A_phys/lambda^2; PRF from unambiguous range; dwell from scan rate × beamwidth; noise figure from band/year typical)."
+  ],
+  "source_status": "public_proxy"
+}

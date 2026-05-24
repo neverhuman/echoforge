@@ -1,0 +1,33 @@
+{
+  "id": "ef:solver_card:baseline-sbr-solver:0123456789abcdef:1",
+  "kind": "solver_card",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "baseline-sbr-solver",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "solver_name": "Baseline SBR solver",
+  "solver_family": "sbr",
+  "version": "1.0.0",
+  "container_image": "registry.local/echoforge/sbr@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "supported_polarizations": ["H", "V"]
+}

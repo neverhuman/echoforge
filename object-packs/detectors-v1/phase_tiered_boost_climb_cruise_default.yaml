@@ -1,0 +1,145 @@
+# EchoForge detector_card — Phase-tiered BOOST/CLIMB-OUT/CRUISE detector
+# Schema: schemas/detector_card.schema.json
+#
+# Three-tier phase-aware detector for Shahed-class one-way-attack drone
+# family. Per-tier kinematic gates (BOOST 0-35 m/s with 5-20 m/s^2
+# accel, CLIMB-OUT 25-60 m/s with low accel, CRUISE-PISTON 40-60 m/s
+# OR CRUISE-JET 100-150 m/s). Tier arbiter advances state per CPI;
+# per-tier detectors publish horizon_blocked, kinematic_consistency,
+# micro_doppler_confirmed. Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/phase_tiered/.
+id: "ef:detector_card:phase-tiered-boost-climb-cruise-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: phase-tiered-boost-climb-cruise-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Skolnik, Introduction to Radar Systems, 3rd ed. §2.10 (two-ray propagation, horizon LOS) + §9.5 (Neyman-Pearson)"
+    - "object-packs/adversary-platforms-v1/shahed_136_geran_2.yaml (kinematic envelope)"
+    - "object-packs/adversary-platforms-v1/geran_3_jet_variant.yaml (jet cruise envelope)"
+    - "crates/echoforge-radar/src/detectors/phase_tiered/ (BoostTierDetector, ClimbOutTierDetector, CruiseTierDetector, TierArbiter)"
+    - ".agents/receipts/phase-pd-pfa-report-v4/ (per-tier Pd/Pfa tables)"
+    - ".agents/receipts/phase-taxonomy-three-tier-v4/ (BOOST/CLIMB-OUT/CRUISE taxonomy)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references and public-proxy adversary kinematics. No measured-truth claim."
+validation:
+  tier: cross_checked
+  status: pass
+  uncertainty_score: 0.25
+  checks:
+    - name: three_tier_taxonomy_per_phase_pd_pfa
+      status: pass
+      message: "BOOST/CLIMB-OUT/CRUISE per-tier Pd/Pfa reports published per .agents/receipts/phase-pd-pfa-report-v4/"
+    - name: kinematic_envelope_shahed_136_consistent
+      status: pass
+      message: "Kinematic gates derived from object-packs/adversary-platforms-v1/shahed_136_geran_2.yaml kinematic_envelope (cruise_speed_mps 45-60, peak_acceleration_g 1.8)"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).evaluate_cpi() must equal hand-built PhaseTieredDetector::default() byte-for-byte on pinned KinematicObservation fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "Phase-tiered BOOST/CLIMB-OUT/CRUISE (Shahed-class kinematic envelope)"
+algorithm_family: phase_tiered_boost_climb_cruise
+parameters:
+  boost:
+    speed_range_mps: [0.0, 35.0]
+    accel_range_mps2: [5.0, 20.0]
+    altitude_agl_range_m: [0.0, 200.0]
+    burn_time_s_range: [1.0, 3.0]
+    carrier_freq_hz: 3.0e9
+    k_factor: 1.3333333333333333
+    reflection_coeff_magnitude: 0.8
+    marginal_los_band_m: 50.0
+    sub_horizon_depth_m: 50.0
+    first_null_residual_pwr_threshold: 0.05
+    mof_n_window: 5
+    mof_n_threshold: 4
+  climb_out:
+    speed_range_mps: [25.0, 60.0]
+    accel_range_mps2: [0.1, 2.0]
+    altitude_agl_range_m: [30.0, 1500.0]
+    carrier_freq_hz: 3.0e9
+    mti_notch_half_width_hz: 30.0
+    kalman_speed_gate_mps: 5.0
+    mof_n_window: 5
+    mof_n_threshold: 3
+    cross_flight_kalman_speed_gate_mps: 3.0
+    cross_flight_mof_n_threshold: 4
+  cruise_piston:
+    speed_range_mps: [40.0, 60.0]
+    accel_range_mps2: [0.0, 0.5]
+    altitude_agl_range_m: [30.0, 3000.0]
+    propulsion_class: piston
+    blade_pass_fundamental_hz_range: [150.0, 220.0]
+  cruise_jet:
+    speed_range_mps: [100.0, 150.0]
+    accel_range_mps2: [0.0, 0.5]
+    altitude_agl_range_m: [30.0, 3000.0]
+    propulsion_class: turbojet
+    compressor_band_hz_range: [800.0, 2000.0]
+  cruise_cfar:
+    training_cells: 16
+    guard_cells: 4
+    pfa: 1.0e-4
+    rank: 24
+    kalman_speed_gate_mps: 5.0
+    mof_n_window: 7
+    mof_n_threshold: 5
+default_thresholds:
+  boost_mof_n_ratio_min: 0.5
+  climb_mof_n_ratio_min: 0.5
+  cruise_mof_n_ratio_min: 0.5
+  micro_doppler_confirmed_required_in_cruise: true
+intended_target_classes:
+  - shahed-class-piston
+  - geran-3-jet-variant
+  - shahed-136-geran-2
+  - shahed-131-geran-1
+  - mohajer-6
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - rtx-kurfs
+  - src-an-tpq-50
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.78
+      pd_max: 0.94
+    snr_db_required_range:
+      min: 11.0
+      max: 16.0
+    citation_id: phase-pd-pfa-report-v4
+  - target_class_slug: geran-3-jet-variant
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.70
+      pd_max: 0.90
+    snr_db_required_range:
+      min: 13.0
+      max: 18.0
+    citation_id: phase-pd-pfa-report-v4
+citations:
+  - citation_id: phase-pd-pfa-report-v4
+    title: "EchoForge phase-pd-pfa-report v4 (per-tier Pd/Pfa tables)"
+    authors: "EchoForge tooling"
+    publisher: "Internal receipt: .agents/receipts/phase-pd-pfa-report-v4/"
+  - citation_id: phase-taxonomy-three-tier-v4
+    title: "EchoForge phase taxonomy three-tier v4"
+    authors: "EchoForge tooling"
+    publisher: "Internal receipt: .agents/receipts/phase-taxonomy-three-tier-v4/"
+  - citation_id: skolnik-3rd-2-10-two-ray-horizon
+    title: "Skolnik 3rd ed. §2.10 (two-ray propagation, horizon LOS)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"
+  - citation_id: skolnik-3rd-9-5-lrt
+    title: "Skolnik 3rd ed. §9.5 (likelihood-ratio detection theory)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"

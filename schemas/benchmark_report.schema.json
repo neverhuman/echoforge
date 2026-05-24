@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schemas/benchmark_report.schema.json",
+  "title": "EchoForge Benchmark Report",
+  "type": "object",
+  "required": ["schema_ref", "dataset_card_schema_ref", "benchmark_id", "dataset_id", "status", "required_sections", "required_artifacts", "known_limitations"],
+  "properties": {
+    "schema_ref": { "type": "string" },
+    "dataset_card_schema_ref": { "type": "string" },
+    "benchmark_id": { "type": "string" },
+    "dataset_id": { "type": "string" },
+    "status": { "type": "string" },
+    "required_sections": { "type": "array", "items": { "type": "string" } },
+    "required_artifacts": { "type": "array", "items": { "type": "string" } },
+    "known_limitations": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}
+

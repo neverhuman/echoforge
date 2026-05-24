@@ -1,0 +1,64 @@
+{
+  "boundary_id": "python-ai-service-ml-slice",
+  "classification": "advanced-ml",
+  "runtime_language": "python",
+  "paths": [
+    "python/ai-service/"
+  ],
+  "files": [
+    {
+      "path": "python/ai-service/echoforge_core/__init__.py",
+      "sha256": "a0f31233dc42b8c49668e3102d85717610f5e008d84652b133d82683a9e63c15"
+    },
+    {
+      "path": "python/ai-service/echoforge_core/models.py",
+      "sha256": "18d522bf089d3c85ec8fa51ce46eb2ae20ae96c44c5327d47d606470f34d8dea"
+    },
+    {
+      "path": "python/ai-service/echoforge_core/validation.py",
+      "sha256": "737e4db645be41f4c67a2297f595bd06a5133cc9039d12deb1368e936c6555ae"
+    },
+    {
+      "path": "python/ai-service/echoforge_radar/__init__.py",
+      "sha256": "7e62ea8db87bf803582242cd0b730d22f3388d09d23464b4711abca89f26b436"
+    },
+    {
+      "path": "python/ai-service/echoforge_radar/primitives.py",
+      "sha256": "7b80846b9d06ff37623897ea1d43fb3c4a21f7cae826bf11f659e7ba080511a4"
+    },
+    {
+      "path": "python/ai-service/echoforge_signatures/__init__.py",
+      "sha256": "40abcad5db19f5ab9ca2f9e34099140d235d64e07f56d3731e92e1d7aed78788"
+    },
+    {
+      "path": "python/ai-service/echoforge_validate/closed_forms.py",
+      "sha256": "07a294c81be4f5760e192d61916bac2629176f642090c2785909c18df733de3a"
+    },
+    {
+      "path": "python/ai-service/echoforge_validate/__init__.py",
+      "sha256": "e5812a83cee99a96241008e5b7525b99eec4c6626d3ebbd4297c6da42f2bcef5"
+    },
+    {
+      "path": "python/ai-service/echoforge_validate/mie.py",
+      "sha256": "9fc4088cb10208c0e64c0e8d7d68dc4f5d1e48b3a079ad3ed733c1f39b3fe13d"
+    }
+  ],
+  "checks": [
+    {
+      "id": "no-direct-db-access",
+      "status": "passed"
+    },
+    {
+      "id": "no-product-routes",
+      "status": "passed"
+    },
+    {
+      "id": "no-subprocess",
+      "status": "passed"
+    }
+  ],
+  "summary": {
+    "passed": true,
+    "failed_count": 0
+  }
+}

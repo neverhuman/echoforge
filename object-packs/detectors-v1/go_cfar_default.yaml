@@ -1,0 +1,72 @@
+# EchoForge detector_card — GO-CFAR (Hansen & Sawyers 1980) default
+# Schema: schemas/detector_card.schema.json
+#
+# Greatest-of CFAR: noise estimate is max(mean_lead, mean_lag), making
+# the detector robust at clutter edges where one side has a much higher
+# noise floor. Externalizes the Rust default at
+# crates/echoforge-radar/src/detectors/go_cfar.rs (GoCfarDetector).
+id: "ef:detector_card:go-cfar-default:0000000000000000:1"
+kind: detector_card
+schema_version: "1.0.0"
+public_proxy_id: go-cfar-default
+provenance:
+  source_kind: synthetic
+  source_refs:
+    - "Hansen & Sawyers, Detectability loss due to greatest-of selection in a cell-averaging CFAR, IEEE Trans. AES 16(1) 1980"
+    - "Skolnik 3rd ed. §7.7.2 (CFAR family overview)"
+    - "crates/echoforge-radar/src/detectors/go_cfar.rs (GoCfarDetector)"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T22:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+  notice: "Detector card derived from open-literature radar references. No measured-truth claim."
+validation:
+  tier: basic
+  status: pass
+  uncertainty_score: 0.30
+  checks:
+    - name: clutter_edge_suppression_regression
+      status: pass
+      message: "go_cfar_does_not_falsely_detect_on_clutter_edge unit test: GO hits <= CA hits on synthetic clutter step"
+    - name: rust_factory_dispatch_byte_equivalence
+      status: warn
+      message: "loader gate: factory(card).process() must equal hand-built GoCfarDetector::new(CfarParams::new(10, 3, 1e-3)) byte-for-byte on pinned RD fixture"
+  fidelity_class: cross_solver_bridged
+display_name: "GO-CFAR (Hansen & Sawyers 1980)"
+algorithm_family: go_cfar
+parameters:
+  training_cells: 10
+  guard_cells: 3
+  pfa: 1.0e-3
+  clutter_assumption: "rayleigh_thermal_with_edge_robustness"
+default_thresholds:
+  pfa: 1.0e-3
+intended_target_classes:
+  - shahed-class-piston
+  - small-uas-class-i
+  - rcs-0p01-m2
+intended_sensor_archetypes:
+  - saab-giraffe-1x
+  - rtx-an-mpq-64-sentinel-a4
+  - src-an-tpq-50
+expected_performance_envelope:
+  - target_class_slug: shahed-class-piston
+    sensor_archetype_slug: saab-giraffe-1x
+    pd_at_pfa:
+      pfa: 1.0e-3
+      pd_min: 0.65
+      pd_max: 0.84
+    snr_db_required_range:
+      min: 14.0
+      max: 17.0
+    citation_id: hansen-sawyers-1980-detectability-loss
+citations:
+  - citation_id: hansen-sawyers-1980-detectability-loss
+    title: "Detectability loss due to greatest-of selection in a cell-averaging CFAR"
+    authors: "Hansen & Sawyers"
+    publisher: "IEEE Trans. AES 16(1) 1980"
+  - citation_id: skolnik-3rd-ch7-7-2
+    title: "Skolnik 3rd ed. §7.7.2 (CFAR family overview)"
+    authors: "Skolnik"
+    publisher: "McGraw-Hill"

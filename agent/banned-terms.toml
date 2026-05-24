@@ -1,0 +1,185 @@
+# EchoForge banned-terms policy.
+#
+# This file lists strings that MUST NOT appear anywhere in the repository
+# except in `tips/`, `.git/`, `target/`, `node_modules/`, build outputs,
+# this file itself, or paths explicitly listed under
+# `[compliance.exclude].paths` below. The vendor-scrub CI gate
+# (`tools/vendor_scrub.mjs`) enforces this against every file matched by
+# `git ls-files`.
+#
+# The first wave of bans (packet `banlist-activation`, 2026-05-18) covers
+# CLAIM GUARDRAILS — assertive truth, performance, vendor-equivalence,
+# and evasion-language phrases that have no legitimate use in a
+# strict-open public-proxy dataset. They were drawn from tip3 §3
+# (compliance scanner spec) and verified safe with `git grep` before
+# adoption (every phrase had zero hits in tracked, non-excluded files).
+#
+# Vendor and platform designators (i.e. specific company/system names
+# extracted from the tips archive) are NOT in this file yet. Adding them
+# requires explicit user authorization because the list will name
+# specific organizations and weapon systems. Curators must add those
+# rows in a separate review PR.
+#
+# Authoring rules:
+# - Pattern matching is case-insensitive substring (see vendor_scrub.mjs).
+# - Pick phrases that do not occur in negation contexts already in the
+#   repo (e.g. "not proprietary-equivalent" is fine; banning
+#   "proprietary-equivalent" would self-trip the gate). Always
+#   `git grep` first.
+# - One claim category per row group; keep alphabetical inside group.
+
+version = 1
+
+[compliance]
+fail_on_match = true
+fail_when_banlist_empty = true
+placeholder_token_pattern = "^__PLACEHOLDER_"
+
+# Default exclusions (also configurable via CLI --exclude).
+[compliance.exclude]
+paths = [
+  "tips/",
+  ".git/",
+  "target/",
+  "node_modules/",
+  "dist/",
+  "build/",
+  ".venv/",
+  ".pnpm-store/",
+  ".agents/receipts/",
+  "agent/banned-terms.toml",
+  "docs/comms-protocol.md",
+  "docs/validation-tiers.md",
+  "object-packs/public-proxy-v1/source_dossier.yaml",
+  "CHANGELOG.md",
+]
+file_globs = [
+  "*.lock",
+  "*.png",
+  "*.jpg",
+  "*.pdf",
+  "*.zarr",
+  "*.parquet",
+  "*.npy",
+  "*.npz",
+  "*.pt",
+  "*.pth",
+  "*.onnx",
+]
+
+# =========================================================================
+# Wave 1 — claim guardrails (tip3 §3). These phrases are diagnostic of
+# overclaiming; a strict-open public-proxy dataset has no legitimate
+# reason to emit any of them in code, docs, fixtures, dataset cards, UI
+# strings, or comments. Every entry was confirmed zero-hit before
+# adoption.
+#
+# To extend Wave 1: `git grep -i -F "<candidate phrase>"` and confirm the
+# only hits are inside excluded paths or this file, then add a row.
+# =========================================================================
+
+# --- Signature / truth overclaims ---
+
+[[term]]
+pattern = "exact real platform signature"
+reason  = "Asserts measured-equivalent signature truth. Strict-open path is uncertainty-bounded proxy only."
+case_sensitive = false
+
+[[term]]
+pattern = "exact target truth"
+reason  = "Asserts absolute target ground truth. Use 'public-proxy truth' or 'statistical proxy truth'."
+case_sensitive = false
+
+[[term]]
+pattern = "exact signature truth"
+reason  = "Asserts absolute signature ground truth. Use validation-tier + uncertainty band instead."
+case_sensitive = false
+
+[[term]]
+pattern = "exact RCS truth"
+reason  = "Asserts absolute RCS ground truth. Use validation-tier + uncertainty band instead."
+case_sensitive = false
+
+[[term]]
+pattern = "exact platform truth"
+reason  = "Asserts measured-equivalent platform truth. Strict-open path stays public-proxy."
+case_sensitive = false
+
+[[term]]
+pattern = "true target signature"
+reason  = "Implies the system produces the true real-world signature. We produce uncertainty-bounded proxies."
+case_sensitive = false
+
+[[term]]
+pattern = "ground truth signature"
+reason  = "Implies the synthetic signature is operational ground truth. Use 'proxy signature with validation tier'."
+case_sensitive = false
+
+[[term]]
+pattern = "validated against real platform"
+reason  = "Implies lawful real-platform calibration that we do not ship by default. Use 'cross-solver validated' or 'measured-anchor validated' when applicable."
+case_sensitive = false
+
+# --- Performance / readiness overclaims ---
+
+[[term]]
+pattern = "guaranteed detection range"
+reason  = "Asserts an unconditional detection guarantee. Use Pd/Pfa curves under stated conditions."
+case_sensitive = false
+
+[[term]]
+pattern = "100% accurate signature"
+reason  = "Asserts perfect signature accuracy. Use uncertainty bands instead."
+case_sensitive = false
+
+[[term]]
+pattern = "operationally validated"
+reason  = "Implies operational-readiness validation that strict-open does not provide. Use 'V3 benchmarked' or 'V4 measured-anchor' from validation-tiers.md."
+case_sensitive = false
+
+[[term]]
+pattern = "production-grade signature"
+reason  = "Implies a production-fidelity guarantee. Use 'fidelity F2 (production-SBR)' from the F0-F5 ladder."
+case_sensitive = false
+
+# --- Vendor / proprietary-equivalence overclaims ---
+
+[[term]]
+pattern = "platform-equivalent"
+reason  = "Asserts cross-platform equivalence we cannot ship. Use 'public-proxy approximation'."
+case_sensitive = false
+
+# --- Evasion / defeat language (defensive framing only) ---
+# Hard negatives are a robustness/false-alarm reduction product. Anything
+# framed as offensive ('defeat radar', 'evade detection') belongs in the
+# misuse-safety review, not a default code path.
+
+[[term]]
+pattern = "guaranteed defeat"
+reason  = "Offensive framing. Hard negatives are robustness work, not evasion design."
+case_sensitive = false
+
+[[term]]
+pattern = "guaranteed kill"
+reason  = "Offensive framing. EchoForge does not ship engagement workflows."
+case_sensitive = false
+
+[[term]]
+pattern = "defeat radar"
+reason  = "Offensive framing. Reframe as detector robustness improvement."
+case_sensitive = false
+
+[[term]]
+pattern = "evade detection"
+reason  = "Offensive framing. Reframe as false-alarm reduction or hard-negative robustness."
+case_sensitive = false
+
+# =========================================================================
+# Wave 2 — vendor and platform designators. Empty until the curator adds
+# entries via a separate review PR (requires user authorization). When
+# adding, follow the authoring rules at the top of this file.
+# =========================================================================
+# [[term]]
+# pattern = "<vendor or platform designator>"
+# reason  = "<short justification>"
+# case_sensitive = false

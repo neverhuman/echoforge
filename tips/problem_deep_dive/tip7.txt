@@ -1,0 +1,489 @@
+## Scope: the “Iranian drone” most likely means Shahed-136 / Geran-2
+
+I’m assuming you mean the **Iranian Shahed-136 / Russian Geran-2 class**: a slow, propeller-driven, one-way attack UAV/loitering munition. Public U.S. DIA material identifies the Geran-2 used in Ukraine as visually consistent with Iran’s Shahed-136, noting the distinctive delta-wing body, vertical stabilizers, and recovered MD-550-family engine evidence.  Open-source munition references describe the same family as a GNSS-guided, pre-programmed one-way attack UAV, generally rail/truck-launched with rocket-assist and then powered by a rear piston engine. ([Open Source Munitions Portal][1])
+
+I’ll keep this to **public science and defensive detection concepts**. I’m not going to give operational radar settings, exact engagement timelines, site-specific warning ranges, or tuning recipes that would help someone evade a radar network.
+
+---
+
+## 1. Public profile of the Shahed-136 / Geran-2 class
+
+The important radar-relevant traits are:
+
+| Attribute          | Public-level relevance to radar detection                                                                                                                                                                                                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Airframe**       | Delta-wing body with small stabilizers. Public DIA imagery highlights this distinctive shape.                                                                                                                                                                                                        |
+| **Material / RCS** | Fiberglass and internal structure can reduce radar return compared with a metal aircraft. This is not “stealth aircraft” technology, but the radar cross-section is small and aspect-dependent. ([Open Source Munitions Portal][1])                                                                  |
+| **Propulsion**     | Rear piston engine / pusher propeller. Public DIA reporting links recovered engines to Iranian-produced MD-550-family engines used in Shahed-136.                                                                                                                                                    |
+| **Guidance**       | Generally not remotely piloted in the consumer-drone sense; it is commonly described as pre-programmed/GNSS-guided. That means RF-control-link detection may not be available, so radar, EO/IR, acoustic, and fusion matter more. ([Open Source Munitions Portal][1])                                |
+| **Launch**         | Public sources show truck/rail launch; the launch sequence is generally rocket-assisted, then the booster separates and the piston engine sustains flight.                                                                                                                                           |
+| **Speed**          | Open-source figures commonly put the piston Shahed-136 class around **~180 km/h**, roughly **50 m/s**, though variant, wind, route, and payload matter. Some newer jet variants are reported much faster and should be treated as a different detection problem. ([Open Source Munitions Portal][1]) |
+| **Range**          | Public references often cite long-range endurance, on the order of **hundreds to 2,000+ km** for the baseline Shahed-136 class, but this is not the same as radar detection range. ([Open Source Munitions Portal][1])                                                                               |
+
+The radar problem is hard because it combines **small radar return**, **low altitude**, **slow speed**, **ground clutter**, and often **mass launches**. It is not hard because the object is invisible; it is hard because it often lives in the worst part of the radar problem: near the horizon, close to terrain, moving slowly, and mixed with clutter.
+
+---
+
+## 2. When does it “take off,” and what does radar see?
+
+For this class, “takeoff” is usually not runway takeoff. It is more like:
+
+1. **Rail/truck launch**
+2. **Rocket-assisted acceleration**
+3. **Booster separation**
+4. **Transition to piston-engine cruise**
+5. **Low-altitude cruise toward pre-programmed coordinates**
+
+Public sources show the truck/rail launch concept and describe the booster-to-piston transition. 
+
+Radar does **not** need the UAV to reach some perfect “final attitude” before it can detect it. A radar can detect any object once all of these are true:
+
+1. The object is inside the radar’s field of regard.
+2. There is a line-of-sight or usable propagation path.
+3. The returned signal is strong enough above noise and clutter.
+4. The processor accepts it as a plausible target rather than rejecting it as clutter, bird, multipath, or noise.
+5. For a track, the radar sees enough consistent updates to maintain target continuity.
+
+So the first raw detection can occur before stable cruise, but **classification and reliable track formation usually require persistence**: multiple looks, multiple scans, or enough coherent signal history to separate the target from clutter.
+
+---
+
+## 3. “How soon can it be detected?” The answer is mostly geometry plus clutter
+
+At a public-physics level, earliest radar detection is governed by:
+
+[
+\text{detection opportunity} = \text{line-of-sight} + \text{radar equation margin} + \text{clutter discrimination} + \text{track confirmation}
+]
+
+The line-of-sight part is the most intuitive. A low-altitude UAV can be hidden by Earth curvature, terrain, buildings, vegetation, and the radar’s own low-elevation blind zones. NGA radar-horizon material notes that low-lying target detection is horizon-limited, and that refraction, diffraction, and antenna height affect the radar horizon.  MIT Lincoln Laboratory material similarly describes atmospheric attenuation, surface reflection, over-horizon diffraction, and refraction as major propagation effects. ([MIT Lincoln Laboratory][2])
+
+A common approximation for **geometric radar horizon** under standard refraction is:
+
+[
+d_\text{km} \approx 4.12 \left(\sqrt{h_r}+\sqrt{h_t}\right)
+]
+
+where:
+
+* (h_r) = radar antenna height in meters
+* (h_t) = target altitude above local surface in meters
+* (d_\text{km}) = approximate line-of-sight horizon distance in kilometers
+
+This is **not** a detection guarantee. It ignores radar power, antenna gain, frequency, waveform, RCS, clutter, weather, terrain, buildings, and processing thresholds. It only says when the geometry may stop being impossible.
+
+A few non-operational intuition examples:
+
+| Radar antenna height | UAV altitude AGL | Approx. geometric horizon | Time to cover that distance at ~180 km/h |
+| -------------------: | ---------------: | ------------------------: | ---------------------------------------: |
+|                 10 m |             30 m |                    ~36 km |                                  ~12 min |
+|                 10 m |            100 m |                    ~54 km |                                  ~18 min |
+|                 20 m |            100 m |                    ~60 km |                                  ~20 min |
+|                 50 m |            100 m |                    ~70 km |                                  ~23 min |
+
+Those times are **only kinematic intuition**. Real detection may be later because the target return is weak or buried in ground clutter; or sometimes earlier under elevated radar placement, airborne radar, favorable propagation, or external cueing. Low-elevation radar performance can also be distorted by sub-refraction, super-refraction, and ducting, which can either reduce coverage or produce anomalous propagation. 
+
+---
+
+## 4. How high does it need to get to be detected?
+
+There is no single altitude like “it becomes detectable at 50 meters.” Detection altitude depends on:
+
+* Radar antenna height
+* Terrain between radar and target
+* Earth curvature
+* Radar frequency and waveform
+* Antenna elevation coverage
+* Target radar cross-section
+* Aspect angle
+* Weather
+* Ground clutter
+* Required probability of detection and acceptable false-alarm rate
+
+At very low altitude, the target may be physically below the radar horizon or inside ground clutter. As it climbs from tens of meters to hundreds of meters, line-of-sight improves dramatically because horizon distance grows with the square root of height. But once it is above the geometric horizon, detection still depends on whether the radar can extract a small, slow target from clutter.
+
+A useful way to think about it:
+
+* **Below line-of-sight:** detection by that radar is usually impossible or unreliable unless propagation anomalies, airborne sensors, or other sensors help.
+* **Just above line-of-sight:** detection may be possible but poor; the target is near ground clutter, multipath, and low-elevation sidelobe problems.
+* **Well above local clutter/terrain:** detection and tracking become easier, but RCS, aspect, and radar design still matter.
+
+---
+
+## 5. Why low elevation is so painful
+
+Low elevation is the center of the problem. It creates several overlapping failure modes.
+
+### Earth curvature and terrain masking
+
+A ground radar cannot see through Earth curvature. Hills, buildings, trees, and terrain folds can completely mask a low-altitude UAV. NGA radar-horizon guidance explicitly notes that low-lying objects are horizon-limited and that the actual radar horizon depends on atmospheric conditions as well as antenna height. 
+
+### Ground clutter
+
+At low elevation, the radar beam intersects land, buildings, vegetation, vehicles, power lines, towers, and terrain. The radar receives returns from the target and from the ground in nearby range-Doppler cells. A small UAV may have less return energy than surrounding clutter.
+
+### Multipath and lobe/null structure
+
+MIT Lincoln Laboratory describes how direct and ground-reflected paths can interfere, splitting elevation coverage into lobes and nulls. In a null, the radar may receive little or no echo even when the target is physically present. ([MIT Lincoln Laboratory][2]) This matters a lot for low-altitude targets because the direct and reflected rays are close in angle.
+
+### Atmospheric refraction
+
+Standard radar-horizon formulas use a simplified “effective Earth radius” model. Real atmosphere can create sub-refraction, super-refraction, or ducting. NGA notes that sub-refraction can reduce detection of low-lying targets, while super-refraction and ducting can extend or distort detection ranges.  MIT material makes the same point: anomalous propagation can extend low-altitude propagation or create coverage holes. ([MIT Lincoln Laboratory][2])
+
+### Slow speed and clutter rejection
+
+Many air-search radars use Doppler or moving-target processing to reject stationary clutter. A slow UAV, especially one moving tangentially relative to the radar, can have a low radial velocity. That can make it look more clutter-like. Micro-Doppler methods help because propellers and moving parts create modulation even when the body’s radial velocity is weak, and research has shown micro-Doppler can help discriminate UAVs from clutter and other targets. 
+
+---
+
+## 6. Major radar signal/noise/clutter concerns
+
+The big ones are:
+
+### 1. Thermal noise
+
+This is the receiver’s baseline noise floor. A small target return has to rise above it. More integration time can help, but longer integration can reduce update rate and may fail if the target motion decorrelates.
+
+### 2. Ground clutter
+
+The dominant issue for low-altitude UAVs. Terrain, roads, buildings, vegetation, and vehicles produce returns that can be stronger than the UAV.
+
+### 3. Sea clutter
+
+If over water, waves create time-varying clutter. Sea clutter can be highly non-Gaussian and can produce false tracks.
+
+### 4. Weather clutter and attenuation
+
+Rain, fog, clouds, and humidity can attenuate or scatter radar energy, especially at higher frequencies. The JRC counter-UAS report notes that radar range is affected by radar cross-section, radiated energy, and conditions such as heavy precipitation.  MIT material also notes that high-frequency radar performance can be weather-dependent. ([MIT Lincoln Laboratory][2])
+
+### 5. Multipath ghosts
+
+Reflections from terrain, buildings, water, or other structures can create ghost targets or distort elevation/range estimates. The JRC report specifically notes indirect reflections and ghost-UAS effects as radar issues. 
+
+### 6. Birds
+
+Birds are a serious confuser for small UAV radars. They can fly low, slow, and in groups. Micro-Doppler helps because bird wingbeats and propeller signatures differ, but classification is never perfect. A Nature Scientific Reports paper studied drone and bird micro-Doppler signatures at K-band and W-band and found characteristic differences under controlled conditions. ([Nature][3])
+
+### 7. Rotating machinery
+
+Urban environments contain fans, air conditioners, cranes, turbines, and other rotating objects. The JRC report mentions that distinguishing UAV propellers from objects such as air-conditioner propellers can be difficult, requiring careful tuning to reduce false positives. 
+
+### 8. RCS scintillation and aspect
+
+Radar cross-section changes with viewing angle, pitch, roll, yaw, materials, and internal structure. A delta-wing fiberglass body may be stronger from some angles and weak from others. This can cause intermittent detections.
+
+### 9. Target density and saturation
+
+Mass launches make the problem harder. Multiple similar slow targets can merge, split, cross, or create track-management problems. False alarms also become more expensive because operators must triage many tracks.
+
+### 10. Sensor timing and calibration
+
+Fusion systems need time alignment, coordinate registration, uncertainty modeling, and update-rate handling. The JRC report emphasizes that multi-sensor fusion has to deal with different sensor update rates, uncertainties, and operating conditions. 
+
+---
+
+## 7. Radar detection methods
+
+### Conventional pulse-Doppler / moving-target detection
+
+This is the basic workhorse. The radar transmits, receives echoes, estimates range/azimuth/elevation, and uses Doppler to separate moving targets from stationary clutter. The JRC report summarizes active radar as emitting RF energy and processing reflected energy to estimate target location and motion. 
+
+Strengths:
+
+* Works against non-cooperative targets.
+* Does not require a control link.
+* Can detect autonomous GNSS-guided UAVs.
+* Can provide range, bearing, elevation, and velocity.
+
+Weaknesses:
+
+* Low-altitude clutter.
+* Weak returns from small/composite targets.
+* False alarms from birds and urban clutter.
+* Reduced performance near the radar horizon.
+* Low radial velocity can make targets harder to separate from clutter.
+
+### 3D air-search radar
+
+A 3D radar estimates range, azimuth, and elevation. Elevation matters because low-angle targets near the horizon are difficult to distinguish from ground returns. The JRC report distinguishes 2D and 3D radar and notes that radar processing can determine azimuth, range, and elevation. 
+
+### Micro-Doppler radar classification
+
+Micro-Doppler looks at small modulations caused by moving parts: propellers, rotors, flapping wings, and engine vibration. For drones, propeller micro-Doppler can be a strong discriminant.
+
+Research on multistatic radar detection of micro-UAVs found that micro-Doppler signatures can help discriminate UAVs from ground clutter, and that multistatic fusion can improve tracking quality.  The Nature drone/bird paper also shows that micro-Doppler at K-band and W-band can reveal characteristic signatures for drones and birds, though those experiments used small drones and controlled conditions rather than Shahed-class operational scenarios. ([Nature][3])
+
+For Shahed-136 specifically, the relevant micro-Doppler source is likely the **pusher propeller and piston engine**, not quadcopter rotors. That signature can help classification, but it is not a magic identifier.
+
+### FMCW radar
+
+FMCW radar is common in short- to medium-range counter-UAS systems. It can provide range and velocity with relatively compact hardware. But the literature notes a key tradeoff: long dwell continuous-wave systems can capture richer micro-Doppler, while FMCW surveillance radars may have short dwell time and limited target information. ([ScienceDirect][4])
+
+### Multistatic radar
+
+Multistatic radar uses separated transmitters and receivers, or multiple receiver nodes. The JRC report describes monostatic versus multistatic radar and notes that multistatic configurations can improve detection/accuracy at the cost of complexity.  Research on multistatic UAV tracking showed that fusing multiple bistatic perspectives can compensate for limited measurement quality and improve track estimates in the overlapping coverage region. 
+
+Strengths:
+
+* Different viewing angles reduce aspect-dependence.
+* Harder for a target to be weak from all angles.
+* Can improve localization through fusion.
+
+Weaknesses:
+
+* Requires precise timing and calibration.
+* More complex deployment.
+* Coverage overlap matters.
+* Data association becomes harder with many targets.
+
+### Passive radar
+
+Passive radar uses existing illuminators such as broadcast, cellular, or other RF sources rather than emitting its own signal. The JRC report describes passive radar as comparing direct-path signals with reflected signals to infer target location. 
+
+Strengths:
+
+* Covert receiver-only operation.
+* Can exploit multiple illuminators.
+* Potentially useful as part of a layered network.
+
+Weaknesses:
+
+* Depends on illuminator geometry.
+* Harder signal processing.
+* Coverage can be inconsistent.
+* Classification can be difficult.
+
+### Sensor fusion
+
+A serious defensive system usually should not rely on radar alone. Radar can cue EO/IR. Acoustic sensors can cue likely propeller-engine tracks. RF sensors can detect some drones, though autonomous GNSS-guided one-way UAVs may not have useful control links. The JRC report’s conclusion is blunt: no single modality provides comprehensive, fail-safe counter-UAS detection, and layered fusion is needed. 
+
+---
+
+## 8. How accurate are the best methods?
+
+There is no universal “accuracy” number. Serious radar systems are evaluated with metrics like:
+
+* Probability of detection, (P_d)
+* Probability of false alarm, (P_{fa})
+* Track continuity
+* Track purity
+* Range error
+* Azimuth/elevation error
+* Velocity error
+* Classification accuracy
+* Time-to-detect
+* Time-to-classify
+* Performance by altitude, aspect, weather, clutter, and target density
+
+Published research can show excellent performance in controlled conditions, but that does not transfer directly to Shahed-class operational detection.
+
+For example, one multistatic radar UAV study reported tracking root-mean-square error around **0.5 m to 1.5 m** in favorable overlapping beam conditions, with degradation or loss when the UAV left the effective beam region.  That is impressive, but it was a controlled research scenario with a small UAV and known geometry, not a general claim about long-range Shahed detection.
+
+The Nature K-band/W-band drone/bird micro-Doppler study reported that characteristic signatures could be observed and discussed example low-power radar ranges for typical small drone/bird radar cross-sections under specified SNR assumptions. ([Nature][3]) Again, that is useful science, not a direct field guarantee.
+
+The public bottom line:
+
+* **Detection** can be good when geometry, altitude, and clutter are favorable.
+* **Classification** is harder than detection.
+* **Low-altitude, slow, small-RCS targets near clutter are among the hardest cases.**
+* **Fusion beats single-sensor detection** in most realistic environments.
+* Any vendor claiming simple “near-perfect” detection should be judged against scenario, false-alarm rate, altitude, terrain, weather, target mix, and independent testing.
+
+---
+
+## 9. Sampling window / dwell time / “how long must it be flying?”
+
+This part is often misunderstood.
+
+Radar has several time scales:
+
+### Raw detection time
+
+A radar may detect a return in one coherent processing interval or scan, but one return is not necessarily enough to declare a real target. It could be clutter, bird, multipath, or noise.
+
+### Track confirmation time
+
+A track usually requires multiple consistent detections. The system needs to estimate that the object’s position and velocity evolve plausibly over time. The exact number of scans is system-specific.
+
+### Classification time
+
+Classification needs more evidence than detection. Micro-Doppler classification benefits from observing enough of the propeller/engine modulation or target motion pattern. Longer windows can improve Doppler resolution, but they reduce update rate and can smear features if the target is maneuvering or the aspect changes.
+
+A useful conceptual tradeoff:
+
+[
+\Delta f \approx \frac{1}{T}
+]
+
+where (T) is the coherent observation time and (\Delta f) is Doppler-frequency resolution. Longer dwell improves frequency resolution, but can reduce responsiveness. The FMCW micro-Doppler literature specifically notes that small, slow, low-altitude UAVs are challenging and that short dwell time can limit target information. ([ScienceDirect][4])
+
+For this drone class:
+
+* It does **not** need to be at “final attitude” to be detected.
+* A stable cruise attitude helps track and classification consistency.
+* The transition from booster launch to engine-powered cruise may be brief and dynamic, so classification is easier after the engine/propeller flight regime stabilizes.
+* Detection can start earlier than classification.
+* Reliable classification generally needs multiple looks or a window long enough to capture persistent motion features.
+
+At a public level, think **sub-second to seconds** for radar signal windows, and **multiple updates** for robust track/classification, but exact values are radar- and algorithm-specific.
+
+---
+
+## 10. What makes Shahed/Geran detection different from quadcopter detection?
+
+A lot of counter-drone literature focuses on small quadcopters. Shahed-136/Geran-2 is different.
+
+| Feature                | Quadcopter                      | Shahed-136 / Geran-2 class                              |
+| ---------------------- | ------------------------------- | ------------------------------------------------------- |
+| Rotor signature        | Multiple high-RPM rotors        | Single pusher propeller / piston engine                 |
+| Flight behavior        | Hover, sharp maneuvers          | Fixed-wing cruise                                       |
+| RF control link        | Often present                   | Often absent or less useful; pre-programmed/GNSS-guided |
+| Altitude               | Often local, low                | Low-altitude route over long distance                   |
+| Radar signature        | Small, rotor-rich micro-Doppler | Small body return plus prop/engine modulation           |
+| Acoustic               | Electric rotor buzz             | Loud piston-engine “moped” profile                      |
+| Detection architecture | Local C-UAS                     | Wide-area layered air defense / early warning           |
+
+That means a system optimized for consumer quadcopters may not automatically be optimized for Shahed-class one-way attack UAVs.
+
+---
+
+## 11. Practical public-level detection model
+
+A reasonable layered detection concept looks like this:
+
+1. **Wide-area radar / elevated radar / airborne radar**
+   Best for early cueing and low-altitude line-of-sight extension.
+
+2. **Gap-filling low-altitude radars**
+   Cover terrain corridors and low-elevation blind zones.
+
+3. **Passive RF / passive radar where geometry supports it**
+   Useful as additional cueing, not a standalone answer.
+
+4. **Acoustic arrays**
+   Particularly relevant for loud piston-engine UAVs, but weather, wind, urban noise, and range limit them.
+
+5. **EO/IR confirmation**
+   Good for confirmation, poor as sole wide-area search in weather/night/clutter.
+
+6. **Fusion and track management**
+   The key layer. The JRC report emphasizes that fusion consolidates information from multiple sensors but must handle different update rates, uncertainty, and sensor limitations. 
+
+---
+
+## 12. False positives and false negatives
+
+The main false positives:
+
+* Birds
+* Flocks
+* Ground vehicles
+* Wind turbines
+* Fans / HVAC units
+* Reflections from buildings
+* Weather cells
+* Multipath ghosts
+* Other friendly aircraft or UAVs
+* Debris or balloons
+
+The main false negatives:
+
+* Target below radar horizon
+* Target masked by terrain/buildings
+* Target in ground clutter
+* Low radial velocity
+* Weak aspect/RCS
+* Weather attenuation
+* Radar beam null from multipath
+* Track dropped during maneuver or crossing
+* Overloaded tracker in mass-raid conditions
+
+The JRC report defines false positives and false negatives in counter-UAS systems and notes the operational problem: false positives erode trust, while false negatives are harder to observe because the system may never know it missed something. 
+
+---
+
+## 13. The most important equations and concepts
+
+### Radar equation, simplified intuition
+
+Received power falls roughly with (R^4) in monostatic radar:
+
+[
+P_r \propto \frac{P_t G^2 \lambda^2 \sigma}{R^4}
+]
+
+where:
+
+* (P_t) = transmit power
+* (G) = antenna gain
+* (\lambda) = wavelength
+* (\sigma) = radar cross-section
+* (R) = range
+
+The brutal part is (R^4). Double the range and the returned power drops by about 16×, before clutter and propagation complications.
+
+### Radar horizon
+
+[
+d_\text{km} \approx 4.12(\sqrt{h_r}+\sqrt{h_t})
+]
+
+This is why low-altitude flight is hard to detect from the ground.
+
+### Doppler
+
+[
+f_D = \frac{2v_r}{\lambda}
+]
+
+where (v_r) is radial velocity. If the drone is moving across the radar’s view rather than toward/away from it, radial velocity can be small, making Doppler separation harder.
+
+### Doppler resolution
+
+[
+\Delta f \approx \frac{1}{T}
+]
+
+Longer coherent dwell improves Doppler resolution but reduces update rate and can be vulnerable to motion/aspect changes.
+
+### Detection threshold
+
+A radar detector is always trading:
+
+* More sensitivity → more detections but more false alarms
+* Higher threshold → fewer false alarms but more missed targets
+
+This is why “accuracy” alone is an incomplete metric.
+
+---
+
+## 14. Best public sources to read
+
+The most useful public resources I found are:
+
+1. **U.S. DIA: Iranian UAVs in Ukraine** — official visual comparison and identification of Shahed/Geran features, including shape and engine evidence. 
+2. **Open Source Munitions Portal / ARES Shahed-131/136 guide** — open-source technical guide covering dimensions, launch method, GNSS guidance, rocket booster, engine, and variants. ([Open Source Munitions Portal][1])
+3. **European Commission JRC counter-UAS report** — broad detection/tracking/identification overview covering radar, EO, RF, acoustic sensors, false positives, and sensor fusion. 
+4. **NGA Radar Horizon chapter** — clear explanation of radar horizon, refraction, sub-refraction, super-refraction, and ducting. 
+5. **MIT Lincoln Laboratory radar propagation material** — practical explanation of atmospheric attenuation, multipath, surface reflection, refraction, ducting, and low-altitude propagation. ([MIT Lincoln Laboratory][2])
+6. **UCL/Fraunhofer multistatic UAV micro-Doppler paper** — research example of detecting/tracking UAVs using micro-Doppler and multistatic fusion. 
+7. **Nature Scientific Reports drone/bird micro-Doppler paper** — useful for understanding drone-vs-bird discrimination and K/W-band micro-Doppler signatures. ([Nature][3])
+8. **FMCW radar micro-Doppler UAV classification paper** — useful discussion of why small, slow, low-altitude UAVs and short dwell times are challenging for FMCW classification. ([ScienceDirect][4])
+
+---
+
+## Bottom-line technical summary
+
+A Shahed-136/Geran-2 class drone is detectable by radar, but it is an ugly target: slow, low, relatively small, often composite, and usually operating where ground clutter and radar horizon are worst. The key question is not “how high until radar sees it?” but:
+
+[
+\text{Is it above the local radar horizon, outside terrain masking, strong enough above clutter, and persistent enough to form a track?}
+]
+
+For early detection, height matters because radar horizon grows with the square root of antenna and target altitude. For reliable classification, dwell time and multiple looks matter because the system must separate a real UAV from birds, clutter, multipath, and noise. The strongest public answer is a **layered system**: radar for search and track, micro-Doppler for classification support, EO/IR for confirmation, acoustic/RF/passive sensors where useful, and fusion to reduce false positives and false negatives.
+
+[1]: https://osmp.ngo/collection/shahed-131-136-uavs-a-visual-guide/ "Shahed-131 & -136 UAVs: a visual guide – Open Source Munitions Portal"
+[2]: https://www.ll.mit.edu/media/6951 "No Slide Title"
+[3]: https://www.nature.com/articles/s41598-018-35880-9 "Radar micro-Doppler signatures of drones and birds at K-band and W-band | Scientific Reports"
+[4]: https://www.sciencedirect.com/science/article/abs/pii/S0957417419303203 "A UAV classification system based on FMCW radar micro-Doppler signature analysis - ScienceDirect"
+

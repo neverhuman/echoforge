@@ -1,0 +1,39 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Represents a moderate rain cell as a distributed precipitation scatterer,
+# treated as an object-card-like entity for the hard-negative dataset.
+id: "ef:object_card:rain-cell:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: rain-cell
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Moderate Rain Cell"
+object_family: weather_clutter
+geometry_variant: precipitation-volume
+material_variant: liquid-water-droplet
+dimensions_m:
+  x: 5000.0
+  y: 5000.0
+  z: 3000.0
+tags:
+  - hard_negative
+  - environment
+  - weather
+  - rain
+  - distributed_scatterer
+  - volumetric

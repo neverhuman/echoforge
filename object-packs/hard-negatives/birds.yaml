@@ -1,0 +1,36 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation of multiple
+# bird variants will land in v2.
+id: "ef:object_card:small-bird-hard-negative:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: small-bird-hard-negative
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Small Bird Hard Negative"
+object_family: biological
+geometry_variant: small-bird
+material_variant: biological-tissue
+dimensions_m:
+  x: 0.25
+  y: 0.4
+  z: 0.15
+tags:
+  - hard_negative
+  - biological
+  - small_bird

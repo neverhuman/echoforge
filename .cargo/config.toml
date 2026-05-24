@@ -1,0 +1,6 @@
+[env]
+# sccache compiler-cache settings — activated by CI and the fast-sccache Justfile recipe.
+# In GitHub Actions the mozilla-actions/sccache-action step sets RUSTC_WRAPPER automatically.
+# Locally: run `just fast-sccache` or export RUSTC_WRAPPER=sccache before cargo commands.
+SCCACHE_GHA_ENABLED = { value = "true", force = false }
+SCCACHE_CACHE_SIZE = { value = "1G", force = false }

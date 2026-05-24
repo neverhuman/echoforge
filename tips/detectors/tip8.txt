@@ -1,0 +1,679 @@
+## Public-source technical report: military radar sensors for detecting Shahed-136-class drones
+
+I’m treating “radar detectors” as **radar sensors / air-defense radars**, not consumer radar detectors. Also, a major caveat: the most important sensitivity parameters for military radars—receiver minimum detectable signal, exact waveform, dwell schedule, ECCM modes, CFAR settings, classified target RCS assumptions, probability of detection, probability of false alarm, and real combat detection ranges—are usually **not public**. Public sources mostly give **frequency band, role, target classes, instrumented range, update rate, target capacity, and sometimes target-class detection ranges**. Those are useful, but they are not the same thing as guaranteed Shahed-136 detection range.
+
+The core conclusion is this: **Shahed-136 / Geran-2 detection is not solved by one “super radar.”** It is solved by a layered network: long-range air-surveillance radars, low-altitude gap-filler radars, short-range counter-UAS radars, EO/IR, acoustic sensors, RF sensing when available, and command-and-control fusion.
+
+---
+
+# 1. What makes Shahed-136-class targets hard for radar
+
+A Shahed-136-class one-way attack UAV is larger than a quadcopter, but much smaller and slower than a crewed aircraft. It is low, slow, propeller-driven, often used in mass waves, and can approach in terrain/clutter conditions where the radar is not noise-limited but **horizon-limited and clutter-limited**.
+
+A recent Institute for Science and International Security report on April 2026 Shahed-type attacks said Russia launched **6,583 Shahed-type UAVs** that month, with **4,335 identified as Shahed/Geran strike UAVs**, and described Russia’s use of mixed UAV/decoy packages to saturate Ukrainian air defenses. It also notes that Russia continues to use extremely low-altitude flight paths, reducing radar visibility and increasing reliance on short-range and visual detection systems. ([ISIS Institute][1])
+
+For radar, the hard parts are:
+
+1. **Low altitude:** the target may be below the radar horizon until tens of kilometers away.
+2. **Small radar cross section:** much smaller than a fighter or transport aircraft.
+3. **Ground clutter:** buildings, trees, hills, vehicles, sea surface, wind turbines, and foliage can dominate the return.
+4. **Bird confusion:** small UAVs can resemble birds in RCS, speed, altitude, and flight profile.
+5. **Slow speed / low radial velocity:** a crossing target may have little radial Doppler even if it is moving at normal cruise speed.
+6. **Mass attacks and decoys:** the sensor and C2 system must track, classify, and prioritize many objects at once.
+
+A UAV radar survey states that UAV detection is challenging compared with manned aircraft detection because of small RCS, bird-like signatures, maneuvering near terrain, and lack of centralized UAV traffic management. It also notes that clutter cross-section can be **thousands of times larger** than the aerial vehicle cross-section. ([arXiv][2])
+
+---
+
+# 2. Radar science: what “sensitivity” actually means
+
+## 2.1 The basic radar equation
+
+A simplified monostatic radar equation is:
+
+[
+P_r =
+\frac{P_t G^2 \lambda^2 \sigma}
+{(4\pi)^3 R^4 L}
+]
+
+Where:
+
+| Symbol    | Meaning                                                            |
+| --------- | ------------------------------------------------------------------ |
+| (P_r)     | received echo power                                                |
+| (P_t)     | transmitted power                                                  |
+| (G)       | antenna gain                                                       |
+| (\lambda) | radar wavelength                                                   |
+| (\sigma)  | target radar cross section, or RCS                                 |
+| (R)       | range                                                              |
+| (L)       | losses: atmosphere, hardware, scan, processing, polarization, etc. |
+
+MIT Lincoln Laboratory’s radar course explicitly covers the radar equation, propagation issues such as attenuation, multipath and ducting, radar cross section, waveform design, antennas, receiver characteristics, detection in noise, clutter, MTI, and pulse-Doppler methods. ([MIT Lincoln Laboratory][3])
+
+The most important implication is the **fourth-power range law**:
+
+[
+R_\text{max} \propto \sigma^{1/4}
+]
+
+So, in a simple noise-limited case, if a radar detects a **1 m²** target at 100 km, a **0.01 m²** target is not detected at 1 km; it is detected at about:
+
+[
+100 \times (0.01)^{1/4} \approx 31.6 \text{ km}
+]
+
+That is still idealized. For Shahed-like low-altitude targets, the radar may hit the **horizon/clutter limit** before it hits the theoretical sensitivity limit.
+
+## 2.2 Minimum detectable signal
+
+A classic receiver sensitivity expression is:
+
+[
+P_{min}=kTBF(S/N)_{min}
+]
+
+Where (k) is Boltzmann’s constant, (T) is temperature, (B) is receiver bandwidth, (F) is receiver noise factor, and ((S/N)_{min}) is the required signal-to-noise ratio. A narrower bandwidth generally improves sensitivity, while a higher noise figure or higher required SNR worsens it. ([CopRadar][4])
+
+In dBm shorthand:
+
+[
+N \approx -174 \text{ dBm/Hz} + 10\log_{10}(B) + NF
+]
+
+Example, using only thermal-noise math:
+
+| Receiver bandwidth | Noise figure | Required detection SNR | Approx. threshold |
+| -----------------: | -----------: | ---------------------: | ----------------: |
+|            100 kHz |         4 dB |                  13 dB |          -107 dBm |
+|              1 MHz |         4 dB |                  13 dB |           -97 dBm |
+|             10 MHz |         4 dB |                  13 dB |           -87 dBm |
+
+But a real military radar is not just a receiver listening once. It uses pulse compression, coherent integration, Doppler processing, noncoherent integration, adaptive clutter cancellation, CFAR, track-before-detect, track-while-scan, and sensor fusion. That is why public “sensitivity” is usually expressed as **detection range against a target class**, not as a raw MDS value.
+
+## 2.3 Frequency-band tradeoffs
+
+| Band             | Typical military use                                                     | Shahed / small-UAS relevance                                                        | Tradeoffs                                                                                 |
+| ---------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| VHF / UHF        | long-range surveillance, anti-stealth cueing                             | useful for broad air picture and some low-RCS targets                               | large antennas, poorer angular resolution, not ideal for precise small-UAS classification |
+| L / S band       | air surveillance, GBAD, medium-range acquisition                         | good balance for aircraft, cruise missiles, larger UAVs                             | still horizon/clutter limited at low altitude                                             |
+| C / X band       | SHORAD, target acquisition, fire control, higher-resolution surveillance | better resolution and Doppler discrimination for low/slow targets                   | more weather/attenuation sensitivity than lower bands; shorter practical range            |
+| Ku / Ka / mmWave | C-UAS, precision tracking, fire control, micro-Doppler                   | excellent for small drones, propeller signatures, discrimination from birds/clutter | shorter range, more line-of-sight/weather constraints                                     |
+
+## 2.4 Doppler and micro-Doppler
+
+A radar sees radial motion through Doppler:
+
+[
+f_D = \frac{2v_r}{\lambda}
+]
+
+For a Shahed-136 at roughly 50–55 m/s, body Doppler can be hundreds to thousands of hertz depending on radar band and geometry. But the **micro-Doppler** from propeller motion is often more useful for classification. UAV detection literature says modern radar classification often relies on RCS and micro-Doppler signatures, with spectrograms and cepstrograms commonly used to classify small UAVs; the hard parts are distinguishing UAVs from birds, identifying swarms, and extracting robust features in real time. ([arXiv][2])
+
+For Shahed specifically, the relevant signature is not quadcopter-style multi-rotor micro-Doppler. It is a **fixed-wing body return plus rear pusher-propeller micro-Doppler**, plus track behavior, speed, altitude, heading consistency, and fusion with non-radar sensors.
+
+---
+
+# 3. The radar processing chain
+
+A modern counter-UAS / air-defense radar roughly works like this:
+
+1. **Transmit waveform:** pulsed, pulse-Doppler, FMCW, chirped, frequency-agile, or AESA-controlled waveforms.
+2. **Propagation:** the signal travels through atmosphere, terrain shadowing, multipath, and weather.
+3. **Target reflection:** the airframe, engine, propeller, payload, and antenna geometry scatter energy.
+4. **Receive chain:** antenna, low-noise amplifier, filtering, downconversion, ADC.
+5. **Matched filtering / pulse compression:** improves range resolution and SNR.
+6. **Range-Doppler processing:** separates moving targets from stationary clutter.
+7. **MTI / pulse-Doppler clutter rejection:** suppresses ground/sea clutter.
+8. **CFAR thresholding:** adapts detection threshold to local noise/clutter to control false alarms.
+9. **Plot extraction:** produces candidate detections.
+10. **Track initiation:** requires repeated detections consistent with a possible flight path.
+11. **Track-while-scan:** maintains many tracks while continuing surveillance.
+12. **Classification:** uses RCS, Doppler, micro-Doppler, height, speed, track behavior, and sometimes AI/ML.
+13. **Fusion:** combines radar with EO/IR, acoustic, RF analyzers, passive radar, IFF, and C2 networks.
+
+A good counter-Shahed radar is not simply “sensitive”; it must also have **low false alarms**, good clutter rejection, high revisit rate, and good classification.
+
+---
+
+# 4. Radar types used against Shahed-like drones
+
+## 4.1 Long-range air-surveillance radars
+
+These radars create the recognized air picture. They detect aircraft, cruise missiles, ballistic missiles, and sometimes larger UAVs at long range. Examples: TRML-4D, GM200, EL/M-2084, Nebo-SVU, 59N6-TE, Patriot radar, AN/TPY-2, SPY-6.
+
+They are important, but they can miss very-low-altitude drones due to radar horizon and clutter.
+
+## 4.2 Low-altitude gap-filler radars
+
+These are placed to fill terrain and horizon gaps. Examples: Sentinel, Giraffe 1X, SPEXER, Podlet-K1KE, Casta-VME, YLC-18/YLC-12-type systems.
+
+These are often more relevant to Shahed detection than very-long-range strategic radars.
+
+## 4.3 Counter-UAS / SHORAD tactical radars
+
+These are optimized for small, low, slow targets and short reaction times. Examples: KuRFS, MHR/nMHR, AN/TPQ-50 in air-surveillance mode, SRC Gryphon, SRC SR Hawk, SPEXER, Giraffe 1X, YLC-48.
+
+These are the most “Shahed-relevant” radars for terminal-area detection and classification.
+
+## 4.4 Fire-control radars
+
+These provide precise tracks for guns, missiles, lasers, or other effectors. Examples: KuRFS in LIDS, Pantsir multifunction radar, Patriot radar, NASAMS/Sentinel plus fire distribution center, older Gepard-style search/tracking radars, Skyguard-type systems.
+
+## 4.5 Passive radar and passive RF sensing
+
+Passive radar uses transmitters of opportunity—cellular, TV, FM, DAB, DVB-T, satellite, or other emissions—rather than transmitting itself. UAV radar literature notes passive radar experiments using GSM, LTE, Wi-Fi, DVB-T, and DAB illuminators for UAV detection. Passive radar can be harder to target because it does not emit, but it depends heavily on illuminator geometry, signal strength, urban environment, processing, and bistatic/multistatic geometry. ([arXiv][2])
+
+Passive RF analyzers are useful when a drone emits control/video/telemetry links. They are less useful against autonomous, preprogrammed, radio-silent one-way attack UAVs.
+
+---
+
+# 5. Publicly documented systems relevant to Shahed-136 detection
+
+## 5.1 United States systems
+
+### Raytheon / RTX KuRFS and LIDS
+
+**KuRFS** is one of the most directly relevant U.S. systems for low, slow, small drone detection. RTX describes KuRFS as a **360-degree Ku-band radar** providing persistent detection, identification, and tracking of airborne threats from rockets, artillery, and mortars to **all classes of drones**. It was originally built for U.S. Army C-RAM defense in Iraq and Afghanistan and is now a key radar in the U.S. Army’s **LIDS** counter-UAS system. ([RTX][5])
+
+RTX says KuRFS uses **AESA** technology and Ku-band operation for precise sensing and fire control. RTX also claims KuRFS is accurate enough to detect a **9 mm bullet**, has few false alarms or dropped tracks, and discriminates actual targets from clutter and biological objects. Those are manufacturer claims, but they are directly relevant because bird/clutter discrimination is one of the central Shahed/small-UAS radar problems. ([RTX][5])
+
+LIDS—the **Low, slow, small, unmanned aircraft Integrated Defeat System**—combines KuRFS with Coyote effectors and other C2/defeat components. RTX describes KuRFS and Coyote as the detect-and-defeat components of the U.S. Army’s counter-UAS solution. ([RTX][6])
+
+**Shahed relevance:** very high for terminal / defended-site counter-UAS. Public range against Shahed-class fixed-wing drones is not released.
+
+---
+
+### AN/MPQ-64 Sentinel / NASAMS
+
+The **AN/MPQ-64F1 Sentinel** is a mobile 3D X-band pulse-Doppler radar used for SHORAD and NASAMS. Kongsberg describes the MPQ-64F1 as a highly mobile X-band pulse-Doppler radar with **360° surveillance**, 3D track data, track-while-scan, and an **instrumented acquisition range of 120 km**; it can track more than 60 targets while scanning for new ones. ([Kongsberg][7])
+
+RTX says NASAMS consists of the **AN/MPQ-64 Sentinel radar**, Kongsberg Fire Distribution Center, launcher, and Raytheon effectors. RTX says NASAMS is designed to acquire, engage, and destroy fixed-wing aircraft, rotary-wing aircraft, UAVs, and cruise missile threats. RTX also lists Ukraine among NASAMS operators. ([RTX][8])
+
+A CRS report on NASAMS said Sentinel is an X-band, 360-degree phased-array air-defense radar with a 75 km range in that description, equipped with ECCM, IFF, and noncooperative target recognition; the same report notes the U.S. had already provided Ukraine a number of Sentinel radars. ([EveryCRSReport][9])
+
+**Shahed relevance:** high for medium-range air defense and NASAMS cueing; not as specialized as KuRFS for tiny objects, but useful against Shahed-sized fixed-wing drones when line-of-sight and clutter conditions allow.
+
+---
+
+### SRC AN/TPQ-50 multi-mission radar
+
+SRC describes the **AN/TPQ-50** as a 360-degree, 3D, non-rotating electronically steered radar and a U.S. Army program of record. In multi-mission mode it supports a **700 km² surveillance area** for indirect-fire warning, counterfire target acquisition, air surveillance, and counter-UAS. In air-surveillance mode, SRC says it can detect and track traditional and non-traditional aircraft, including small UAS, with an **instrumented range greater than 35 km**. ([SRC][10])
+
+**Shahed relevance:** high as a short-range / VSHORAD / gap-filler radar, especially for defended areas.
+
+---
+
+### Leonardo DRS / RADA MHR family
+
+The **MHR** is a ground-based multi-mission radar for C-UAS, VSHORAD, C-RAM, and hemispheric surveillance. Leonardo DRS describes it as an S-band pulse-Doppler, software-defined AESA radar with GaN amplifiers, 4D processing, clutter handling, and multipath mitigation. ([DRS RADA Technologies][11])
+
+Public MHR detection-range claims:
+
+| Target class       | MHR maximum detection range |
+| ------------------ | --------------------------: |
+| Nano UAV           |                        5 km |
+| Medium-size UAV    |                       25 km |
+| Fighter            |                       35 km |
+| Low-RCS fighter    |                       20 km |
+| Utility helicopter |                       23 km |
+
+Leonardo DRS says one MHR covers 90° azimuth / 90° elevation, while four overlapping radars provide full 360° hemispheric coverage. ([DRS RADA Technologies][11])
+
+The newer **nMHR** is an X-band AESA/GaN radar with wide instantaneous bandwidth, direct RF sampling, digital beamforming, high Doppler resolution, and advanced 4D processing. Public nMHR detection-range claims include **8 km for nano UAVs** and **36 km for medium-size UAVs**. ([DRS RADA Technologies][12])
+
+Leonardo DRS says its air-defense systems detect, identify, track, and defeat Group 1–3 UAS, and that M-SHORAD can detect and destroy targets including Group 3 UAS, rotary-wing aircraft, and fixed-wing aircraft. It also says its tactical radars can handle hundreds of targets and track nano drones up to 18 km. ([Leonardo DRS][13])
+
+**Shahed relevance:** high. A Shahed-136 is closer to a larger Group 3-style fixed-wing threat than a nano UAV, so “medium-size UAV” ranges are more relevant than “nano UAV” ranges, but real range depends heavily on altitude, RCS, clutter, aspect, and radar installation.
+
+---
+
+### U.S. Army M-LIDS
+
+Leonardo DRS says the U.S. Army’s **M-LIDS** program lets soldiers detect, identify, track, and defeat small UAS with electronic warfare and kinetic systems. The M-LIDS increment described by DRS includes a kinetic defeat vehicle with an XM914 30 mm cannon, and several sets were deployed overseas protecting U.S. and allied forces. ([Leonardo DRS][14])
+
+**Shahed relevance:** high for mobile defended-site / force-protection C-UAS, especially as part of a layered defensive system.
+
+---
+
+### SRC SR Hawk
+
+SRC describes **SR Hawk** as a ground-surveillance radar providing continuous 360-degree surveillance of ground, ports, harbors, and airspace. It detects personnel, vehicles, vessels, avian targets, low-flying aircraft, and UAS/RPA, with EO/IR cueing, multi-target tracking, anti-clutter techniques, low false alarm rate, and automated sensitivity settings for weather and clutter. ([SRC][15])
+
+**Shahed relevance:** medium to high as a site-surveillance / border / low-altitude radar. Public drone-specific range specs are less prominent than for KuRFS/MHR/Gryphon.
+
+---
+
+### SRC Gryphon R1410
+
+SRC’s **Gryphon R1410** is an AESA 3D multi-domain radar. The public datasheet says it is an X-band pulse-Doppler radar operating at **9.3–9.8 GHz**, with 360° rotating mode or fixed-sector AESA stare mode up to 120°, minimum detection velocity of **0.5 m/s**, micro-Doppler target classification, and an AI-based classifier. Public detection ranges include **7.7 km for small UAS**, **18 km for large UAS**, and **25 km for small manned aircraft**. ([SRC][16])
+
+**Shahed relevance:** high for point defense and local airspace surveillance. Its “large UAS” range is the more relevant public figure for a Shahed-like fixed-wing target, but actual Shahed range is not public.
+
+---
+
+### Patriot radar, AN/TPY-2, SPY-6
+
+These are not primarily “Shahed radars,” but they matter in layered military air defense.
+
+Reuters describes Patriot as a mobile surface-to-air missile defense system with radar, control systems, launchers, and support vehicles, able to intercept aircraft, tactical ballistic missiles, and cruise missiles depending on interceptor. It also notes that Patriots are effective but costly for low-budget drones. ([Reuters][17])
+
+RTX describes **AN/TPY-2** as an X-band missile-defense radar that detects, tracks, and discriminates ballistic missiles, operating in forward-based and terminal modes and serving as the radar for THAAD in terminal mode. ([RTX][18])
+
+RTX describes **SPY-6** as the U.S. Navy family of air/missile-defense radars, defending against ballistic missiles, cruise missiles, hypersonic missiles, aircraft, surface ships, jamming, clutter, and electronic warfare; variants provide 360-degree awareness on U.S. Navy ships. ([RTX][19])
+
+**Shahed relevance:** useful for broader air/missile defense and cruise-missile surveillance, but expensive strategic sensors and missile-defense radars are not the preferred tool for cheap low-altitude drone swarms unless protecting very high-value assets.
+
+---
+
+## 5.2 Ukraine’s radar and sensor stack
+
+Ukraine’s actual Shahed defense is a network, not one radar model. It uses Western systems, Soviet/Ukrainian legacy systems, domestic systems, mobile fire groups, EO/IR, acoustic detection, and command networks.
+
+### Hensoldt TRML-4D
+
+Hensoldt announced a 2025 order worth more than **€340 million** to supply **TRML-4D** and **SPEXER 2000 3D MkIII** radars to strengthen Ukraine’s air defense. Hensoldt says TRML-4D uses AESA technology, tracks around **1,500 targets** within a radius up to **250 km**, and can detect, track, and classify cruise missiles, drones, aircraft, and helicopters. ([HENSOLDT][20])
+
+TRML-4D public specs include:
+
+| Parameter              |                             Public value |
+| ---------------------- | ---------------------------------------: |
+| Instrumented range     |                                   250 km |
+| Instrumented altitude  |                                    30 km |
+| Parallel tracks        |                                    1,500 |
+| Setup/decamp           |                                10–15 min |
+| Surveillance elevation | -2° to 70°, electronic tilt down to -10° |
+| Tracking elevation     |                                up to 90° |
+
+Hensoldt also says TRML-4D has simultaneous multi-beams, Doppler processing, high update rates, fast track initiation, rapid track confirmation, and good performance in complex clutter and high target density. ([HENSOLDT][21])
+
+**Shahed relevance:** high as a medium-range air-surveillance and target-acquisition radar, especially for IRIS-T SLM-type defense. Actual Shahed detection range at low altitude is not public and will be horizon/clutter limited.
+
+---
+
+### Hensoldt SPEXER 2000 3D MkIII
+
+Hensoldt says **SPEXER 2000 3D MkIII** is an X-band pulse-Doppler radar for battlefield surveillance, C-UAS, and ground-based air defense. It advertises superior sub-clutter visibility and spectral-based automatic target classification, including targets from hovering to Mach 6. ([HENSOLDT][22])
+
+Hensoldt says SPEXER radars are for automatic detection and classification of ground, sea, and low-flying air targets, and that SPEXER 2000 is used in Skyranger 30, German cUAS Feldlager, qualified air defense, and high-energy laser drone-defense contexts. ([HENSOLDT][20])
+
+**Shahed relevance:** very high for short-range / low-altitude / C-UAS coverage.
+
+---
+
+### NASAMS / Sentinel in Ukraine
+
+RTX lists Ukraine as a NASAMS operator, and NASAMS uses the AN/MPQ-64 Sentinel radar. ([RTX][8]) A CRS report from 2022 said the U.S. had provided Ukraine a number of Sentinel radars and that NASAMS improves the range at which Ukraine can detect, track, and engage air threats. ([EveryCRSReport][9])
+
+**Shahed relevance:** high for medium-range defense against UAVs and cruise missiles, although intercepting very low-cost drones with expensive missiles creates cost-exchange problems.
+
+---
+
+### Ukraine 80K6KS1 Phoenix-1
+
+Ukrinform reported in 2021 that Ukraine’s Iskra developed the **80K6KS1 Phoenix-1 3D radar** for use with Buk-M1 air-defense systems. The Ukrainian defense minister described it as enabling automatic detection, classification, IFF/nationality recognition, and identification of active noise interference sources, with data transmitted to combat control units and automated control points. ([Ukrinform][23])
+
+**Shahed relevance:** medium to high as part of Ukraine’s broader air-defense radar network, especially for cueing legacy SAM systems. Public Shahed-specific performance is not available.
+
+---
+
+### Acoustic and non-radar detection
+
+Ukraine’s Shahed defense also relies on non-radar cues. Search results from U.S. Army / CALL material describe Ukraine’s “Sky Fortress” acoustic network as using thousands of acoustic sensors to detect one-way UAVs and relay flight-path data to mobile fire teams; The War Zone has also reported that U.S. Army leadership eyed Ukraine’s acoustic network as a low-cost air-defense option. ([Army API][24])
+
+This matters because acoustic sensors can cue radar/EO/IR/mobile teams when low-altitude targets are difficult to see by radar early. It is not a replacement for radar, but it is a strong complement for piston-engine Shahed-type drones.
+
+---
+
+## 5.3 UAE / Gulf-relevant systems
+
+### EDGE / SIGN4L SkyShield
+
+The UAE’s EDGE Group / SIGN4L **SkyShield** is a multi-layer counter-UAS system. SIGN4L says SkyShield is modular, can be fixed-site or rapidly deployable on vehicles, trucks, and ships, and features automated **360° detect-and-defeat** anti-drone protection. ([SIGN4L][25])
+
+The Defense Post says SkyShield uses advanced sensors, **3D radars**, and EO cameras to detect enemy drones, and provides real-time situational awareness through unified command and control. ([The Defense Post][26]) Shephard reports that the UAE ordered SkyShield C-UAS systems from EDGE, and describes SkyShield as combining sensors, 3D radars, EO cameras, direction finders, and effectors into EDGE’s C2 system for real-time situational awareness and automatic drone-threat engagement. ([Shephard Media][27])
+
+EDGE’s product page for the trailer-mounted **SkyShield-TM** variant lists jammer/spoofer, EO/IR camera, and radar as main components; it gives detailed jamming/spoofing specs but says the radar is “as per OEM specifications,” meaning the specific radar model/range is not publicly disclosed on that page. ([EDGE][28])
+
+**Shahed relevance:** high as a point-defense C-UAS architecture, but public radar specs are sparse.
+
+---
+
+### UAE missile-defense and air-defense sensors
+
+The UAE has a broader missile-defense stack including Patriot/PAC-3, THAAD, and AN/TPY-2 radars. Missile Defense Advocacy Alliance describes the UAE as the first country outside the U.S. to deploy THAAD, with UAE missile-defense capabilities including Patriot/PAC-3, THAAD, and AN/TPY-2 radar. ([Missile Defense Advocacy Alliance][29])
+
+MDAA’s Sentinel page also lists the AN/MPQ-64 Sentinel as exported to the United Arab Emirates, with X-band operation, UAV/cruise missile/aircraft target classes, and upgraded range figures in public sources. ([Missile Defense Advocacy Alliance][30])
+
+**Shahed relevance:** UAE’s missile-defense radars are important for ballistic/cruise missile defense, while SkyShield/Sentinel-like low-altitude sensors are more directly relevant to Shahed-class drones.
+
+---
+
+## 5.4 Russian systems
+
+Russia has many radar systems in layered air defense. Public Rosoboronexport pages provide unusually explicit range/band/coverage data for several.
+
+### Podlet-K1KE
+
+Rosoboronexport describes **Podlet-K1KE** as a mobile radar for automated detection, coordinate measurement, tracking, IFF, flight-information reception, and recognition of modern low-altitude air attack weapons, including stealthy targets, in forested/moderately rugged terrain and under active/passive/combined interference. Public operating limits include **2–200 km**, **2–300 km**, or **2–80 km** depending on operating mode, 360° azimuth, elevation from -2° to 25° or up to 45° with additional support, and surveillance periods of about 5 or 10 seconds. ([Rostec Export][31])
+
+**Shahed relevance:** high as a low-altitude air-defense acquisition radar.
+
+---
+
+### Casta-VME
+
+Rosoboronexport describes **Casta-VME** as a decimeter-band radar with increased capability for detecting low-flying air targets and prospective low-altitude air attack weapons, including stealthy objects, in wooded/rugged terrain and intense passive interference. Public coverage is **5–150 km**, 360° azimuth, altitude up to 10 km, elevation 0–25°, and surveillance periods of 3/5/10 seconds. ([Rostec Export][32])
+
+**Shahed relevance:** high as a low-altitude gap-filler / air-defense radar.
+
+---
+
+### Nebo-SVU
+
+Rosoboronexport describes **Nebo-SVU** as a VHF/meter-band radar with fully digital processing, adaptation to interference, side-lobe suppression, automatic detection/tracking of strategic/tactical/low-profile/stealthy air objects, target-class recognition, IFF, jammer direction finding, and output to automated C2. Public specs list VHF band, range up to **360 km**, 360° azimuth, altitude up to 40 km in surveillance and 140 km in tracking, and scan periods of 5/10/20 seconds. ([Rostec Export][33])
+
+**Shahed relevance:** medium. Useful for broad air picture and low-profile targets, but not a close C-UAS classifier.
+
+---
+
+### 59N6-TE
+
+Rosoboronexport says **59N6-TE** detects and tracks aerodynamic, ballistic, and hypersonic targets; measures range/azimuth/height; works under interference; direction-finds active noise jammers; and recognizes eight target classes. Public specs list decimeter band, **8–450 km** range, 360° azimuth, altitude up to 200 km, elevation -2° to 45°, and 5/10 second surveillance period. ([Rostec Export][34])
+
+**Shahed relevance:** medium for broad integrated air defense, less specialized for small low-altitude drones.
+
+---
+
+### Pantsir radar suite
+
+Pantsir is a point-defense missile/gun system with acquisition and tracking sensors. Army Recognition, citing Rosoboronexport, says Pantsir’s target-acquisition radar can detect and track up to **40 air targets**, while the multifunction radar can track up to three targets and guide up to four missiles; the same article says CSIS notes the search radar can track tactical-aircraft-sized targets at roughly 32–36 km. ([Army Recognition][35])
+
+**Shahed relevance:** high as a point-defense system, though combat results depend heavily on crew training, maintenance, radar siting, reload state, saturation, electronic warfare, and whether the radar is operating.
+
+---
+
+## 5.5 Chinese systems
+
+Public Chinese radar data is often show/expo/marketing-driven, so it should be treated cautiously.
+
+### YLC-48 portable multipurpose reconnaissance radar
+
+People’s Daily / Global Times reported that CETC No.14 Research Institute’s **YLC-48** is China’s first portable phased-array radar, small enough to be carried by one soldier, and described by its developer as a “terminator of drones” with ability to detect low-altitude, small, slow targets despite strong near-ground noise. It can detect and track incoming targets from any angle, operate all-weather, and be mounted on lightweight weapon platforms. ([People's Daily Online][36])
+
+Defense One similarly describes the PLA as operating active and passive radars including the YLC-48 “UAV Terminator,” a portable phased-array radar with 360-degree coverage designed for drone detection. ([Defense One][37])
+
+A non-official product/vendor page claims a 10 km range and drone/helicopter detection within 25 km, but that figure should be treated as lower-confidence than official/manufacturer data. ([Military Drones][38])
+
+**Shahed relevance:** high for local counter-drone and low-altitude surveillance.
+
+---
+
+### CETC S-band 3D TWA low-altitude radar
+
+People’s Daily / Global Times says CETC’s S-band 3D TWA low-altitude surveillance radar can simultaneously detect and track low-flying cruise missiles, warplanes, and small drones, and provide distance, location, height, speed, and direction. It is intended for key locations such as cities, nuclear plants, and military facilities. ([People's Daily Online][36])
+
+**Shahed relevance:** high as a fixed-site / critical-infrastructure low-altitude radar.
+
+---
+
+### YLC-18 low-altitude / blind-compensation radar
+
+Global Times describes **YLC-18** as a 3D blind-compensation radar for aircraft and cruise missiles at medium and low altitude, usable against low-altitude targets, as part of a radar intelligence network, or as target indication for anti-aircraft artillery and SAM units. ([Global Times][39])
+
+A non-official product page claims YLC-18 is mainly used to detect air targets, especially low- and ultra-low-altitude helicopters, UAVs, and cruise missiles, with a claimed range of at least 250 km for a 2 m² target at 80% probability of detection. Treat that as vendor/reseller data, not independently verified operational performance. ([Military Drones][40])
+
+**Shahed relevance:** medium to high as a low-altitude network/gap-filler radar.
+
+---
+
+### YLC-12, YLC-8E, SLC-7, JY-26/JY-27A
+
+China Daily reported in 2025 that the **YLC-12 C-band low-to-medium-altitude multirole radar** is designed to detect low-flying, slow-moving, highly maneuverable targets, with intelligent anti-jamming capability. The same article describes JY-26 as a 500 km long-range air-defense radar and JY-27A as an anti-stealth radar. ([China Daily][41])
+
+Global Times says SLC-7 can handle stealth aircraft, helicopters, drones, cruise missiles, tactical ballistic missiles, near-space targets, artillery shells, and rockets; and YLC-8E is a UHF-band 3D surveillance radar for long-range detection. ([Global Times][39])
+
+**Shahed relevance:** YLC-12 is directly relevant; SLC-7/YLC-8E/JY-class radars are broader integrated-air-defense sensors, less specialized for terminal Shahed classification.
+
+---
+
+## 5.6 Other major international systems
+
+### Saab Giraffe 1X
+
+Saab describes **Giraffe 1X** as a small, lightweight 3D multi-mission radar for GBAD, drone detection, C-RAM, VSHORAD, gap-filler, and C-UAS missions. It covers the entire search volume every second. ([Start][42])
+
+Saab says Giraffe 1X detects fixed-wing and rotary-wing targets, fast missiles, RAM targets, and small UAVs in high-clutter environments. Its drone tracker detects and tracks small/mini-UAVs and distinguishes them from birds with false alarms reduced to an “absolute minimum.” ([Start][42])
+
+**Shahed relevance:** high as a VSHORAD / C-UAS / gap-filler radar.
+
+---
+
+### Thales Ground Master 200
+
+Thales describes **GM200** as a combat-proven medium-range radar that tracks slow, small, low targets through high-maneuvering stealth targets up to **250 km** away. It tracks fighters, missiles, ships, UAS, hovering helicopters, pop-up helicopters, and RAM threats. ([Thales Group][43])
+
+Public GM200 specs include S-band GaN operation, true 3D detection, 250 km surveillance mode with a 3 second update rate, and 100 km engagement mode with a 1.5 second update rate. ([Thales Group][43])
+
+**Shahed relevance:** high as a medium-range GBAD radar, but low-altitude horizon and clutter still dominate.
+
+---
+
+### Thales Ground Master 200 MM/C
+
+Thales describes **GM200 MM/C** as a compact 4D AESA air-defense and fire-support radar with UAS detection, tracking, and classification; air-breathing threats including cruise missiles; RAM; up to **400 km instrumented range** for air surveillance; and up to **100 km** for weapon locating. ([Thales Group][44])
+
+Thales says it provides simultaneous detection, tracking, and classification of multiple UAS, RAM, missiles, aircraft, and helicopters, with high mobility and deployment in under one minute. ([Thales Group][44])
+
+**Shahed relevance:** high for mobile/frontline air defense and UAS classification.
+
+---
+
+### IAI EL/M-2084 Multi-Mission Radar
+
+IAI’s official EL/M-2084 page says the radar operates in **S or C band** and supports air surveillance, C-RAM, and precise fire control. ([IAI][45]) Missile Defense Advocacy Alliance describes EL/M-2084 as an S-band radar capable of detecting up to **1,100 targets** simultaneously at a maximum range of **470 km**, and notes it serves as the primary radar for Iron Dome. ([Missile Defense Advocacy Alliance][46])
+
+**Shahed relevance:** high for integrated air defense and C-RAM/cruise missile/UAV surveillance, though public Shahed-specific performance is not available.
+
+---
+
+# 6. Condensed spec comparison table
+
+| System                      | Country / maker           | Radar type / band                           | Public detection / tracking specs                                                                                                                     | Shahed relevance                                    |
+| --------------------------- | ------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| KuRFS                       | U.S., RTX/Raytheon        | Ku-band AESA, 360°                          | Detects/tracks airborne threats from RAM to all drone classes; manufacturer claims 9 mm bullet detection and strong clutter/biological discrimination | Very high for C-UAS / point defense ([RTX][5])      |
+| LIDS                        | U.S. Army / RTX           | System-of-systems with KuRFS                | U.S. Army low/slow/small C-UAS detect-and-defeat architecture                                                                                         | Very high ([RTX][6])                                |
+| AN/MPQ-64F1 Sentinel        | U.S. / Raytheon-Kongsberg | X-band pulse-Doppler 3D                     | 360°, 120 km instrumented acquisition, >60 tracks                                                                                                     | High for NASAMS/SHORAD ([Kongsberg][7])             |
+| AN/TPQ-50                   | U.S., SRC                 | electronically steered 3D radar             | 700 km² surveillance area; small UAS instrumented range >35 km                                                                                        | High as gap-filler / VSHORAD ([SRC][10])            |
+| MHR                         | Leonardo DRS/RADA         | S-band AESA GaN pulse-Doppler               | Nano UAV 5 km; medium UAV 25 km; 360° with four radars                                                                                                | Very high ([DRS RADA Technologies][11])             |
+| nMHR                        | Leonardo DRS/RADA         | X-band AESA GaN                             | Nano UAV 8 km; medium UAV 36 km; high Doppler resolution                                                                                              | Very high ([DRS RADA Technologies][12])             |
+| SR Hawk                     | SRC                       | ground/air surveillance radar               | Low-flying aircraft/UAS, birds, vehicles; low false alarm; EO/IR cueing                                                                               | Medium-high ([SRC][15])                             |
+| Gryphon R1410               | SRC                       | X-band AESA 3D pulse-Doppler                | Small UAS 7.7 km; large UAS 18 km; small manned aircraft 25 km; micro-Doppler                                                                         | High for local defense ([SRC][16])                  |
+| TRML-4D                     | Germany, Hensoldt         | AESA air-surveillance radar                 | 250 km instrumented range; 1,500 parallel tracks; drones/cruise missiles/aircraft/helicopters                                                         | High for medium-range AD ([HENSOLDT][20])           |
+| SPEXER 2000 3D MkIII        | Germany, Hensoldt         | X-band pulse-Doppler                        | Sub-clutter visibility; automatic spectral classification; C-UAS/GBAD                                                                                 | Very high for low-altitude targets ([HENSOLDT][22]) |
+| Giraffe 1X                  | Sweden, Saab              | 3D multi-mission radar                      | Entire search volume every second; small UAVs in high clutter; bird discrimination                                                                    | High ([Start][42])                                  |
+| GM200                       | France, Thales            | S-band GaN 3D radar                         | Up to 250 km; surveillance update 3 s; engagement update 1.5 s; UAS included                                                                          | High ([Thales Group][43])                           |
+| GM200 MM/C                  | Thales                    | compact 4D AESA                             | 400 km air-surveillance instrumented range; UAS detection/tracking/classification                                                                     | High ([Thales Group][44])                           |
+| EL/M-2084                   | Israel, IAI/ELTA          | S or C band MMR                             | MDAA: up to 1,100 targets, 470 km max; Iron Dome radar                                                                                                | High for integrated AD ([IAI][45])                  |
+| SkyShield                   | UAE, EDGE/SIGN4L          | C-UAS system with 3D radar/EO/RF            | 360° detect/defeat; 3D radars; EO cameras; C2; radar OEM specs not public                                                                             | High as architecture, specs sparse ([SIGN4L][25])   |
+| Podlet-K1KE                 | Russia                    | decimeter/centimeter low-altitude radar     | 2–80/200/300 km depending mode; 360°; low-altitude air attack weapons                                                                                 | High ([Rostec Export][31])                          |
+| Casta-VME                   | Russia                    | decimeter low-altitude radar                | 5–150 km; 360°; low-flying target focus                                                                                                               | High ([Rostec Export][32])                          |
+| Nebo-SVU                    | Russia                    | VHF/meter-band                              | up to 360 km; digital processing; low-profile/stealth targets                                                                                         | Medium for broad air picture ([Rostec Export][33])  |
+| 59N6-TE                     | Russia                    | decimeter                                   | 8–450 km; aero/ballistic/hypersonic targets                                                                                                           | Medium for broad AD ([Rostec Export][34])           |
+| Pantsir radar suite         | Russia                    | acquisition + multifunction tracking radars | up to 40 air targets by acquisition radar; multifunction radar tracks/guides several                                                                  | High for point defense ([Army Recognition][35])     |
+| YLC-48                      | China, CETC               | portable phased-array counter-drone radar   | low/slow/small target detection near ground noise; 360°; public range claims vary                                                                     | High ([People's Daily Online][36])                  |
+| S-band 3D TWA low-alt radar | China, CETC               | S-band 3D low-altitude radar                | low-flying cruise missiles, warplanes, small drones; outputs range/height/speed/direction                                                             | High ([People's Daily Online][36])                  |
+| YLC-18                      | China, CETC               | 3D blind-compensation radar                 | low/medium-altitude aircraft/cruise missiles; low-altitude network/gun/SAM cueing                                                                     | Medium-high ([Global Times][39])                    |
+| YLC-12                      | China                     | C-band low/medium-altitude radar            | low-flying, slow-moving, maneuvering targets; anti-jamming                                                                                            | High ([China Daily][41])                            |
+
+---
+
+# 7. What is actually used to detect Shahed-136-type drones?
+
+## The practical defensive stack
+
+Against Shahed-type drones, militaries typically combine:
+
+| Layer                              | Purpose                                                                | Example systems                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Strategic / long-range air picture | detect higher-altitude aircraft, missiles, cruise missiles, large UAVs | TRML-4D, GM200, EL/M-2084, Nebo-SVU, 59N6-TE, Patriot/THAAD/SPY-6 |
+| Low-altitude gap-filler            | cover terrain/horizon gaps                                             | Sentinel, Giraffe 1X, SPEXER, Podlet, Casta, YLC-12/YLC-18        |
+| Point-defense C-UAS radar          | detect/classify low/slow/small targets near defended assets            | KuRFS, MHR/nMHR, Gryphon, SR Hawk, YLC-48, SPEXER                 |
+| EO/IR confirmation                 | classify target visually/thermally                                     | cameras, thermal imagers, searchlights/night optics               |
+| Acoustic cueing                    | detect piston-engine Shahed approach direction                         | Ukraine-style acoustic networks                                   |
+| RF sensing                         | detect control/video/telemetry if emitted                              | RF analyzers, direction finders                                   |
+| C2 / fusion                        | combine weak cues into actionable tracks                               | FAAD C2, NASAMS FDC, national air-defense networks, SkyShield C2  |
+
+No single public radar is a guaranteed Shahed detector at long range when the drone is flying very low. The radar horizon can dominate the problem even when the radar is sensitive enough.
+
+---
+
+# 8. Accuracy: what can be said publicly
+
+There is no credible universal public number for “best radar accuracy against Shahed-136.”
+
+The meaningful metrics are:
+
+| Metric                               | Meaning                                                       |
+| ------------------------------------ | ------------------------------------------------------------- |
+| Probability of detection, (P_d)      | chance the radar detects the target under stated conditions   |
+| Probability of false alarm, (P_{fa}) | chance clutter/noise creates a false detection                |
+| Track continuity                     | how often the radar keeps a stable track without dropping it  |
+| Classification accuracy              | how often the sensor labels UAV vs bird vs aircraft correctly |
+| Track latency                        | time from first return to usable track                        |
+| Target capacity                      | how many simultaneous objects the radar/C2 can handle         |
+| Weapon-quality track accuracy        | whether the track is accurate enough to cue an effector       |
+
+Manufacturer claims give hints but not full operational truth. RTX claims KuRFS has few false alarms and discriminates clutter/biological objects. Saab claims Giraffe 1X distinguishes small/mini-UAVs from birds with false alarms reduced to an “absolute minimum.” Hensoldt advertises SPEXER’s spectral automatic target classification and sub-clutter visibility. Leonardo DRS advertises 4D Doppler/target-feature analysis, high Doppler resolution, and clutter/multipath mitigation. ([RTX][6])
+
+In real combat, accuracy is not just sensor accuracy. It is sensor accuracy plus terrain, weather, EW, operator load, mass raids, decoys, C2 latency, rules of engagement, fratricide avoidance, and effector availability.
+
+---
+
+# 9. Best technical fit by mission
+
+## Best class for early warning
+
+Medium/long-range 3D AESA air-defense radars:
+
+* TRML-4D
+* GM200 / GM200 MM/C
+* EL/M-2084
+* Sentinel / NASAMS
+* Podlet-K1KE / Casta-VME for Russian-style low-altitude defense
+* YLC-12 / S-band 3D low-altitude radar for Chinese-style low-altitude defense
+
+These provide the recognized air picture and cue downstream assets.
+
+## Best class for terminal Shahed detection
+
+Dedicated C-UAS / SHORAD radars:
+
+* KuRFS
+* MHR / nMHR
+* SPEXER 2000 3D MkIII
+* Giraffe 1X
+* Gryphon R1410
+* AN/TPQ-50 air-surveillance mode
+* YLC-48
+
+These are more likely to handle the low/slow/small, bird/clutter, and high-revisit-rate problem.
+
+## Best class for classification
+
+High-resolution X/Ku/S-band AESA or pulse-Doppler radars with:
+
+* micro-Doppler extraction
+* high revisit rate
+* track-while-scan
+* bird/clutter classification
+* EO/IR cueing
+* AI/ML-assisted classification
+* network fusion
+
+Examples: KuRFS, SPEXER, Giraffe 1X, MHR/nMHR, Gryphon, some SkyShield radar configurations.
+
+## Best class for mass-raid survival
+
+The radar alone is not enough. Best performance comes from:
+
+* many distributed sensors
+* overlapping coverage
+* passive/acoustic cueing
+* low false-alarm classification
+* automatic track fusion
+* cheap effectors for low-cost drones
+* enough operator automation to avoid overload
+
+This is why Ukraine’s approach combines radar, acoustic networks, mobile fire teams, SAMs, guns, EW, EO/IR, and distributed C2 rather than relying only on strategic SAM radars.
+
+---
+
+# 10. Bottom-line ranking for Shahed-136 detection
+
+For a Shahed-136-class drone, assuming public information only:
+
+**Most directly relevant radar class:** short/medium-range C-UAS and SHORAD radars with high update rate, Doppler/micro-Doppler processing, and clutter/bird discrimination.
+
+**Most directly relevant systems in public sources:**
+
+1. **KuRFS / LIDS** — U.S. Army counter-UAS, Ku-band AESA, all-drone-class detection, clutter/biological discrimination.
+2. **MHR / nMHR** — S/X-band AESA tactical radars with public UAV range classes and 4D Doppler processing.
+3. **SPEXER 2000 3D MkIII** — X-band pulse-Doppler, sub-clutter visibility, automatic classification, Ukraine-bound.
+4. **Giraffe 1X** — lightweight 3D C-UAS/VSHORAD radar with full-volume updates every second and bird discrimination.
+5. **AN/TPQ-50** — U.S. Army multi-mission radar with >35 km small-UAS instrumented air-surveillance range.
+6. **Gryphon R1410** — X-band AESA with public small/large UAS ranges and micro-Doppler classification.
+7. **TRML-4D / GM200 / EL/M-2084** — excellent medium-range air-defense radars, but Shahed detection at low altitude is still horizon/clutter limited.
+8. **Podlet-K1KE / Casta-VME** — Russian low-altitude radar family; relevant to low-flying air-attack weapons.
+9. **YLC-48 / YLC-12 / S-band 3D low-altitude radar** — Chinese counter-drone / low-altitude radar family; public data is less independently verifiable.
+10. **SkyShield** — UAE C-UAS architecture with 3D radar/EO/RF/C2; radar OEM specs not public.
+
+The most honest technical answer is: **the best Shahed detector is a fused sensor network, not a single radar.** A high-end long-range radar may see a Shahed if altitude and line-of-sight are favorable. A short-range C-UAS radar may classify it better near the defended area. Acoustic/EO/IR/RF sensors fill gaps. C2 fusion turns those partial detections into a usable track.
+
+[1]: https://isis-online.org/isis-reports/monthly-analysis-of-russian-shahed-136-deployment-against-ukraine "https://isis-online.org/isis-reports/monthly-analysis-of-russian-shahed-136-deployment-against-ukraine"
+[2]: https://arxiv.org/html/2402.05909v2 "https://arxiv.org/html/2402.05909v2"
+[3]: https://www.ll.mit.edu/outreach/web-based-course-radar-introduction-radar-systems "https://www.ll.mit.edu/outreach/web-based-course-radar-introduction-radar-systems"
+[4]: https://copradar.com/rdrrange/ "https://copradar.com/rdrrange/"
+[5]: https://www.rtx.com/raytheon/what-we-do/integrated-air-and-missile-defense/kurfs "https://www.rtx.com/raytheon/what-we-do/integrated-air-and-missile-defense/kurfs"
+[6]: https://www.rtx.com/raytheon/news/2024/02/08/meet-lids-a-sure-shot-against-drones "https://www.rtx.com/raytheon/news/2024/02/08/meet-lids-a-sure-shot-against-drones"
+[7]: https://www.kongsberg.com/what-we-do/defence-and-security/integrated-air-and-missile-defence/raytheon-sentinel-radar/ "https://www.kongsberg.com/what-we-do/defence-and-security/integrated-air-and-missile-defence/raytheon-sentinel-radar/"
+[8]: https://www.rtx.com/raytheon/what-we-do/integrated-air-and-missile-defense/nasams "https://www.rtx.com/raytheon/what-we-do/integrated-air-and-missile-defense/nasams"
+[9]: https://www.everycrsreport.com/reports/IF12230.html "https://www.everycrsreport.com/reports/IF12230.html"
+[10]: https://www.srcinc.com/products/radar/lstar-air-surveillance-radar.html "https://www.srcinc.com/products/radar/lstar-air-surveillance-radar.html"
+[11]: https://www.drsrada.com/products/mhr "https://www.drsrada.com/products/mhr"
+[12]: https://www.drsrada.com/products/nmhr "https://www.drsrada.com/products/nmhr"
+[13]: https://www.leonardodrs.com/what-we-do/our-solutions/force-protection/air-defense/ "https://www.leonardodrs.com/what-we-do/our-solutions/force-protection/air-defense/"
+[14]: https://www.leonardodrs.com/news/press-releases/contract-award-for-us-army-m-lids-counter-uas-platforms/ "https://www.leonardodrs.com/news/press-releases/contract-award-for-us-army-m-lids-counter-uas-platforms/"
+[15]: https://www.srcinc.com/products/radar/sr-hawk-surveillance-radar.html "https://www.srcinc.com/products/radar/sr-hawk-surveillance-radar.html"
+[16]: https://www.srcinc.com/pdf/Radars-and-Sensors-Gryphon-R1410.pdf "https://www.srcinc.com/pdf/Radars-and-Sensors-Gryphon-R1410.pdf"
+[17]: https://www.reuters.com/business/aerospace-defense/what-is-patriot-missile-system-how-is-it-helping-ukraine-2025-07-14/ "https://www.reuters.com/business/aerospace-defense/what-is-patriot-missile-system-how-is-it-helping-ukraine-2025-07-14/"
+[18]: https://www.rtx.com/raytheon/what-we-do/strategic-missile-defense/antpy-2 "https://www.rtx.com/raytheon/what-we-do/strategic-missile-defense/antpy-2"
+[19]: https://www.rtx.com/raytheon/what-we-do/sea/spy6-radars "https://www.rtx.com/raytheon/what-we-do/sea/spy6-radars"
+[20]: https://www.hensoldt.net/news/hensoldt-strengthens-ukraines-air-defence "https://www.hensoldt.net/news/hensoldt-strengthens-ukraines-air-defence"
+[21]: https://www.hensoldt.net/products/trml-4d-air-surveillance-and-target-acquisition-radar "https://www.hensoldt.net/products/trml-4d-air-surveillance-and-target-acquisition-radar"
+[22]: https://www.hensoldt.net/products/spexer-2000-3d-mkiii-land-ground-based-air-defence "https://www.hensoldt.net/products/spexer-2000-3d-mkiii-land-ground-based-air-defence"
+[23]: https://www.ukrinform.net/rubric-defense/3316013-eyes-for-bukm1-launchers-ukraine-army-gets-new-phoenix1-radar.html "https://www.ukrinform.net/rubric-defense/3316013-eyes-for-bukm1-launchers-ukraine-army-gets-new-phoenix1-radar.html"
+[24]: https://api.army.mil/e2/c/downloads/2026/04/30/af450e75/no-26-1115-listening-to-the-sky-acoustic-drone-detection-in-ukraine-mar-26.pdf "https://api.army.mil/e2/c/downloads/2026/04/30/af450e75/no-26-1115-listening-to-the-sky-acoustic-drone-detection-in-ukraine-mar-26.pdf"
+[25]: https://sign4l.ae/news/edge-unveils-skyshield-counter-uas-solution-idex-2023 "https://sign4l.ae/news/edge-unveils-skyshield-counter-uas-solution-idex-2023"
+[26]: https://thedefensepost.com/2023/02/22/edge-skyshield-counter-drone/ "https://thedefensepost.com/2023/02/22/edge-skyshield-counter-drone/"
+[27]: https://www.shephardmedia.com/news/landwarfareintl/uae-awards-contract-to-edge-for-cuas-system/ "https://www.shephardmedia.com/news/landwarfareintl/uae-awards-contract-to-edge-for-cuas-system/"
+[28]: https://edgegroup.ae/solutions/skyshield-tm "https://edgegroup.ae/solutions/skyshield-tm"
+[29]: https://www.missiledefenseadvocacy.org/international-cooperation/united-arab-emirates/ "https://www.missiledefenseadvocacy.org/international-cooperation/united-arab-emirates/"
+[30]: https://www.missiledefenseadvocacy.org/defense-systems/an-mpq-64-sentinel/ "https://www.missiledefenseadvocacy.org/defense-systems/an-mpq-64-sentinel/"
+[31]: https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-detsimetrovogo-i-santimetrovogo-diapazona/podlet-k1ke/?theme=theme-brown "https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-detsimetrovogo-i-santimetrovogo-diapazona/podlet-k1ke/?theme=theme-brown"
+[32]: https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-detsimetrovogo-i-santimetrovogo-diapazona/kasta-vme/?theme=theme-brown "https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-detsimetrovogo-i-santimetrovogo-diapazona/kasta-vme/?theme=theme-brown"
+[33]: https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-metrovogo-diapazona/nebo-svu/?theme=theme-brown "https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-metrovogo-diapazona/nebo-svu/?theme=theme-brown"
+[34]: https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-detsimetrovogo-i-santimetrovogo-diapazona/rls-59n6-te/?theme=theme-brown "https://roe.ru/en/production/protivovozdushnaya-oborona/sredstva-obnaruzheniya-vozdushnykh-tseley/radiolokatsionnye-stantsii-detsimetrovogo-i-santimetrovogo-diapazona/rls-59n6-te/?theme=theme-brown"
+[35]: https://armyrecognition.com/news/army-news/2026/russia-deploys-new-pantsir-s-air-defense-systems-to-counter-ukraine-drone-strikes "https://armyrecognition.com/news/army-news/2026/russia-deploys-new-pantsir-s-air-defense-systems-to-counter-ukraine-drone-strikes"
+[36]: https://en.people.cn/n3/2021/0423/c90000-9842796.html "https://en.people.cn/n3/2021/0423/c90000-9842796.html"
+[37]: https://www.defenseone.com/technology/2025/05/chinas-counter-uav-efforts-reveal-more-technological-advancement/405031/ "https://www.defenseone.com/technology/2025/05/chinas-counter-uav-efforts-reveal-more-technological-advancement/405031/"
+[38]: https://www.militarydrones.org.cn/ylc-48-quotspider-webquot-portable-multi-function-reconnaissance-radar-p00200p1.html "https://www.militarydrones.org.cn/ylc-48-quotspider-webquot-portable-multi-function-reconnaissance-radar-p00200p1.html"
+[39]: https://www.globaltimes.cn/page/202104/1221775.shtml "https://www.globaltimes.cn/page/202104/1221775.shtml"
+[40]: https://www.militarydrones.org.cn/ylc-18-radar-p00240p1.html "https://www.militarydrones.org.cn/ylc-18-radar-p00240p1.html"
+[41]: https://global.chinadaily.com.cn/a/202505/18/WS6829de39a310a04af22c00e1.html "https://global.chinadaily.com.cn/a/202505/18/WS6829de39a310a04af22c00e1.html"
+[42]: https://www.saab.com/products/giraffe-1x "https://www.saab.com/products/giraffe-1x"
+[43]: https://www.thalesgroup.com/en/solutions-catalogue/defence/air/ground-master-200 "https://www.thalesgroup.com/en/solutions-catalogue/defence/air/ground-master-200"
+[44]: https://www.thalesgroup.com/en/solutions-catalogue/defence/air/ground-master-200-mm/c "https://www.thalesgroup.com/en/solutions-catalogue/defence/air/ground-master-200-mm/c"
+[45]: https://www.iai.co.il/product/elm-2084-mmr/ "https://www.iai.co.il/product/elm-2084-mmr/"
+[46]: https://www.missiledefenseadvocacy.org/defense-systems/elm-2084-mmr-israel/ "https://www.missiledefenseadvocacy.org/defense-systems/elm-2084-mmr-israel/"
+

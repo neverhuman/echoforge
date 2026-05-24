@@ -1,0 +1,12 @@
+{
+  "artifact": "ef:validate:fixture:v1_pass",
+  "object_card_kind": "sphere",
+  "validation_tier": "V1",
+  "provenance": {
+    "source": "synthetic",
+    "generated_by": "echoforge-validate tests fixture"
+  },
+  "license": {
+    "spdx": "CC0-1.0"
+  }
+}

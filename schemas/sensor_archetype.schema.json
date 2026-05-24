@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/sensor_archetype.schema.json",
+  "title": "sensor_archetype",
+  "description": "EchoForge sensor_archetype document. Declares a radar sensor archetype (band, waveform family, RF and sampling parameters) used to parameterize scenarios and episodes. Conforms to the EchoForge strict-open contract: deterministic ids, explicit provenance, license, and validation envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "sensor_name",
+    "band_name",
+    "waveform_family",
+    "center_frequency_hz",
+    "sample_rate_hz"
+  ],
+  "properties": {
+    "id": {
+      "description": "Deterministic EchoForge id of the form ef:<kind>:<public_proxy_id>:<16hex>:1, computed from the identity field tuple.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id"
+    },
+    "kind": {
+      "description": "Document kind discriminator; must be the literal string \"sensor_archetype\".",
+      "const": "sensor_archetype"
+    },
+    "schema_version": {
+      "description": "Schema contract version this document conforms to (currently pinned to 1.0.0).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version"
+    },
+    "public_proxy_id": {
+      "description": "Slug identifying the public proxy this sensor archetype is derived from (lowercase, dot/underscore/hyphen separated).",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug"
+    },
+    "provenance": {
+      "description": "Provenance envelope: source kind, source references, generator, timestamp, and payload fingerprint.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance"
+    },
+    "license": {
+      "description": "License envelope (SPDX id and optional notice) governing use of this document.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license"
+    },
+    "validation": {
+      "description": "Validation envelope: tier, overall status, uncertainty score, and per-check results.",
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation"
+    },
+    "sensor_name": {
+      "description": "Human-readable name of the sensor archetype (e.g. \"generic_xband_pulse_doppler\"); non-empty string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "band_name": {
+      "description": "Radar band designation. Typical values: HF|VHF|UHF|L|S|C|X|Ku|K|Ka|V|W|mmWave (no strict enum; any non-empty string accepted).",
+      "type": "string",
+      "minLength": 1
+    },
+    "waveform_family": {
+      "description": "Waveform family. Typical values: pulsed|lfm|fmcw|nlfm|pulse_doppler|cw (no strict enum; any non-empty string accepted).",
+      "type": "string",
+      "minLength": 1
+    },
+    "center_frequency_hz": {
+      "description": "Carrier / center frequency in hertz (Hz); must be strictly positive.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "sample_rate_hz": {
+      "description": "Complex baseband sampling rate in hertz (Hz) of the sensor frontend; must be strictly positive.",
+      "type": "number",
+      "exclusiveMinimum": 0
+    }
+  }
+}

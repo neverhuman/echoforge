@@ -1,0 +1,35 @@
+{
+  "id": "ef:detector_graph:cfar-then-dbscan-v1:0123456789abcdef:1",
+  "kind": "detector_graph",
+  "schema_version": "1.0.0",
+  "public_proxy_id": "cfar-then-dbscan-v1",
+  "provenance": {
+    "source_kind": "synthetic",
+    "source_refs": ["public-domain-spec://placeholder"],
+    "generated_by": "echoforge-tooling",
+    "generated_at": "2026-05-18T00:00:00Z",
+    "fingerprint_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "license": {
+    "spdx_id": "MIT"
+  },
+  "validation": {
+    "tier": "basic",
+    "status": "pass",
+    "uncertainty_score": 0.1,
+    "checks": [
+      {
+        "name": "shape",
+        "status": "pass",
+        "message": "ok"
+      }
+    ]
+  },
+  "graph_name": "CFAR then DBSCAN v1",
+  "nodes": ["range_doppler", "cfar", "dbscan", "tracker"],
+  "edges": [
+    "range_doppler->cfar",
+    "cfar->dbscan",
+    "dbscan->tracker"
+  ]
+}

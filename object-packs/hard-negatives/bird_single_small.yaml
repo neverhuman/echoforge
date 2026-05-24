@@ -1,0 +1,40 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single small passerine (sparrow, swift, pigeon scale) — biological scatterer
+# used as a hard-negative wildlife confuser for surveillance/weather radars.
+id: "ef:object_card:bird-single-small:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: bird-single-small
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+    - "https://en.wikipedia.org/wiki/Radar_ornithology"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Single Small Passerine Bird"
+object_family: biological
+geometry_variant: small-bird-passerine
+material_variant: biological-tissue
+dimensions_m:
+  x: 0.18
+  y: 0.32
+  z: 0.1
+tags:
+  - hard_negative
+  - biological
+  - bird
+  - single_bird
+  - small_passerine
+  - wildlife_confuser

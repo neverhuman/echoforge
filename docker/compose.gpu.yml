@@ -1,0 +1,20 @@
+services:
+  studio:
+    build:
+      context: ..
+      dockerfile: docker/cpu-worker.Dockerfile
+    environment:
+      HOST: 0.0.0.0
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+
+  gpu-doctor:
+    build:
+      context: ..
+      dockerfile: docker/gpu-worker.Dockerfile
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      ECHOFORGE_DOCTOR_OUTPUT: /tmp/gpu-doctor.json
+    gpus: all

@@ -1,0 +1,41 @@
+{
+	"schema_ref": "schemas/hard_negative_pack.schema.json",
+	"id": "pack.hard-negatives",
+	"display_name": "Public Proxy Hard-Negative Pack",
+	"source_status": "public_proxy",
+	"object_card_refs": [
+		"birds.yaml",
+		"bird_single_small.yaml",
+		"bird_flock_dense.yaml",
+		"shorebird_wader.yaml",
+		"gull_tern.yaml",
+		"raptor_falcon.yaml",
+		"flamingo_large_bird.yaml",
+		"seabird_cormorant.yaml",
+		"seasonal_migratory_density.yaml",
+		"commercial_drones.yaml",
+		"rc_fixed_wing.yaml",
+		"terrain_weather.yaml"
+	],
+	"object_card_slugs": [
+		"small-bird-hard-negative",
+		"bird-single-small",
+		"bird-flock-dense",
+		"shorebird-wader-hard-negative",
+		"gull-tern-hard-negative",
+		"raptor-falcon-hard-negative",
+		"flamingo-large-bird-hard-negative",
+		"seabird-cormorant-hard-negative",
+		"seasonal-migratory-density-hard-negative",
+		"commercial-quadrotor-hard-negative",
+		"rc-fixed-wing",
+		"terrain-weather-hard-negative"
+	],
+	"confuser_traits": [
+		"birds_and_flocks",
+		"commercial_drones",
+		"terrain_and_weather_glints",
+		"weather_and_rfi"
+	],
+	"notes": "Hard-negative placeholders for robustness and false-alarm stress testing."
+}

@@ -1,0 +1,284 @@
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index 0000000..1111111 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@
+ \subsection{Core Experiment}
+ The core experiment compares classical radar and cue detector branches, tabular and sequence ML baselines, an accepted human-engineered prior fusion baseline, and an EI sparse calibrated late-fusion candidate. Scenario groups are locked before phase expansion, train/CV rows are used for candidate discovery and calibration, and the blind holdout is scored once after selection lock. The benchmark output remains synthetic public-proxy evidence only.
++
++\paragraph*{Claim tested.}
++The tested claim is narrow: under the declared synthetic public-proxy generator and group-locked split, a locked EI sparse late-fusion candidate improves the low-FPR operating point over the accepted human-engineered prior fusion baseline. The claim is not sensor parity, not a measured Iranian-drone signature claim, and not an operational false-alarm-rate claim.
+@@
+ The receiver impairment set includes AGC compression, clock drift, quantization, dropped CPIs, PRF ambiguity, Doppler folding, calibration offset, and multipath masking. Acoustic cues are modeled as node-wise spectral cadence and inter-node agreement; passive-RF cues are modeled as no-signal, RFI burst, clock-offset, and provenance-quality geometry. These definitions are public-proxy abstractions, not measured claims, and are aligned with the literature on measured-anchor comparison rather than truth transfer \cite{kth2021,openradar2023,raddar2019,han2026}.
++
++\subsection{Data Processing and Detector-View Construction}
++The benchmark separates generator state, qualitative radar products, detector-facing tables, and audit evidence. Each scenario group first receives site, range, aspect, weather/noise, hard-negative-family, and split attributes. The group then expands into three phase records: initial take-up, climb transition, and cruise altitude. Synthetic complex IQ is generated as a 24-pulse by 20-range-bin proxy tensor for the radar branches. Range-Doppler heatmaps are derived from this IQ for qualitative review figures only; the main KPI models consume detector-view scalar summaries rather than the plotted heatmap pixels.
++
++The detector-view construction pipeline is:
++\begin{enumerate}
++  \item generate group-level scenario metadata and lock split assignment;
++  \item expand each group into phase rows and generated sensor/cue products;
++  \item materialize branch-level detector-view CSVs for X/Ku radar, S-band radar, GBAD cueing, acoustic cueing, passive-RF provenance, and fusion context;
++  \item remove model-forbidden fields, including labels, split keys, group identifiers, time-lock IDs, and audit-only headers;
++  \item fit baselines, prior fusion, and EI only on train/CV rows;
++  \item write a selection lock before blind holdout scoring;
++  \item emit evidence artifacts: performance metrics, calibration bins, ROC/PR traces, confusion matrices, false-alarm family rows, and leakage diagnostics.
++\end{enumerate}
++This processing contract is emitted as \texttt{data\_processing\_contract.csv}. It is the main guardrail connecting the radar generator to the model-facing evidence tables.
+@@
+ The headline KPI is the lower 95\% group-block bootstrap bound of recall at FPR $\leq 1\%$, abbreviated \emph{LCB95 Recall@$\leq$1\%FPR}. That choice is deliberate: the benchmark is rare-positive, false-alarm-constrained, and group-correlated, so the raw point estimate of recall is useful but not sufficient as the primary decision metric. AP, ROC AUC, raw recall, precision, F1, calibration, and false-alarm breakdowns remain diagnostic guardrails rather than the headline KPI.
++
++Two operating notions are reported separately. \emph{Selected-threshold counts} use the threshold fixed by train/CV or by the EI selection lock and produce the TP/FP/FN rows in Table~\ref{tab:metrics}. \emph{Recall@$\leq$1\%FPR} is a swept holdout operating-point diagnostic: among thresholds satisfying the 1\% FPR cap, it reports the best recall. The primary LCB95 value is the lower group-block bootstrap bound of that swept low-FPR recall, with scenario groups as bootstrap units.
+@@
+ \section{Engineered Intelligence}
+@@
+ Mechanically, EI uses train/CV-only score search to choose component scores, sparse nonnegative late fusion to keep the lock interpretable, geodesic-odds calibration for monotone probability mapping, and a written selection lock before the single blind holdout score. The component weights and modality/control tables below are interpretability controls rather than separate main-claim evidence.
++
++\begin{table}[t]
++  \caption{EI Candidate Discovery and Locked Scoring Algorithm}
++  \label{tab:eialgorithm}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.12\columnwidth}p{0.77\columnwidth}@{}}
++    \toprule
++    Step & Operation \\
++    \midrule
++    1 & Read train/CV detector-view scores after the denylist removes labels, split fields, group IDs, time locks, and audit headers. \\
++    2 & Generate candidate component families from radar, passive-RF, acoustic, transport/geometry, and fusion-context score views. \\
++    3 & Optimize sparse nonnegative component weights on train/CV rows only. \\
++    4 & Fit a monotone geodesic-odds calibrator and threshold policy without holdout rows. \\
++    5 & Write \texttt{selection\_lock.json} and freeze component IDs, weights, calibrator, and threshold source. \\
++    6 & Score the blind holdout once and emit KPI, calibration, false-alarm, and leakage evidence. \\
++    \bottomrule
++  \end{tabular}
++\end{table}
+@@
+-This distinction matters because a post-hoc view control can be strong on one metric without being the final EI artifact. In this run, the passive-RF-only view has higher AP and swept Recall@$\leq$1\%FPR than the full EI candidate, but its selected-threshold F1 and ECE are worse. We therefore report EI as the pre-specified, calibrated selected-threshold artifact, not as a universal dominator of every view control.
++This distinction matters because a post-hoc view control can be strong on one metric without being the final EI artifact. In this run, the passive-RF-only view has higher AP and swept Recall@$\leq$1\%FPR than the full EI candidate, but its selected-threshold F1 and ECE are worse. We therefore report EI as the pre-specified, calibrated selected-threshold artifact, not as a universal dominator of every view control. The passive-RF result should be read as a useful stress-test and ablation insight, not as a replacement for the locked EI claim.
+@@
+-\caption{Range-Doppler proxy diagnostics for a positive public-proxy group and a hard-negative group. Axes show relative range in meters and velocity-equivalent Doppler bins using the X/Ku branch resolution; color is normalized log-magnitude on a shared scale. These panels are qualitative diagnostics, not measured imagery and not the detector input used for the main KPI.}
++\caption{Qualitative range-Doppler proxy sanity panels for a positive public-proxy group and a hard-negative group. Axes show relative range in meters and velocity-equivalent Doppler bins using the X/Ku branch resolution; color is normalized log-magnitude on a shared scale. These panels are not measured imagery, not proof of platform truth, and not the detector input used for the main KPI.}
+@@
+ \begin{table*}[t]
+   \caption{Ablation and Appendix Artifact Map}
+@@
+     selected\_component\_human\_weights.csv & Reader-facing EI component weights, modalities, calibrators, and cumulative weights & What does EI fuse at a high level? \\
++    data\_processing\_contract.csv & Scenario-to-IQ-to-detector-view processing rows, denied fields, and evidence outputs & How does data move from radar simulation to model-facing metrics? \\
++    ei\_algorithm\_steps.csv & Train/CV search, sparse fusion, calibration, selection lock, and holdout-score steps & What exactly is the EI algorithm doing before the blind score? \\
+     \bottomrule
+   \end{tabular}
+ \end{table*}
++
++\begin{table*}[t]
++  \caption{Data Processing Contract from Simulation to Evidence}
++  \label{tab:dataprocessing}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.26\textwidth}p{0.26\textwidth}p{0.20\textwidth}@{}}
++    \toprule
++    Stage & Inputs & Outputs & Reviewer check \\
++    \midrule
++    Scenario group construction & public-proxy object priors, site/range/aspect/noise strata, hard-negative roster & group-level scenario rows and locked split assignment & groups, not rows, define train/CV and holdout \\
++    Phase expansion & scenario group rows and phase windows & three phase records per group & no phase from a holdout group enters train/CV \\
++    IQ/cue generation & radar branch card, clutter/noise/RFI priors, receiver impairments, acoustic/passive-RF cue priors & synthetic IQ and cue summaries & generated products are synthetic only \\
++    Detector-view materialization & generated products and branch-specific processors & detector-view CSVs with allowed scalar features & raw audit headers are visible only to audit code \\
++    Model matrix construction & detector-view CSVs and denylist & train/CV and holdout score matrices & labels, split keys, group IDs, and time locks are blocked \\
++    Evidence emission & model scores, calibration, thresholds, holdout labels & KPI, calibration, false-alarm, leakage, and appendix CSV/JSON files & results are reproducible from evidence artifacts \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
+
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 0000000..1111111 100644
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@
+ def _primary_kpi_rows(eval_summary: dict[str, Any]) -> list[dict[str, Any]]:
+@@
+     return rows
++
++
++def _data_processing_contract_rows() -> list[dict[str, Any]]:
++    return [
++        {
++            "stage": "scenario_group_construction",
++            "inputs": "public_proxy_object_priors|site_range_aspect_noise_strata|hard_negative_roster",
++            "outputs": "scenario_manifest.csv",
++            "model_facing": "no",
++            "denied_fields": "label_id|split_role|scenario_group_id|time_lock_id",
++            "reviewer_check": "split is assigned at scenario-group level before phase expansion",
++        },
++        {
++            "stage": "phase_expansion",
++            "inputs": "scenario_manifest.csv|phase_windows",
++            "outputs": "records.csv",
++            "model_facing": "audit_only_before_feature_filter",
++            "denied_fields": "label_id|split_role|scenario_group_id|time_lock_id",
++            "reviewer_check": "all phase records from one group keep the same split role",
++        },
++        {
++            "stage": "synthetic_iq_and_cue_generation",
++            "inputs": "radar_model_card|environment_impairment_model_rows|public_proxy_model_detail_rows",
++            "outputs": "raw_complex_iq shards|cue summaries",
++            "model_facing": "no_raw_iq_for_main_kpi",
++            "denied_fields": "generator_state|truth_metadata",
++            "reviewer_check": "range-Doppler panels are qualitative diagnostics, not main KPI inputs",
++        },
++        {
++            "stage": "detector_view_materialization",
++            "inputs": "generated_products|branch_processors",
++            "outputs": "detector_views/*.csv",
++            "model_facing": "yes_after_denylist",
++            "denied_fields": "label_id|split_role|scenario_group_id|cv_fold|time_lock_id",
++            "reviewer_check": "model matrices receive detector summaries, not audit headers",
++        },
++        {
++            "stage": "train_cv_selection_and_calibration",
++            "inputs": "train_cv_detector_scores",
++            "outputs": "selection_lock.json|thresholds|calibrators",
++            "model_facing": "train_cv_only",
++            "denied_fields": "holdout_rows",
++            "reviewer_check": "EI candidate discovery cannot use holdout rows",
++        },
++        {
++            "stage": "blind_holdout_scoring",
++            "inputs": "selection_lock.json|holdout_detector_scores",
++            "outputs": "performance_metrics.csv|evaluation_summary.json|main_kpi_gain_table.csv",
++            "model_facing": "frozen_model_only",
++            "denied_fields": "post_holdout_tuning",
++            "reviewer_check": "holdout is scored once after lock",
++        },
++    ]
++
++
++def _ei_algorithm_steps() -> list[dict[str, Any]]:
++    return [
++        {"step": 1, "operation": "Read train/CV detector-view scores after feature denylist", "holdout_access": "no"},
++        {"step": 2, "operation": "Generate candidate component families from detector score views", "holdout_access": "no"},
++        {"step": 3, "operation": "Optimize sparse nonnegative fusion weights on train/CV rows", "holdout_access": "no"},
++        {"step": 4, "operation": "Fit monotone geodesic-odds calibrator and threshold policy", "holdout_access": "no"},
++        {"step": 5, "operation": "Write immutable selection_lock.json", "holdout_access": "no"},
++        {"step": 6, "operation": "Score blind holdout once and emit evidence artifacts", "holdout_access": "score_only"},
++    ]
+@@
+     primary_kpi_rows = _primary_kpi_rows(eval_summary)
++    data_processing_contract_rows = _data_processing_contract_rows()
++    ei_algorithm_steps = _ei_algorithm_steps()
+@@
+         "primary_kpi_rows": primary_kpi_rows,
++        "data_processing_contract_rows": data_processing_contract_rows,
++        "ei_algorithm_steps": ei_algorithm_steps,
+@@
+     _write_csv(
+         roots.out_root / "primary_kpi_table.csv",
+         primary_kpi_rows,
+         ["method", "point_estimate", "lcb95", "target_fpr", "basis"],
+     )
++    _write_csv(
++        roots.out_root / "data_processing_contract.csv",
++        data_processing_contract_rows,
++        ["stage", "inputs", "outputs", "model_facing", "denied_fields", "reviewer_check"],
++    )
++    _write_json(roots.out_root / "data_processing_contract.json", data_processing_contract_rows)
++    _write_csv(
++        roots.out_root / "ei_algorithm_steps.csv",
++        ei_algorithm_steps,
++        ["step", "operation", "holdout_access"],
++    )
++    _write_json(roots.out_root / "ei_algorithm_steps.json", ei_algorithm_steps)
+
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 0000000..1111111 100644
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@
+ VECTOR_FIGURES = {
+@@
+     "appendix_modeling_map.png",
++    "data_processing_flow.png",
+ }
+@@
++def figure_data_processing_flow(context: FigureContext) -> Path:
++    filename = "data_processing_flow.png"
++    _note_source(filename, "paper evidence data-processing contract")
++    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 2.85), constrained_layout=False)
++    fig.subplots_adjust(left=0.03, right=0.98, top=0.86, bottom=0.10)
++    ax.set_xlim(0, 10)
++    ax.set_ylim(0, 5)
++    ax.axis("off")
++    ax.text(0.0, 4.72, "Data processing contract: simulation to evidence", fontsize=FONT_TITLE, weight="bold")
++    ax.text(0.0, 4.38, "Raw generator state is separated from detector-facing features and audit evidence.", fontsize=FONT_TINY, color=MUTED)
++    stages = [
++        ("Scenario\ngroups", PALE_BLUE, BLUE),
++        ("Phase\nrecords", PALE_TEAL, TEAL),
++        ("Synthetic IQ\n+ cues", PALE_GOLD, GOLD),
++        ("Detector-view\nfeatures", PALE_GREEN, GREEN),
++        ("Train/CV lock", "white", GRID),
++        ("Blind holdout\nevidence", SLATE, INK),
++    ]
++    x0, y0, w, gap = 0.15, 2.65, 1.32, 0.28
++    for idx, (label, face, edge) in enumerate(stages):
++        x = x0 + idx * (w + gap)
++        _add_box(ax, x, y0, w, 0.86, label, face=face, edge=edge, weight="bold", size=FONT_TINY, wrap_width=15)
++        if idx < len(stages) - 1:
++            _add_arrow(ax, (x + w + 0.02, y0 + 0.43), (x + w + gap - 0.02, y0 + 0.43), color=MUTED)
++    rails = [
++        ("Split is group-locked before phase expansion", 0.25, 1.55),
++        ("Range-Doppler panels are qualitative, not main KPI inputs", 3.35, 1.55),
++        ("Labels, split keys, group IDs, time locks, and audit headers are denied", 0.25, 0.70),
++        ("Evidence artifacts include KPI, curves, calibration, leakage, and false-alarm CSV/JSON", 3.35, 0.70),
++    ]
++    for text, x, y in rails:
++        _add_box(ax, x, y, 2.95, 0.55, text, face="white", edge=GRID, size=FONT_TINY, wrap_width=34)
++    ax.text(0.25, 0.18, "Evidence row: data_processing_contract.csv", fontsize=FONT_TINY, color=MUTED)
++    return _save_figure(fig, filename)
+@@
+ def generate_all(context: FigureContext) -> list[Path]:
+@@
+         figure_appendix_modeling_map(context),
++        figure_data_processing_flow(context),
+     ]
+
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index 0000000..1111111 100644
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@
+ REQUIRED_FIGURES = (
+@@
+     "appendix_modeling_map.pdf",
++    "data_processing_flow.pdf",
+ )
+@@
+ PREVIEW_PNGS = (
+@@
+     "appendix_modeling_map.png",
++    "data_processing_flow.png",
+ )
+@@
+ REQUIRED_WORLDCLASS_PATTERNS = (
+@@
+     r"no measured Iranian-drone radar signature",
++    r"Data Processing and Detector-View Construction",
++    r"selected-threshold counts",
++    r"swept holdout operating-point diagnostic",
++    r"EI Candidate Discovery and Locked Scoring Algorithm",
++    r"data(?:\\_|\_)processing(?:\\_|\_)contract\.csv",
++    r"ei(?:\\_|\_)algorithm(?:\\_|\_)steps\.csv",
+ )
+@@
+     for key in (
+@@
+         "environment_impairment_model_rows",
++        "data_processing_contract_rows",
++        "ei_algorithm_steps",
+     ):
+@@
+     for required_csv in (
+@@
+         "engineered_intelligence_transparency.csv",
++        "data_processing_contract.csv",
++        "ei_algorithm_steps.csv",
+     ):
+         if not (evidence_root / required_csv).exists():
+             fail(f"missing paper evidence csv: {required_csv}")

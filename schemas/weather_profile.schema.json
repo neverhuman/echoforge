@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echoforge.local/schemas/weather_profile.schema.json",
+  "title": "weather_profile",
+  "description": "EchoForge weather_profile document. Declares a named atmospheric / oceanic regime (cloud cover, rain rate, fog visibility, sea state, wind vector, refractivity profile + ducting layer height, temperature/pressure/humidity) used by the radar / EO-IR / acoustic chains to model propagation, attenuation, and clutter Doppler. Strict-open: ITU-R P.676 (gas), P.838 (rain), P.840 (cloud), P.453 (refractivity), Pierson-Moskowitz (sea-state spectrum), Beaufort scale (wind classification). MODTRAN-style band-integrated transmission for EO/IR. References: tips/problem_deep_dive/ on weather/clutter; tips/science_stack/current/ on propagation model.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "kind",
+    "schema_version",
+    "public_proxy_id",
+    "provenance",
+    "license",
+    "validation",
+    "display_name",
+    "regime_class",
+    "temperature_k",
+    "pressure_pa",
+    "humidity_relative"
+  ],
+  "properties": {
+    "id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/deterministic_id" },
+    "kind": { "const": "weather_profile" },
+    "schema_version": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/schema_version" },
+    "public_proxy_id": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/slug" },
+    "provenance": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/provenance" },
+    "license": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/license" },
+    "validation": { "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/validation" },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable regime name (e.g. 'UAE Coastal Summer Clear', 'Ukraine Winter Snow Fog', 'Black Sea Autumn Moderate Duct', 'Gulf Monsoon Heavy Rain')."
+    },
+    "regime_class": {
+      "description": "Coarse classification useful for scenario selection.",
+      "enum": [
+        "clear_air_standard",
+        "coastal_summer",
+        "winter_snow_fog",
+        "monsoon_heavy_rain",
+        "moderate_ducting",
+        "evaporation_duct_marine",
+        "elevated_duct",
+        "high_humidity_tropical",
+        "dust_storm_haze",
+        "thunderstorm_convective",
+        "stratus_overcast",
+        "cumulus_scattered",
+        "cirrus_thin",
+        "cumulonimbus_dense"
+      ]
+    },
+    "cloud_cover": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oktas": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8,
+          "description": "Sky cover (0=clear, 8=full overcast). Per WMO Met Code 2700."
+        },
+        "cloud_type": {
+          "enum": ["clear", "cirrus", "altocumulus", "stratus", "stratocumulus", "cumulus", "cumulonimbus", "fog", "mixed"]
+        },
+        "cloud_base_m_agl": { "type": "number", "minimum": 0 },
+        "cloud_top_m_agl": { "type": "number", "exclusiveMinimum": 0 },
+        "liquid_water_content_g_per_m3": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Per ITU-R P.840-8 (cloud attenuation). Typical: thin cirrus 0.01, stratus 0.2-0.5, cumulus 0.5-1.0, cumulonimbus 1.0-3.0."
+        },
+        "ice_water_content_g_per_m3": { "type": "number", "minimum": 0 }
+      }
+    },
+    "rain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rain_rate_mm_per_h": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Per ITU-R P.838-3. Drizzle <1, light 1-5, moderate 5-20, heavy 20-50, extreme >50."
+        },
+        "rain_top_m_agl": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Cloud-base or freezing-level top for rain layer."
+        },
+        "rain_polarization_h_vs_v_ratio_db": {
+          "type": "number",
+          "description": "H/V attenuation asymmetry (ITU-R P.838 k_h vs k_v) — usually ~1 dB at X-band 25 mm/h."
+        }
+      }
+    },
+    "fog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visibility_m": { "type": "number", "exclusiveMinimum": 0 },
+        "fog_type": { "enum": ["radiation", "advection", "evaporation", "freezing", "ice_fog", "none"] },
+        "liquid_water_content_g_per_m3": { "type": "number", "minimum": 0 }
+      }
+    },
+    "sea_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "douglas_state": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "description": "Douglas sea state (0=calm glassy ... 9=phenomenal). NATO/WMO standard."
+        },
+        "beaufort_force": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 12,
+          "description": "Beaufort wind scale."
+        },
+        "significant_wave_height_m": { "type": "number", "minimum": 0 },
+        "wave_peak_period_s": { "type": "number", "exclusiveMinimum": 0 },
+        "wind_speed_u10_mps": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Wind at 10 m reference height; drives Pierson-Moskowitz spectrum α·g²/ω⁵·exp(−β·(g/(U·ω))⁴)."
+        },
+        "pierson_moskowitz_peak_freq_rad_s": { "type": "number", "exclusiveMinimum": 0 },
+        "sea_spike_kurtosis": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Empirical fourth-moment ratio of clutter envelope; 3=Rayleigh, >5=K-distribution heavy-tail (Ward/Tough/Watts §2)."
+        }
+      }
+    },
+    "wind_vector_mps": {
+      "$ref": "https://echoforge.local/schemas/common.schema.json#/$defs/vector3",
+      "description": "Surface-level 3D wind vector (u east, v north, w up) at reference height (default 10 m AGL)."
+    },
+    "wind_profile_log_law_z0_m": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Surface roughness length for boundary-layer log-law profile (m). Sea ~0.0002, grass ~0.03, urban ~1.0."
+    },
+    "refractivity_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per ITU-R P.453 N-unit refractivity. Modified refractivity M(h) = N(h) + 0.157·h enables bent-ray ducting modeling.",
+      "properties": {
+        "n_at_msl": {
+          "type": "number",
+          "description": "Surface refractivity N-units. Temperate maritime ~330, dry continental ~280, tropical humid ~370."
+        },
+        "gradient_n_per_km": {
+          "type": "number",
+          "description": "dN/dh. Standard atmosphere ~−40; sub-refractive >−40; super-refractive [-150, -40]; trapping <−157 (ducting)."
+        },
+        "k_factor_earth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Effective-Earth-radius multiplier. Standard 4/3, ducting >2, super-refractive ~1.5, sub-refractive ~1.0."
+        },
+        "surface_duct_present": { "type": "boolean" },
+        "surface_duct_height_m": { "type": "number", "minimum": 0 },
+        "elevated_duct_present": { "type": "boolean" },
+        "elevated_duct_base_m_agl": { "type": "number", "minimum": 0 },
+        "elevated_duct_top_m_agl": { "type": "number", "exclusiveMinimum": 0 },
+        "evaporation_duct_height_m": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Marine evaporation duct height — typically 5-40 m over warm sea."
+        }
+      }
+    },
+    "temperature_k": { "type": "number", "exclusiveMinimum": 0 },
+    "pressure_pa": { "type": "number", "exclusiveMinimum": 0 },
+    "humidity_relative": { "type": "number", "minimum": 0, "maximum": 1 },
+    "humidity_absolute_g_per_m3": { "type": "number", "minimum": 0 },
+    "temperature_inversion_present": { "type": "boolean" },
+    "temperature_inversion_base_m_agl": { "type": "number", "minimum": 0 },
+    "temperature_inversion_top_m_agl": { "type": "number", "exclusiveMinimum": 0 },
+    "eo_ir_transmission_bands": {
+      "description": "MODTRAN-style band-integrated transmission per (band, range_m, atmospheric_path). Used by EO/IR sensor archetypes.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["band", "range_m", "transmission"],
+        "properties": {
+          "band": { "enum": ["vis", "nir", "swir", "mwir", "lwir"] },
+          "range_m": { "type": "number", "exclusiveMinimum": 0 },
+          "transmission": { "type": "number", "minimum": 0, "maximum": 1 },
+          "aerosol_optical_depth": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
+    "source_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["citation_id"],
+        "properties": {
+          "citation_id": { "type": "string", "minLength": 1 },
+          "url": { "type": "string", "format": "uri" },
+          "title": { "type": "string" },
+          "retrieved_utc": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+# EchoForge object_card fixture (schemas/object_card.schema.json).
+# Single representative variant per file; pack-level aggregation of multiple
+# cell tower variants are represented in the current catalog.
+id: "ef:object_card:cell-tower:0000000000000000:1"
+kind: object_card
+schema_version: "1.0.0"
+public_proxy_id: cell-tower
+provenance:
+  source_kind: public_proxy
+  source_refs:
+    - "public-domain-spec://placeholder"
+  generated_by: echoforge-tooling
+  generated_at: "2026-05-18T00:00:00Z"
+  fingerprint_sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+license:
+  spdx_id: MIT
+validation:
+  tier: unvalidated
+  status: warn
+  uncertainty_score: 0.5
+  checks:
+    - name: placeholder
+      status: warn
+      message: "fixture only, not validated"
+display_name: "Cellular Telecommunications Tower Hard Negative"
+object_family: infrastructure_tower
+geometry_variant: monopole-or-lattice-mast-with-antennas
+material_variant: galvanized-steel-antenna-array
+dimensions_m:
+  x: 8.0
+  y: 8.0
+  z: 90.0
+tags:
+  - hard_negative
+  - infrastructure
+  - static_structure
+  - cell_tower
+  - strong_glint
