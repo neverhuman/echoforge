@@ -3341,6 +3341,73 @@ def _environment_impairment_model_rows(radar_model_card: dict[str, Any]) -> list
     ]
 
 
+def _data_processing_trace_rows(split_summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Reviewer-facing trace from synthetic scenario design to paper evidence."""
+
+    holdout_records = _safe_int(split_summary.get("holdout_record_count"), 0)
+    holdout_positive_records = _safe_int(split_summary.get("holdout_positive_record_count"), 0)
+    holdout_positive_groups = _safe_int(split_summary.get("holdout_positive_group_count"), 0)
+    train_cv_groups = _safe_int(split_summary.get("train_cv_group_count"), 0)
+    return [
+        {
+            "stage": "scenario_group_generation",
+            "input_artifacts": "fixed-wing-pusher-proxy-v2 profile; public object/source packs; seed 202605210136",
+            "output_artifacts": "scenario_manifest.csv; dataset_manifest.json; split_summary.json",
+            "reviewer_check": (
+                "Scenario groups and split roles are assigned before phase expansion; "
+                f"train/CV has {train_cv_groups} groups."
+            ),
+            "claim_boundary": "Synthetic public-proxy scenario design, not field-rate, route, or measured-platform truth.",
+        },
+        {
+            "stage": "phase_record_expansion",
+            "input_artifacts": "scenario_manifest.csv; phase windows initial_take_up/climb_transition/cruise_altitude",
+            "output_artifacts": "records.csv",
+            "reviewer_check": "Each scenario group expands into three phase records that inherit the same split role and group lock.",
+            "claim_boundary": "Phase labels support diagnostic slices only, not operational timeline claims.",
+        },
+        {
+            "stage": "synthetic_iq_and_cue_generation",
+            "input_artifacts": "radar_model_card.json; public_proxy_model_detail_rows.csv; environment_impairment_model_rows.csv",
+            "output_artifacts": "raw complex-IQ references; acoustic cue summaries; passive-RF cue summaries; range-Doppler diagnostic panels",
+            "reviewer_check": "Synthetic radar/cue products are generated before detector views; range-Doppler panels are qualitative sanity checks.",
+            "claim_boundary": "Generated IQ and cue products are not measured imagery or proprietary sensor behavior.",
+        },
+        {
+            "stage": "detector_view_schema_gate",
+            "input_artifacts": "records.csv; generated sensor/cue products; MODEL_FEATURE_DENYLIST; DETECTOR_ID_COLUMNS",
+            "output_artifacts": "detector_view_schema_evidence.csv; classical_radar_processing.csv; ml_detector_baselines.csv; fusion_predictions.csv; advanced_predictions.csv",
+            "reviewer_check": "Labels, split keys, group IDs, time locks, audit headers, and generator internals are denied to model-facing matrices.",
+            "claim_boundary": "Detector views are benchmark feature contracts, not vendor implementations or exact Pd/Pfa claims.",
+        },
+        {
+            "stage": "train_cv_candidate_discovery",
+            "input_artifacts": "train/CV detector-view scores only",
+            "output_artifacts": "selection_lock.json; selected_component_scores.csv; selected_component_human_weights.csv; calibrators and thresholds",
+            "reviewer_check": "EI component search, sparse weights, monotone odds calibration, and threshold policy are locked before holdout scoring.",
+            "claim_boundary": "EI is an audited score-search and fusion lane, not an operational C2 system.",
+        },
+        {
+            "stage": "blind_holdout_scoring",
+            "input_artifacts": "locked EI candidate; accepted prior fusion baseline; holdout detector-view rows",
+            "output_artifacts": "evaluation_summary.json; primary_kpi_table.csv; main_kpi_gain_table.csv; selected_threshold_confusion_matrix.csv",
+            "reviewer_check": (
+                "The blind holdout is scored once after lock; "
+                f"{holdout_records} records include {holdout_positive_records} positives from "
+                f"{holdout_positive_groups} positive groups."
+            ),
+            "claim_boundary": "One synthetic holdout score pass; no measured truth or field-performance claim.",
+        },
+        {
+            "stage": "paper_evidence_artifacts",
+            "input_artifacts": "evaluation_summary.json; leakage_diagnostics.json; modality_transparency.json; generated figure inputs",
+            "output_artifacts": "paper_evidence_manifest.json; data_processing_trace_rows.csv; paper figures; echoforge_ieee.pdf",
+            "reviewer_check": "Selected-threshold counts, swept Recall@<=1%FPR, and LCB95 are separate fields in generated evidence.",
+            "claim_boundary": "Figures and tables are reproducible review artifacts, not additional empirical claims.",
+        },
+    ]
+
+
 def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
     if roots.out_root.exists():
         shutil.rmtree(roots.out_root)
@@ -3361,6 +3428,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
     feedback_coverage = _feedback_coverage_summary()
     generative_origin_audit = _run_generative_origin_audit(roots.out_root)
     detector_view_schema_evidence = _detector_view_schema_evidence(roots.training_root)
+    data_processing_trace_rows = _data_processing_trace_rows(split_summary)
 
     holdout_records = [row for row in records if row.get("split_role") == "holdout"]
     holdout_scenarios = [row for row in scenarios if row.get("split_role") == "holdout"]
@@ -3523,6 +3591,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
         "positive_balance_by_dimension": positive_balance_by_dimension,
         "split_summary": split_summary,
         "detector_view_schema_evidence": detector_view_schema_evidence,
+        "data_processing_trace_rows": data_processing_trace_rows,
         "leakage_diagnostics": leakage,
         "evaluation_summary": eval_summary,
         "component_transparency": component_transparency,
@@ -3655,6 +3724,18 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
             "allowed_detector_feature_families",
             "allowed_detector_feature_count",
             "model_schema_note",
+        ],
+    )
+    _write_json(roots.out_root / "data_processing_trace_rows.json", data_processing_trace_rows)
+    _write_csv(
+        roots.out_root / "data_processing_trace_rows.csv",
+        data_processing_trace_rows,
+        [
+            "stage",
+            "input_artifacts",
+            "output_artifacts",
+            "reviewer_check",
+            "claim_boundary",
         ],
     )
     _write_csv(

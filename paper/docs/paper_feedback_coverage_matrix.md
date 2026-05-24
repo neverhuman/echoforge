@@ -1,7 +1,7 @@
-# Paper Feedback V5 Coverage Matrix
+# Paper Feedback V7 Coverage Matrix
 
 This matrix summarizes how the paper repair addresses actionable feedback in
-`tips/paper_feedback/v5/`. The generated evidence lane also emits the full
+`tips/paper_feedback/v5/` through `tips/paper_feedback/v7/`. The generated evidence lane also emits the full
 machine-readable matrix under
 `outputs/paper-evidence/major-upgrade-v1/feedback_coverage_matrix.*`.
 
@@ -43,3 +43,12 @@ machine-readable matrix under
 | `tip2.txt` | Passive-RF-only view exceeds full EI candidate on swept AP/Recall controls | addressed | Added Table IX caveat framing the EI candidate as pre-registered calibrated selected-threshold artifact |
 | `tip1.txt` / `tip4.txt` | Regression guard for extensionless raster fallbacks | addressed | `paper/validate_paper.py` requires explicit `.pdf` / `.png` includes and forbids `iq_negative_samples.pdf` |
 | `tip1.txt` / `tip3.txt` | Raster preview readability checks | addressed | `paper/validate_visuals.py` Pillow width, height, and nonblank checks; `paper/build.sh` installs Pillow if missing |
+| v7 radar review | Claim tested is narrow and reviewer-facing | addressed | Core Experiment claim-tested paragraph; no sensor parity, measured signature, or operational FAR claim |
+| v7 radar review | Data-processing path from scenario groups to holdout KPI is explicit | addressed | `Data Processing and Evidence Flow` section, `data_processing_flow.pdf`, `data_processing_trace_rows.csv` |
+| v7 radar review | Scenario groups, synthetic sensing, detector schema, train/CV lock, and blind holdout are visible in one figure | addressed | `paper/generate_figures_major_upgrade_v2.py`, `paper/figures/data_processing_flow.pdf` |
+| v7 radar review | Generated evidence contains stage-level processing trace rows | addressed | `detection/paper_evidence_major_upgrade_v1.py`, manifest key `data_processing_trace_rows`, CSV/JSON outputs |
+| v7 radar review | Selected-threshold counts are separated from swept Recall@<=1%FPR and LCB95 | addressed | Primary KPI text, Table IV caption/body, `data_processing_flow.pdf`, validator pattern checks |
+| v7 radar review | Passive-RF-only result is a diagnostic red flag rather than a hidden contradiction | addressed | Engineered Intelligence section and modality-control table framing |
+| v7 radar review | Range-Doppler panels are qualitative sanity checks only | addressed | Raw Samples caption states not measured imagery, not platform-truth evidence, and not main KPI detector input |
+| v7 radar review | Radar-simulation processing steps map to appendix evidence | addressed | `Synthetic Radar Simulation Processing Detail` table and `Ablation and Appendix Artifact Map` |
+| v7 radar review | Validators guard the new figure, section, and evidence artifacts | addressed | `paper/validate_visuals.py`, `paper/validate_paper.py` require `data_processing_flow` and `data_processing_trace_rows.csv` |

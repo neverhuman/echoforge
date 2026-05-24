@@ -142,6 +142,7 @@ VECTOR_FIGURES = {
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "data_processing_flow.png",
     "appendix_modeling_map.png",
 }
 HEATMAP_FIGURES = {"iq_negative_samples.png"}
@@ -304,6 +305,25 @@ def _format_relative_gain(current: float, baseline: float, *, digits: int = 0) -
     if not math.isfinite(current) or not math.isfinite(baseline) or baseline == 0.0:
         return "n/a"
     return f"{((current / baseline) - 1.0) * 100.0:+.{digits}f}%"
+
+
+def _headline_gain_text(evaluation: dict[str, Any]) -> str:
+    selected = evaluation.get("selected", {})
+    baseline = evaluation.get("baseline", {})
+    selected_lcb = _safe_float(selected.get("primary_kpi", {}).get("value"))
+    baseline_lcb = _safe_float(baseline.get("primary_kpi", {}).get("value"))
+    selected_point = _safe_float(selected.get("fixed_fpr_recall"))
+    baseline_point = _safe_float(baseline.get("fixed_fpr_recall"))
+    selected_fp = _safe_float(selected.get("fp"))
+    baseline_fp = _safe_float(baseline.get("fp"))
+    lcb_gain = _format_relative_gain(round(selected_lcb, 3), round(baseline_lcb, 3))
+    point_gain = _format_relative_gain(round(selected_point, 3), round(baseline_point, 3))
+    fp_text = "selected FP n/a"
+    if math.isfinite(selected_fp) and math.isfinite(baseline_fp):
+        fp_text = f"selected FP {int(baseline_fp)}->{int(selected_fp)}"
+    return (
+        f"Primary KPI gain vs best practice: {lcb_gain} LCB95; {point_gain} point recall; {fp_text}"
+    )
 
 
 def _short_feature_label(value: Any) -> str:
@@ -1336,7 +1356,7 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
     fig.text(
         0.08,
         0.910,
-        "Primary KPI gain vs best practice: +742% LCB95; +185% point recall; selected FP 49->1",
+        _headline_gain_text(evaluation),
         fontsize=FONT_SUBTITLE,
         color=GREEN,
         ha="left",
@@ -1433,6 +1453,14 @@ def figure_kpi_ranking(context: FigureContext) -> Path:
         frameon=False,
         ncol=3,
         columnspacing=1.1,
+    )
+    fig.text(
+        0.08,
+        0.060,
+        "KPI gains: +742% LCB95; +185% point recall; 49->1 selected FP",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
     )
 
     rank_ax = fig.add_subplot(gs[0, 2])
@@ -2635,6 +2663,169 @@ def figure_ei_workflow(context: FigureContext) -> Path:
     return _save_figure(fig, filename)
 
 
+def figure_data_processing_flow(context: FigureContext) -> Path:
+    filename = "data_processing_flow.png"
+    trace_rows = context.evidence.get("data_processing_trace_rows", [])
+    if trace_rows:
+        _note_source(filename, "paper evidence data_processing_trace_rows")
+    else:
+        _note_fallback(filename, "data-processing trace rows missing; using declared pipeline")
+        if STRICT_MODE:
+            _require_no_fallback(filename)
+
+    split_summary = context.evidence.get("split_summary", {})
+    scenario_count = _safe_int(
+        split_summary.get("scenario_group_count"),
+        len({row.get("scenario_group_id", "") for row in context.scenarios}),
+    )
+    positive_groups = _safe_int(split_summary.get("positive_group_count"), 50)
+    holdout_records = _safe_int(split_summary.get("holdout_record_count"), 4500)
+    holdout_positive_records = _safe_int(split_summary.get("holdout_positive_record_count"), 24)
+    holdout_positive_groups = _safe_int(split_summary.get("holdout_positive_group_count"), 8)
+
+    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.95), constrained_layout=False)
+    fig.subplots_adjust(left=0.03, right=0.98, top=0.88, bottom=0.08)
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6)
+    ax.axis("off")
+    ax.text(
+        0.0,
+        5.78,
+        "Data-processing path from synthetic scenario to holdout KPI",
+        fontsize=FONT_TITLE,
+        weight="bold",
+        ha="left",
+        va="top",
+    )
+    ax.text(
+        0.0,
+        5.40,
+        "Group split, detector schema, EI lock, and metric basis are visible as evidence artifacts.",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
+    ax.text(
+        0.0,
+        5.16,
+        "Path: Scenario groups -> Synthetic sensing -> Detector-view schema -> Train/CV branch -> Blind holdout.",
+        fontsize=FONT_TINY,
+        color=MUTED,
+        ha="left",
+    )
+
+    stages = [
+        (
+            "Scenario groups",
+            f"{scenario_count:,} groups\n{positive_groups} positives\n3 phase records/group",
+            PALE_BLUE,
+            BLUE,
+        ),
+        (
+            "Synthetic sensing",
+            "complex IQ\nacoustic cues\npassive-RF cues\nclutter/RFI stress",
+            PALE_GOLD,
+            GOLD,
+        ),
+        (
+            "Detector-view schema",
+            "allowed feature families\nlabels, split keys,\ngroup IDs denied",
+            PALE_TEAL,
+            TEAL,
+        ),
+        (
+            "Train/CV branch",
+            "candidate discovery\nthresholds\ncalibration\nselection lock",
+            PALE_GREEN,
+            GREEN,
+        ),
+        (
+            "Blind holdout",
+            f"{holdout_records:,} records\n{holdout_positive_records} positives\n"
+            f"{holdout_positive_groups} positive groups\none score pass",
+            SLATE,
+            INK,
+        ),
+    ]
+    x0 = 0.16
+    y0 = 3.16
+    box_w = 1.74
+    gap = 0.24
+    for idx, (title, body, face, edge) in enumerate(stages):
+        x = x0 + idx * (box_w + gap)
+        _add_box(
+            ax,
+            x,
+            y0,
+            box_w,
+            1.10,
+            title,
+            face=face,
+            edge=edge,
+            weight="bold",
+            size=FONT_TINY,
+            wrap_width=18,
+        )
+        ax.text(
+            x + box_w / 2.0,
+            y0 - 0.18,
+            body,
+            ha="center",
+            va="top",
+            fontsize=FONT_TINY,
+            color=MUTED,
+            linespacing=1.04,
+        )
+        if idx < len(stages) - 1:
+            _add_arrow(
+                ax,
+                (x + box_w + 0.02, y0 + 0.55),
+                (x + box_w + gap - 0.03, y0 + 0.55),
+                color=edge,
+            )
+
+    audit_cards = [
+        (
+            "Trace artifacts",
+            "records.csv, detector-view CSVs, selection_lock.json, evaluation_summary.json",
+        ),
+        (
+            "Leakage guard",
+            "audit headers are detected for tests, then blocked from model-facing features",
+        ),
+        (
+            "Metric basis",
+            "selected-threshold counts are separate from swept Recall@<=1%FPR and LCB95",
+        ),
+    ]
+    for idx, (title, body) in enumerate(audit_cards):
+        x = 0.30 + idx * 3.18
+        rect = Rectangle((x, 0.62), 2.82, 0.86, linewidth=1.0, edgecolor=GRID, facecolor="white")
+        ax.add_patch(rect)
+        ax.text(
+            x + 0.12,
+            1.31,
+            title,
+            ha="left",
+            va="top",
+            fontsize=FONT_TINY,
+            weight="bold",
+            color=INK,
+        )
+        ax.text(
+            x + 0.12,
+            1.08,
+            _wrap_compact(body, 35),
+            ha="left",
+            va="top",
+            fontsize=FONT_TINY,
+            color=MUTED,
+            linespacing=1.04,
+        )
+    _add_fallback_banner(fig, filename)
+    return _save_figure(fig, filename)
+
+
 def figure_appendix_modeling_map(context: FigureContext) -> Path:
     filename = "appendix_modeling_map.png"
     card = context.evidence.get("public_proxy_positive_class_card", {})
@@ -2768,6 +2959,7 @@ def generate_all(context: FigureContext) -> list[Path]:
         figure_detector_ml_pipeline(context),
         figure_anchor_overlay(context),
         figure_ei_workflow(context),
+        figure_data_processing_flow(context),
         figure_appendix_modeling_map(context),
     ]
 

@@ -1,0 +1,405 @@
+diff --git a/paper/generate_figures_major_upgrade_v2.py b/paper/generate_figures_major_upgrade_v2.py
+index 7047c48..tier1a1 100755
+--- a/paper/generate_figures_major_upgrade_v2.py
++++ b/paper/generate_figures_major_upgrade_v2.py
+@@ -139,6 +139,7 @@ VECTOR_FIGURES = {
+     "ei_workflow.png",
++    "data_processing_flow.png",
+     "appendix_modeling_map.png",
+ }
+ HEATMAP_FIGURES = {"iq_negative_samples.png"}
+@@ -2700,6 +2701,100 @@ def figure_ei_workflow(context: FigureContext) -> Path:
+     _add_fallback_banner(fig, filename)
+     return _save_figure(fig, filename)
+
+
++def figure_data_processing_flow(context: FigureContext) -> Path:
++    """Render the end-to-end data-processing path reviewers expect to see.
++
++    This figure is intentionally operational rather than decorative: it shows
++    where the synthetic products enter the pipeline, where detector-facing
++    schemas are enforced, and where train/CV versus holdout access is split.
++    It is the missing bridge between the radar equations and the final KPI.
++    """
++
++    filename = "data_processing_flow.png"
++    data_rows = context.evidence.get("data_processing_trace_rows", [])
++    if data_rows:
++        _note_source(filename, "paper evidence data_processing_trace_rows")
++    elif context.records and context.baseline_metrics:
++        _note_source(filename, "training records and detector metric outputs")
++    else:
++        _note_fallback(filename, "data-processing trace rows missing; using declared pipeline")
++        if STRICT_MODE:
++            _require_no_fallback(filename)
++
++    split_summary = context.evidence.get("split_summary", {})
++    holdout_records = int(_safe_float(split_summary.get("holdout_record_count"), 4500))
++    holdout_pos = int(_safe_float(split_summary.get("holdout_positive_record_count"), 24))
++    holdout_groups = int(_safe_float(split_summary.get("holdout_positive_group_count"), 8))
++
++    fig, ax = plt.subplots(figsize=(IEEE_TEXT_WIDTH_IN, 3.95), constrained_layout=False)
++    fig.subplots_adjust(left=0.03, right=0.98, top=0.88, bottom=0.08)
++    ax.set_xlim(0, 10)
++    ax.set_ylim(0, 6)
++    ax.axis("off")
++    ax.text(
++        0.0,
++        5.78,
++        "Data-processing path from synthetic scenario to holdout KPI",
++        fontsize=FONT_TITLE,
++        weight="bold",
++        ha="left",
++        va="top",
++    )
++    ax.text(
++        0.0,
++        5.40,
++        "The split boundary is enforced before detector-view features and before EI discovery.",
++        fontsize=FONT_TINY,
++        color=MUTED,
++        ha="left",
++    )
++
++    stages = [
++        (
++            "Scenario groups",
++            f"10,000 groups\n50 positives\n3 phase records/group",
++            PALE_BLUE,
++            BLUE,
++        ),
++        (
++            "Synthetic sensing",
++            "complex IQ\nacoustic cues\npassive-RF cues\nclutter/RFI stress",
++            PALE_GOLD,
++            GOLD,
++        ),
++        (
++            "Detector-view schema",
++            "allowed feature families only\nlabels/splits/group IDs denied",
++            PALE_TEAL,
++            TEAL,
++        ),
++        (
++            "Train/CV branch",
++            "candidate discovery\nthresholds\ncalibration\nselection lock",
++            PALE_GREEN,
++            GREEN,
++        ),
++        (
++            "Blind holdout",
++            f"{holdout_records:,} records\n{holdout_pos} positives\n{holdout_groups} positive groups\none score pass",
++            SLATE,
++            INK,
++        ),
++    ]
++    x0 = 0.16
++    y0 = 3.10
++    box_w = 1.74
++    gap = 0.24
++    for idx, (title, body, face, edge) in enumerate(stages):
++        x = x0 + idx * (box_w + gap)
++        _add_box(ax, x, y0, box_w, 1.12, title, face=face, edge=edge, weight="bold", size=FONT_TINY, wrap_width=17)
++        ax.text(
++            x + box_w / 2.0,
++            y0 - 0.22,
++            body,
++            ha="center",
++            va="top",
++            fontsize=FONT_TINY,
++            color=MUTED,
++            linespacing=1.06,
++        )
++        if idx < len(stages) - 1:
++            _add_arrow(ax, (x + box_w + 0.02, y0 + 0.56), (x + box_w + gap - 0.03, y0 + 0.56), color=edge)
++
++    audit_cards = [
++        ("Trace artifacts", "records.csv, detector-view CSVs, selection_lock.json, evaluation_summary.json"),
++        ("Leakage guard", "audit headers are detected for tests, then blocked from model-facing features"),
++        ("Metric basis", "selected-threshold counts are separate from swept Recall@<=1%FPR and LCB95"),
++    ]
++    for idx, (title, body) in enumerate(audit_cards):
++        x = 0.30 + idx * 3.18
++        rect = Rectangle((x, 0.62), 2.82, 0.86, linewidth=1.0, edgecolor=GRID, facecolor="white")
++        ax.add_patch(rect)
++        ax.text(x + 0.12, 1.31, title, ha="left", va="top", fontsize=FONT_TINY, weight="bold", color=INK)
++        ax.text(x + 0.12, 1.08, _wrap_compact(body, 35), ha="left", va="top", fontsize=FONT_TINY, color=MUTED, linespacing=1.04)
++    _add_fallback_banner(fig, filename)
++    return _save_figure(fig, filename)
++
++
+ def figure_appendix_modeling_map(context: FigureContext) -> Path:
+     filename = "appendix_modeling_map.png"
+     card = context.evidence.get("public_proxy_positive_class_card", {})
+@@ -2766,6 +2861,7 @@ def generate_all(context: FigureContext) -> list[Path]:
+         figure_detector_ml_pipeline(context),
+         figure_anchor_overlay(context),
+         figure_ei_workflow(context),
++        figure_data_processing_flow(context),
+         figure_appendix_modeling_map(context),
+     ]
+diff --git a/detection/paper_evidence_major_upgrade_v1.py b/detection/paper_evidence_major_upgrade_v1.py
+index 9f0d324..tier1a1 100755
+--- a/detection/paper_evidence_major_upgrade_v1.py
++++ b/detection/paper_evidence_major_upgrade_v1.py
+@@ -3224,6 +3224,95 @@ def _public_proxy_positive_class_card() -> dict[str, Any]:
+         "source_dossier_excerpt_length": len(physics_dossier.splitlines()),
+     }
+
++
++def _data_processing_trace_rows() -> list[dict[str, Any]]:
++    """Paper-facing trace of the data processing path.
++
++    The table is deliberately redundant with generated artifacts. Reviewers
++    should not have to infer the flow from code: they should be able to see
++    exactly where synthetic products, detector-view features, split locks, and
++    metrics enter the evidence package.
++    """
++
++    return [
++        {
++            "stage": "scenario_group_generation",
++            "input_artifacts": "fixed-wing-pusher-proxy-v2 profile; object packs; seed 202605210136",
++            "output_artifacts": "scenario_manifest.csv; dataset_manifest.json",
++            "reviewer_check": "Scenario group IDs are assigned before phase expansion and before any model scoring.",
++            "claim_boundary": "Synthetic public-proxy scenario design, not field-rate or route truth.",
++        },
++        {
++            "stage": "phase_expansion_and_sensing",
++            "input_artifacts": "scenario_manifest.csv; radar model card; clutter/noise/RFI priors",
++            "output_artifacts": "records.csv; raw_complex_iq shards; cue-stream summaries",
++            "reviewer_check": "Each group expands into take-up, climb, and cruise records that inherit the same split key.",
++            "claim_boundary": "Generated IQ and cue products are diagnostics and detector inputs, not measured imagery.",
++        },
++        {
++            "stage": "detector_view_materialization",
++            "input_artifacts": "records.csv; generated sensor/cue products",
++            "output_artifacts": "classical_radar_processing.csv; ml_detector_baselines.csv; fusion_predictions.csv; advanced_predictions.csv",
++            "reviewer_check": "Detector-facing schema exposes only allowed feature families and denies labels, split keys, group IDs, and generator internals.",
++            "claim_boundary": "Detector views are benchmark features, not vendor implementations.",
++        },
++        {
++            "stage": "train_cv_candidate_discovery",
++            "input_artifacts": "train/CV detector-view rows only",
++            "output_artifacts": "selection_lock.json; selected_component_scores.csv; selected_component_human_weights.csv",
++            "reviewer_check": "EI ranking, weights, calibration, and thresholding are completed before blind holdout scoring.",
++            "claim_boundary": "EI is an audited search/fusion lane, not an operational C2 system.",
++        },
++        {
++            "stage": "blind_holdout_scoring",
++            "input_artifacts": "locked candidate; prior fusion baseline; holdout detector-view rows",
++            "output_artifacts": "evaluation_summary.json; main_kpi_gain_table.csv; selected_threshold_confusion_matrix.csv",
++            "reviewer_check": "Selected-threshold counts, swept Recall@<=1%FPR, and LCB95 are reported separately.",
++            "claim_boundary": "One synthetic holdout score pass; no measured truth or operational performance claim.",
++        },
++    ]
++
++
+ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     if roots.out_root.exists():
+         shutil.rmtree(roots.out_root)
+@@ -3243,6 +3332,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+     feedback_coverage = _feedback_coverage_summary()
+     generative_origin_audit = _run_generative_origin_audit(roots.out_root)
+     detector_view_schema_evidence = _detector_view_schema_evidence(roots.training_root)
++    data_processing_trace_rows = _data_processing_trace_rows()
+
+     holdout_records = [row for row in records if row.get("split_role") == "holdout"]
+     holdout_scenarios = [row for row in scenarios if row.get("split_role") == "holdout"]
+@@ -3387,6 +3477,7 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+         "positive_balance_by_dimension": positive_balance_by_dimension,
+         "split_summary": split_summary,
+         "detector_view_schema_evidence": detector_view_schema_evidence,
++        "data_processing_trace_rows": data_processing_trace_rows,
+         "leakage_diagnostics": leakage,
+         "evaluation_summary": eval_summary,
+         "component_transparency": component_transparency,
+@@ -3504,6 +3595,18 @@ def build_paper_evidence(roots: EvidenceRoots) -> dict[str, Any]:
+             "model_schema_note",
+         ],
+     )
++    _write_json(roots.out_root / "data_processing_trace_rows.json", data_processing_trace_rows)
++    _write_csv(
++        roots.out_root / "data_processing_trace_rows.csv",
++        data_processing_trace_rows,
++        [
++            "stage",
++            "input_artifacts",
++            "output_artifacts",
++            "reviewer_check",
++            "claim_boundary",
++        ],
++    )
+     _write_csv(
+         roots.out_root / "regional_hard_negative_taxonomy.csv",
+         regional_hard_negative_taxonomy,
+diff --git a/paper/echoforge_ieee.tex b/paper/echoforge_ieee.tex
+index 27baf13..tier1a1 100644
+--- a/paper/echoforge_ieee.tex
++++ b/paper/echoforge_ieee.tex
+@@ -100,6 +100,37 @@ Figure~\ref{fig:architecture} summarizes the signal chain and evidence boundary.
+   \label{fig:architecture}
+ \end{figure*}
+
++\subsection{Data Processing and Evidence Flow}
++Figure~\ref{fig:dataprocessing} is the reviewer-facing processing trace. EchoForge first samples scenario groups from public-proxy strata, then expands each group into phase records, generates synthetic IQ and cue products, materializes detector-view features through a denylisted schema, locks EI discovery and calibration on train/CV rows, and scores the blind holdout once. The important split boundary is early: group IDs, split keys, labels, and audit headers can be inspected by validation code but are denied to model-facing features. This is why the main tables separate selected-threshold TP/FP/FN counts from swept Recall@$\\leq$1\\%FPR and from LCB95.
++
++\begin{figure*}[t]
++  \centering
++  \includegraphics[width=0.98\textwidth]{data_processing_flow.pdf}
++  \caption{End-to-end data-processing path. Scenario groups and phase records generate synthetic radar/cue products; detector-view materialization enforces feature denylisting; train/CV rows drive candidate discovery and calibration; the blind holdout is scored once after selection lock. The figure is a traceability diagram, not an additional performance claim.}
++  \label{fig:dataprocessing}
++\end{figure*}
++
++\begin{table*}[t]
++  \caption{Data Processing Traceability Checklist}
++  \label{tab:dataprocessing}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.18\textwidth}p{0.24\textwidth}p{0.26\textwidth}p{0.22\textwidth}@{}}
++    \toprule
++    Stage & Produced artifact & Reviewer check & Failure mode guarded \\
++    \midrule
++    Scenario sampling & \texttt{scenario\_manifest.csv}, \texttt{dataset\_manifest.json} & group IDs and split roles exist before phase expansion & row-level leakage through repeated phases \\
++    Sensing synthesis & \texttt{records.csv}, raw IQ shards, cue summaries & phase rows inherit group split and public-proxy priors & undocumented signal-source mixing \\
++    Detector views & detector-view CSVs and schema evidence & labels, group IDs, split keys, and generator metadata are blocked & shortcut learning from audit headers \\
++    EI discovery & \texttt{selection\_lock.json}, component weights, aliases & candidate search, thresholding, and calibration are train/CV-only & holdout tuning or silent reselection \\
++    Holdout scoring & \texttt{evaluation\_summary.json}, \texttt{main\_kpi\_gain\_table.csv} & selected-threshold counts, swept recall, and LCB95 are separate fields & conflating F1 threshold counts with low-FPR recall \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
+ \section{Radar and Multimodal Generative Model}
+ EchoForge uses a clean-room signal-chain proxy rather than a proprietary sensor surrogate. The received-power proxy is written as
+ \begin{equation}
+@@ -389,6 +420,14 @@ The appendix ledger separates what each source family is used for from what it i
+
+ \input{paper/appendix_modeling_details}
+
++\begin{table*}[t]
++  \caption{Data-Processing Artifact Map}
++  \label{tab:dataprocessingartifacts}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.23\textwidth}p{0.33\textwidth}p{0.34\textwidth}@{}}\toprule Artifact & Contents & Why a radar reviewer should care \\\midrule \texttt{data\_processing\_trace\_rows.csv} & Stage-by-stage mapping from scenario sampling to blind holdout scoring & Verifies where split locks, detector schemas, and KPI computations happen \\\ \texttt{records.csv} & One row per scenario-group phase, including raw IQ references and audit metadata & Shows group-locked phase expansion and phase-specific evidence \\\ \texttt{detector\_view\_schema\_evidence.csv} & Allowed model-facing feature families and denied audit-only fields & Makes leakage claims auditable instead of rhetorical \\\ \texttt{selection\_lock.json} & Locked EI candidate, calibrator, threshold, and component handles & Separates train/CV discovery from blind holdout scoring \\\ \texttt{main\_kpi\_gain\_table.csv} & Prior-fusion and EI KPI values plus relative gains/reductions & Reconstructs the +742\%, +185\%, and 98\%-fewer-false-alarms claims \\\bottomrule\end{tabular}
++\end{table*}
++
+ \begin{table*}[t]
+   \caption{Source Ledger for Public-Proxy Evidence}
+   \label{tab:sourceledger}
+diff --git a/paper/appendix_modeling_details.tex b/paper/appendix_modeling_details.tex
+index 2a5bbb5..tier1a1 100644
+--- a/paper/appendix_modeling_details.tex
++++ b/paper/appendix_modeling_details.tex
+@@ -88,6 +88,25 @@ This appendix states how the benchmark models the positive public-source family,
+   \end{tabular}
+ \end{table*}
+
++\begin{table*}[t]
++  \caption{Synthetic Radar Simulation Processing Detail}
++  \label{tab:radarsimprocessing}
++  \centering
++  \small
++  \begin{tabular}{@{}p{0.16\textwidth}p{0.24\textwidth}p{0.29\textwidth}p{0.21\textwidth}@{}}
++    \toprule
++    Processing step & Modeled quantity & How it becomes evidence & Red-line boundary \\
++    \midrule
++    Target return & aspect-dependent public-proxy RCS, phase-stable complex amplitude, range migration, Doppler centroid & IQ magnitude and range-Doppler diagnostics, plus detector features such as concentration and Doppler spread & no measured platform signature \\
++    Micro-Doppler & pusher-prop 150--217 Hz proxy plus bird/RC cadence stressors & branch features and hard-negative false-alarm interpretation & cadence bands are broad priors, not identity labels \\
++    Clutter/noise & thermal/SNR buckets, Weibull/K-like clutter, sea/weather/terrain glint, vegetation motion & score degradation and near-threshold hard-negative pressure & no site-measured clutter truth \\
++    Receiver effects & AGC compression, drift, quantization, dropped CPI, Doppler folding, calibration offset & detector-view robustness features and failure slices & no hardware qualification \\
++    Cue streams & acoustic cadence/agreement and passive-RF no-signal/RFI/provenance geometry & non-radar branch scores and EI component inputs & no emitter library or operator inference \\
++    Feature contract & denylisted schema converts generated products to detector views & train/CV and holdout scores, leakage diagnostics, and KPI tables & labels, split keys, group IDs, and generator internals blocked \\
++    \bottomrule
++  \end{tabular}
++\end{table*}
++
+ \begin{table*}[t]
+   \caption{Ablation and Appendix Artifact Map}
+   \label{tab:appendixartifactmap}
+@@ -97,6 +116,7 @@ This appendix states how the benchmark models the positive public-source family,
+     Artifact & Contents & Reviewer question answered \\
+     \midrule
++    \texttt{data\_processing\_trace\_rows.csv} & Stage-level scenario-to-holdout trace, including input artifacts, output artifacts, reviewer checks, and claim boundary & Can I reconstruct the processing path without reading generator internals? \\
+     \texttt{main\_kpi\_gain\_table.csv} & Prior-fusion and EI values, absolute changes, relative percentages, and gain/reduction direction & What exactly is the +742\% LCB95 and +185\% point-recall claim computed from? \\
+     \texttt{public\_proxy\_model\_detail\_rows.csv} & Positive-class geometry, kinematics, RCS, micro-Doppler, launch, phase, and prohibited-inference rows & How is the Iranian-drone public proxy represented without claiming measured truth? \\
+     \texttt{environment\_impairment\_model\_rows.csv} & Clutter, noise, weather, RFI, multipath, receiver impairment, and hard-negative stress rows & What noise and artifact regimes are actually modeled? \\
+diff --git a/paper/validate_visuals.py b/paper/validate_visuals.py
+index 86888ea..tier1a1 100755
+--- a/paper/validate_visuals.py
++++ b/paper/validate_visuals.py
+@@ -24,6 +24,7 @@ REQUIRED_PNGS = (
+     "anchor_overlay.png",
+     "ei_workflow.png",
++    "data_processing_flow.png",
+     "appendix_modeling_map.png",
+ )
+ VECTOR_PDFS = (
+@@ -37,6 +38,7 @@ VECTOR_PDFS = (
+     "anchor_overlay.pdf",
+     "ei_workflow.pdf",
++    "data_processing_flow.pdf",
+     "appendix_modeling_map.pdf",
+ )
+@@ -139,6 +141,14 @@ def main() -> int:
+         elif name == "ei_workflow.pdf":
+             required_terms = ("What EI does", "Blind holdout", "Feature denylist")
++        elif name == "data_processing_flow.pdf":
++            required_terms = (
++                "Data-processing path",
++                "Synthetic sensing",
++                "Detector-view schema",
++                "Train/CV branch",
++                "Blind holdout",
++            )
+         elif name == "appendix_modeling_map.pdf":
+             required_terms = ("positive proxy", "environment", "detector views")
+         validate_pdf_terms(name, required_terms=required_terms, forbidden_terms=forbidden_terms)
+diff --git a/paper/validate_paper.py b/paper/validate_paper.py
+index 1d835f7..tier1a1 100755
+--- a/paper/validate_paper.py
++++ b/paper/validate_paper.py
+@@ -21,6 +21,7 @@ REQUIRED_FIGURES = (
+     "anchor_overlay.pdf",
+     "ei_workflow.pdf",
++    "data_processing_flow.pdf",
+     "appendix_modeling_map.pdf",
+ )
+ PREVIEW_PNGS = (
+@@ -34,6 +35,7 @@ PREVIEW_PNGS = (
+     "anchor_overlay.png",
+     "ei_workflow.png",
++    "data_processing_flow.png",
+     "appendix_modeling_map.png",
+ )
+@@ -85,6 +87,8 @@ REQUIRED_WORLDCLASS_PATTERNS = (
+     r"public(?:\\_|_)proxy(?:\\_|_)model(?:\\_|_)detail(?:\\_|_)rows\\.csv",
+     r"environment(?:\\_|_)impairment(?:\\_|_)model(?:\\_|_)rows\\.csv",
++    r"Data Processing and Evidence Flow",
++    r"data(?:\\_|_)processing(?:\\_|_)trace(?:\\_|_)rows\\.csv",
+     r"no measured Iranian-drone radar signature",
+ )
+@@ -322,6 +326,7 @@ def validate_paper_evidence(evidence_root: Path) -> None:
+         "main_kpi_gain_rows",
++        "data_processing_trace_rows",
+     ):
+         value = manifest.get(key)
+         if not value:
+@@ -391,6 +396,7 @@ def validate_paper_evidence(evidence_root: Path) -> None:
+         "main_kpi_gain_table.csv",
++        "data_processing_trace_rows.csv",
+         "public_proxy_model_detail_rows.csv",
+         "environment_impairment_model_rows.csv",
+     ):
+diff --git a/paper/build.sh b/paper/build.sh
+index 96837ef..tier1a1 100755
+--- a/paper/build.sh
++++ b/paper/build.sh
+@@ -144,6 +144,7 @@ python3 paper/generate_figures_major_upgrade_v2.py \
+   --anchor-root "$anchor_root" \
+   --strict
+
++python3 paper/validate_visuals.py
+ latexmk \
+   -pdf \
+   -bibtex \

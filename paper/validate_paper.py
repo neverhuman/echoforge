@@ -22,6 +22,7 @@ REQUIRED_FIGURES = (
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
+    "data_processing_flow.pdf",
     "appendix_modeling_map.pdf",
 )
 PREVIEW_PNGS = (
@@ -33,6 +34,7 @@ PREVIEW_PNGS = (
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "data_processing_flow.png",
     "appendix_modeling_map.png",
 )
 LEGACY_FIGURES = ("locked_algorithm.pdf", "locked_algorithm.png")
@@ -96,6 +98,8 @@ REQUIRED_WORLDCLASS_PATTERNS = (
     r"main(?:\\_|\_)kpi(?:\\_|\_)gain(?:\\_|\_)table\.csv",
     r"public(?:\\_|\_)proxy(?:\\_|\_)model(?:\\_|\_)detail(?:\\_|\_)rows\.csv",
     r"environment(?:\\_|\_)impairment(?:\\_|\_)model(?:\\_|\_)rows\.csv",
+    r"Data Processing and Evidence Flow",
+    r"data(?:\\_|\_)processing(?:\\_|\_)trace(?:\\_|\_)rows\.csv",
     r"no measured Iranian-drone radar signature",
 )
 
@@ -320,6 +324,7 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "normalized_anchor_comparison",
         "primary_kpi_rows",
         "main_kpi_gain_rows",
+        "data_processing_trace_rows",
     ):
         value = manifest.get(key)
         if not value:
@@ -379,6 +384,7 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "source_pack_bird_coverage_summary.csv",
         "engineered_intelligence_transparency.csv",
         "main_kpi_gain_table.csv",
+        "data_processing_trace_rows.csv",
         "public_proxy_model_detail_rows.csv",
         "environment_impairment_model_rows.csv",
     ):

@@ -61,6 +61,8 @@ The paper has one main experiment: compare accepted human-engineered radar/cue b
 \subsection{Core Experiment}
 The core experiment compares classical radar and cue detector branches, tabular and sequence ML baselines, an accepted human-engineered prior fusion baseline, and an EI sparse calibrated late-fusion candidate. Scenario groups are locked before phase expansion, train/CV rows are used for candidate discovery and calibration, and the blind holdout is scored once after selection lock. The benchmark output remains synthetic public-proxy evidence only.
 
+The claim tested is deliberately narrow: under the declared synthetic public-proxy generator and group-locked split, the locked EI sparse late-fusion candidate improves the low-FPR operating point over the accepted human-engineered prior fusion baseline. This comparator is not a straw baseline; it is the strongest non-EI late-fusion lane assembled from radar/cue branches under the same split and train/CV thresholding policy. The claim is not fielded-sensor equivalence, not a measured Iranian-drone signature claim, and not an operational false-alarm-rate claim.
+
 \begin{table*}[t]
   \caption{Core Experiment Roadmap}
   \label{tab:experimentroadmap}
@@ -88,6 +90,35 @@ Figure~\ref{fig:architecture} summarizes the signal chain and evidence boundary.
   \caption{Radar signal chain and claim boundary. Public-proxy object priors, radar archetype assumptions, clutter and artifact priors, detector views, and evidence outputs are separated so the benchmark can be audited without conflating synthetic products with measured truth. Detector outputs feed both the accepted prior fusion baseline and the EI sparse fusion candidate.}
   \label{fig:architecture}
 \end{figure*}
+
+\section{Data Processing and Evidence Flow}
+Figure~\ref{fig:dataprocessing} is the reviewer-facing processing trace. EchoForge first samples scenario groups from public-proxy strata, then expands each group into phase records, generates synthetic IQ and cue products, materializes detector-view features through a denylisted schema, locks EI discovery and calibration on train/CV rows, and scores the blind holdout once. The important boundary is early: group IDs, split keys, labels, time locks, and audit headers can be inspected by validation code but are denied to model-facing features.
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.98\textwidth]{data_processing_flow.pdf}
+  \caption{End-to-end data-processing path. Scenario groups and phase records generate synthetic radar/cue products; detector-view materialization enforces feature denylisting; train/CV rows drive candidate discovery, thresholds, and monotone calibration; and the blind holdout is scored once after selection lock. The figure is a traceability diagram, not an additional performance claim.}
+  \label{fig:dataprocessing}
+\end{figure*}
+
+\begin{table*}[t]
+  \caption{Data Processing Traceability Checklist}
+  \label{tab:dataprocessing}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.18\textwidth}p{0.24\textwidth}p{0.26\textwidth}p{0.22\textwidth}@{}}
+    \toprule
+    Stage & Produced artifact & Reviewer check & Failure mode guarded \\
+    \midrule
+    Scenario sampling & \texttt{scenario\_manifest.csv}, \texttt{dataset\_manifest.json} & group IDs and split roles exist before phase expansion & row-level leakage through repeated phases \\
+    Synthetic sensing & \texttt{records.csv}, raw IQ references, acoustic and passive-RF cue summaries & generated radar/cue products inherit public-proxy priors and group split & undocumented signal-source mixing \\
+    Detector views & detector-view CSVs and \texttt{detector\_view\_schema\_evidence.csv} & labels, group IDs, split keys, audit headers, and generator metadata are blocked & shortcut learning from audit fields \\
+    Train/CV branch & \texttt{selection\_lock.json}, component weights, thresholds, calibrators & candidate search, weighting, thresholding, and calibration are train/CV-only & holdout tuning or silent reselection \\
+    Blind holdout & \texttt{evaluation\_summary.json}, \texttt{main\_kpi\_gain\_table.csv} & selected-threshold counts, swept Recall@$\leq$1\%FPR, and LCB95 are separate fields & conflating locked-threshold counts with swept low-FPR recall \\
+    Paper evidence & \texttt{paper\_evidence\_manifest.json}, \texttt{data\_processing\_trace\_rows.csv} & every headline figure/table is downstream of generated evidence & hand-edited result drift \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
 
 \section{Radar and Multimodal Generative Model}
 EchoForge uses a clean-room signal-chain proxy rather than a proprietary sensor surrogate. The received-power proxy is written as
@@ -125,7 +156,7 @@ with approximate unambiguous velocity $\lambda f_{\mathrm{PRF}}/4$ for the simpl
 The receiver impairment set includes AGC compression, clock drift, quantization, dropped CPIs, PRF ambiguity, Doppler folding, calibration offset, and multipath masking. Acoustic cues are modeled as node-wise spectral cadence and inter-node agreement; passive-RF cues are modeled as no-signal, RFI burst, clock-offset, and provenance-quality geometry. These definitions are public-proxy abstractions, not measured claims, and are aligned with the literature on measured-anchor comparison rather than truth transfer \cite{kth2021,openradar2023,raddar2019,han2026}.
 
 \section{Public-Source Detector Archetypes}
-EchoForge detector branches are public-source archetype envelopes. The public examples are used to bound branch roles and observable families, not to reproduce vendor processing. The X/Ku C-UAS branch is anchored by public descriptions of low-slow-small radar behavior such as Blighter A400 and KuRFS \cite{blighterA400,rtxKurfs}. The tactical S-band branch follows public MHR/nMHR-style hemispheric surveillance roles \cite{drsRadaNmhr}. The GBAD cueing branch follows public wide-area 3D/4D radar roles such as Giraffe 1X and Sentinel summaries \cite{saabGiraffe1X,rtxSentinel}. In all cases, ``on par'' means plausible public branch role and observable family, not sensitivity, ECCM, proprietary clutter rejection, exact Pd/Pfa, or military performance.
+EchoForge detector branches are public-source archetype envelopes. The public examples are used to bound branch roles and observable families, not to reproduce vendor processing. The X/Ku C-UAS branch is anchored by public descriptions of low-slow-small radar behavior such as Blighter A400 and KuRFS \cite{blighterA400,rtxKurfs}. The tactical S-band branch follows public MHR/nMHR-style hemispheric surveillance roles \cite{drsRadaNmhr}. The GBAD cueing branch follows public wide-area 3D/4D radar roles such as Giraffe 1X and Sentinel summaries \cite{saabGiraffe1X,rtxSentinel}. In all cases, role-compatible public envelope means plausible branch role and observable family, not sensitivity, ECCM, proprietary clutter rejection, exact Pd/Pfa, or military performance.
 
 \begin{table*}[t]
   \caption{Public Detector Archetype Cards}
@@ -215,6 +246,8 @@ The main metrics are ROC AUC, average precision, fixed-FPR recall, accuracy, pre
 \subsection{Primary KPI}
 The headline KPI is the lower 95\% group-block bootstrap bound of recall at FPR $\leq 1\%$, abbreviated \emph{LCB95 Recall@$\leq$1\%FPR}. That choice is deliberate: the benchmark is rare-positive, false-alarm-constrained, and group-correlated, so the raw point estimate of recall is useful but not sufficient as the primary decision metric. AP, ROC AUC, raw recall, precision, F1, calibration, and false-alarm breakdowns remain diagnostic guardrails rather than the headline KPI.
 
+Three operating quantities are kept separate. Selected-threshold TP/FP/FN counts use the threshold fixed by train/CV or by the EI selection lock. Recall@$\leq$1\%FPR is a swept holdout operating-point diagnostic: among thresholds satisfying the 1\% FPR cap, it reports the best recall. LCB95 is the 2.5th percentile of the group-block bootstrap distribution for that swept low-FPR recall, with scenario groups as bootstrap units.
+
 \begin{table}[t]
   \caption{Main KPI Gain Ledger Versus Accepted Prior Fusion}
   \label{tab:mainkpigain}
@@ -277,7 +310,26 @@ The advanced lane is reported as engineered intelligence rather than as an opaqu
 
 Mechanically, EI uses train/CV-only score search to choose component scores, sparse nonnegative late fusion to keep the lock interpretable, geodesic-odds calibration for monotone probability mapping, and a written selection lock before the single blind holdout score. The component weights and modality/control tables below are interpretability controls rather than separate main-claim evidence.
 
-This distinction matters because a post-hoc view control can be strong on one metric without being the final EI artifact. In this run, the passive-RF-only view has higher AP and swept Recall@$\leq$1\%FPR than the full EI candidate, but its selected-threshold F1 and ECE are worse. We therefore report EI as the pre-specified, calibrated selected-threshold artifact, not as a universal dominator of every view control.
+\begin{table}[t]
+  \caption{EI Candidate Discovery and Locked Scoring Algorithm}
+  \label{tab:eialgorithm}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.12\columnwidth}p{0.77\columnwidth}@{}}
+    \toprule
+    Step & Operation \\
+    \midrule
+    1 & Read train/CV detector-view scores after the denylist removes labels, split fields, group IDs, time locks, and audit headers. \\
+    2 & Generate candidate component families from radar, passive-RF, acoustic, transport/geometry, and fusion-context score views. \\
+    3 & Optimize sparse nonnegative component weights on train/CV rows only. \\
+    4 & Fit a monotone geodesic-odds calibrator and threshold policy without holdout rows. \\
+    5 & Write \texttt{selection\_lock.json} and freeze component IDs, weights, calibrator, and threshold source. \\
+    6 & Score the blind holdout once and emit KPI, calibration, false-alarm, and leakage evidence. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+This distinction matters because a post-hoc view control can be strong on one metric without being the final EI artifact. In this run, the passive-RF-only view has higher AP and swept Recall@$\leq$1\%FPR than the full EI candidate, which is an important diagnostic red flag rather than a contradiction to hide. Its selected-threshold F1 and ECE are worse, and it does not carry the same calibrated-fusion selection lock. We therefore report EI as the pre-specified, calibrated selected-threshold artifact, not as a universal dominator of every view control.
 
 \begin{figure*}[t]
   \centering
@@ -348,7 +400,7 @@ The raw sample figures are visual diagnostics, not detector features. Figure~\re
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{iq_negative_samples.png}
-  \caption{Range-Doppler proxy diagnostics for a positive public-proxy group and a hard-negative group. Axes show relative range in meters and velocity-equivalent Doppler bins using the X/Ku branch resolution; color is normalized log-magnitude on a shared scale. These panels are qualitative diagnostics, not measured imagery and not the detector input used for the main KPI.}
+  \caption{Qualitative range-Doppler proxy sanity panels for a positive public-proxy group and a hard-negative group. Axes show relative range in meters and velocity-equivalent Doppler bins using the X/Ku branch resolution; color is normalized log-magnitude on a shared scale. These panels are qualitative diagnostics, not measured imagery, not platform-truth evidence, and not the detector input used for the main KPI.}
   \label{fig:rdpanel}
 \end{figure*}
 
@@ -562,7 +614,7 @@ The appendix uses open visual reporting and public summaries \cite{osmpShahed131
   \item no operational route or evasion modelling;
   \item no payload-effects inference;
   \item no deployment-performance claim;
-  \item no sensor-parity or classified-fidelity claim.
+  \item no fielded-sensor equivalence or classified-fidelity claim.
 \end{itemize}
 
 \section{Regional Bird and RC Hard-Negative Appendix}
