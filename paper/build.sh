@@ -22,12 +22,14 @@ cd "$repo_root"
 training_root="outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run"
 baseline_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run"
 advanced_root="outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+paper_evidence_root="outputs/paper-evidence/tier1-final"
 anchor_root="outputs/real-data/kth-drone-bird-human-77ghz/kth-measured-v1"
 real_data_root="${ECHOFORGE_REAL_DATA_ROOT:-$HOME/.cache/echoforge/real-data}"
 kth_cache_root="$real_data_root/kth-drone-bird-human-77ghz"
 training_records="$training_root/records.csv"
 baseline_summary="$baseline_root/performance_summary.json"
 advanced_lock="$advanced_root/selection_lock.json"
+advanced_trace="$advanced_root/evolution_trace.csv"
 anchor_report="$anchor_root/raw_shape_report.json"
 
 if ! python3 - <<'PY'
@@ -117,7 +119,10 @@ fi
 
 # The advanced detector lane writes the paper evidence lock and supporting
 # diagnostics.
-if [[ ! -s "$advanced_lock" ]]; then
+if [[ ! -s "$advanced_lock" || ! -s "$advanced_trace" || \
+      detection/advanced_main_run_detectors.py -nt "$advanced_trace" || \
+      detection/ei_evolution_trace.py -nt "$advanced_trace" || \
+      detection/paper_evidence_major_upgrade_v1.py -nt "$advanced_trace" ]]; then
   python3 -m detection.run_advanced_main_run_detectors \
     --data-root "$training_root" \
     --out-root "$advanced_root" \
@@ -131,19 +136,22 @@ if [[ ! -s "$advanced_lock" ]]; then
     --force
 fi
 
-python3 -m detection.paper_evidence_major_upgrade_v1 \
+python3 -m detection.paper_evidence \
   --training-root "$training_root" \
   --baseline-root "$baseline_root" \
   --advanced-root "$advanced_root" \
   --anchor-root "$anchor_root" \
-  --out-root outputs/paper-evidence/major-upgrade-v1 \
+  --out-root "$paper_evidence_root" \
+  --strict-ei-trace \
   --force
 
-python3 paper/generate_figures_major_upgrade_v2.py \
+python3 paper/generate_source_appendix.py --strict
+
+python3 paper/generate_figures.py \
   --training-root "$training_root" \
   --baseline-root "$baseline_root" \
   --advanced-root "$advanced_root" \
-  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1 \
+  --paper-evidence-root "$paper_evidence_root" \
   --anchor-root "$anchor_root" \
   --strict
 
@@ -163,7 +171,7 @@ python3 paper/validate_paper.py \
   --bib paper/references.bib \
   --pdf "$out_dir/echoforge_ieee.pdf" \
   --figures-dir paper/figures \
-  --paper-evidence-root outputs/paper-evidence/major-upgrade-v1
+  --paper-evidence-root "$paper_evidence_root"
 
 if [[ "$copy_tracked" -eq 1 ]]; then
   cp "$out_dir/echoforge_ieee.pdf" paper/echoforge_ieee.pdf

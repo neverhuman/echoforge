@@ -1,7 +1,7 @@
 {
 	"name": "echoforge",
 	"private": true,
-	"version": "0.2.12",
+	"version": "0.2.13",
 	"description": "EchoForge governance and workspace scaffold",
 	"scripts": {
 		"bootstrap": "just bootstrap",

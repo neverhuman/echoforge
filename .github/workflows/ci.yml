@@ -23,13 +23,13 @@ concurrency:
 
 jobs:
   fast:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
-          toolchain: stable
+          toolchain: 1.95.0
       - uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684
         with:
           path: |
@@ -54,19 +54,19 @@ jobs:
         run: bash ops/ci/fast.sh
 
   contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
-          toolchain: stable
+          toolchain: 1.95.0
       - name: Contracts lane
         shell: bash
         run: bash ops/ci/contracts.sh
 
   web-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -78,7 +78,7 @@ jobs:
         run: bash ops/ci/web-smoke.sh
 
   web-e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: web-smoke
     steps:
@@ -99,13 +99,13 @@ jobs:
             apps/web/test-results
 
   score:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
         with:
-          toolchain: stable
+          toolchain: 1.95.0
       - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
         with:
           node-version: '26.1.0'

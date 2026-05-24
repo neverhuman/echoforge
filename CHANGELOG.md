@@ -6,6 +6,13 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.13] - 2026-05-24
+
+### Changed
+- Added the v8 paper feedback bundle, including the new detection helpers, paper evidence builders, source appendix generator and manifest, regenerated figures and PDF, refreshed validation scripts, and updated SBOM output.
+- Bumped the workspace release metadata to `0.2.13`.
+- Pinned CI workflows to the repo's local Rust `1.95.0` and Node `26.1.0` toolchain baseline on Ubuntu 24.04.
+
 ## [0.2.12] - 2026-05-23
 
 ### Changed

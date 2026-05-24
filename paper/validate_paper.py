@@ -22,6 +22,8 @@ REQUIRED_FIGURES = (
     "detector_ml_pipeline.pdf",
     "anchor_overlay.pdf",
     "ei_workflow.pdf",
+    "phase_method_ladder.pdf",
+    "ei_evolution_money_plot.pdf",
     "data_processing_flow.pdf",
     "appendix_modeling_map.pdf",
 )
@@ -34,6 +36,8 @@ PREVIEW_PNGS = (
     "detector_ml_pipeline.png",
     "anchor_overlay.png",
     "ei_workflow.png",
+    "phase_method_ladder.png",
+    "ei_evolution_money_plot.png",
     "data_processing_flow.png",
     "appendix_modeling_map.png",
 )
@@ -69,17 +73,17 @@ PRIMARY_KPI_PATTERN = r"LCB95 Recall@\$\\leq\$1\\%FPR|lower 95\\% group-block bo
 REQUIRED_GAIN_PATTERNS = (
     r"NeverHuman Research Group",
     r"\\kpigain\{",
-    r"\+61\.6",
-    r"\+54\.1",
-    r"8\.42",
+    r"\+63\.0",
+    r"\+54\.2",
+    r"7\.60",
     r"2\.85",
-    r"\+742\\%",
-    r"\+185\\%",
-    r"49 to 1",
-    r"98\.0",
+    r"\+760\\%",
+    r"\+185\.7\\%",
+    r"49 to 3",
+    r"93\.9",
     r"EI gain vs prior",
 )
-REQUIRED_AP_GAIN_PATTERN = r"\+545\\%|\+544\\%"
+REQUIRED_AP_GAIN_PATTERN = r"\+547(?:\.\d+)?\\%"
 REQUIRED_COMPARATOR_PATTERN = (
     r"human-engineered prior fusion|accepted human-engineered prior fusion|best-practice comparator"
 )
@@ -100,7 +104,19 @@ REQUIRED_WORLDCLASS_PATTERNS = (
     r"environment(?:\\_|\_)impairment(?:\\_|\_)model(?:\\_|\_)rows\.csv",
     r"Data Processing and Evidence Flow",
     r"data(?:\\_|\_)processing(?:\\_|\_)trace(?:\\_|\_)rows\.csv",
-    r"no measured Iranian-drone radar signature",
+    r"Simulation and Monte Carlo",
+    r"Detector Views and Human Baselines",
+    r"Sensor Fusion Baseline",
+    r"Engineered Intelligence",
+    r"Evolution Trace and Locked Holdout Endpoint",
+    r"phase(?:\\_|\_)method(?:\\_|\_)ladder\.pdf",
+    r"ei(?:\\_|\_)evolution(?:\\_|\_)money(?:\\_|\_)plot\.pdf",
+    r"ei(?:\\_|\_)evolution(?:\\_|\_)trace\.csv",
+    r"holdout is not used to draw the evolution curve",
+    r"Source Provenance Appendix",
+    r"Reproducibility CLI Appendix",
+    r"source(?:\\_|\_)appendix(?:\\_|\_)hashes\.csv",
+    r"not a measured-platform claim",
 )
 
 CITE_RE = re.compile(
@@ -146,8 +162,8 @@ def bib_keys(bib_path: Path) -> set[str]:
         fail(f"missing bibliography: {bib_path}")
     text = bib_path.read_text(encoding="utf-8")
     keys = set(BIB_ENTRY_RE.findall(text))
-    if not 30 <= len(keys) <= 50:
-        fail(f"bibliography entry count {len(keys)} outside 30-50")
+    if not 35 <= len(keys) <= 70:
+        fail(f"bibliography entry count {len(keys)} outside 35-70")
     return keys
 
 
@@ -268,15 +284,15 @@ def validate_paper_text(tex_path: Path) -> None:
         fail("paper text is missing figure phrasing: " + ", ".join(missing_figure_phrases))
     if "Engineered Intelligence" not in text:
         fail("paper text is missing the Engineered Intelligence section")
-    if "Fixed-Wing Pusher-Prop Public-Proxy Appendix" not in text:
-        fail("paper text is missing the fixed-wing public-proxy appendix")
-    if "Regional Bird and RC Hard-Negative Appendix" not in text:
-        fail("paper text is missing the regional bird appendix")
-    if "Source, Noise, Detector, and Assumption Appendix" not in text:
-        fail("paper text is missing the source/noise/detector appendix")
+    if "Rich Public-Proxy Modeling Appendix" not in text:
+        fail("paper text is missing the rich public-proxy appendix")
+    if "Modeling, Detector, and Source Appendix" not in text:
+        fail("paper text is missing the modeling/detector/source appendix")
+    if "Reproducibility CLI Appendix" not in text:
+        fail("paper text is missing the reproducibility CLI appendix")
     if "LCB95 Recall@$\\leq$1\\%FPR" not in text:
         fail("paper text is missing the exact LCB95 Recall@<=1%FPR label")
-    if "n/a" in text:
+    if re.search(r"(?<![A-Za-z0-9_/])n/a(?![A-Za-z0-9_/])", text, flags=re.IGNORECASE):
         fail("paper text still contains unresolved n/a values")
     missing_worldclass = [
         pattern
@@ -300,8 +316,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         fail(f"paper evidence manifest is invalid JSON: {exc}")
     if not isinstance(manifest, dict):
         fail("paper evidence manifest must be a JSON object")
-    if manifest.get("version") != "major-upgrade-v2":
-        fail("paper evidence manifest version must be major-upgrade-v2")
+    if manifest.get("version") != "tier1-final":
+        fail("paper evidence manifest version must be tier1-final")
     generative = manifest.get("generative_origin_audit", {})
     if not isinstance(generative, dict):
         fail("paper evidence manifest is missing generative-origin audit data")
@@ -325,6 +341,15 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "primary_kpi_rows",
         "main_kpi_gain_rows",
         "data_processing_trace_rows",
+        "simulation_best_practice_rows",
+        "monte_carlo_setup_rows",
+        "detector_processing_baseline_rows",
+        "fusion_baseline_rows",
+        "ei_objective_rows",
+        "phase_method_ladder_rows",
+        "cli_reproduction_commands",
+        "source_appendix_hashes",
+        "ei_evolution_summary",
     ):
         value = manifest.get(key)
         if not value:
@@ -387,11 +412,107 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "data_processing_trace_rows.csv",
         "public_proxy_model_detail_rows.csv",
         "environment_impairment_model_rows.csv",
+        "simulation_best_practice_rows.csv",
+        "monte_carlo_setup_rows.csv",
+        "detector_processing_baseline_rows.csv",
+        "fusion_baseline_rows.csv",
+        "ei_objective_rows.csv",
+        "phase_method_ladder_rows.csv",
+        "cli_reproduction_commands.csv",
+        "source_appendix_hashes.csv",
+        "ei_evolution_trace.csv",
     ):
         if not (evidence_root / required_csv).exists():
             fail(f"missing paper evidence csv: {required_csv}")
     if not (evidence_root / "public_proxy_positive_class_card.json").exists():
         fail("missing public proxy positive-class card JSON")
+    summary_path = evidence_root / "ei_evolution_summary.json"
+    if not summary_path.exists():
+        fail("missing EI evolution summary JSON")
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    if not summary.get("true_evaluation_order_available"):
+        fail("EI evolution summary must use true evaluation order")
+    if summary.get("trace_basis") != "true_evaluation_order":
+        fail("EI evolution trace basis must be true_evaluation_order")
+    trace_path = evidence_root / "ei_evolution_trace.csv"
+    with trace_path.open(encoding="utf-8", newline="") as handle:
+        trace_rows = list(csv.DictReader(handle))
+    selected_rows = [row for row in trace_rows if row.get("selected_by_cv") == "True"]
+    if len(selected_rows) != 1:
+        fail(f"EI evolution trace must mark exactly one selected row, got {len(selected_rows)}")
+    if any(row.get("selection_split") != "train_cv" for row in trace_rows):
+        fail("EI evolution trace contains non-train/CV selection rows")
+    if any(row.get("holdout_rows_used_for_selection") not in {"0", 0} for row in trace_rows):
+        fail("EI evolution trace uses holdout rows for selection")
+    selected_id = str(summary.get("selected_candidate_id", ""))
+    if selected_id and selected_rows[0].get("candidate_id") != selected_id:
+        fail("EI evolution selected row does not match summary selected_candidate_id")
+    source_tex = Path("target/paper/source_appendix/source_code_appendix.tex")
+    source_meta = Path("target/paper/source_appendix/source_appendix_metadata.json")
+    if not source_tex.exists() or not source_meta.exists():
+        fail("missing generated source appendix output under target/paper/source_appendix")
+    source_hashes = evidence_root / "source_appendix_hashes.csv"
+    if not source_hashes.exists():
+        fail("missing source appendix hash CSV in evidence root")
+    try:
+        metadata = json.loads(source_meta.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        fail(f"source appendix metadata is invalid JSON: {exc}")
+    if not isinstance(metadata, dict):
+        fail("source appendix metadata must be a JSON object")
+    listings = metadata.get("listings", [])
+    if not isinstance(listings, list) or not listings:
+        fail("source appendix metadata is missing listings")
+    with source_hashes.open(encoding="utf-8", newline="") as handle:
+        hash_rows = list(csv.DictReader(handle))
+    metadata_rows = []
+    for item in listings:
+        if not isinstance(item, dict):
+            fail("source appendix metadata contains a non-object listing")
+        metadata_rows.append(
+            {
+                "block_id": str(item.get("block_id", "")),
+                "path": str(item.get("path", "")),
+                "origin": str(item.get("origin", "")),
+                "symbol": str(item.get("symbol", "")),
+                "line_start": str(item.get("line_start", "")),
+                "line_end": str(item.get("line_end", "")),
+                "sha256": str(item.get("sha256", "")),
+            }
+        )
+    metadata_index = {
+        tuple(
+            row[field]
+            for field in (
+                "block_id",
+                "path",
+                "origin",
+                "symbol",
+                "line_start",
+                "line_end",
+                "sha256",
+            )
+        )
+        for row in metadata_rows
+    }
+    csv_index = {
+        (
+            str(row.get("block_id", "")),
+            str(row.get("path", "")),
+            str(row.get("origin", "")),
+            str(row.get("symbols", "")),
+            str(row.get("line_start", "")),
+            str(row.get("line_end", "")),
+            str(row.get("sha256", "")),
+        )
+        for row in hash_rows
+    }
+    csv_visible_index = {row for row in csv_index if row[2] != "redacted_escrow_only"}
+    csv_extra_index = csv_index - csv_visible_index
+    if metadata_index != csv_visible_index:
+        fail("source appendix metadata does not match visible source appendix hash rows")
+    if any(row[2] != "redacted_escrow_only" for row in csv_extra_index):
+        fail("source appendix hash CSV contains unexpected extra rows")
 
 
 def main() -> None:
@@ -403,7 +524,7 @@ def main() -> None:
     parser.add_argument(
         "--paper-evidence-root",
         type=Path,
-        default=Path("outputs/paper-evidence/major-upgrade-v1"),
+        default=Path("outputs/paper-evidence/tier1-final"),
     )
     args = parser.parse_args()
 
@@ -418,8 +539,8 @@ def main() -> None:
         fail("missing BibTeX entries for citation(s): " + ", ".join(missing_cites))
 
     pages = pdf_page_count(args.pdf)
-    if not 8 <= pages <= 18:
-        fail(f"page count {pages} outside 8-18")
+    if not 12 <= pages <= 44:
+        fail(f"page count {pages} outside 12-44")
 
     print(
         "paper validation passed: "
