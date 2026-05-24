@@ -122,7 +122,9 @@ fi
 # diagnostics.
 if [[ ! -s "$advanced_lock" || ! -s "$advanced_trace" || \
       detection/advanced_main_run_detectors.py -nt "$advanced_trace" || \
+      detection/crypt_ip_impl/advanced_main_run_detectors.py -nt "$advanced_trace" || \
       detection/ei_evolution_trace.py -nt "$advanced_trace" || \
+      detection/crypt_ip_impl/ei_evolution_trace.py -nt "$advanced_trace" || \
       detection/paper_evidence_builder.py -nt "$advanced_trace" ]]; then
   python3 -m detection.run_advanced_main_run_detectors \
     --data-root "$training_root" \

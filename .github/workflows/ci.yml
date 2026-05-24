@@ -46,11 +46,12 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-publishers texlive-science
+          sudo apt-get install -y --no-install-recommends git-crypt latexmk poppler-utils texlive-bibtex-extra texlive-fonts-recommended texlive-latex-base texlive-latex-extra texlive-latex-recommended texlive-publishers texlive-science
       - name: Fast lane
         shell: bash
         env:
           CARGO_INCREMENTAL: "0"
+          ECHOFORGE_GIT_CRYPT_KEY_B64: ${{ secrets.ECHOFORGE_GIT_CRYPT_KEY_B64 }}
         run: bash ops/ci/fast.sh
 
   contracts:

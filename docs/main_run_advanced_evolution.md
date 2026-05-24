@@ -11,6 +11,16 @@ performance, or guaranteed real-world transfer for any platform or sensor.
 
 ## Command
 
+The advanced EI implementation is protected with `git-crypt`. Before running
+the lane in a fresh checkout, unlock the repository with the developer key:
+
+```bash
+rtk git-crypt unlock /path/to/echoforge-git-crypt.key
+```
+
+If the key is missing, the runner prints a one-line warning asking you to run
+`git-crypt unlock` instead of emitting a Python traceback.
+
 ```bash
 rtk python3 detection/run_advanced_main_run_detectors.py \
   --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
@@ -76,6 +86,20 @@ The runner writes:
 | `performance_metrics.csv` | Surface metrics plus train/CV candidate rows and selected holdout rows. |
 | `performance_summary.json` | Summary, selected candidate, thresholds, and holdout policy. |
 | `fusion_quality_report.json` | Output, isolation, and promotion-gate status. |
+
+## Protected Implementation Boundary
+
+The public import paths remain stable:
+
+- `detection.advanced_main_run_detectors`
+- `detection.ei_evolution_trace`
+- `detection.run_advanced_main_run_detectors`
+- `detection.paper_evidence`
+
+The implementation behind the advanced evolution runner and EI trace builder
+lives under `detection/crypt_ip_impl/` and requires the developer git-crypt key.
+The manuscript, figures, baseline detector stack, and generated evidence
+formats remain public.
 
 ## Lock Discipline
 

@@ -38,3 +38,7 @@ Justfile text eol=lf
 
 # Dockerfiles
 *.Dockerfile text eol=lf
+
+# git-crypt protected Engineered Intelligence runtime implementation.
+detection/crypt_ip_impl/advanced_main_run_detectors.py filter=git-crypt diff=git-crypt -text
+detection/crypt_ip_impl/ei_evolution_trace.py filter=git-crypt diff=git-crypt -text

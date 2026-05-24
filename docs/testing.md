@@ -43,6 +43,25 @@ lane definitions and `AGENTS.md` for the full lane reference table.
 
 Runs on every push via `jankurai.yml` CI and on every `git push` (pre-push hook).
 
+The CI fast entrypoint verifies that the protected EI implementation paths are
+encrypted before unlocking them. CI expects the shared symmetric developer key
+in the `ECHOFORGE_GIT_CRYPT_KEY_B64` secret:
+
+```bash
+git-crypt status -e detection/crypt_ip_impl/advanced_main_run_detectors.py \
+  detection/crypt_ip_impl/ei_evolution_trace.py
+git-crypt unlock /tmp/echoforge-git-crypt.key
+```
+
+Local developers should unlock once before running paper or advanced EI lanes:
+
+```bash
+rtk git-crypt unlock /path/to/echoforge-git-crypt.key
+```
+
+When the key is missing, the advanced runner and paper-evidence CLI return a
+one-line `git-crypt unlock` warning rather than a Python traceback.
+
 ```bash
 rtk bash ops/run-lane.sh fast
 # Runs: cargo test --workspace --locked

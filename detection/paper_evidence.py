@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from detection.crypt_ip_guard import run_with_developer_key_warning
 from detection.paper_evidence_builder import (  # noqa: F401
     DEFAULT_ADVANCED_ROOT,
     DEFAULT_ANCHOR_ROOT,
@@ -17,4 +18,4 @@ from detection.paper_evidence_builder import (  # noqa: F401
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(run_with_developer_key_warning(main))

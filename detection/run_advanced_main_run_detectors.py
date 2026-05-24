@@ -7,9 +7,11 @@ import argparse
 from pathlib import Path
 
 try:
+    from detection.crypt_ip_guard import run_with_developer_key_warning
     from detection.advanced_main_run_detectors import run_advanced_main_run_detectors
     from detection.main_run_types import DEFAULT_FOLDS, DEFAULT_SEED
 except ModuleNotFoundError:  # pragma: no cover - direct script import path
+    from crypt_ip_guard import run_with_developer_key_warning
     from advanced_main_run_detectors import run_advanced_main_run_detectors
     from main_run_types import DEFAULT_FOLDS, DEFAULT_SEED
 
@@ -24,9 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--out-root",
         type=Path,
-        default=Path(
-            "outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution"
-        ),
+        default=Path("outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution"),
     )
     parser.add_argument("--folds", type=int, default=DEFAULT_FOLDS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -97,4 +97,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(run_with_developer_key_warning(main))
