@@ -1,5 +1,5 @@
 {
-  "version": "runtime-code-appendix-v2",
+  "version": "runtime-code-appendix",
   "notes": [
     "The appendix intentionally contains core detector, calibration, and fusion math only.",
     "File I/O, JSON/CSV writers, report builders, validation wrappers, and CLI plumbing are excluded.",

@@ -300,6 +300,8 @@ def validate_paper_text(tex_path: Path) -> None:
         "False-Positive Burden",
         "Runtime Code Appendix",
         "not measured imagery",
+        "Defensive Jamming and Deception Stress Modeling",
+        "not operational jamming guidance",
     )
     missing_phrases = [phrase for phrase in required_phrases if phrase not in text]
     if missing_phrases:
@@ -338,6 +340,14 @@ def validate_source_appendix(evidence_root: Path) -> None:
     listings = metadata.get("listings", [])
     if not isinstance(listings, list) or not listings:
         fail("source appendix metadata is missing listings")
+    manifest_blocks = metadata.get("manifest_block_count")
+    tcolorbox_count = source_text.count("\\begin{tcolorbox}")
+    listing_count = source_text.count("\\begin{lstlisting}")
+    if manifest_blocks != tcolorbox_count or manifest_blocks != listing_count:
+        fail(
+            "source appendix must emit one tcolorbox and one listing per manifest block: "
+            f"blocks={manifest_blocks} boxes={tcolorbox_count} listings={listing_count}"
+        )
     with (evidence_root / "source_appendix_hashes.csv").open(
         encoding="utf-8", newline=""
     ) as handle:
@@ -379,8 +389,8 @@ def validate_paper_evidence(evidence_root: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         fail("paper evidence manifest must be a JSON object")
-    if manifest.get("version") != "tier1-final":
-        fail("paper evidence manifest version must be tier1-final")
+    if manifest.get("version") != "current":
+        fail("paper evidence manifest must be current")
     required_manifest_keys = (
         "primary_kpi_rows",
         "main_kpi_gain_rows",
@@ -394,6 +404,7 @@ def validate_paper_evidence(evidence_root: Path) -> None:
         "detector_processing_baseline_rows",
         "fusion_baseline_rows",
         "ei_objective_rows",
+        "jamming_deception_model_card",
     )
     missing = [key for key in required_manifest_keys if not manifest.get(key)]
     if missing:
@@ -453,7 +464,7 @@ def main() -> None:
     parser.add_argument(
         "--paper-evidence-root",
         type=Path,
-        default=Path("outputs/paper-evidence/tier1-final"),
+        default=Path("outputs/paper-evidence/current"),
     )
     args = parser.parse_args()
 

@@ -12,17 +12,22 @@ from dataclasses import dataclass
 
 POSITIVE_MODEL_LABEL = "shahed_136_geran_2_public_proxy"
 NEGATIVE_MODEL_LABEL = "confuser_or_sensor_artifact"
-DATASET_PROFILE = "runit-shahed136-geran2-public-proxy-main-run"
+DATASET_PROFILE = "fixed-wing-pusher-proxy-ew-rd"
 DEFAULT_SCENARIO_GROUPS = 10_000
 DEFAULT_POSITIVE_GROUPS = 250
-DEFAULT_V2_POSITIVE_GROUPS = 50
+DEFAULT_LOW_PREVALENCE_POSITIVE_GROUPS = 50
 DEFAULT_HOLDOUT_GROUPS = 1_500
 DEFAULT_HOLDOUT_POSITIVES = 38
-DEFAULT_V2_HOLDOUT_POSITIVES = 8
+DEFAULT_LOW_PREVALENCE_HOLDOUT_POSITIVES = 8
 DEFAULT_FOLDS = 5
 DEFAULT_SEED = 202605210136
-DEFAULT_SHARD_SIZE = 512
+DEFAULT_SHARD_SIZE = 128
 TIMESTAMP_EPOCH_NS = 1_790_000_000_000_000_000
+RADAR_PULSES_PER_CPI = 64
+RADAR_RANGE_BINS = 96
+RADAR_CPI_MS = 16.0
+RADAR_PRF_HZ = 4_000.0
+DEFAULT_JAMMING_DECEPTION_RATE = 0.15
 
 
 @dataclass(frozen=True)
@@ -58,8 +63,8 @@ ACTIVE_RADAR_SENSORS: tuple[ActiveRadarSensor, ...] = (
         "high_resolution_xku_cuas",
         "High-resolution X/Ku C-UAS radar",
         "x_ku",
-        24,
-        20,
+        RADAR_PULSES_PER_CPI,
+        RADAR_RANGE_BINS,
         1.10,
     ),
     ActiveRadarSensor(
@@ -67,8 +72,8 @@ ACTIVE_RADAR_SENSORS: tuple[ActiveRadarSensor, ...] = (
         "tactical_s_band_aesa",
         "Tactical S-band AESA radar",
         "s_band",
-        24,
-        20,
+        RADAR_PULSES_PER_CPI,
+        RADAR_RANGE_BINS,
         0.92,
     ),
     ActiveRadarSensor(
@@ -76,8 +81,8 @@ ACTIVE_RADAR_SENSORS: tuple[ActiveRadarSensor, ...] = (
         "gbad_3d4d_cueing",
         "Medium-range 3D/4D GBAD cueing radar",
         "gbad_3d4d",
-        24,
-        20,
+        RADAR_PULSES_PER_CPI,
+        RADAR_RANGE_BINS,
         0.98,
     ),
 )
@@ -184,6 +189,10 @@ MODEL_FEATURE_DENYLIST: tuple[str, ...] = (
     "cv_fold",
     "restricted_truth_path",
     "time_lock_id",
+    "jamming_deception_active",
+    "jamming_deception_profile",
+    "jamming_deception_family",
+    "jamming_deception_rate_policy",
 )
 
 

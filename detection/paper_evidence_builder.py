@@ -4,7 +4,7 @@
 This script does not create raw training data or solver outputs. It reads the
 existing local benchmark artifacts, summarizes them into compact evidence
 tables, and writes the paper-facing report bundle under
-``outputs/paper-evidence/major-upgrade-v1``.
+``outputs/paper-evidence/current``.
 """
 
 from __future__ import annotations
@@ -31,7 +31,12 @@ try:
         DETECTOR_VIEW_IDS,
         MODEL_FEATURE_DENYLIST,
         PHASES,
+        RADAR_CPI_MS,
+        RADAR_PRF_HZ,
+        RADAR_PULSES_PER_CPI,
+        RADAR_RANGE_BINS,
     )
+    from detection.jamming_deception_models import jamming_deception_model_card
     from detection.ei_evolution_trace import build_ei_evolution_evidence
 except ModuleNotFoundError:  # pragma: no cover - direct script import path
     from main_run_types import (
@@ -39,32 +44,37 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
         DETECTOR_VIEW_IDS,
         MODEL_FEATURE_DENYLIST,
         PHASES,
+        RADAR_CPI_MS,
+        RADAR_PRF_HZ,
+        RADAR_PULSES_PER_CPI,
+        RADAR_RANGE_BINS,
     )
+    from jamming_deception_models import jamming_deception_model_card
     from ei_evolution_trace import build_ei_evolution_evidence
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TRAINING_ROOT = (
-    REPO_ROOT / "outputs" / "training-data" / "runit-fixed-wing-pusher-proxy-v2-main-run"
+    REPO_ROOT / "outputs" / "training-data" / "fixed-wing-pusher-proxy-main-run"
 )
 DEFAULT_BASELINE_ROOT = (
-    REPO_ROOT / "outputs" / "detection" / "runit-fixed-wing-pusher-proxy-v2-main-run"
+    REPO_ROOT / "outputs" / "detection" / "fixed-wing-pusher-proxy-main-run"
 )
 DEFAULT_ADVANCED_ROOT = (
     REPO_ROOT
     / "outputs"
     / "detection"
-    / "runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+    / "fixed-wing-pusher-proxy-main-run-advanced-evolution"
 )
 DEFAULT_ANCHOR_ROOT = (
-    REPO_ROOT / "outputs" / "real-data" / "kth-drone-bird-human-77ghz" / "kth-measured-v1"
+    REPO_ROOT / "outputs" / "real-data" / "kth-drone-bird-human-77ghz" / "kth-measured"
 )
-DEFAULT_OUT_ROOT = REPO_ROOT / "outputs" / "paper-evidence" / "tier1-final"
+DEFAULT_OUT_ROOT = REPO_ROOT / "outputs" / "paper-evidence" / "current"
 DEFAULT_FEEDBACK_MATRIX = REPO_ROOT / "paper" / "docs" / "paper_feedback_coverage_matrix.md"
 DEFAULT_GENERATIVE_ORIGIN_MANIFEST = (
     REPO_ROOT / "paper" / "docs" / "generative_origin_manifest.json"
 )
-PAPER_EVIDENCE_VERSION = "tier1-final"
+PAPER_EVIDENCE_VERSION = "current"
 THRESHOLD_TARGET_FPR = 0.01
 BOOTSTRAP_ROUNDS = 200
 BOOTSTRAP_SEED = 20260522
@@ -425,7 +435,7 @@ def _feedback_coverage_rows() -> list[dict[str, str]]:
             "item_id": "tip4-04",
             "actionable_item": "Use readable IEEE figure font sizes and avoid cramped labels.",
             "status": "addressed",
-            "evidence_location": "paper/generate_figures_major_upgrade_v2.py",
+            "evidence_location": "paper/generate_figures_focused.py",
             "notes": "Figures are generated as wide layouts with larger text and fewer panels.",
         },
         {
@@ -456,7 +466,7 @@ def _feedback_coverage_summary() -> dict[str, Any]:
         bucket[row["status"]] = bucket.get(row["status"], 0) + 1
     return {
         "status": "pass",
-        "source_dir": str(REPO_ROOT / "tips" / "paper_feedback" / "v2"),
+        "source_dir": str(REPO_ROOT / "tips" / "paper_feedback" / "current"),
         "matrix_path": str(DEFAULT_FEEDBACK_MATRIX),
         "actionable_item_count": len(rows),
         "status_counts": dict(status_counts),
@@ -467,9 +477,9 @@ def _feedback_coverage_summary() -> dict[str, Any]:
 
 def _feedback_coverage_markdown(rows: list[dict[str, str]]) -> str:
     lines = [
-        "# Paper Feedback V2 Coverage Matrix",
+        "# Paper Feedback Coverage Matrix",
         "",
-        "This generated matrix maps actionable reviewer feedback from `tips/paper_feedback/v2/` to the paper and evidence artifacts. Status values are `addressed`, `deferred`, or `not applicable`.",
+        "This generated matrix maps actionable reviewer feedback to the paper and evidence artifacts. Status values are `addressed`, `deferred`, or `not applicable`.",
         "",
         "| Tip | Item | Actionable feedback | Status | Evidence | Notes |",
         "| --- | --- | --- | --- | --- | --- |",
@@ -1160,7 +1170,7 @@ def _coarse_modality(subset_name: str) -> str:
         return "sequence"
     if subset_name.startswith("hypergraph"):
         return "hypergraph"
-    if subset_name.startswith("v2_transport"):
+    if subset_name.startswith("transport"):
         return "transport"
     if subset_name.startswith("surface"):
         return "surface"
@@ -1309,6 +1319,8 @@ def _feature_family_for_column(column: str) -> str:
         return "acoustic_cue"
     if "rf" in lowered or "rfi" in lowered or "provenance" in lowered:
         return "passive_rf_cue"
+    if lowered.startswith("jd_") or "jamming" in lowered or "deception" in lowered:
+        return "jamming_deception_iq_diagnostic"
     if "fusion" in lowered or "confidence" in lowered or "probability" in lowered:
         return "fusion_score"
     return "detector_numeric_summary"
@@ -1547,6 +1559,7 @@ def _branch_card(
         "branch": branch,
         "label": label,
         "center_ghz": center_ghz,
+        "carrier_ghz": center_ghz,
         "band": band,
         "bandwidth_mhz": bandwidth_mhz,
         "wavelength_m": wavelength_m,
@@ -1908,10 +1921,10 @@ def _build_radar_model_card(training_root: Path, scenarios: list[dict[str, str]]
             band="X/Ku",
             center_ghz=10.0,
             bandwidth_mhz=600.0,
-            prf_hz=4000.0,
-            cpi_ms=6.0,
-            pulses=24,
-            range_bins=20,
+            prf_hz=RADAR_PRF_HZ,
+            cpi_ms=RADAR_CPI_MS,
+            pulses=RADAR_PULSES_PER_CPI,
+            range_bins=RADAR_RANGE_BINS,
             scan_revisit_s=0.25,
             clutter_family=["Weibull", "K-like", "coastal near-horizon"],
             detector_visible_products=[
@@ -1927,10 +1940,10 @@ def _build_radar_model_card(training_root: Path, scenarios: list[dict[str, str]]
             band="S",
             center_ghz=3.1,
             bandwidth_mhz=180.0,
-            prf_hz=4000.0,
-            cpi_ms=6.0,
-            pulses=24,
-            range_bins=20,
+            prf_hz=RADAR_PRF_HZ,
+            cpi_ms=RADAR_CPI_MS,
+            pulses=RADAR_PULSES_PER_CPI,
+            range_bins=RADAR_RANGE_BINS,
             scan_revisit_s=1.0,
             clutter_family=["terrain multipath", "urban edge", "vegetation motion"],
             detector_visible_products=[
@@ -1945,10 +1958,10 @@ def _build_radar_model_card(training_root: Path, scenarios: list[dict[str, str]]
             band="X/Ku public cueing envelope",
             center_ghz=10.3,
             bandwidth_mhz=300.0,
-            prf_hz=4000.0,
-            cpi_ms=6.0,
-            pulses=24,
-            range_bins=20,
+            prf_hz=RADAR_PRF_HZ,
+            cpi_ms=RADAR_CPI_MS,
+            pulses=RADAR_PULSES_PER_CPI,
+            range_bins=RADAR_RANGE_BINS,
             scan_revisit_s=1.5,
             clutter_family=["radar-horizon masking", "terrain glint", "weather cell"],
             detector_visible_products=["3D/4D cue score", "revisit delay", "track confidence"],
@@ -1981,7 +1994,9 @@ def _build_radar_model_card(training_root: Path, scenarios: list[dict[str, str]]
             "Doppler folding",
             "calibration offset",
             "multipath masking",
+            "defensive jamming/deception stress",
         ],
+        "jamming_deception_stress": jamming_deception_model_card(),
         "clutter_and_artifact_priors": {
             "clutter": [
                 "Weibull clutter",
@@ -2009,6 +2024,9 @@ def _build_radar_model_card(training_root: Path, scenarios: list[dict[str, str]]
                 "rfi_burst",
                 "clutter_only_counterfactual",
             ],
+            "jamming_deception_profiles": list(
+                jamming_deception_model_card().get("profiles", [])
+            ),
         },
         "cue_definitions": {
             "acoustic": "node-wise spectral cadence, cross-node agreement, and amplitude stability",
@@ -2063,6 +2081,15 @@ def _radar_model_detail_rows(radar_model_card: dict[str, Any]) -> list[dict[str,
             ),
             "unit": "text",
             "basis": "synthetic stress taxonomy",
+        },
+        {
+            "branch": "all",
+            "detail_key": "jamming_deception_stress",
+            "detail_value": json.dumps(
+                radar_model_card.get("jamming_deception_stress", {}), sort_keys=True
+            ),
+            "unit": "text",
+            "basis": "strict-open nondimensional robustness stress",
         },
         {
             "branch": "all",
@@ -2410,7 +2437,7 @@ def _build_modality_transparency(
     passive_rf_map = _score_map_from_component_groups(
         component_rows, {"passive_quality", "passive_hypergraph"}
     )
-    transport_map = _score_map_from_component_groups(component_rows, {"v2_transport_geometry"})
+    transport_map = _score_map_from_component_groups(component_rows, {"transport_geometry"})
     suite = [
         {
             "view": "radar_only",
@@ -2517,7 +2544,7 @@ def _build_modality_transparency(
 def _component_family_label(component_group: str) -> tuple[str, str]:
     if component_group == "passive_quality":
         return "Passive quality", "passive-RF provenance"
-    if component_group == "v2_transport_geometry":
+    if component_group == "transport_geometry":
         return "Transport geometry", "motion/geometry"
     if component_group == "passive_hypergraph":
         return "Passive hypergraph", "passive-RF graph"
@@ -3287,6 +3314,9 @@ def _environment_impairment_model_rows(radar_model_card: dict[str, Any]) -> list
     clutter = priors.get("clutter", []) if isinstance(priors, dict) else []
     noise_rfi = priors.get("noise_and_rfi", []) if isinstance(priors, dict) else []
     hard_negatives = priors.get("hard_negative_families", []) if isinstance(priors, dict) else []
+    jd_profiles = (
+        priors.get("jamming_deception_profiles", []) if isinstance(priors, dict) else []
+    )
     receiver_impairments = (
         radar_model_card.get("receiver_impairments", [])
         if isinstance(radar_model_card, dict)
@@ -3336,6 +3366,13 @@ def _environment_impairment_model_rows(radar_model_card: dict[str, Any]) -> list
             "claim_boundary": "simplified impairment families, not hardware qualification",
         },
         {
+            "family": "defensive_jamming_deception_stress",
+            "generated_proxy": "|".join(map(str, jd_profiles)),
+            "radar_review_role": "tests detector robustness to nondimensional false-return and receiver-contamination artifacts",
+            "source_values": "radar_model_card.jamming_deception_stress",
+            "claim_boundary": "not operational jamming guidance, ECCM behavior, or field-performance evidence",
+        },
+        {
             "family": "hard_negative_taxonomy",
             "generated_proxy": "|".join(map(str, hard_negatives)),
             "radar_review_role": "explains false-alarm family colors and robustness slices",
@@ -3355,7 +3392,7 @@ def _data_processing_trace_rows(split_summary: dict[str, Any]) -> list[dict[str,
     return [
         {
             "stage": "scenario_group_generation",
-            "input_artifacts": "fixed-wing-pusher-proxy-v2 profile; public object/source packs; seed 202605210136",
+            "input_artifacts": "fixed-wing-pusher-proxy profile; public object/source packs; seed 202605210136; jamming/deception rate 0.15",
             "output_artifacts": "scenario_manifest.csv; dataset_manifest.json; split_summary.json",
             "reviewer_check": (
                 "Scenario groups and split roles are assigned before phase expansion; "
@@ -3626,15 +3663,15 @@ def _cli_reproduction_commands() -> list[dict[str, Any]]:
     return [
         {
             "stage": "generate_training_data",
-            "command": "rtk python3 -m detection.generate_main_run --profile fixed-wing-pusher-proxy-v2 --out-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --scenario-groups 10000 --seed 202605210136 --force",
+            "command": "rtk python3 -m detection.generate_main_run --profile fixed-wing-pusher-proxy --out-root outputs/training-data/fixed-wing-pusher-proxy-main-run --scenario-groups 10000 --seed 202605210136 --jamming-deception-rate 0.15 --force",
         },
         {
             "stage": "run_baseline_detectors",
-            "command": "rtk python3 -m detection.run_main_run_detectors --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run --folds 5 --seed 202605210136 --force",
+            "command": "rtk python3 -m detection.run_main_run_detectors --data-root outputs/training-data/fixed-wing-pusher-proxy-main-run --out-root outputs/detection/fixed-wing-pusher-proxy-main-run --folds 5 --seed 202605210136 --force",
         },
         {
             "stage": "run_ei_advanced_detectors",
-            "command": "rtk python3 -m detection.run_advanced_main_run_detectors --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution --folds 5 --seed 202605210136 --search-profile v2_aggressive --candidate-limit 128 --evolution-rounds 5 --evolution-sample-rows 4500 --write-component-scores --force",
+            "command": "rtk python3 -m detection.run_advanced_main_run_detectors --data-root outputs/training-data/fixed-wing-pusher-proxy-main-run --out-root outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution --folds 5 --seed 202605210136 --search-profile aggressive --candidate-limit 128 --evolution-rounds 5 --evolution-sample-rows 4500 --write-component-scores --force",
         },
         {
             "stage": "generate_paper_evidence",
@@ -3658,7 +3695,7 @@ def _cli_reproduction_commands() -> list[dict[str, Any]]:
         },
         {
             "stage": "validate_paper",
-            "command": "rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf target/paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/tier1-final",
+            "command": "rtk python3 paper/validate_paper.py --tex paper/echoforge_ieee.tex --bib paper/references.bib --pdf target/paper/echoforge_ieee.pdf --figures-dir paper/figures --paper-evidence-root outputs/paper-evidence/current",
         },
     ]
 
@@ -3745,6 +3782,7 @@ def build_paper_evidence(roots: EvidenceRoots, *, strict_ei_trace: bool = False)
     scenarios = _read_csv_rows(roots.training_root / "scenario_manifest.csv")
     records = _read_csv_rows(roots.training_root / "records.csv")
     radar_model_card = _build_radar_model_card(roots.training_root, scenarios)
+    jd_model_card = jamming_deception_model_card()
     radar_model_detail_rows = _radar_model_detail_rows(radar_model_card)
     sensor_archetype_cards = _build_public_sensor_archetype_cards()
     regional_hard_negative_taxonomy = _build_regional_hard_negative_taxonomy()
@@ -3923,6 +3961,7 @@ def build_paper_evidence(roots: EvidenceRoots, *, strict_ei_trace: bool = False)
         "training_manifest": training_manifest,
         "training_quality": training_quality,
         "radar_model_card": radar_model_card,
+        "jamming_deception_model_card": jd_model_card,
         "radar_model_detail_rows": radar_model_detail_rows,
         "sensor_archetype_cards": sensor_archetype_cards,
         "regional_hard_negative_taxonomy": regional_hard_negative_taxonomy,
@@ -3977,6 +4016,7 @@ def build_paper_evidence(roots: EvidenceRoots, *, strict_ei_trace: bool = False)
 
     _write_json(roots.out_root / "paper_evidence_manifest.json", payload)
     _write_json(roots.out_root / "radar_model_card.json", radar_model_card)
+    _write_json(roots.out_root / "jamming_deception_model_card.json", jd_model_card)
     _write_json(roots.out_root / "radar_model_detail_rows.json", radar_model_detail_rows)
     _write_csv(
         roots.out_root / "radar_model_detail_rows.csv",

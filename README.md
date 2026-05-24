@@ -7,7 +7,6 @@
 EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. It publishes public-proxy object signatures, uncertainty-scored radar artifacts, and reproducible validation evidence so downstream work can be inspected, rerun, and compared without claiming measured truth or proprietary-equivalent sensor behavior.
 
 The claim boundary stays narrow: public-source priors only, explicit uncertainty, hard negatives treated as robustness work, and no classified, vendor-private, or exact field-performance claims.
-The paper KPI is the lower 95% group-block bootstrap bound of recall at FPR <= 1%, reported as `LCB95 Recall@≤1%FPR`; AP, ROC AUC, calibration, and false-positive burden remain guardrails. On the blind holdout, the accepted human-engineered prior fusion baseline reaches 0.083 LCB95 / 0.292 point Recall@≤1%FPR, while the EI sparse calibrated late-fusion candidate reaches 0.713 / 0.833, with +63.0 pp / +760.0% / 7.60x LCB95 gain, +54.2 pp / +185.7% / 2.85x point Recall@≤1%FPR gain, and 49 -> 3 selected-threshold false positives (93.9% fewer false alarms). EI AP rises from 0.128 to 0.830, but EI ROC AUC is 0.916 versus 0.938 for prior fusion, so the claim is improved low-FPR operating behavior rather than universal rank dominance.
 
 ## Studio Preview
 

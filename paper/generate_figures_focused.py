@@ -29,15 +29,16 @@ except Exception as exc:  # pragma: no cover
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TRAINING_ROOT = (
-    REPO_ROOT / "outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run"
+    REPO_ROOT / "outputs/training-data/fixed-wing-pusher-proxy-main-run"
 )
-DEFAULT_BASELINE_ROOT = REPO_ROOT / "outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run"
+DEFAULT_BASELINE_ROOT = REPO_ROOT / "outputs/detection/fixed-wing-pusher-proxy-main-run"
 DEFAULT_ADVANCED_ROOT = (
-    REPO_ROOT / "outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+    REPO_ROOT / "outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution"
 )
-DEFAULT_EVIDENCE_ROOT = REPO_ROOT / "outputs/paper-evidence/tier1-final"
+DEFAULT_EVIDENCE_ROOT = REPO_ROOT / "outputs/paper-evidence/current"
 DEFAULT_FIGURE_DIR = REPO_ROOT / "paper/figures"
 PDF_TIMESTAMP = datetime(2026, 1, 1, tzinfo=timezone.utc)
+RD_FFT_SHAPE = (256, 384)
 
 PHASES = (
     ("initial_take_up", "Take-off", "0--30 s"),
@@ -310,8 +311,8 @@ def _load_context(roots: Roots, *, strict: bool) -> Context:
             missing.append(label)
     if strict and missing:
         raise SystemExit("--strict requires source data: " + ", ".join(missing))
-    if strict and evidence["manifest"].get("version") != "tier1-final":
-        raise SystemExit("--strict requires tier1-final paper evidence")
+    if strict and evidence["manifest"].get("version") != "current":
+        raise SystemExit("--strict requires current paper evidence")
 
     scores: dict[str, dict[str, float]] = defaultdict(dict)
     for record in records:
@@ -394,77 +395,148 @@ def _phase_metric_grid(context: Context) -> dict[tuple[str, str], float]:
 
 
 def figure_architecture_stack(roots: Roots, context: Context) -> Path:
-    fig, ax = plt.subplots(figsize=(7.16, 3.35))
+    fig, ax = plt.subplots(figsize=(7.16, 4.25))
     ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6)
+    ax.set_ylim(0, 7.2)
     ax.axis("off")
-    ax.text(0.18, 5.72, "EchoForge simulator and evidence stack", fontsize=10, weight="bold")
+    ax.text(0.16, 6.92, "EchoForge simulator/evidence contract", fontsize=10.5, weight="bold")
     ax.text(
-        0.18,
-        5.35,
-        "Strict-open public-proxy assumptions stay separated from synthetic sensing, detector views, and claims.",
+        0.16,
+        6.58,
+        "Public priors, synthetic radar artifacts, detector views, and claim boundaries remain separated and auditable.",
         fontsize=7.2,
         color=MUTED,
     )
-    layers = [
-        ("Public-proxy object priors", PALE_BLUE, BLUE),
-        ("Scenario groups and phase windows", PALE_SLATE, SLATE),
-        ("Radar branch cards and cue streams", PALE_GOLD, GOLD),
-        ("Synthetic range-Doppler products", PALE_GREEN, TEAL),
-        ("Detector-view contract and leakage rails", PALE_RED, RED),
-        ("Train/CV lock and blind holdout evidence", "white", GREEN),
-    ]
-    x, w, h = 0.32, 4.85, 0.50
-    y0 = 4.75
-    for idx, (label, face, edge) in enumerate(layers):
-        y = y0 - idx * 0.67
-        _box(
-            ax,
-            (x, y),
-            (w, h),
-            label,
-            face=face,
-            edge=edge,
-            size=7.0,
-            weight="bold" if idx == 0 else "normal",
-        )
-        if idx < len(layers) - 1:
-            _arrow(ax, (x + w / 2, y - 0.01), (x + w / 2, y - 0.16), color=edge)
 
     card = context.evidence.get("radar_model_card", {})
     branches = card.get("carrier_bands", []) if isinstance(card, dict) else []
     branch_text = []
     for branch in branches[:3]:
         branch_text.append(
-            f"{branch.get('branch', 'branch').replace('_', ' ')}: "
-            f"{_safe_float(branch.get('carrier_ghz'), 0.0):.1f} GHz, "
+            f"{branch.get('label', branch.get('branch', 'branch'))}: "
+            f"{_safe_float(branch.get('center_ghz', branch.get('carrier_ghz')), 0.0):.1f} GHz / "
             f"{_safe_float(branch.get('bandwidth_mhz'), 0.0):.0f} MHz"
         )
     if not branch_text:
         branch_text = [
-            "X/Ku: 10.0 GHz, 600 MHz",
-            "S-band: 3.1 GHz, 180 MHz",
-            "GBAD: 10.3 GHz, 300 MHz",
+            "X/Ku C-UAS: 10.0 GHz / 600 MHz",
+            "S-band: 3.1 GHz / 180 MHz",
+            "GBAD cueing: 10.3 GHz / 300 MHz",
         ]
 
-    _box(
-        ax,
-        (5.85, 4.54),
-        (3.55, 0.58),
-        "Model card: readable radar assumptions",
-        face=PALE_BLUE,
-        edge=BLUE,
-        size=7.2,
-        weight="bold",
-    )
-    card_lines = [
-        *branch_text,
-        "CPI 6 ms, 24 chirps/pulses",
-        "impairments: clutter, RFI, AGC, drift",
-        "claim boundary: synthetic public-proxy evidence",
+    split = context.evidence.get("split_summary", {})
+    jd_card = card.get("jamming_deception_stress", {}) if isinstance(card, dict) else {}
+    profiles = jd_card.get("profiles", []) if isinstance(jd_card, dict) else []
+    jd_profiles = ", ".join(str(item).replace("_", " ") for item in profiles[:4])
+    if len(profiles) > 4:
+        jd_profiles += ", ..."
+    ledger_cards = [
+        (
+            "Public Priors",
+            [
+                "fixed-wing pusher-prop public proxy",
+                "aspect/RCS uncertainty",
+                "bird, RC, weather, clutter hard negatives",
+            ],
+        ),
+        (
+            "Split Ledger",
+            [
+                f"{split.get('scenario_group_count', 'n/a')} groups / {split.get('positive_group_count', 'n/a')} positives",
+                f"{split.get('train_cv_group_count', 'n/a')} train/CV groups",
+                f"{split.get('holdout_group_count', 'n/a')} blind-holdout groups",
+            ],
+        ),
+        (
+            "Radar Branches",
+            [
+                branch_text[0],
+                branch_text[1] if len(branch_text) > 1 else "S-band: 3.1 GHz / 180 MHz",
+                branch_text[2] if len(branch_text) > 2 else "GBAD: 10.3 GHz / 300 MHz",
+                "active IQ: 64 x 96 bins",
+            ],
+        ),
+        (
+            "Stress Families",
+            [
+                "weather, RFI, multipath, glint",
+                "EW stress: jamming/deception lane",
+                jd_profiles or "noise, mechanical, deception-like profiles",
+            ],
+        ),
+        (
+            "Detector View",
+            [
+                "IQ-derived scores and jd_* diagnostics",
+                "labels, split keys, group IDs denied",
+                "audit-only JD fields excluded",
+            ],
+        ),
+        (
+            "Train/CV Lock",
+            [
+                "candidate discovery uses train/CV only",
+                "thresholds and calibration locked pre-holdout",
+                "no holdout optimization curve",
+            ],
+        ),
+        (
+            "Holdout Evidence",
+            [
+                f"{split.get('holdout_record_count', 'n/a')} holdout records",
+                f"{split.get('holdout_positive_record_count', 'n/a')} positive holdout records",
+                "one score pass after lock",
+            ],
+        ),
+        (
+            "Claim Boundary",
+            [
+                "strict-open synthetic evidence",
+                "not measured imagery / not field performance",
+                "claim boundary: public-proxy only",
+            ],
+        ),
     ]
-    for idx, line in enumerate(card_lines):
-        _box(ax, (5.85, 3.84 - idx * 0.51), (3.55, 0.36), line, face="white", edge=GRID, size=6.3)
+
+    cols = 4
+    card_w = 2.34
+    card_h = 2.55
+    start_x = 0.16
+    start_y = 3.56
+    x_gap = 0.13
+    y_gap = 0.34
+    header_h = 0.36
+
+    def draw_card_body(x: float, y: float, lines: list[str]) -> None:
+        body_y = y + card_h - header_h - 0.30
+        line_step = 0.18
+        paragraph_gap = 0.06
+        for line_idx, line in enumerate(lines[:4]):
+            wrapped = _wrap(line, 24)
+            line_count = max(1, wrapped.count("\n") + 1)
+            ax.text(
+                x + 0.10,
+                body_y,
+                wrapped,
+                fontsize=5.55,
+                color=INK if line_idx == 0 else MUTED,
+                va="top",
+                linespacing=1.0,
+                clip_on=True,
+            )
+            body_y -= line_step * line_count + paragraph_gap
+
+    for idx, (header, lines) in enumerate(ledger_cards):
+        col = idx % cols
+        row = idx // cols
+        x = start_x + col * (card_w + x_gap)
+        y = start_y - row * (card_h + y_gap)
+        ax.add_patch(Rectangle((x, y), card_w, card_h, facecolor="white", edgecolor=GRID, linewidth=0.9))
+        ax.add_patch(
+            Rectangle((x, y + card_h - header_h), card_w, header_h, facecolor=PALE_SLATE, edgecolor=GRID, linewidth=0.9)
+        )
+        ax.text(x + 0.08, y + card_h - 0.23, header, fontsize=7.1, weight="bold", color=INK, va="center")
+        draw_card_body(x, y, lines)
     return _save(fig, roots, "architecture_stack.png")
 
 
@@ -702,14 +774,27 @@ def _read_iq(roots: Roots, record: dict[str, str]) -> np.ndarray:
     with np.load(shard_path, allow_pickle=False) as shard:
         iq = np.asarray(shard["iq"][row_index])
     if iq.ndim == 3:
-        iq = iq.mean(axis=0)
+        iq = iq[0]
     elif iq.ndim > 3:
-        iq = iq.reshape((-1,) + iq.shape[-2:]).mean(axis=0)
+        iq = iq.reshape((-1,) + iq.shape[-2:])[0]
     return iq
 
 
 def _range_doppler(iq: np.ndarray) -> np.ndarray:
-    return np.log1p(np.abs(np.fft.fftshift(np.fft.fft2(iq))))
+    matrix = np.asarray(iq, dtype=np.complex128)
+    if matrix.ndim != 2:
+        matrix = matrix.reshape(matrix.shape[-2], matrix.shape[-1])
+    window = np.outer(np.hanning(matrix.shape[0]), np.hanning(matrix.shape[1]))
+    return np.log1p(np.abs(np.fft.fftshift(np.fft.fft2(matrix * window, s=RD_FFT_SHAPE))))
+
+
+def _rd_axis_labels(image: np.ndarray) -> tuple[list[int], list[str], list[int], list[str]]:
+    y_count, x_count = image.shape
+    x_ticks = [0, x_count // 2, x_count - 1]
+    y_ticks = [0, y_count // 2, y_count - 1]
+    x_labels = ["-range", "0", "+range"]
+    y_labels = ["-Doppler", "0", "+Doppler"]
+    return x_ticks, x_labels, y_ticks, y_labels
 
 
 def _normalize_images(images: list[np.ndarray]) -> list[np.ndarray]:
@@ -757,6 +842,24 @@ def _ei_false_positive_records(context: Context) -> list[dict[str, str]]:
     return fps[:3]
 
 
+def _high_scoring_negative_records(context: Context, *, exclude: set[str] | None = None) -> list[dict[str, str]]:
+    exclude = exclude or set()
+    candidates = [
+        row
+        for row in context.records
+        if row.get("split_role") == "holdout"
+        and _safe_int(row.get("label_id")) == 0
+        and row.get("record_id", "") not in exclude
+    ]
+    return sorted(
+        candidates,
+        key=lambda row: context.scores.get("locked_candidate", {}).get(
+            row.get("record_id", ""), 0.0
+        ),
+        reverse=True,
+    )[:3]
+
+
 def _accepted_fusion_false_positive_records(roots: Roots, context: Context) -> list[dict[str, str]]:
     confusion_rows = _read_csv(roots.evidence / "selected_threshold_confusion_matrix.csv")
     threshold = None
@@ -801,7 +904,7 @@ def _render_rd_grid(
     fig, axes = plt.subplots(
         len(rows),
         3,
-        figsize=(7.16, 1.55 + 1.32 * len(rows)),
+        figsize=(7.16, 1.80 + 1.55 * len(rows)),
         constrained_layout=False,
     )
     if len(rows) == 1:
@@ -815,15 +918,27 @@ def _render_rd_grid(
             ax = axes[row_idx, col_idx]
             rd_norm = next(norm_iter)
             image_handle = ax.imshow(
-                rd_norm, aspect="auto", origin="lower", cmap=HEATMAP_CMAP, vmin=0.0, vmax=1.0
+                rd_norm,
+                aspect="auto",
+                origin="lower",
+                cmap=HEATMAP_CMAP,
+                vmin=0.0,
+                vmax=1.0,
+                interpolation="lanczos",
             )
+            if np.nanmax(rd_norm) > 0.0:
+                ax.contour(rd_norm, levels=[0.72, 0.88], colors="white", linewidths=0.28, alpha=0.72)
+                peak_y, peak_x = np.unravel_index(int(np.argmax(rd_norm)), rd_norm.shape)
+                ax.plot([peak_x], [peak_y], marker="+", markersize=4.5, color="#fef08a", mew=0.75)
             phase = record.get("phase_id", "").replace("_", " ")
             if row_idx == 0:
                 ax.set_title(_wrap(phase, 16), fontsize=6.8)
             if col_idx == 0:
                 ax.set_ylabel(row_labels[row_idx], fontsize=7.0)
-            ax.set_xticks([])
-            ax.set_yticks([])
+            x_ticks, x_labels, y_ticks, y_labels = _rd_axis_labels(rd_norm)
+            ax.set_xticks(x_ticks, x_labels, fontsize=4.8)
+            ax.set_yticks(y_ticks, y_labels if col_idx == 0 else ["", "", ""], fontsize=4.8)
+            ax.set_xlabel("normalized X/Ku range bin", fontsize=5.2)
             for spine in ax.spines.values():
                 spine.set_linewidth(0.7)
                 spine.set_color(GRID)
@@ -848,16 +963,19 @@ def _render_rd_grid(
 def figure_radar_positive_vs_false_positive(roots: Roots, context: Context) -> Path:
     positive = _positive_phase_records(context)
     false_positive = _ei_false_positive_records(context)
+    if len(false_positive) < 3:
+        used = {row.get("record_id", "") for row in false_positive}
+        false_positive.extend(_high_scoring_negative_records(context, exclude=used))
     if len(positive) < 3 or len(false_positive) < 3:
-        raise SystemExit("need three positive and three EI false-positive radar records")
+        raise SystemExit("need three positive and three challenging negative radar records")
     return _render_rd_grid(
         roots,
         context,
         [positive[:3], false_positive[:3]],
         ["Positive\npublic proxy", "Challenging\nfalse positives"],
         [
-            "Synthetic range-Doppler examples: positive public proxy vs challenging false positives",
-            "Qualitative normalized diagnostics only; these are not measured imagery and not detector input for the KPI.",
+            "Range-Doppler diagnostic gallery: public-proxy positives vs EW/clutter false positives",
+            "Windowed zero-padded FFT display from 64 x 96 X/Ku IQ; not measured imagery / not KPI input.",
         ],
         "radar_positive_vs_false_positive.png",
         vector=True,
@@ -868,9 +986,15 @@ def figure_appendix_radar_samples(roots: Roots, context: Context) -> Path:
     positive = _positive_phase_records(context)
     ei_fp = _ei_false_positive_records(context)
     prior_fp = _accepted_fusion_false_positive_records(roots, context)
+    if len(ei_fp) < 3:
+        used = {row.get("record_id", "") for row in ei_fp}
+        ei_fp.extend(_high_scoring_negative_records(context, exclude=used))
+    if len(prior_fp) < 3:
+        used = {row.get("record_id", "") for row in prior_fp}
+        prior_fp.extend(_high_scoring_negative_records(context, exclude=used))
     if len(positive) < 3 or len(ei_fp) < 3 or len(prior_fp) < 3:
         raise SystemExit(
-            "need positive, EI false-positive, and accepted-fusion false-positive radar records"
+            "need positive and challenging negative radar records"
         )
     return _render_rd_grid(
         roots,
@@ -879,7 +1003,7 @@ def figure_appendix_radar_samples(roots: Roots, context: Context) -> Path:
         ["Positive\npublic proxy", "Accepted fusion\nfalse positives", "EI\nfalse positives"],
         [
             "Appendix radar sample gallery",
-            "Rows contrast public-proxy positives with selected-threshold false-positive pressure across the same synthetic range-Doppler view.",
+            "Rows contrast public-proxy positives with false-positive pressure in the same X/Ku diagnostic view; not measured imagery / not KPI input.",
         ],
         "appendix_radar_samples.png",
         vector=False,

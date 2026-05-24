@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from detection.paper_evidence_major_upgrade_v1 import (  # noqa: F401
+from detection.paper_evidence_builder import (  # noqa: F401
     DEFAULT_ADVANCED_ROOT,
     DEFAULT_ANCHOR_ROOT,
     DEFAULT_BASELINE_ROOT,

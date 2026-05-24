@@ -10,41 +10,50 @@ try:
     from detection.main_run_generation import build_main_run_dataset
     from detection.main_run_types import (
         DEFAULT_FOLDS,
+        DEFAULT_JAMMING_DECEPTION_RATE,
         DEFAULT_POSITIVE_GROUPS,
         DEFAULT_SCENARIO_GROUPS,
         DEFAULT_SEED,
         DEFAULT_SHARD_SIZE,
-        DEFAULT_V2_POSITIVE_GROUPS,
+        DEFAULT_LOW_PREVALENCE_POSITIVE_GROUPS,
     )
 except ModuleNotFoundError:  # pragma: no cover - direct script import path
     from main_run_generation import build_main_run_dataset
     from main_run_types import (
         DEFAULT_FOLDS,
+        DEFAULT_JAMMING_DECEPTION_RATE,
         DEFAULT_POSITIVE_GROUPS,
         DEFAULT_SCENARIO_GROUPS,
         DEFAULT_SEED,
         DEFAULT_SHARD_SIZE,
-        DEFAULT_V2_POSITIVE_GROUPS,
+        DEFAULT_LOW_PREVALENCE_POSITIVE_GROUPS,
     )
+
+DEFAULT_OUT_ROOT = Path("outputs/training-data/fixed-wing-pusher-proxy-main-run")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",
-        choices=("fixed-wing-pusher-proxy-v1", "fixed-wing-pusher-proxy-v2"),
-        default="fixed-wing-pusher-proxy-v1",
+        choices=("fixed-wing-pusher-proxy",),
+        default="fixed-wing-pusher-proxy",
     )
     parser.add_argument(
         "--out-root",
         type=Path,
-        default=Path("outputs/training-data/runit-shahed136-main-run-v1"),
+        default=DEFAULT_OUT_ROOT,
     )
     parser.add_argument("--scenario-groups", type=int, default=DEFAULT_SCENARIO_GROUPS)
     parser.add_argument("--positive-groups", type=int, default=None)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--folds", type=int, default=DEFAULT_FOLDS)
     parser.add_argument("--shard-size", type=int, default=DEFAULT_SHARD_SIZE)
+    parser.add_argument(
+        "--jamming-deception-rate",
+        type=float,
+        default=DEFAULT_JAMMING_DECEPTION_RATE,
+    )
     parser.add_argument(
         "--holdout-policy",
         choices=("group_random", "site", "noise_regime", "hard_negative_role"),
@@ -59,15 +68,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     if args.positive_groups is None:
-        args.positive_groups = (
-            DEFAULT_V2_POSITIVE_GROUPS
-            if args.profile == "fixed-wing-pusher-proxy-v2"
-            else DEFAULT_POSITIVE_GROUPS
-        )
-    if args.profile == "fixed-wing-pusher-proxy-v2" and args.out_root == Path(
-        "outputs/training-data/runit-shahed136-main-run-v1"
-    ):
-        args.out_root = Path("outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run")
+        args.positive_groups = DEFAULT_LOW_PREVALENCE_POSITIVE_GROUPS
     quality = build_main_run_dataset(
         args.out_root,
         scenario_groups=args.scenario_groups,
@@ -80,6 +81,7 @@ def main() -> None:
         paper_profile=args.profile,
         holdout_policy=args.holdout_policy,
         holdout_value=args.holdout_value,
+        jamming_deception_rate=args.jamming_deception_rate,
     )
     print(
         "wrote "

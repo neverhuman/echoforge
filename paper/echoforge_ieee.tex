@@ -11,6 +11,7 @@
 \usepackage{makecell}
 \usepackage{siunitx}
 \usepackage{listings}
+\usepackage{paper/lstlinebgrd}
 \usepackage[most]{tcolorbox}
 \usepackage{xparse}
 \usepackage{url}
@@ -152,6 +153,24 @@ The contributions are:
   \item a focused figure set: simulator stack, phase ladder, EI train/CV evolution, false-positive burden, and qualitative range-Doppler examples.
 \end{itemize}
 
+\begin{table*}[t]
+  \caption{Front-Loaded Evidence Ledger and Claim Boundary}
+  \label{tab:frontledger}
+  \centering
+  \small
+  \begin{tabularx}{\textwidth}{@{}p{0.18\textwidth}YYp{0.24\textwidth}@{}}
+    \toprule
+    Ledger item & Paper-facing value & Evidence role & Boundary \\
+    \midrule
+    Corpus and split & \MetricScenarioGroups{} groups, \MetricPhaseRecords{} phase records, \MetricHoldoutRecords{} blind-holdout records & group-locked rare-positive evaluation & no field-rate or deployment prior \\
+    Active radar grids & 64 pulses/chirps by 96 range bins per active radar branch & richer range-Doppler diagnostics and IQ-derived branch features & synthetic bins, not measured imagery \\
+    Branch cards & X/Ku, S-band, and GBAD cueing envelopes with bandwidth, CPI, and range resolution & readable radar assumptions & no vendor sensitivity, exact ECCM, or exact Pd/Pfa \\
+    Jamming/deception stress & 15\% scenario-group activation for official runs, 0 only for ablation & detector robustness stress and false-alarm accounting & not operational jamming guidance or evasion optimization \\
+    Locked KPI & \PrimaryKPI{} plus AP, ROC AUC, FPR, F1, and selected-threshold counts & low-FPR claim-bearing result with guardrails & not operational performance \\
+    \bottomrule
+  \end{tabularx}
+\end{table*}
+
 \section{Radar Processing Background}
 The radar branch begins with a received-power proxy,
 \begin{equation}
@@ -188,6 +207,26 @@ The simulator exposes six capabilities needed for this benchmark:
   \item \textit{Reproducible evidence}: deterministic seeds, group-locked splits, strict train/CV selection, one blind-holdout score pass, and generated figure/code appendices.
 \end{itemize}
 
+\subsection{Defensive Jamming and Deception Stress Modeling}
+EchoForge includes a bounded public taxonomy for radar jamming and deception stress, using public descriptions only as a high-level taxonomy seed \cite{radarJammingDeceptionWiki}. Mechanical-like stressors create cloud or decoy-like false-return pressure; noise-like electronic stressors create spot, sweep, barrage, or pulse-cover receiver contamination; deception-like stressors create repeater-like false-target and signature-augmentation artifacts. The activation decision is sampled at the scenario-group level, independently of label and split, so jamming/deception cannot become a shortcut for negatives. Detector features are IQ-derived summaries such as spectral flatness, range-line occupancy, pulse burstiness, ghost-peak count, and low-Doppler cloud mass.
+
+\begin{table}[t]
+  \caption{Defensive Jamming and Deception Stressors}
+  \label{tab:jammingdeception}
+  \centering
+  \small
+  \begin{tabularx}{\columnwidth}{@{}p{0.30\columnwidth}YY@{}}
+    \toprule
+    Family & Synthetic detector symptom & Boundary \\
+    \midrule
+    Noise-like & spot, sweep, barrage, and pulse-cover contamination in receiver-view IQ & no jammer power, J/S, or timing recipe \\
+    Mechanical-like & cloud-like clutter and stable bright false returns & no deployment model or reflector sizing claim \\
+    Deception-like & randomized ghost peaks and augmented signature lobes & no target-specific delay program or ECCM behavior \\
+    Inadvertent interference & sparse unsynchronized artifacts & benign stress only, not emitter-control guidance \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
 \begin{table}[t]
   \caption{Radar Branch Cards Used in the Benchmark}
   \label{tab:radarbranches}
@@ -197,9 +236,9 @@ The simulator exposes six capabilities needed for this benchmark:
     \toprule
     Branch & $f_0$ GHz & BW MHz & CPI ms & $\Delta R$ m \\
     \midrule
-    X/Ku C-UAS & 10.0 & 600 & 6.0 & 0.250 \\
-    S-band surveillance & 3.1 & 180 & 6.0 & 0.833 \\
-    GBAD cueing & 10.3 & 300 & 6.0 & 0.500 \\
+    X/Ku C-UAS & 10.0 & 600 & 16.0 & 0.250 \\
+    S-band surveillance & 3.1 & 180 & 16.0 & 0.833 \\
+    GBAD cueing & 10.3 & 300 & 16.0 & 0.500 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -211,6 +250,16 @@ The primary KPI is \PrimaryKPI{}. It is the lower 95\% group-block bootstrap bou
 
 \section{Human Detection Ladder}
 The human ladder is ordered from sensor-local evidence to accepted sensor fusion. Every method uses the same three phase windows and train/CV-only threshold or calibration basis. Figure~\ref{fig:phaseladder} repeats that method order across the three phases.
+
+Table~\ref{tab:humanmethods} gives the compact processing contract; the prose below expands each rung so the ladder can be audited as a set of distinct human methods rather than as a single catch-all ``baseline.''
+
+The first rung is the high-resolution X/Ku branch. It is the closest thing in EchoForge to a radar-local sanity check because it preserves the most discriminative structure in the synthetic IQ stream. Human review on this branch starts with CFAR-like power contrast, then checks whether the returned energy is concentrated in a plausible range-Doppler cell, and finally looks for micro-Doppler structure that is consistent with the public proxy rather than with clutter, birds, or an RC aircraft \cite{skolnik2008,richards2014,rohling1983,chen2011,tahmoush2015,rahman2018,molchanov2014}. This is a detector-view rung, not a claim-making rung: it answers whether the proxy is separable under a specific waveform and stress family, while still denying the analyst access to labels, split keys, group IDs, or holdout rows.
+
+The second radar rung is the lower-resolution S-band branch. It gives up fine range detail in exchange for broader surveillance coverage, so the human decision relies more on motion-trend summaries, track persistence, and range-velocity coherence than on the high-resolution branch features \cite{schleher1999,richards2014,blackman1999,barshalom2001}. The GBAD cueing branch is even further from raw detection. It treats the radar as a source of cue confidence, horizon status, revisit cadence, and stale-track evidence, then converts those terms into a wide-area cue-management decision rather than a final classifier. That distinction is standard in the tracking literature: detection, tracking, cueing, and classification are related but separate tasks, and fusing them as if they were the same would overstate what the human method is actually doing \cite{hall1997,barshalom2001,blackman1999,mahler2007}.
+
+The non-radar branches fill out the multimodal side of the ladder. The acoustic cue branch measures cadence, stability, and node agreement, which makes it useful for propulsion-pattern confirmation without turning the score into a proxy for identity, payload, or location. The passive-RF branch is intentionally sparse and provenance-heavy: it tracks no-signal behavior, burst contamination, clock offset, and source quality so the analyst can downweight corrupted RF context without inventing emitter-level truth from absence alone. The tabular and sequence ML controls are ordinary learned baselines that consume detector-facing features only; the denylist keeps them from seeing labels, split keys, group IDs, or audit-only generator state. In other words, they are stress-tested controls for the same evidence contract, not shortcuts around it.
+
+At the top of the ladder sits accepted human fusion. This lane combines branch confidence, source agreement, stale-track penalties, and cross-sensor confirmation under a train/CV-calibrated threshold, which is why it is the correct human comparator for EI rather than a strawman \cite{hall1997,barshalom2001,mahler2007,guo2017}. The fusion step is intentionally conservative: it only accepts a detection when the branch evidence is mutually supportive and the calibration lock has been fixed before holdout scoring. Table~\ref{tab:humanmethods} gives the summary contract for each method, and Figure~\ref{fig:phaseladder} shows that the same ordering is used in the take-off, climb, and cruise windows.
 
 \begin{figure*}[t]
   \centering
@@ -308,7 +357,7 @@ False positives are the most intuitive failure mode in a low-FPR radar paper. Fi
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.98\textwidth]{radar_positive_vs_false_positive.pdf}
-  \caption{Qualitative synthetic range-Doppler examples: fixed-wing pusher-prop public-proxy positives versus challenging EI false positives. Axes are normalized range-Doppler bins and color is normalized log magnitude. These panels are qualitative diagnostics only, not measured imagery and not detector input for the KPI.}
+  \caption{Range-Doppler diagnostic gallery: fixed-wing pusher-prop public-proxy positives versus challenging EW/clutter false positives. Axes are normalized range-Doppler bins and color is normalized log magnitude after a windowed zero-padded FFT display transform from 64 by 96 X/Ku IQ. These panels are qualitative diagnostics only, not measured imagery and not detector input for the KPI.}
   \label{fig:rdexamples}
 \end{figure*}
 
@@ -320,7 +369,7 @@ The result matters because it changes the detector-development loop. Classical r
 Once the problem is decomposed into auditable stages, the system can search for transforms, combinations, and calibrators that a human team might not propose first. The final artifact remains code, weights, math, and evidence. The invention process becomes continuous. Progress is then limited less by a fixed menu of manually enumerated ideas and more by simulator quality, evidence quality, compute, search discipline, and holdout hygiene.
 
 \section{Limitations}
-The corpus is synthetic, single-seed, and public-proxy. It has \MetricPositiveGroups{} positive groups total and \MetricHoldoutPositiveGroups{} positive groups in the holdout split. Group-block intervals are necessary but not enough for broad claims. EchoForge does not provide measured Iranian-drone radar truth, fielded-sensor equivalence, hardware-in-the-loop validation, track-level operational FAR, route/evasion modeling, or named-platform performance. The ROC AUC guardrail also matters: accepted human fusion ranks better globally, while EI performs better at the low-FPR operating point chosen as the benchmark KPI.
+The corpus is synthetic, single-seed, and public-proxy. It has \MetricPositiveGroups{} positive groups total and \MetricHoldoutPositiveGroups{} positive groups in the holdout split. Group-block intervals are necessary but not enough for broad claims. EchoForge does not provide measured Iranian-drone radar truth, fielded-sensor equivalence, hardware-in-the-loop validation, track-level operational FAR, route/evasion modeling, or named-platform performance. The jamming/deception lane is defensive robustness stress only: it forbids jammer power, J/S, burn-through, timing recipes, exact ECCM behavior, evasion optimization, and field-performance claims. The ROC AUC guardrail also matters: accepted human fusion ranks better globally, while EI performs better at the low-FPR operating point chosen as the benchmark KPI.
 
 The next evidence steps are multi-seed corpora, larger positive holdouts, richer weather/RFI/site stressors, measured compare-only anchors expanded by sensor branch, hardware-in-the-loop hooks, and a formal pre-registration file for every promoted EI search.
 
@@ -356,17 +405,18 @@ These commands reproduce the paper lane. They are benchmark commands, not field-
 
 \begin{EchoCodeBox}{Generate the synthetic scenario and sensor corpus}
 rtk python3 -m detection.generate_main_run \
-  --profile fixed-wing-pusher-proxy-v2 \
-  --out-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --profile fixed-wing-pusher-proxy \
+  --out-root outputs/training-data/fixed-wing-pusher-proxy-main-run \
   --scenario-groups 10000 \
   --seed 202605210136 \
+  --jamming-deception-rate 0.15 \
   --force
 \end{EchoCodeBox}
 
 \begin{EchoCodeBox}{Run human detector and accepted-fusion baselines}
 rtk python3 -m detection.run_main_run_detectors \
-  --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
-  --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run \
+  --data-root outputs/training-data/fixed-wing-pusher-proxy-main-run \
+  --out-root outputs/detection/fixed-wing-pusher-proxy-main-run \
   --folds 5 \
   --seed 202605210136 \
   --force
@@ -374,11 +424,11 @@ rtk python3 -m detection.run_main_run_detectors \
 
 \begin{EchoCodeBox}{Run EI search, lock, and one-pass holdout scoring}
 rtk python3 -m detection.run_advanced_main_run_detectors \
-  --data-root outputs/training-data/runit-fixed-wing-pusher-proxy-v2-main-run \
-  --out-root outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution \
+  --data-root outputs/training-data/fixed-wing-pusher-proxy-main-run \
+  --out-root outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution \
   --folds 5 \
   --seed 202605210136 \
-  --search-profile v2_aggressive \
+  --search-profile aggressive \
   --candidate-limit 128 \
   --evolution-rounds 5 \
   --evolution-sample-rows 4500 \

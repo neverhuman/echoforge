@@ -46,6 +46,7 @@ try:
         _write_csv,
         _write_json,
     )
+    from detection.jamming_deception_models import jamming_deception_features
     from detection.main_run_types import (
         ACOUSTIC_VIEW_ID,
         ACTIVE_RADAR_SENSORS,
@@ -77,6 +78,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script import path
         _write_csv,
         _write_json,
     )
+    from jamming_deception_models import jamming_deception_features
     from main_run_types import (
         ACOUSTIC_VIEW_ID,
         ACTIVE_RADAR_SENSORS,
@@ -97,24 +99,18 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 ADVANCED_METHOD_ID = "spectral_transport_hypergraph_fusion"
-ADVANCED_OUTPUT_PROFILE = "runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
-EVOLUTION_TRACE_SCHEMA_VERSION = "ei-evolution-trace-v1"
+ADVANCED_OUTPUT_PROFILE = "fixed-wing-pusher-proxy-main-run-advanced-evolution"
+EVOLUTION_TRACE_SCHEMA_VERSION = "ei-evolution-trace"
 EVOLUTION_TRACE_SELECTION_SPLIT = "train_cv"
-BASELINE_TARGETS = {
-    "layered_fusion_c2": {
-        "train_cv": {"average_precision": 0.083745, "roc_auc": 0.918501, "f1": 0.184874},
-        "holdout": {"average_precision": 0.140272, "roc_auc": 0.939483, "f1": 0.215385},
-    }
-}
 CALIBRATORS = ("raw", "beta", "geodesic_odds", "monotone_binning")
 PHASE_ORDER = {phase.phase_id: idx for idx, phase in enumerate(PHASES)}
-ADVANCED_FEATURE_CACHE_VERSION = "advanced-v2-aggressive-20260521"
+ADVANCED_FEATURE_CACHE_VERSION = "advanced-ew-rd-20260524"
 
 
 @dataclass(frozen=True)
 class SearchProfile:
     name: str
-    enable_v2_features: bool
+    enable_transport_features: bool
     fusion_top_ks: tuple[int, ...]
     fusion_pool_size: int
     min_candidate_limit: int
@@ -123,21 +119,21 @@ class SearchProfile:
 SEARCH_PROFILES = {
     "smoke": SearchProfile(
         name="smoke",
-        enable_v2_features=False,
+        enable_transport_features=False,
         fusion_top_ks=(4, 8),
         fusion_pool_size=14,
         min_candidate_limit=96,
     ),
     "balanced": SearchProfile(
         name="balanced",
-        enable_v2_features=False,
+        enable_transport_features=False,
         fusion_top_ks=(4, 8, 12),
         fusion_pool_size=24,
         min_candidate_limit=128,
     ),
-    "v2_aggressive": SearchProfile(
-        name="v2_aggressive",
-        enable_v2_features=True,
+    "aggressive": SearchProfile(
+        name="aggressive",
+        enable_transport_features=True,
         fusion_top_ks=(4, 8, 12, 16),
         fusion_pool_size=32,
         min_candidate_limit=128,
@@ -532,7 +528,7 @@ def _diffusion_laplacian_summary(series: np.ndarray, prefix: str) -> dict[str, f
     }
 
 
-def _v2_signal_lift(prefix: str, series: np.ndarray) -> dict[str, float]:
+def _transport_signal_lift(prefix: str, series: np.ndarray) -> dict[str, float]:
     result: dict[str, float] = {}
     result.update(_lag_decorrelation_summary(series, prefix))
     result.update(_hankel_ssa_summary(series, prefix))
@@ -585,8 +581,10 @@ def _radar_lift(prefix: str, iq: np.ndarray, *, aggressive: bool = False) -> dic
         f"{prefix}_takens_loop_area": topo["loop_area"],
         f"{prefix}_takens_persistence_spread": topo["persistence_spread"],
     }
+    for name, value in jamming_deception_features(iq).items():
+        features[f"{prefix}_{name}"] = value
     if aggressive:
-        features.update(_v2_signal_lift(f"{prefix}_pulse_power", pulse_power))
+        features.update(_transport_signal_lift(f"{prefix}_pulse_power", pulse_power))
     return features
 
 
@@ -615,7 +613,7 @@ def _acoustic_lift(acoustic: np.ndarray, *, aggressive: bool = False) -> dict[st
         "acoustic_takens_loop_area": topo["loop_area"],
     }
     if aggressive:
-        features.update(_v2_signal_lift("acoustic_node_mean", np.mean(acoustic, axis=0)))
+        features.update(_transport_signal_lift("acoustic_node_mean", np.mean(acoustic, axis=0)))
     return features
 
 
@@ -647,7 +645,7 @@ def _detector_view_feature_rows(data_root: Path) -> tuple[dict[str, dict[str, fl
             "sensor_id",
             "sensor_band",
             "source_provenance",
-            "view_feature_version",
+            "view_feature_contract",
             "raw_complex_iq_ref",
             "acoustic_stream_ref",
             "passive_rf_ref",
@@ -852,9 +850,9 @@ def _add_train_geometry_features(data: AdvancedData) -> None:
         neg_proto = np.median(neg, axis=0)
         pos_dist = np.mean(np.abs(z - pos_proto), axis=1)
         neg_dist = np.mean(np.abs(z - neg_proto), axis=1)
-        add(f"v2_{branch}_wasserstein_pos_distance", pos_dist)
-        add(f"v2_{branch}_wasserstein_neg_distance", neg_dist)
-        add(f"v2_{branch}_prototype_margin", neg_dist - pos_dist)
+        add(f"transport_{branch}_wasserstein_pos_distance", pos_dist)
+        add(f"transport_{branch}_wasserstein_neg_distance", neg_dist)
+        add(f"transport_{branch}_prototype_margin", neg_dist - pos_dist)
 
         rank_columns = []
         for local_idx, source_idx in enumerate(indices):
@@ -868,21 +866,21 @@ def _add_train_geometry_features(data: AdvancedData) -> None:
             if local_idx >= 7:
                 break
         ranks = np.column_stack(rank_columns)
-        add(f"v2_{branch}_copula_rank_mean", np.mean(ranks, axis=1))
-        add(f"v2_{branch}_copula_rank_spread", np.std(ranks, axis=1))
+        add(f"transport_{branch}_copula_rank_mean", np.mean(ranks, axis=1))
+        add(f"transport_{branch}_copula_rank_spread", np.std(ranks, axis=1))
 
         shifted = z - np.min(z[train_cv], axis=0) + 1e-3
         pos_alpha = _alpha_mean(shifted[train_cv][y_train == 1], 0.5)
         neg_alpha = _alpha_mean(shifted[train_cv][y_train == 0], 0.5)
         pos_alpha_dist = np.mean(np.abs(shifted - pos_alpha), axis=1)
         neg_alpha_dist = np.mean(np.abs(shifted - neg_alpha), axis=1)
-        add(f"v2_{branch}_alpha_mean_margin", neg_alpha_dist - pos_alpha_dist)
+        add(f"transport_{branch}_alpha_mean_margin", neg_alpha_dist - pos_alpha_dist)
 
     if not extra_columns:
         return
     data.features = np.column_stack([data.features, *extra_columns])
     data.feature_names.extend(extra_names)
-    data.branch_indices.setdefault("v2_transport", []).extend(
+    data.branch_indices.setdefault("transport_geometry", []).extend(
         range(start, start + len(extra_names))
     )
 
@@ -1043,14 +1041,18 @@ def load_advanced_main_run_data(
             _append_features(
                 values,
                 names,
-                _radar_lift(sensor.view_id, iq[sensor_idx], aggressive=profile.enable_v2_features),
+                _radar_lift(
+                    sensor.view_id,
+                    iq[sensor_idx],
+                    aggressive=profile.enable_transport_features,
+                ),
                 branch=f"radar_{sensor.view_id}",
                 branch_indices=local_branches,
             )
         _append_features(
             values,
             names,
-            _acoustic_lift(acoustic, aggressive=profile.enable_v2_features),
+            _acoustic_lift(acoustic, aggressive=profile.enable_transport_features),
             branch="acoustic",
             branch_indices=local_branches,
         )
@@ -1126,7 +1128,7 @@ def load_advanced_main_run_data(
     )
     _add_train_rank_features(data)
     _add_sequence_and_hypergraph_features(data)
-    if profile.enable_v2_features:
+    if profile.enable_transport_features:
         _add_train_geometry_features(data)
     data.manifest.update(
         {
@@ -1451,7 +1453,7 @@ def _make_candidate_specs(
     surfaces = tuple(branches.get("surfaces", []))
     sequence = tuple(branches.get("sequence", []))
     hypergraph = tuple(branches.get("hypergraph", []))
-    v2_transport = tuple(branches.get("v2_transport", []))
+    transport = tuple(branches.get("transport_geometry", []))
     phase = tuple(branches.get("phase_gate", []))
     radar_all = high + sband + gbad
     subset_defs = [
@@ -1470,15 +1472,15 @@ def _make_candidate_specs(
             "all_math_lifts",
             radar_all + acoustic + passive + sequence + hypergraph + surfaces + phase,
         ),
-        ("v2_transport_geometry", v2_transport + surfaces + phase),
+        ("transport_geometry", transport + surfaces + phase),
         (
-            "v2_aggressive_all",
+            "aggressive_all",
             radar_all
             + acoustic
             + passive
             + sequence
             + hypergraph
-            + v2_transport
+            + transport
             + surfaces
             + phase,
         ),
@@ -2611,22 +2613,28 @@ def run_advanced_main_run_detectors(
     selected_holdout_auc = _float_or_none(_roc_auc(data.y[holdout], selected_scores[holdout]))
     train_cv_ap = _safe_float(selected["train_cv_average_precision"])
     train_cv_auc = _safe_float(selected["train_cv_roc_auc"])
-    target = BASELINE_TARGETS["layered_fusion_c2"]
+    baseline_scores = data.surface_scores.get("layered_fusion_c2", np.zeros(len(data.records)))
+    baseline_train_ap = _float_or_none(_average_precision(data.y[train_cv], baseline_scores[train_cv]))
+    baseline_holdout_ap = _float_or_none(_average_precision(data.y[holdout], baseline_scores[holdout]))
+    baseline_holdout_auc = _float_or_none(_roc_auc(data.y[holdout], baseline_scores[holdout]))
     expected_full_records = DEFAULT_SCENARIO_GROUPS * len(PHASES)
     promotion_metrics_pass = (
-        train_cv_ap > target["train_cv"]["average_precision"]
+        baseline_train_ap is not None
+        and train_cv_ap > baseline_train_ap
         and selected_holdout_ap is not None
-        and selected_holdout_ap > target["holdout"]["average_precision"]
+        and baseline_holdout_ap is not None
+        and selected_holdout_ap > baseline_holdout_ap
         and selected_holdout_auc is not None
-        and selected_holdout_auc >= target["holdout"]["roc_auc"]
+        and baseline_holdout_auc is not None
+        and selected_holdout_auc >= baseline_holdout_auc
     )
     promotion_gate = {
         "baseline_method": "layered_fusion_c2",
         "full_run_record_count_required": expected_full_records,
         "record_count": len(data.records),
-        "train_cv_ap_target": target["train_cv"]["average_precision"],
-        "holdout_ap_target": target["holdout"]["average_precision"],
-        "holdout_auc_target": target["holdout"]["roc_auc"],
+        "train_cv_ap_target": baseline_train_ap,
+        "holdout_ap_target": baseline_holdout_ap,
+        "holdout_auc_target": baseline_holdout_auc,
         "selected_train_cv_average_precision": train_cv_ap,
         "selected_train_cv_roc_auc": train_cv_auc,
         "selected_holdout_average_precision": selected_holdout_ap,

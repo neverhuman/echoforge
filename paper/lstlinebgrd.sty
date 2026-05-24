@@ -1,0 +1,49 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{lstlinebgrd}
+\RequirePackage{listings}
+\RequirePackage{xcolor}
+
+\makeatletter
+\def\lst@linebgrdcolor{}
+\def\lst@linebgrdsep{0pt}
+\def\lst@linebgrdwidth{\linewidth}
+\def\lst@linebgrdheight{\ht\strutbox}
+\def\lst@linebgrddepth{\dp\strutbox}
+\def\lst@linebgrdcmd{\color@block}
+
+\lst@Key{linebackgroundcolor}{}{\def\lst@linebgrdcolor{#1}}
+\lst@Key{linebackgroundsep}{0pt}{\def\lst@linebgrdsep{#1}}
+\lst@Key{linebackgroundwidth}{\linewidth}{\def\lst@linebgrdwidth{#1}}
+\lst@Key{linebackgroundheight}{\ht\strutbox}{\def\lst@linebgrdheight{#1}}
+\lst@Key{linebackgrounddepth}{\dp\strutbox}{\def\lst@linebgrddepth{#1}}
+\lst@Key{linebackgroundcmd}{\color@block}{\def\lst@linebgrdcmd{#1}}
+
+\newcommand{\lst@linebgrd}{%
+  \ifx\lst@linebgrdcolor\empty\else
+    \rlap{%
+      \lst@basicstyle
+      \lst@linebgrdcolor{%
+        \kern-\dimexpr\lst@linebgrdsep\relax
+        \lst@linebgrdcmd{\lst@linebgrdwidth}{\lst@linebgrdheight}{\lst@linebgrddepth}%
+      }%
+    }%
+  \fi
+}
+
+\lst@Key{numbers}{none}{%
+  \def\lst@arg{#1}%
+  \def\lst@none{none}%
+  \def\lst@left{left}%
+  \def\lst@right{right}%
+  \ifx\lst@arg\lst@left
+    \def\lst@PlaceNumber{\llap{\normalfont
+      \lst@numberstyle{\thelstnumber}\kern\lst@numbersep}\lst@linebgrd}%
+  \else\ifx\lst@arg\lst@right
+    \def\lst@PlaceNumber{\rlap{\normalfont
+      \kern\linewidth \kern\lst@numbersep
+      \lst@numberstyle{\thelstnumber}}\lst@linebgrd}%
+  \else
+    \def\lst@PlaceNumber{\lst@linebgrd}%
+  \fi\fi
+}
+\makeatother

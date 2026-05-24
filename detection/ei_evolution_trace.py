@@ -17,10 +17,10 @@ from typing import Any
 
 
 DEFAULT_ADVANCED_ROOT = Path(
-    "outputs/detection/runit-fixed-wing-pusher-proxy-v2-main-run-advanced-evolution"
+    "outputs/detection/fixed-wing-pusher-proxy-main-run-advanced-evolution"
 )
-DEFAULT_OUT_ROOT = Path("outputs/paper-evidence/tier1-final")
-SCHEMA_VERSION = "ei-evolution-evidence-v1"
+DEFAULT_OUT_ROOT = Path("outputs/paper-evidence/current")
+SCHEMA_VERSION = "ei-evolution-evidence"
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -124,7 +124,7 @@ def _normalize_trace_rows(rows: list[dict[str, Any]], *, trace_basis: str) -> li
         stage = _stage_from_row(row)
         candidate_index = _safe_int(row.get("candidate_index"), fallback_index)
         local = {
-            "schema_version": "ei-evolution-trace-v1",
+            "schema_version": "ei-evolution-trace",
             "candidate_index": candidate_index,
             "generation": _safe_int(row.get("generation"), _generation(stage)),
             "stage": stage,
