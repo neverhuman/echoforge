@@ -2,7 +2,7 @@
 
 # EchoForge
 
-![Jankurai score](./assets/readme/studio/jankurai-score.svg)
+<img src="./assets/readme/studio/jankurai-score.svg" alt="Jankurai score" />
 
 EchoForge is a strict-open, radar-first, GPU-native synthetic sensing foundry. It publishes public-proxy object signatures, uncertainty-scored radar artifacts, and reproducible validation evidence so downstream work can be inspected, rerun, and compared without claiming measured truth or proprietary-equivalent sensor behavior.
 

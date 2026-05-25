@@ -6,6 +6,11 @@ EchoForge adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-05-25
+
+### Changed
+- Switched the README Jankurai score badge embed to a raw HTML `img` tag, removed the public history-reset receipt from the score lane, and bumped the workspace release metadata to `0.2.15`.
+
 ## [0.2.14] - 2026-05-24
 
 ### Changed
