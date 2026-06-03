@@ -85,7 +85,7 @@ doctor:
     rtk jankurai doctor . --fail-on critical --json target/jankurai/doctor.json --md target/jankurai/doctor.md
 
 score:
-    rtk bash ops/run-lane.sh score
+    rtk bash ops/ci/score.sh
 
 score-fast:
     mkdir -p target/jankurai
