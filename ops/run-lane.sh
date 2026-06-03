@@ -117,7 +117,7 @@ case "$lane" in
       run npx playwright install chromium
     fi
     run node tools/capture_studio_media.mjs
-    run node tools/sync_studio_readme.mjs --readme README.md --manifest assets/readme/studio/manifest.json --badge assets/readme/studio/jankurai-score.svg --score-json "$score_json"
+    run node tools/sync_studio_readme.mjs --readme README.md --manifest assets/readme/studio/manifest.json --badge assets/readme/studio/jankurai-score.svg
     if [[ "${CI:-}" == "true" ]]; then
       if git diff --quiet -- README.md assets/readme/studio; then
         echo "no README/media changes to publish" >&2
